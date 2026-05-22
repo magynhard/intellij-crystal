@@ -39,5 +39,12 @@
 
         <platform.lsp.serverSupportProvider
                 implementation="de.magynhard.crystal.lsp.CrystalLspServerSupportProvider"/>
+
+        <lang.quoteHandler
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.CrystalQuoteHandler"/>
+
+        <typedHandler
+                implementation="de.magynhard.crystal.CrystalTypedHandler"/>
     </extensions>
 </idea-plugin>
