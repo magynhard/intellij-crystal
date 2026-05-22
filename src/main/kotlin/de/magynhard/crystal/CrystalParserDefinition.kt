@@ -12,6 +12,8 @@ import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
 import de.magynhard.crystal.lexer.CrystalLexerAdapter
 import de.magynhard.crystal.lexer.CrystalTokenTypes
+import de.magynhard.crystal.parser.CrystalParser
+import de.magynhard.crystal.psi.CrystalTypes
 
 class CrystalParserDefinition : ParserDefinition {
 
@@ -21,17 +23,7 @@ class CrystalParserDefinition : ParserDefinition {
 
     override fun createLexer(project: Project?): Lexer = CrystalLexerAdapter()
 
-    override fun createParser(project: Project?): PsiParser {
-        // Minimal parser - just wraps all tokens under root
-        return PsiParser { root, builder ->
-            val marker = builder.mark()
-            while (!builder.eof()) {
-                builder.advanceLexer()
-            }
-            marker.done(root)
-            builder.treeBuilt
-        }
-    }
+    override fun createParser(project: Project?): PsiParser = CrystalParser()
 
     override fun getFileNodeType(): IFileElementType = FILE
 
@@ -39,8 +31,7 @@ class CrystalParserDefinition : ParserDefinition {
 
     override fun getStringLiteralElements(): TokenSet = CrystalTokenTypes.STRINGS
 
-    override fun createElement(node: ASTNode?): PsiElement =
-        throw UnsupportedOperationException("Not yet implemented")
+    override fun createElement(node: ASTNode): PsiElement = CrystalTypes.Factory.createElement(node)
 
     override fun createFile(viewProvider: FileViewProvider): PsiFile = CrystalFile(viewProvider)
 }

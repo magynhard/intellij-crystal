@@ -53,8 +53,15 @@ tasks {
         targetOutputDir.set(file("src/main/gen/de/magynhard/crystal/lexer"))
     }
 
+    generateParser {
+        sourceFile.set(file("src/main/kotlin/de/magynhard/crystal/parser/Crystal.bnf"))
+        targetRootOutputDir.set(file("src/main/gen"))
+        pathToParser.set("de/magynhard/crystal/parser/CrystalParser.java")
+        pathToPsiRoot.set("de/magynhard/crystal/psi")
+    }
+
     compileKotlin {
-        dependsOn(generateLexer)
+        dependsOn(generateLexer, generateParser)
     }
 }
 

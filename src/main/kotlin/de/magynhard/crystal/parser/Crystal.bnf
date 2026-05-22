@@ -1,0 +1,502 @@
+{
+  parserClass="de.magynhard.crystal.parser.CrystalParser"
+
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+  psiClassPrefix="Crystal"
+  psiImplClassSuffix="Impl"
+  psiPackage="de.magynhard.crystal.psi"
+  psiImplPackage="de.magynhard.crystal.psi.impl"
+
+  elementTypeHolderClass="de.magynhard.crystal.psi.CrystalTypes"
+  elementTypeClass="de.magynhard.crystal.psi.CrystalElementType"
+  tokenTypeClass="de.magynhard.crystal.lexer.CrystalTokenType"
+
+  tokens = [
+    // Keywords
+    ABSTRACT="ABSTRACT"
+    ALIAS="ALIAS"
+    ANNOTATION="ANNOTATION"
+    AS="AS"
+    AS_QUESTION="AS_QUESTION"
+    ASM="ASM"
+    BEGIN="BEGIN"
+    BREAK="BREAK"
+    CASE="CASE"
+    CLASS="CLASS"
+    DEF="DEF"
+    DO="DO"
+    ELSE="ELSE"
+    ELSIF="ELSIF"
+    END="END"
+    ENSURE="ENSURE"
+    ENUM="ENUM"
+    EXTEND="EXTEND"
+    FALSE="FALSE"
+    FOR="FOR"
+    FUN="FUN"
+    IF="IF"
+    IN="IN"
+    INCLUDE="INCLUDE"
+    INSTANCE_SIZEOF="INSTANCE_SIZEOF"
+    IS_A="IS_A"
+    LIB="LIB"
+    MACRO="MACRO"
+    MODULE="MODULE"
+    NEXT="NEXT"
+    NIL="NIL"
+    NIL_QUESTION="NIL_QUESTION"
+    OF="OF"
+    OFFSETOF="OFFSETOF"
+    OUT="OUT"
+    POINTEROF="POINTEROF"
+    PRIVATE="PRIVATE"
+    PROTECTED="PROTECTED"
+    REQUIRE="REQUIRE"
+    RESCUE="RESCUE"
+    RESPONDS_TO="RESPONDS_TO"
+    RETURN="RETURN"
+    SELECT="SELECT"
+    SELF="SELF"
+    SIZEOF="SIZEOF"
+    STRUCT="STRUCT"
+    SUPER="SUPER"
+    THEN="THEN"
+    TRUE="TRUE"
+    TYPEOF="TYPEOF"
+    UNINITIALIZED="UNINITIALIZED"
+    UNION="UNION"
+    UNLESS="UNLESS"
+    UNTIL="UNTIL"
+    VERBATIM="VERBATIM"
+    WHEN="WHEN"
+    WHILE="WHILE"
+    WITH="WITH"
+    YIELD="YIELD"
+
+    // Literals
+    INTEGER_LITERAL="INTEGER_LITERAL"
+    FLOAT_LITERAL="FLOAT_LITERAL"
+    CHAR_LITERAL="CHAR_LITERAL"
+    STRING_LITERAL="STRING_LITERAL"
+    STRING_INTERPOLATION_BEGIN="STRING_INTERPOLATION_BEGIN"
+    STRING_INTERPOLATION_END="STRING_INTERPOLATION_END"
+    COMMAND_LITERAL="COMMAND_LITERAL"
+    REGEX_LITERAL="REGEX_LITERAL"
+    SYMBOL_LITERAL="SYMBOL_LITERAL"
+    HEREDOC_START="HEREDOC_START"
+    HEREDOC_CONTENT="HEREDOC_CONTENT"
+    HEREDOC_END="HEREDOC_END"
+    PERCENT_LITERAL_BEGIN="PERCENT_LITERAL_BEGIN"
+    PERCENT_LITERAL_END="PERCENT_LITERAL_END"
+
+    // Identifiers
+    IDENTIFIER="IDENTIFIER"
+    CONSTANT="CONSTANT"
+    INSTANCE_VAR="INSTANCE_VAR"
+    CLASS_VAR="CLASS_VAR"
+    GLOBAL_VAR="GLOBAL_VAR"
+
+    // Operators
+    PLUS="PLUS"
+    MINUS="MINUS"
+    STAR="STAR"
+    SLASH="SLASH"
+    DOUBLE_SLASH="DOUBLE_SLASH"
+    PERCENT="PERCENT"
+    AMPERSAND="AMPERSAND"
+    PIPE="PIPE"
+    CARET="CARET"
+    TILDE="TILDE"
+    DOUBLE_STAR="DOUBLE_STAR"
+    LSHIFT="LSHIFT"
+    RSHIFT="RSHIFT"
+    EQ="EQ"
+    NEQ="NEQ"
+    LT="LT"
+    GT="GT"
+    LTE="LTE"
+    GTE="GTE"
+    SPACESHIP="SPACESHIP"
+    CASE_EQ="CASE_EQ"
+    BANG="BANG"
+    AND_AND="AND_AND"
+    OR_OR="OR_OR"
+    ASSIGN="ASSIGN"
+    PLUS_ASSIGN="PLUS_ASSIGN"
+    MINUS_ASSIGN="MINUS_ASSIGN"
+    STAR_ASSIGN="STAR_ASSIGN"
+    SLASH_ASSIGN="SLASH_ASSIGN"
+    PERCENT_ASSIGN="PERCENT_ASSIGN"
+    AMPERSAND_ASSIGN="AMPERSAND_ASSIGN"
+    PIPE_ASSIGN="PIPE_ASSIGN"
+    CARET_ASSIGN="CARET_ASSIGN"
+    DOUBLE_STAR_ASSIGN="DOUBLE_STAR_ASSIGN"
+    LSHIFT_ASSIGN="LSHIFT_ASSIGN"
+    RSHIFT_ASSIGN="RSHIFT_ASSIGN"
+    OR_OR_ASSIGN="OR_OR_ASSIGN"
+    AND_AND_ASSIGN="AND_AND_ASSIGN"
+    DOT="DOT"
+    DOTDOT="DOTDOT"
+    DOTDOTDOT="DOTDOTDOT"
+    ARROW="ARROW"
+    DOUBLE_ARROW="DOUBLE_ARROW"
+    QUESTION="QUESTION"
+    COLON="COLON"
+    DOUBLE_COLON="DOUBLE_COLON"
+    SEMICOLON="SEMICOLON"
+    COMMA="COMMA"
+    HASH="HASH"
+    AT="AT"
+
+    // Delimiters
+    LPAREN="LPAREN"
+    RPAREN="RPAREN"
+    LBRACKET="LBRACKET"
+    RBRACKET="RBRACKET"
+    LBRACE="LBRACE"
+    RBRACE="RBRACE"
+
+    // Whitespace & Comments
+    LINE_COMMENT="LINE_COMMENT"
+    NEWLINE="NEWLINE"
+  ]
+}
+
+// ==================== Top Level ====================
+
+crystalFile ::= top_level_statement*
+
+private top_level_statement ::= NEWLINE
+                              | SEMICOLON
+                              | require_statement
+                              | include_statement
+                              | extend_statement
+                              | class_definition
+                              | module_definition
+                              | struct_definition
+                              | enum_definition
+                              | lib_definition
+                              | annotation_definition
+                              | method_definition
+                              | macro_definition
+                              | alias_definition
+                              | visibility_modifier
+                              | statement
+                              {recoverWhile="top_level_recover"}
+
+private top_level_recover ::= !(NEWLINE | SEMICOLON | CLASS | MODULE | STRUCT | ENUM | DEF | MACRO | LIB | ANNOTATION | REQUIRE | INCLUDE | EXTEND | PRIVATE | PROTECTED | ALIAS | END)
+
+// ==================== Require / Include / Extend ====================
+
+require_statement ::= REQUIRE string_expression {pin=1}
+
+include_statement ::= INCLUDE type_reference {pin=1}
+
+extend_statement ::= EXTEND type_reference {pin=1}
+
+// ==================== Type Definitions ====================
+
+class_definition ::= [ABSTRACT] CLASS type_name [type_parameters] [superclass_clause] class_body END {pin(".*")=2}
+
+superclass_clause ::= LT type_reference
+
+module_definition ::= MODULE type_name [type_parameters] class_body END {pin=1}
+
+struct_definition ::= [ABSTRACT] STRUCT type_name [type_parameters] [superclass_clause] class_body END {pin(".*")=2}
+
+enum_definition ::= ENUM type_name [COLON type_reference] enum_body END {pin=1}
+
+lib_definition ::= LIB CONSTANT lib_body END {pin=1}
+
+annotation_definition ::= ANNOTATION type_name END {pin=1}
+
+alias_definition ::= ALIAS type_name ASSIGN type_reference {pin=1}
+
+// ==================== Type Bodies ====================
+
+class_body ::= class_member*
+
+private class_member ::= NEWLINE
+                        | SEMICOLON
+                        | method_definition
+                        | macro_definition
+                        | class_definition
+                        | module_definition
+                        | struct_definition
+                        | enum_definition
+                        | include_statement
+                        | extend_statement
+                        | alias_definition
+                        | visibility_modifier
+                        | property_declaration
+                        | statement
+                        {recoverWhile="class_member_recover"}
+
+private class_member_recover ::= !(NEWLINE | SEMICOLON | DEF | MACRO | CLASS | MODULE | STRUCT | ENUM | INCLUDE | EXTEND | ALIAS | PRIVATE | PROTECTED | END)
+
+enum_body ::= enum_member*
+
+private enum_member ::= NEWLINE | SEMICOLON | enum_constant | method_definition {recoverWhile="enum_member_recover"}
+
+private enum_member_recover ::= !(NEWLINE | SEMICOLON | CONSTANT | IDENTIFIER | DEF | END)
+
+enum_constant ::= CONSTANT [ASSIGN expression]
+
+lib_body ::= lib_member*
+
+private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition {recoverWhile="lib_member_recover"}
+
+private lib_member_recover ::= !(NEWLINE | SEMICOLON | FUN | END)
+
+fun_definition ::= FUN IDENTIFIER [LPAREN parameter_list RPAREN] [COLON type_reference] {pin=1}
+
+type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
+
+lib_struct_definition ::= STRUCT CONSTANT lib_body END
+
+// ==================== Methods ====================
+
+method_definition ::= [ABSTRACT] DEF method_name [LPAREN parameter_list RPAREN] [COLON type_reference] method_body END {pin(".*")=2}
+
+method_name ::= IDENTIFIER
+              | CONSTANT
+              | operator_method_name
+              | SELF DOT (IDENTIFIER | CONSTANT | operator_method_name)
+
+private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
+                                | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
+                                | SPACESHIP | CASE_EQ | LBRACKET RBRACKET | LBRACKET RBRACKET ASSIGN
+
+method_body ::= statement_list
+
+macro_definition ::= MACRO method_name [LPAREN parameter_list RPAREN] method_body END {pin=1}
+
+// ==================== Parameters ====================
+
+parameter_list ::= [parameter (COMMA parameter)*]
+
+parameter ::= [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
+            | [STAR | DOUBLE_STAR | AMPERSAND] INSTANCE_VAR [COLON type_reference] [ASSIGN expression]
+
+// ==================== Property Declarations ====================
+
+property_declaration ::= (IDENTIFIER | SELF DOT IDENTIFIER) COLON type_reference [ASSIGN expression]
+
+// ==================== Visibility ====================
+
+visibility_modifier ::= (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | constant_assignment | statement)
+
+// ==================== Statements ====================
+
+statement_list ::= statement_or_separator*
+
+private statement_or_separator ::= NEWLINE | SEMICOLON | statement {recoverWhile="statement_recover"}
+
+private statement_recover ::= !(NEWLINE | SEMICOLON | END | ELSE | ELSIF | WHEN | ENSURE | RESCUE)
+
+statement ::= if_statement
+            | unless_statement
+            | while_statement
+            | until_statement
+            | case_statement
+            | begin_statement
+            | for_statement
+            | return_statement
+            | break_statement
+            | next_statement
+            | yield_statement
+            | assignment
+            | constant_assignment
+            | expression
+
+// ==================== Control Flow ====================
+
+if_statement ::= IF expression then_clause statement_list elsif_clause* [else_clause] END {pin=1}
+
+unless_statement ::= UNLESS expression then_clause statement_list [else_clause] END {pin=1}
+
+while_statement ::= WHILE expression then_clause statement_list END {pin=1}
+
+until_statement ::= UNTIL expression then_clause statement_list END {pin=1}
+
+for_statement ::= FOR IDENTIFIER IN expression then_clause statement_list END {pin=1}
+
+case_statement ::= CASE [expression] NEWLINE* when_clause+ [else_clause] END {pin=1}
+
+begin_statement ::= BEGIN statement_list rescue_clause* [else_clause] [ensure_clause] END {pin=1}
+
+private then_clause ::= THEN | NEWLINE | SEMICOLON
+
+elsif_clause ::= ELSIF expression then_clause statement_list
+
+else_clause ::= ELSE statement_list
+
+when_clause ::= WHEN expression_list then_clause statement_list
+
+rescue_clause ::= RESCUE [IDENTIFIER [COLON type_reference]] then_clause statement_list
+
+ensure_clause ::= ENSURE statement_list
+
+return_statement ::= RETURN [expression] {pin=1}
+
+break_statement ::= BREAK [expression] {pin=1}
+
+next_statement ::= NEXT [expression] {pin=1}
+
+yield_statement ::= YIELD [LPAREN argument_list RPAREN] {pin=1}
+
+// ==================== Assignments ====================
+
+assignment ::= variable assign_op expression {pin=2}
+
+constant_assignment ::= CONSTANT ASSIGN expression {pin=2}
+
+private variable ::= INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | IDENTIFIER
+
+private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
+                     | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
+                     | DOUBLE_STAR_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
+                     | OR_OR_ASSIGN | AND_AND_ASSIGN
+
+// ==================== Expressions ====================
+
+expression ::= or_expression [QUESTION expression COLON expression]
+
+private or_expression ::= and_expression (OR_OR and_expression)*
+
+private and_expression ::= not_expression (AND_AND not_expression)*
+
+private not_expression ::= BANG not_expression | comparison_expression
+
+private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ) range_expression)*
+
+private range_expression ::= or_bitwise_expression [(DOTDOT | DOTDOTDOT) or_bitwise_expression]
+
+private or_bitwise_expression ::= xor_expression (PIPE xor_expression)*
+
+private xor_expression ::= and_bitwise_expression (CARET and_bitwise_expression)*
+
+private and_bitwise_expression ::= shift_expression (AMPERSAND shift_expression)*
+
+private shift_expression ::= additive_expression ((LSHIFT | RSHIFT) additive_expression)*
+
+private additive_expression ::= multiplicative_expression ((PLUS | MINUS) multiplicative_expression)*
+
+private multiplicative_expression ::= power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT) power_expression)*
+
+private power_expression ::= unary_expression (DOUBLE_STAR unary_expression)*
+
+private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) unary_expression
+                            | postfix_expression
+
+private postfix_expression ::= primary_expression postfix_op*
+
+private postfix_op ::= DOT (IDENTIFIER | CONSTANT) [call_args]
+                     | DOUBLE_COLON CONSTANT
+                     | LBRACKET argument_list RBRACKET
+                     | call_args
+                     | DOT IDENTIFIER assign_op expression
+
+// ==================== Primary Expressions ====================
+
+private primary_expression ::= grouped_expression
+                             | array_literal
+                             | hash_literal
+                             | tuple_literal
+                             | method_call_expression
+                             | literal
+                             | variable_reference
+                             | typeof_expression
+                             | sizeof_expression
+                             | instance_sizeof_expression
+                             | pointerof_expression
+                             | if_statement
+                             | unless_statement
+                             | case_statement
+                             | begin_statement
+
+grouped_expression ::= LPAREN expression RPAREN
+
+method_call_expression ::= (IDENTIFIER | CONSTANT) call_args [block]
+
+call_args ::= LPAREN argument_list RPAREN
+            | LPAREN RPAREN
+
+argument_list ::= argument (COMMA argument)*
+
+argument ::= [IDENTIFIER COLON] expression
+           | STAR expression
+           | DOUBLE_STAR expression
+
+block ::= DO [PIPE parameter_list PIPE] statement_list END
+        | LBRACE [PIPE parameter_list PIPE] statement_list RBRACE
+
+// ==================== Literals ====================
+
+private literal ::= INTEGER_LITERAL
+                  | FLOAT_LITERAL
+                  | CHAR_LITERAL
+                  | string_expression
+                  | SYMBOL_LITERAL
+                  | REGEX_LITERAL
+                  | COMMAND_LITERAL
+                  | NIL
+                  | TRUE
+                  | FALSE
+                  | SELF
+                  | SUPER
+                  | heredoc_literal
+                  | percent_literal
+
+string_expression ::= STRING_LITERAL
+
+heredoc_literal ::= HEREDOC_START HEREDOC_CONTENT* HEREDOC_END
+
+percent_literal ::= PERCENT_LITERAL_BEGIN PERCENT_LITERAL_END
+
+array_literal ::= LBRACKET [expression_list] RBRACKET [OF type_reference]
+
+hash_literal ::= LBRACE [hash_entry_list] RBRACE [OF type_reference DOUBLE_ARROW type_reference]
+
+tuple_literal ::= LBRACE expression_list RBRACE
+
+hash_entry_list ::= hash_entry (COMMA hash_entry)*
+
+hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
+
+// ==================== Variable References ====================
+
+variable_reference ::= INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | IDENTIFIER | CONSTANT
+
+// ==================== Type References ====================
+
+type_reference ::= type_union
+
+private type_union ::= type_single (PIPE type_single)*
+
+private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
+
+type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)*
+
+type_arguments ::= LPAREN type_reference (COMMA type_reference)* RPAREN
+
+type_parameters ::= LPAREN CONSTANT (COMMA CONSTANT)* RPAREN
+
+// ==================== Type Names ====================
+
+type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
+
+// ==================== Typeof / Sizeof ====================
+
+typeof_expression ::= TYPEOF LPAREN expression RPAREN {pin=1}
+
+sizeof_expression ::= SIZEOF LPAREN type_reference RPAREN {pin=1}
+
+instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN type_reference RPAREN {pin=1}
+
+pointerof_expression ::= POINTEROF LPAREN variable_reference RPAREN {pin=1}
+
+// ==================== Expression Lists ====================
+
+expression_list ::= expression (COMMA expression)*
