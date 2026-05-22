@@ -2,7 +2,46 @@
     <id>de.magynhard.crystal</id>
     <name>Crystal Language</name>
     <vendor url="https://github.com/magynhard">magynhard</vendor>
-    <description>Crystal language support for JetBrains IDEs</description>
+    <description><![CDATA[
+<p>Full-featured Crystal language support for JetBrains IDEs.</p>
+
+<h3>Features</h3>
+<ul>
+  <li><b>Syntax Highlighting</b> — 60+ keywords, operators, strings with interpolation, regex, symbols, heredocs, percent literals</li>
+  <li><b>Code Formatting</b> — Reformat via <code>crystal tool format</code> (Ctrl+Alt+L)</li>
+  <li><b>Structure View</b> — PSI-based tree with classes, modules, methods, macros</li>
+  <li><b>Go to Symbol / Class</b> — project-wide navigation (Ctrl+N, Ctrl+Alt+Shift+N)</li>
+  <li><b>Find Usages</b> — word-based search with token type awareness (Alt+F7)</li>
+  <li><b>Parameter Info</b> — method signatures at call site, project-wide via StubIndex (Ctrl+P)</li>
+  <li><b>Rename Refactoring</b> — in-place rename with preview and compiler verification (Shift+F6)</li>
+  <li><b>Run Configurations</b> — crystal run, build, and spec</li>
+  <li><b>Live Templates</b> — 21 code snippets for common patterns</li>
+  <li><b>Crystalline LSP</b> — optional integration for diagnostics, hover, completion</li>
+  <li><b>Code Folding, Brace Matching, Auto-Insert, TODO Indexing</b></li>
+</ul>
+
+<h3>Requirements</h3>
+<ul>
+  <li>Crystal installed and available in PATH</li>
+  <li>Crystalline (optional, for LSP features)</li>
+</ul>
+]]></description>
+
+    <change-notes><![CDATA[
+<h3>0.1.0</h3>
+<ul>
+  <li>Initial release</li>
+  <li>Syntax highlighting with 60+ keywords and full operator support</li>
+  <li>BNF parser (GrammarKit) with StubIndex for project-wide navigation</li>
+  <li>Code formatting via crystal tool format</li>
+  <li>Structure View, Go to Symbol/Class, Find Usages, Parameter Info</li>
+  <li>Rename refactoring with compiler verification</li>
+  <li>Run configurations for crystal run/build/spec</li>
+  <li>21 Live Templates for common Crystal patterns</li>
+  <li>Crystalline LSP integration (auto-detection)</li>
+  <li>Code folding, brace matching, auto-insert, TODO indexing</li>
+</ul>
+]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
 
