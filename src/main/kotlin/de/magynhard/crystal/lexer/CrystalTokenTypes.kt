@@ -83,6 +83,8 @@ object CrystalTokenTypes {
     @JvmField val HEREDOC_START = CrystalTokenType("HEREDOC_START")
     @JvmField val HEREDOC_CONTENT = CrystalTokenType("HEREDOC_CONTENT")
     @JvmField val HEREDOC_END = CrystalTokenType("HEREDOC_END")
+    @JvmField val PERCENT_LITERAL_BEGIN = CrystalTokenType("PERCENT_LITERAL_BEGIN")
+    @JvmField val PERCENT_LITERAL_END = CrystalTokenType("PERCENT_LITERAL_END")
 
     // Identifiers
     @JvmField val IDENTIFIER = CrystalTokenType("IDENTIFIER")
@@ -175,7 +177,8 @@ object CrystalTokenTypes {
 
     @JvmField val STRINGS = TokenSet.create(
         STRING_LITERAL, CHAR_LITERAL, COMMAND_LITERAL,
-        HEREDOC_CONTENT, HEREDOC_START, HEREDOC_END
+        HEREDOC_CONTENT, HEREDOC_START, HEREDOC_END,
+        PERCENT_LITERAL_BEGIN, PERCENT_LITERAL_END
     )
 
     @JvmField val NUMBERS = TokenSet.create(INTEGER_LITERAL, FLOAT_LITERAL)

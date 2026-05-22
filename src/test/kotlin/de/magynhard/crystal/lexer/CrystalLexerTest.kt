@@ -180,4 +180,54 @@ class CrystalLexerTest {
             badChars.isEmpty()
         )
     }
+
+    @Test
+    fun testPercentLiterals() {
+        // %w(...)
+        val tokens = nonWhitespaceTokens("%w(foo bar)")
+        assertEquals("First token should be PERCENT_LITERAL_BEGIN", CrystalTokenTypes.PERCENT_LITERAL_BEGIN, tokens[0].first)
+        assertEquals("Last token should be PERCENT_LITERAL_END", CrystalTokenTypes.PERCENT_LITERAL_END, tokens.last().first)
+
+        // %i[...]
+        val tokens2 = nonWhitespaceTokens("%i[one two]")
+        assertEquals(CrystalTokenTypes.PERCENT_LITERAL_BEGIN, tokens2[0].first)
+        assertEquals(CrystalTokenTypes.PERCENT_LITERAL_END, tokens2.last().first)
+
+        // %(...)
+        val tokens3 = nonWhitespaceTokens("%(hello world)")
+        assertEquals(CrystalTokenTypes.PERCENT_LITERAL_BEGIN, tokens3[0].first)
+        assertEquals(CrystalTokenTypes.PERCENT_LITERAL_END, tokens3.last().first)
+    }
+
+    @Test
+    fun testPercentLiteralNesting() {
+        // Nested parentheses: %(hello (world))
+        val tokens = nonWhitespaceTokens("%(hello (world))")
+        assertEquals(CrystalTokenTypes.PERCENT_LITERAL_BEGIN, tokens[0].first)
+        assertEquals(CrystalTokenTypes.PERCENT_LITERAL_END, tokens.last().first)
+        // Should be exactly 2 non-string tokens (BEGIN and END), rest is content
+        val nonContent = tokens.filter {
+            it.first == CrystalTokenTypes.PERCENT_LITERAL_BEGIN || it.first == CrystalTokenTypes.PERCENT_LITERAL_END
+        }
+        assertEquals(2, nonContent.size)
+    }
+
+    @Test
+    fun testHeredoc() {
+        val text = "<<-HEREDOC\n  hello\n  world\n  HEREDOC"
+        val tokens = nonWhitespaceTokens(text)
+        val types = tokens.map { it.first }
+        assertTrue("Should contain HEREDOC_START", types.contains(CrystalTokenTypes.HEREDOC_START))
+        assertTrue("Should contain HEREDOC_CONTENT", types.contains(CrystalTokenTypes.HEREDOC_CONTENT))
+        assertTrue("Should contain HEREDOC_END", types.contains(CrystalTokenTypes.HEREDOC_END))
+    }
+
+    @Test
+    fun testHeredocRaw() {
+        val text = "<<-'RAW'\n  no #{interpolation}\n  RAW"
+        val tokens = nonWhitespaceTokens(text)
+        val types = tokens.map { it.first }
+        assertTrue("Should contain HEREDOC_START", types.contains(CrystalTokenTypes.HEREDOC_START))
+        assertTrue("Should contain HEREDOC_END", types.contains(CrystalTokenTypes.HEREDOC_END))
+    }
 }

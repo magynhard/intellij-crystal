@@ -70,6 +70,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
             tokenType == CrystalTokenTypes.CHAR_LITERAL -> CHAR_KEYS
             tokenType == CrystalTokenTypes.COMMAND_LITERAL -> STRING_KEYS
             tokenType == CrystalTokenTypes.HEREDOC_CONTENT || tokenType == CrystalTokenTypes.HEREDOC_START || tokenType == CrystalTokenTypes.HEREDOC_END -> STRING_KEYS
+            tokenType == CrystalTokenTypes.PERCENT_LITERAL_BEGIN || tokenType == CrystalTokenTypes.PERCENT_LITERAL_END -> STRING_KEYS
             tokenType == CrystalTokenTypes.REGEX_LITERAL -> REGEX_KEYS
             tokenType == CrystalTokenTypes.SYMBOL_LITERAL -> SYMBOL_KEYS
             tokenType == CrystalTokenTypes.STRING_INTERPOLATION_BEGIN || tokenType == CrystalTokenTypes.STRING_INTERPOLATION_END -> INTERPOLATION_KEYS

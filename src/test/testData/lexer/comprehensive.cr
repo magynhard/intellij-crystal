@@ -125,3 +125,29 @@ end
 
 # Note: $global_variables are not supported in Crystal
 # Use @@class_variables instead
+
+# Percent literals
+arr_str = %w(foo bar baz)
+arr_sym = %i(one two three)
+paren_str = %(hello world)
+bracket_str = %[brackets]
+brace_str = %{braces}
+angle_str = %<angles>
+pipe_str = %|pipes|
+nested = %(hello (world))
+regex_lit = %r(pattern)
+
+# Heredoc
+text = <<-HEREDOC
+  Hello
+  World
+  HEREDOC
+
+name2 = "Crystal"
+text2 = <<-END
+  Hello #{name2}
+  END
+
+text3 = <<-'RAW'
+  No interpolation here
+  RAW
