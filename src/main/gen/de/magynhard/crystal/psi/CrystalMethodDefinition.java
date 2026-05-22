@@ -4,8 +4,10 @@ package de.magynhard.crystal.psi;
 import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.StubBasedPsiElement;
+import de.magynhard.crystal.stubs.CrystalMethodDefinitionStub;
 
-public interface CrystalMethodDefinition extends PsiElement {
+public interface CrystalMethodDefinition extends PsiElement, StubBasedPsiElement<CrystalMethodDefinitionStub> {
 
   @Nullable
   CrystalMethodBody getMethodBody();

@@ -8,13 +8,18 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
+import com.intellij.psi.stubs.IStubElementType;
+import de.magynhard.crystal.stubs.CrystalEnumDefinitionStub;
 
-public class CrystalEnumDefinitionImpl extends ASTWrapperPsiElement implements CrystalEnumDefinition {
+public class CrystalEnumDefinitionImpl extends CrystalStubbedEnumDefinitionImpl implements CrystalEnumDefinition {
 
-  public CrystalEnumDefinitionImpl(@NotNull ASTNode node) {
+  public CrystalEnumDefinitionImpl(ASTNode node) {
     super(node);
+  }
+
+  public CrystalEnumDefinitionImpl(CrystalEnumDefinitionStub stub, IStubElementType stubType) {
+    super(stub, stubType);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
@@ -30,19 +35,19 @@ public class CrystalEnumDefinitionImpl extends ASTWrapperPsiElement implements C
   @Override
   @Nullable
   public CrystalEnumBody getEnumBody() {
-    return findChildByClass(CrystalEnumBody.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalEnumBody.class);
   }
 
   @Override
   @Nullable
   public CrystalTypeName getTypeName() {
-    return findChildByClass(CrystalTypeName.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeName.class);
   }
 
   @Override
   @Nullable
   public CrystalTypeReference getTypeReference() {
-    return findChildByClass(CrystalTypeReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

@@ -30,7 +30,7 @@ public class CrystalHashLiteralImpl extends ASTWrapperPsiElement implements Crys
   @Override
   @Nullable
   public CrystalHashEntryList getHashEntryList() {
-    return findChildByClass(CrystalHashEntryList.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalHashEntryList.class);
   }
 
   @Override

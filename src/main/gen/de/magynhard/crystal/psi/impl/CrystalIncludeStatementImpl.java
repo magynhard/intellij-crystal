@@ -30,7 +30,7 @@ public class CrystalIncludeStatementImpl extends ASTWrapperPsiElement implements
   @Override
   @Nullable
   public CrystalTypeReference getTypeReference() {
-    return findChildByClass(CrystalTypeReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

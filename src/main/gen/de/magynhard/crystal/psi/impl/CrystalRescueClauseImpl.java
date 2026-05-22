@@ -30,13 +30,13 @@ public class CrystalRescueClauseImpl extends ASTWrapperPsiElement implements Cry
   @Override
   @NotNull
   public CrystalStatementList getStatementList() {
-    return findNotNullChildByClass(CrystalStatementList.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalStatementList.class));
   }
 
   @Override
   @Nullable
   public CrystalTypeReference getTypeReference() {
-    return findChildByClass(CrystalTypeReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

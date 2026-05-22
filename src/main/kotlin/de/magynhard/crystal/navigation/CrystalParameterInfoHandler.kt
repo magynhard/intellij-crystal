@@ -2,8 +2,11 @@ package de.magynhard.crystal.navigation
 
 import com.intellij.lang.parameterInfo.*
 import com.intellij.psi.PsiFile
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.stubs.CrystalMethodIndex
 
 class CrystalParameterInfoHandler : ParameterInfoHandler<CrystalCallArgs, CrystalMethodDefinition> {
 
@@ -11,11 +14,17 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<CrystalCallArgs, Crysta
         val callArgs = findCallArgs(context.file, context.offset) ?: return null
         val methodName = findMethodNameForCall(callArgs) ?: return null
 
-        // Find matching method definitions in the file
-        val file = context.file
-        val methods = PsiTreeUtil.findChildrenOfType(file, CrystalMethodDefinition::class.java)
-            .filter { it.methodName?.text == methodName }
-            .toTypedArray()
+        val project = context.project
+        val scope = GlobalSearchScope.allScope(project)
+
+        // Search via StubIndex for project-wide results
+        val methods = StubIndex.getElements(
+            CrystalMethodIndex.KEY,
+            methodName,
+            project,
+            scope,
+            CrystalMethodDefinition::class.java
+        ).toTypedArray()
 
         if (methods.isEmpty()) return null
         context.itemsToShow = methods
@@ -65,7 +74,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<CrystalCallArgs, Crysta
             return
         }
 
-        val params = paramList.map { formatParameter(it) }
+        val params = paramList.map { it.text.trim() }
         val text = params.joinToString(", ")
 
         // Calculate highlight range for current parameter
@@ -86,11 +95,6 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<CrystalCallArgs, Crysta
         )
     }
 
-    private fun formatParameter(param: CrystalParameter): String {
-        val text = param.text.trim()
-        return text
-    }
-
     private fun findCallArgs(file: PsiFile, offset: Int): CrystalCallArgs? {
         val element = file.findElementAt(offset) ?: return null
         return PsiTreeUtil.getParentOfType(element, CrystalCallArgs::class.java)
@@ -99,9 +103,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<CrystalCallArgs, Crysta
     private fun findMethodNameForCall(callArgs: CrystalCallArgs): String? {
         val parent = callArgs.parent
         if (parent is CrystalMethodCallExpression) {
-            // First child should be the identifier
-            val firstChild = parent.firstChild
-            return firstChild?.text
+            return parent.firstChild?.text
         }
         return null
     }

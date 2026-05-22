@@ -30,13 +30,13 @@ public class CrystalParameterImpl extends ASTWrapperPsiElement implements Crysta
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override
   @Nullable
   public CrystalTypeReference getTypeReference() {
-    return findChildByClass(CrystalTypeReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

@@ -30,7 +30,7 @@ public class CrystalEnumConstantImpl extends ASTWrapperPsiElement implements Cry
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
 }

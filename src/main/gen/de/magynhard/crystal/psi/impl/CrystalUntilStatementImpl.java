@@ -30,13 +30,13 @@ public class CrystalUntilStatementImpl extends ASTWrapperPsiElement implements C
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override
   @Nullable
   public CrystalStatementList getStatementList() {
-    return findChildByClass(CrystalStatementList.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalStatementList.class);
   }
 
 }

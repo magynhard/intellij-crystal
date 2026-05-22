@@ -30,19 +30,19 @@ public class CrystalUnlessStatementImpl extends ASTWrapperPsiElement implements 
   @Override
   @Nullable
   public CrystalElseClause getElseClause() {
-    return findChildByClass(CrystalElseClause.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalElseClause.class);
   }
 
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override
   @Nullable
   public CrystalStatementList getStatementList() {
-    return findChildByClass(CrystalStatementList.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalStatementList.class);
   }
 
 }

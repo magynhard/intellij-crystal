@@ -30,7 +30,7 @@ public class CrystalAssignmentImpl extends ASTWrapperPsiElement implements Cryst
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
 }

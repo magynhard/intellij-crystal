@@ -30,7 +30,7 @@ public class CrystalTupleLiteralImpl extends ASTWrapperPsiElement implements Cry
   @Override
   @NotNull
   public CrystalExpressionList getExpressionList() {
-    return findNotNullChildByClass(CrystalExpressionList.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpressionList.class));
   }
 
 }

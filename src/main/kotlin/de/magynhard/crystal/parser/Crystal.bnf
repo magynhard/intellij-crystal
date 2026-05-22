@@ -11,6 +11,7 @@
   elementTypeHolderClass="de.magynhard.crystal.psi.CrystalTypes"
   elementTypeClass="de.magynhard.crystal.psi.CrystalElementType"
   tokenTypeClass="de.magynhard.crystal.lexer.CrystalTokenType"
+  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
 
   tokens = [
     // Keywords
@@ -197,15 +198,31 @@ extend_statement ::= EXTEND type_reference {pin=1}
 
 // ==================== Type Definitions ====================
 
-class_definition ::= [ABSTRACT] CLASS type_name [type_parameters] [superclass_clause] class_body END {pin(".*")=2}
+class_definition ::= [ABSTRACT] CLASS type_name [type_parameters] [superclass_clause] class_body END {
+  pin(".*")=2
+  stubClass="de.magynhard.crystal.stubs.CrystalClassDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedClassDefinitionImpl"
+}
 
 superclass_clause ::= LT type_reference
 
-module_definition ::= MODULE type_name [type_parameters] class_body END {pin=1}
+module_definition ::= MODULE type_name [type_parameters] class_body END {
+  pin=1
+  stubClass="de.magynhard.crystal.stubs.CrystalModuleDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedModuleDefinitionImpl"
+}
 
-struct_definition ::= [ABSTRACT] STRUCT type_name [type_parameters] [superclass_clause] class_body END {pin(".*")=2}
+struct_definition ::= [ABSTRACT] STRUCT type_name [type_parameters] [superclass_clause] class_body END {
+  pin(".*")=2
+  stubClass="de.magynhard.crystal.stubs.CrystalStructDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedStructDefinitionImpl"
+}
 
-enum_definition ::= ENUM type_name [COLON type_reference] enum_body END {pin=1}
+enum_definition ::= ENUM type_name [COLON type_reference] enum_body END {
+  pin=1
+  stubClass="de.magynhard.crystal.stubs.CrystalEnumDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedEnumDefinitionImpl"
+}
 
 lib_definition ::= LIB CONSTANT lib_body END {pin=1}
 
@@ -257,7 +274,11 @@ lib_struct_definition ::= STRUCT CONSTANT lib_body END
 
 // ==================== Methods ====================
 
-method_definition ::= [ABSTRACT] DEF method_name [LPAREN parameter_list RPAREN] [COLON type_reference] method_body END {pin(".*")=2}
+method_definition ::= [ABSTRACT] DEF method_name [LPAREN parameter_list RPAREN] [COLON type_reference] method_body END {
+  pin(".*")=2
+  stubClass="de.magynhard.crystal.stubs.CrystalMethodDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMethodDefinitionImpl"
+}
 
 method_name ::= IDENTIFIER
               | CONSTANT
@@ -270,7 +291,11 @@ private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSA
 
 method_body ::= statement_list
 
-macro_definition ::= MACRO method_name [LPAREN parameter_list RPAREN] method_body END {pin=1}
+macro_definition ::= MACRO method_name [LPAREN parameter_list RPAREN] method_body END {
+  pin=1
+  stubClass="de.magynhard.crystal.stubs.CrystalMacroDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMacroDefinitionImpl"
+}
 
 // ==================== Parameters ====================
 

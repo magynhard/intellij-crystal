@@ -30,13 +30,13 @@ public class CrystalBeginStatementImpl extends ASTWrapperPsiElement implements C
   @Override
   @Nullable
   public CrystalElseClause getElseClause() {
-    return findChildByClass(CrystalElseClause.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalElseClause.class);
   }
 
   @Override
   @Nullable
   public CrystalEnsureClause getEnsureClause() {
-    return findChildByClass(CrystalEnsureClause.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalEnsureClause.class);
   }
 
   @Override
@@ -48,7 +48,7 @@ public class CrystalBeginStatementImpl extends ASTWrapperPsiElement implements C
   @Override
   @Nullable
   public CrystalStatementList getStatementList() {
-    return findChildByClass(CrystalStatementList.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalStatementList.class);
   }
 
 }

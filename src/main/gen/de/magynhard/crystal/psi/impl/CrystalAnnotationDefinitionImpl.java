@@ -30,7 +30,7 @@ public class CrystalAnnotationDefinitionImpl extends ASTWrapperPsiElement implem
   @Override
   @Nullable
   public CrystalTypeName getTypeName() {
-    return findChildByClass(CrystalTypeName.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeName.class);
   }
 
 }

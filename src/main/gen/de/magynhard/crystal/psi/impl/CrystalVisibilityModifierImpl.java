@@ -30,37 +30,37 @@ public class CrystalVisibilityModifierImpl extends ASTWrapperPsiElement implemen
   @Override
   @Nullable
   public CrystalClassDefinition getClassDefinition() {
-    return findChildByClass(CrystalClassDefinition.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalClassDefinition.class);
   }
 
   @Override
   @Nullable
   public CrystalConstantAssignment getConstantAssignment() {
-    return findChildByClass(CrystalConstantAssignment.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalConstantAssignment.class);
   }
 
   @Override
   @Nullable
   public CrystalMacroDefinition getMacroDefinition() {
-    return findChildByClass(CrystalMacroDefinition.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroDefinition.class);
   }
 
   @Override
   @Nullable
   public CrystalMethodDefinition getMethodDefinition() {
-    return findChildByClass(CrystalMethodDefinition.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalMethodDefinition.class);
   }
 
   @Override
   @Nullable
   public CrystalStatement getStatement() {
-    return findChildByClass(CrystalStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalStructDefinition getStructDefinition() {
-    return findChildByClass(CrystalStructDefinition.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalStructDefinition.class);
   }
 
 }

@@ -30,13 +30,13 @@ public class CrystalBlockImpl extends ASTWrapperPsiElement implements CrystalBlo
   @Override
   @Nullable
   public CrystalParameterList getParameterList() {
-    return findChildByClass(CrystalParameterList.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalParameterList.class);
   }
 
   @Override
   @NotNull
   public CrystalStatementList getStatementList() {
-    return findNotNullChildByClass(CrystalStatementList.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalStatementList.class));
   }
 
 }

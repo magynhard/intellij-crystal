@@ -8,13 +8,18 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
+import com.intellij.psi.stubs.IStubElementType;
+import de.magynhard.crystal.stubs.CrystalClassDefinitionStub;
 
-public class CrystalClassDefinitionImpl extends ASTWrapperPsiElement implements CrystalClassDefinition {
+public class CrystalClassDefinitionImpl extends CrystalStubbedClassDefinitionImpl implements CrystalClassDefinition {
 
-  public CrystalClassDefinitionImpl(@NotNull ASTNode node) {
+  public CrystalClassDefinitionImpl(ASTNode node) {
     super(node);
+  }
+
+  public CrystalClassDefinitionImpl(CrystalClassDefinitionStub stub, IStubElementType stubType) {
+    super(stub, stubType);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
@@ -30,25 +35,25 @@ public class CrystalClassDefinitionImpl extends ASTWrapperPsiElement implements 
   @Override
   @Nullable
   public CrystalClassBody getClassBody() {
-    return findChildByClass(CrystalClassBody.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalClassBody.class);
   }
 
   @Override
   @Nullable
   public CrystalSuperclassClause getSuperclassClause() {
-    return findChildByClass(CrystalSuperclassClause.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalSuperclassClause.class);
   }
 
   @Override
   @Nullable
   public CrystalTypeName getTypeName() {
-    return findChildByClass(CrystalTypeName.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeName.class);
   }
 
   @Override
   @Nullable
   public CrystalTypeParameters getTypeParameters() {
-    return findChildByClass(CrystalTypeParameters.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeParameters.class);
   }
 
 }

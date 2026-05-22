@@ -30,85 +30,85 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
   @Override
   @Nullable
   public CrystalAssignment getAssignment() {
-    return findChildByClass(CrystalAssignment.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
   }
 
   @Override
   @Nullable
   public CrystalBeginStatement getBeginStatement() {
-    return findChildByClass(CrystalBeginStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalBeginStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalBreakStatement getBreakStatement() {
-    return findChildByClass(CrystalBreakStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalBreakStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalCaseStatement getCaseStatement() {
-    return findChildByClass(CrystalCaseStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalCaseStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalConstantAssignment getConstantAssignment() {
-    return findChildByClass(CrystalConstantAssignment.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalConstantAssignment.class);
   }
 
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override
   @Nullable
   public CrystalForStatement getForStatement() {
-    return findChildByClass(CrystalForStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalForStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalIfStatement getIfStatement() {
-    return findChildByClass(CrystalIfStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalIfStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalNextStatement getNextStatement() {
-    return findChildByClass(CrystalNextStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalNextStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalReturnStatement getReturnStatement() {
-    return findChildByClass(CrystalReturnStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalReturnStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalUnlessStatement getUnlessStatement() {
-    return findChildByClass(CrystalUnlessStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalUnlessStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalUntilStatement getUntilStatement() {
-    return findChildByClass(CrystalUntilStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalUntilStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalWhileStatement getWhileStatement() {
-    return findChildByClass(CrystalWhileStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalWhileStatement.class);
   }
 
   @Override
   @Nullable
   public CrystalYieldStatement getYieldStatement() {
-    return findChildByClass(CrystalYieldStatement.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalYieldStatement.class);
   }
 
 }

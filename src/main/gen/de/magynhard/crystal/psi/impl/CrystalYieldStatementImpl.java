@@ -30,7 +30,7 @@ public class CrystalYieldStatementImpl extends ASTWrapperPsiElement implements C
   @Override
   @Nullable
   public CrystalArgumentList getArgumentList() {
-    return findChildByClass(CrystalArgumentList.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalArgumentList.class);
   }
 
 }

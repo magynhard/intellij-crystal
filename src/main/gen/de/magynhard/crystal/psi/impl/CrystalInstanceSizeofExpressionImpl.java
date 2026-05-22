@@ -30,7 +30,7 @@ public class CrystalInstanceSizeofExpressionImpl extends ASTWrapperPsiElement im
   @Override
   @Nullable
   public CrystalTypeReference getTypeReference() {
-    return findChildByClass(CrystalTypeReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

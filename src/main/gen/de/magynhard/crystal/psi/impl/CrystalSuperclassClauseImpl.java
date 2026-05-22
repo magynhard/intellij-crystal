@@ -30,7 +30,7 @@ public class CrystalSuperclassClauseImpl extends ASTWrapperPsiElement implements
   @Override
   @NotNull
   public CrystalTypeReference getTypeReference() {
-    return findNotNullChildByClass(CrystalTypeReference.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class));
   }
 
 }

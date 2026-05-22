@@ -30,13 +30,13 @@ public class CrystalMethodCallExpressionImpl extends ASTWrapperPsiElement implem
   @Override
   @Nullable
   public CrystalBlock getBlock() {
-    return findChildByClass(CrystalBlock.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalBlock.class);
   }
 
   @Override
   @NotNull
   public CrystalCallArgs getCallArgs() {
-    return findNotNullChildByClass(CrystalCallArgs.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalCallArgs.class));
   }
 
 }

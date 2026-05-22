@@ -30,13 +30,13 @@ public class CrystalElsifClauseImpl extends ASTWrapperPsiElement implements Crys
   @Override
   @NotNull
   public CrystalExpression getExpression() {
-    return findNotNullChildByClass(CrystalExpression.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpression.class));
   }
 
   @Override
   @NotNull
   public CrystalStatementList getStatementList() {
-    return findNotNullChildByClass(CrystalStatementList.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalStatementList.class));
   }
 
 }

@@ -30,13 +30,13 @@ public class CrystalAliasDefinitionImpl extends ASTWrapperPsiElement implements 
   @Override
   @Nullable
   public CrystalTypeName getTypeName() {
-    return findChildByClass(CrystalTypeName.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeName.class);
   }
 
   @Override
   @Nullable
   public CrystalTypeReference getTypeReference() {
-    return findChildByClass(CrystalTypeReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

@@ -30,13 +30,13 @@ public class CrystalCaseStatementImpl extends ASTWrapperPsiElement implements Cr
   @Override
   @Nullable
   public CrystalElseClause getElseClause() {
-    return findChildByClass(CrystalElseClause.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalElseClause.class);
   }
 
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override

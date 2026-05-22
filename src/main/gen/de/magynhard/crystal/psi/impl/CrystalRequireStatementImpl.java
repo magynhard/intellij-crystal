@@ -30,7 +30,7 @@ public class CrystalRequireStatementImpl extends ASTWrapperPsiElement implements
   @Override
   @Nullable
   public CrystalStringExpression getStringExpression() {
-    return findChildByClass(CrystalStringExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalStringExpression.class);
   }
 
 }

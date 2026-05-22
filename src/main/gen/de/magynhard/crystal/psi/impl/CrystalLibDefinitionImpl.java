@@ -30,7 +30,7 @@ public class CrystalLibDefinitionImpl extends ASTWrapperPsiElement implements Cr
   @Override
   @Nullable
   public CrystalLibBody getLibBody() {
-    return findChildByClass(CrystalLibBody.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalLibBody.class);
   }
 
 }

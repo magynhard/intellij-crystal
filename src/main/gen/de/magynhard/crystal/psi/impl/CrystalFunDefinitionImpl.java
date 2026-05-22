@@ -30,13 +30,13 @@ public class CrystalFunDefinitionImpl extends ASTWrapperPsiElement implements Cr
   @Override
   @Nullable
   public CrystalParameterList getParameterList() {
-    return findChildByClass(CrystalParameterList.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalParameterList.class);
   }
 
   @Override
   @Nullable
   public CrystalTypeReference getTypeReference() {
-    return findChildByClass(CrystalTypeReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

@@ -30,7 +30,7 @@ public class CrystalArgumentImpl extends ASTWrapperPsiElement implements Crystal
   @Override
   @NotNull
   public CrystalExpression getExpression() {
-    return findNotNullChildByClass(CrystalExpression.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpression.class));
   }
 
 }

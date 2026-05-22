@@ -30,13 +30,13 @@ public class CrystalPropertyDeclarationImpl extends ASTWrapperPsiElement impleme
   @Override
   @Nullable
   public CrystalExpression getExpression() {
-    return findChildByClass(CrystalExpression.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override
   @NotNull
   public CrystalTypeReference getTypeReference() {
-    return findNotNullChildByClass(CrystalTypeReference.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class));
   }
 
 }

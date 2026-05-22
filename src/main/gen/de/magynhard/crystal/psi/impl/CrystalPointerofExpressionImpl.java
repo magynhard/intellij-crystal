@@ -30,7 +30,7 @@ public class CrystalPointerofExpressionImpl extends ASTWrapperPsiElement impleme
   @Override
   @Nullable
   public CrystalVariableReference getVariableReference() {
-    return findChildByClass(CrystalVariableReference.class);
+    return PsiTreeUtil.getChildOfType(this, CrystalVariableReference.class);
   }
 
 }

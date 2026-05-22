@@ -30,7 +30,7 @@ public class CrystalTypeAliasLibImpl extends ASTWrapperPsiElement implements Cry
   @Override
   @NotNull
   public CrystalTypeReference getTypeReference() {
-    return findNotNullChildByClass(CrystalTypeReference.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class));
   }
 
 }

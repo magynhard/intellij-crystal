@@ -30,7 +30,7 @@ public class CrystalMethodBodyImpl extends ASTWrapperPsiElement implements Cryst
   @Override
   @NotNull
   public CrystalStatementList getStatementList() {
-    return findNotNullChildByClass(CrystalStatementList.class);
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalStatementList.class));
   }
 
 }
