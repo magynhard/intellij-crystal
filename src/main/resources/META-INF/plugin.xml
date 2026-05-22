@@ -25,5 +25,9 @@
         <lang.commenter
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalCommenter"/>
+
+        <lang.braceMatcher
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.CrystalBraceMatcher"/>
     </extensions>
 </idea-plugin>
