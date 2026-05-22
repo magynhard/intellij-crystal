@@ -78,5 +78,22 @@
 
         <gotoClassContributor
                 implementation="de.magynhard.crystal.navigation.CrystalGoToClassContributor"/>
+
+        <lang.refactoringSupport
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.refactoring.CrystalRefactoringSupportProvider"/>
+
+        <lang.namesValidator
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.refactoring.CrystalNamesValidator"/>
+
+        <notificationGroup id="Crystal Formatting" displayType="BALLOON"/>
+        <notificationGroup id="Crystal Rename Verification" displayType="BALLOON"/>
     </extensions>
+
+    <projectListeners>
+        <listener
+                class="de.magynhard.crystal.refactoring.CrystalRenameVerifier"
+                topic="com.intellij.refactoring.listeners.RefactoringEventListener"/>
+    </projectListeners>
 </idea-plugin>
