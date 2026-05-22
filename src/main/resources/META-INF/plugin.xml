@@ -1,0 +1,29 @@
+<idea-plugin>
+    <id>de.magynhard.crystal</id>
+    <name>Crystal Language</name>
+    <vendor url="https://github.com/magynhard">magynhard</vendor>
+    <description>Crystal language support for JetBrains IDEs</description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType
+                name="Crystal"
+                implementationClass="de.magynhard.crystal.CrystalFileType"
+                fieldName="INSTANCE"
+                language="Crystal"
+                extensions="cr"/>
+
+        <lang.parserDefinition
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.CrystalParserDefinition"/>
+
+        <lang.syntaxHighlighterFactory
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.highlighting.CrystalSyntaxHighlighterFactory"/>
+
+        <lang.commenter
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.CrystalCommenter"/>
+    </extensions>
+</idea-plugin>
