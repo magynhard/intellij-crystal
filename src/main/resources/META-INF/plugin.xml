@@ -46,5 +46,9 @@
 
         <typedHandler
                 implementation="de.magynhard.crystal.CrystalTypedHandler"/>
+
+        <todoIndexer
+                filetype="Crystal"
+                implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>
     </extensions>
 </idea-plugin>
