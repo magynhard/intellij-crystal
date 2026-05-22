@@ -33,5 +33,8 @@
         <lang.foldingBuilder
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalFoldingBuilder"/>
+
+        <colorSettingsPage
+                implementation="de.magynhard.crystal.highlighting.CrystalColorSettingsPage"/>
     </extensions>
 </idea-plugin>
