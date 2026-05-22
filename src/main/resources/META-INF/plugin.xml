@@ -65,5 +65,18 @@
 
         <liveTemplateContext
                 implementation="de.magynhard.crystal.CrystalTemplateContextType"/>
+
+        <formattingService
+                implementation="de.magynhard.crystal.formatting.CrystalFormattingService"/>
+
+        <gotoSymbolContributor
+                implementation="de.magynhard.crystal.navigation.CrystalGoToSymbolContributor"/>
+
+        <lang.findUsagesProvider
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.navigation.CrystalFindUsagesProvider"/>
+
+        <gotoClassContributor
+                implementation="de.magynhard.crystal.navigation.CrystalGoToClassContributor"/>
     </extensions>
 </idea-plugin>
