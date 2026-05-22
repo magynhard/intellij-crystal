@@ -50,5 +50,9 @@
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>
+
+        <lang.psiStructureViewFactory
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.structure.CrystalStructureViewFactory"/>
     </extensions>
 </idea-plugin>
