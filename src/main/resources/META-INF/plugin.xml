@@ -36,5 +36,8 @@
 
         <colorSettingsPage
                 implementation="de.magynhard.crystal.highlighting.CrystalColorSettingsPage"/>
+
+        <platform.lsp.serverSupportProvider
+                implementation="de.magynhard.crystal.lsp.CrystalLspServerSupportProvider"/>
     </extensions>
 </idea-plugin>
