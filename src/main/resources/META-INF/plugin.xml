@@ -54,5 +54,11 @@
         <lang.psiStructureViewFactory
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.structure.CrystalStructureViewFactory"/>
+
+        <configurationType
+                implementation="de.magynhard.crystal.run.CrystalRunConfigurationType"/>
+
+        <runConfigurationProducer
+                implementation="de.magynhard.crystal.run.CrystalRunConfigurationProducer"/>
     </extensions>
 </idea-plugin>
