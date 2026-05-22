@@ -1,0 +1,160 @@
+<templateSet group="Crystal">
+    <template name="def" value="def $NAME$($PARAMS$)&#10;  $END$&#10;end" description="Method definition" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="method_name" alwaysStopAt="true"/>
+        <variable name="PARAMS" expression="" defaultValue="" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="deft" value="def $NAME$($PARAMS$) : $RETURN_TYPE$&#10;  $END$&#10;end" description="Method with return type" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="method_name" alwaysStopAt="true"/>
+        <variable name="PARAMS" expression="" defaultValue="" alwaysStopAt="true"/>
+        <variable name="RETURN_TYPE" expression="" defaultValue="Nil" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="class" value="class $NAME$&#10;  $END$&#10;end" description="Class definition" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="ClassName" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="classi" value="class $NAME$ &lt; $PARENT$&#10;  $END$&#10;end" description="Class with inheritance" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="ClassName" alwaysStopAt="true"/>
+        <variable name="PARENT" expression="" defaultValue="ParentClass" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="mod" value="module $NAME$&#10;  $END$&#10;end" description="Module definition" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="ModuleName" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="struct" value="struct $NAME$&#10;  $END$&#10;end" description="Struct definition" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="StructName" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="enum" value="enum $NAME$&#10;  $END$&#10;end" description="Enum definition" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="EnumName" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="if" value="if $CONDITION$&#10;  $END$&#10;end" description="If block" toReformat="true" toShortenFQNames="false">
+        <variable name="CONDITION" expression="" defaultValue="condition" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="ife" value="if $CONDITION$&#10;  $BODY$&#10;else&#10;  $END$&#10;end" description="If/else block" toReformat="true" toShortenFQNames="false">
+        <variable name="CONDITION" expression="" defaultValue="condition" alwaysStopAt="true"/>
+        <variable name="BODY" expression="" defaultValue="" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="unless" value="unless $CONDITION$&#10;  $END$&#10;end" description="Unless block" toReformat="true" toShortenFQNames="false">
+        <variable name="CONDITION" expression="" defaultValue="condition" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="while" value="while $CONDITION$&#10;  $END$&#10;end" description="While loop" toReformat="true" toShortenFQNames="false">
+        <variable name="CONDITION" expression="" defaultValue="condition" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="each" value="$COLLECTION$.each do |$ITEM$|&#10;  $END$&#10;end" description="Each iterator" toReformat="true" toShortenFQNames="false">
+        <variable name="COLLECTION" expression="" defaultValue="collection" alwaysStopAt="true"/>
+        <variable name="ITEM" expression="" defaultValue="item" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="map" value="$COLLECTION$.map do |$ITEM$|&#10;  $END$&#10;end" description="Map iterator" toReformat="true" toShortenFQNames="false">
+        <variable name="COLLECTION" expression="" defaultValue="collection" alwaysStopAt="true"/>
+        <variable name="ITEM" expression="" defaultValue="item" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="begin" value="begin&#10;  $END$&#10;rescue $EX$ : $TYPE$&#10;  $HANDLER$&#10;end" description="Begin/rescue block" toReformat="true" toShortenFQNames="false">
+        <variable name="EX" expression="" defaultValue="ex" alwaysStopAt="true"/>
+        <variable name="TYPE" expression="" defaultValue="Exception" alwaysStopAt="true"/>
+        <variable name="HANDLER" expression="" defaultValue="puts ex.message" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="case" value="case $EXPR$&#10;when $VALUE$&#10;  $END$&#10;else&#10;  &#10;end" description="Case/when block" toReformat="true" toShortenFQNames="false">
+        <variable name="EXPR" expression="" defaultValue="expression" alwaysStopAt="true"/>
+        <variable name="VALUE" expression="" defaultValue="value" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="describe" value="describe $NAME$ do&#10;  $END$&#10;end" description="Spec describe block" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="ClassName" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="it" value="it &quot;$DESCRIPTION$&quot; do&#10;  $END$&#10;end" description="Spec it block" toReformat="true" toShortenFQNames="false">
+        <variable name="DESCRIPTION" expression="" defaultValue="should do something" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="prop" value="property $NAME$ : $TYPE$" description="Property declaration" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="name" alwaysStopAt="true"/>
+        <variable name="TYPE" expression="" defaultValue="String" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="getter" value="getter $NAME$ : $TYPE$" description="Getter declaration" toReformat="true" toShortenFQNames="false">
+        <variable name="NAME" expression="" defaultValue="name" alwaysStopAt="true"/>
+        <variable name="TYPE" expression="" defaultValue="String" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="init" value="def initialize($PARAMS$)&#10;  $END$&#10;end" description="Initialize method" toReformat="true" toShortenFQNames="false">
+        <variable name="PARAMS" expression="" defaultValue="@name : String" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="req" value="require &quot;$PATH$&quot;" description="Require statement" toReformat="true" toShortenFQNames="false">
+        <variable name="PATH" expression="" defaultValue="./lib" alwaysStopAt="true"/>
+        <context>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+</templateSet>

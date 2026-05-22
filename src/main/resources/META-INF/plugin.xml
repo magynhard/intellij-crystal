@@ -60,5 +60,10 @@
 
         <runConfigurationProducer
                 implementation="de.magynhard.crystal.run.CrystalRunConfigurationProducer"/>
+
+        <defaultLiveTemplates implementation="de.magynhard.crystal.CrystalLiveTemplateProvider"/>
+
+        <liveTemplateContext
+                implementation="de.magynhard.crystal.CrystalTemplateContextType"/>
     </extensions>
 </idea-plugin>
