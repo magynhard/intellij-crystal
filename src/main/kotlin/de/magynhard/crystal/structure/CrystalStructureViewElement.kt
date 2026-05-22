@@ -4,15 +4,13 @@ import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.structureView.StructureViewTreeElement
 import com.intellij.ide.util.treeView.smartTree.SortableTreeElement
 import com.intellij.ide.util.treeView.smartTree.TreeElement
+import com.intellij.icons.AllIcons
 import com.intellij.navigation.ItemPresentation
-import com.intellij.openapi.editor.Document
-import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.navigation.NavigationItem
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.navigation.NavigationItem
-import com.intellij.icons.AllIcons
-import de.magynhard.crystal.lexer.CrystalTokenTypes
+import de.magynhard.crystal.psi.*
 import javax.swing.Icon
 
 class CrystalStructureViewElement(private val element: PsiElement) :
@@ -38,146 +36,125 @@ class CrystalStructureViewElement(private val element: PsiElement) :
         if (element is PsiFile) {
             return element.presentation ?: PresentationData(element.name, null, null, null)
         }
-        // For structure entries we create custom presentations
-        return PresentationData(element.text, null, null, null)
+        val (name, icon, location) = getElementInfo(element)
+        return PresentationData(name, location, icon, null)
     }
 
     override fun getChildren(): Array<TreeElement> {
-        if (element !is PsiFile) return TreeElement.EMPTY_ARRAY
+        val childElements = when (element) {
+            is PsiFile -> collectTopLevelDefinitions(element)
+            is CrystalClassDefinition -> collectClassMembers(element.classBody)
+            is CrystalModuleDefinition -> collectClassMembers(element.classBody)
+            is CrystalStructDefinition -> collectClassMembers(element.classBody)
+            is CrystalEnumDefinition -> collectEnumMembers(element.enumBody)
+            else -> emptyList()
+        }
+        return childElements.map { CrystalStructureViewElement(it) }.toTypedArray()
+    }
 
-        val file = element
-        val document = FileDocumentManager.getInstance().getDocument(file.virtualFile) ?: return TreeElement.EMPTY_ARRAY
-        val text = document.text
+    private fun collectTopLevelDefinitions(file: PsiFile): List<PsiElement> {
+        val result = mutableListOf<PsiElement>()
+        file.children.forEach { collectDefinitions(it, result) }
+        return result
+    }
 
-        val entries = mutableListOf<StructureEntry>()
-        val stack = mutableListOf<StructureEntry>()
-
-        // Scan through PSI elements to find structure-defining keywords
-        val elements = PsiTreeUtil.collectElements(file) { true }
-
-        var i = 0
-        while (i < elements.size) {
-            val psiElement = elements[i]
-            val tokenType = psiElement.node?.elementType
-
-            when (tokenType) {
-                CrystalTokenTypes.CLASS, CrystalTokenTypes.MODULE, CrystalTokenTypes.STRUCT,
-                CrystalTokenTypes.ENUM, CrystalTokenTypes.LIB, CrystalTokenTypes.ANNOTATION -> {
-                    val name = findNextName(elements, i)
-                    val kind = when (tokenType) {
-                        CrystalTokenTypes.CLASS -> StructureKind.CLASS
-                        CrystalTokenTypes.MODULE -> StructureKind.MODULE
-                        CrystalTokenTypes.STRUCT -> StructureKind.STRUCT
-                        CrystalTokenTypes.ENUM -> StructureKind.ENUM
-                        CrystalTokenTypes.LIB -> StructureKind.LIB
-                        CrystalTokenTypes.ANNOTATION -> StructureKind.ANNOTATION
-                        else -> StructureKind.CLASS
-                    }
-                    val entry = StructureEntry(name, kind, psiElement, mutableListOf())
-                    if (stack.isNotEmpty()) {
-                        stack.last().children.add(entry)
-                    } else {
-                        entries.add(entry)
-                    }
-                    stack.add(entry)
-                }
-                CrystalTokenTypes.DEF -> {
-                    val name = findNextName(elements, i)
-                    val entry = StructureEntry(name, StructureKind.METHOD, psiElement, mutableListOf())
-                    if (stack.isNotEmpty()) {
-                        stack.last().children.add(entry)
-                    } else {
-                        entries.add(entry)
-                    }
-                    // Methods don't push to stack (they have 'end' but don't nest structure)
-                    // We still need to track their 'end' though - simplified approach:
-                    // don't push, their end will be consumed by the parent or the counter
-                }
-                CrystalTokenTypes.MACRO -> {
-                    val name = findNextName(elements, i)
-                    val entry = StructureEntry(name, StructureKind.MACRO, psiElement, mutableListOf())
-                    if (stack.isNotEmpty()) {
-                        stack.last().children.add(entry)
-                    } else {
-                        entries.add(entry)
-                    }
-                }
-                CrystalTokenTypes.END -> {
-                    if (stack.isNotEmpty()) {
-                        stack.removeAt(stack.lastIndex)
-                    }
-                }
-                else -> {}
+    private fun collectDefinitions(element: PsiElement, result: MutableList<PsiElement>) {
+        when (element) {
+            is CrystalClassDefinition,
+            is CrystalModuleDefinition,
+            is CrystalStructDefinition,
+            is CrystalEnumDefinition,
+            is CrystalLibDefinition,
+            is CrystalAnnotationDefinition,
+            is CrystalMethodDefinition,
+            is CrystalMacroDefinition,
+            is CrystalAliasDefinition,
+            is CrystalConstantAssignment -> result.add(element)
+            is CrystalVisibilityModifier -> {
+                // Look inside visibility modifier for the actual definition
+                element.children.forEach { collectDefinitions(it, result) }
             }
-            i++
+            else -> element.children.forEach { collectDefinitions(it, result) }
         }
-
-        return entries.map { CrystalStructureTreeElement(it) }.toTypedArray()
     }
 
-    private fun findNextName(elements: Array<PsiElement>, startIndex: Int): String {
-        // Look ahead for the next IDENTIFIER or CONSTANT after the keyword
-        for (j in (startIndex + 1) until minOf(startIndex + 6, elements.size)) {
-            val type = elements[j].node?.elementType
-            if (type == CrystalTokenTypes.IDENTIFIER || type == CrystalTokenTypes.CONSTANT) {
-                return elements[j].text
+    private fun collectClassMembers(classBody: CrystalClassBody?): List<PsiElement> {
+        if (classBody == null) return emptyList()
+        val result = mutableListOf<PsiElement>()
+        classBody.children.forEach { collectDefinitions(it, result) }
+        return result
+    }
+
+    private fun collectEnumMembers(enumBody: CrystalEnumBody?): List<PsiElement> {
+        if (enumBody == null) return emptyList()
+        val result = mutableListOf<PsiElement>()
+        PsiTreeUtil.findChildrenOfAnyType(
+            enumBody,
+            CrystalEnumConstant::class.java,
+            CrystalMethodDefinition::class.java
+        ).forEach { result.add(it) }
+        return result
+    }
+
+    private fun getElementInfo(element: PsiElement): Triple<String, Icon?, String?> {
+        return when (element) {
+            is CrystalClassDefinition -> Triple(
+                element.typeName?.text ?: "<anonymous>",
+                AllIcons.Nodes.Class,
+                "class"
+            )
+            is CrystalModuleDefinition -> Triple(
+                element.typeName?.text ?: "<anonymous>",
+                AllIcons.Nodes.Module,
+                "module"
+            )
+            is CrystalStructDefinition -> Triple(
+                element.typeName?.text ?: "<anonymous>",
+                AllIcons.Nodes.Record,
+                "struct"
+            )
+            is CrystalEnumDefinition -> Triple(
+                element.typeName?.text ?: "<anonymous>",
+                AllIcons.Nodes.Enum,
+                "enum"
+            )
+            is CrystalLibDefinition -> Triple(
+                element.text.substringAfter("lib").trim().substringBefore("\n").trim(),
+                AllIcons.Nodes.PpLib,
+                "lib"
+            )
+            is CrystalAnnotationDefinition -> Triple(
+                element.typeName?.text ?: "<anonymous>",
+                AllIcons.Nodes.Annotationtype,
+                "annotation"
+            )
+            is CrystalMethodDefinition -> {
+                val name = element.methodName?.text ?: "<anonymous>"
+                val params = element.parameterList?.text ?: ""
+                val returnType = element.typeReference?.text?.let { " : $it" } ?: ""
+                Triple("$name($params)$returnType", AllIcons.Nodes.Method, "def")
             }
-            // Skip whitespace and self/dot (for self.method)
-            if (type == CrystalTokenTypes.SELF) {
-                // Could be def self.method_name
-                continue
+            is CrystalMacroDefinition -> {
+                val name = element.methodName?.text ?: "<anonymous>"
+                val params = element.parameterList?.text ?: ""
+                Triple("$name($params)", AllIcons.Nodes.Template, "macro")
             }
-            if (type == CrystalTokenTypes.DOT) continue
-            if (type == CrystalTokenTypes.WHITE_SPACE || type == CrystalTokenTypes.NEWLINE) continue
+            is CrystalAliasDefinition -> Triple(
+                element.typeName?.text ?: "<anonymous>",
+                AllIcons.Nodes.Type,
+                "alias"
+            )
+            is CrystalConstantAssignment -> Triple(
+                element.firstChild?.text ?: "<anonymous>",
+                AllIcons.Nodes.Constant,
+                "constant"
+            )
+            is CrystalEnumConstant -> Triple(
+                element.firstChild?.text ?: "<anonymous>",
+                AllIcons.Nodes.Constant,
+                null
+            )
+            else -> Triple(element.text.take(30), null, null)
         }
-        return "<anonymous>"
-    }
-}
-
-enum class StructureKind {
-    CLASS, MODULE, STRUCT, ENUM, METHOD, MACRO, LIB, ANNOTATION
-}
-
-data class StructureEntry(
-    val name: String,
-    val kind: StructureKind,
-    val element: PsiElement,
-    val children: MutableList<StructureEntry>
-)
-
-class CrystalStructureTreeElement(private val entry: StructureEntry) :
-    StructureViewTreeElement, SortableTreeElement {
-
-    override fun getValue(): Any = entry.element
-
-    override fun navigate(requestFocus: Boolean) {
-        if (entry.element is NavigationItem) {
-            (entry.element as NavigationItem).navigate(requestFocus)
-        }
-    }
-
-    override fun canNavigate(): Boolean =
-        entry.element is NavigationItem
-
-    override fun canNavigateToSource(): Boolean = canNavigate()
-
-    override fun getAlphaSortKey(): String = entry.name
-
-    override fun getPresentation(): ItemPresentation {
-        val icon: Icon = when (entry.kind) {
-            StructureKind.CLASS -> AllIcons.Nodes.Class
-            StructureKind.MODULE -> AllIcons.Nodes.Module
-            StructureKind.STRUCT -> AllIcons.Nodes.Record
-            StructureKind.ENUM -> AllIcons.Nodes.Enum
-            StructureKind.METHOD -> AllIcons.Nodes.Method
-            StructureKind.MACRO -> AllIcons.Nodes.Template
-            StructureKind.LIB -> AllIcons.Nodes.PpLib
-            StructureKind.ANNOTATION -> AllIcons.Nodes.Annotationtype
-        }
-        return PresentationData(entry.name, entry.kind.name.lowercase(), icon, null)
-    }
-
-    override fun getChildren(): Array<TreeElement> {
-        return entry.children.map { CrystalStructureTreeElement(it) }.toTypedArray()
     }
 }

@@ -89,6 +89,10 @@
 
         <notificationGroup id="Crystal Formatting" displayType="BALLOON"/>
         <notificationGroup id="Crystal Rename Verification" displayType="BALLOON"/>
+
+        <codeInsight.parameterInfo
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.navigation.CrystalParameterInfoHandler"/>
     </extensions>
 
     <projectListeners>

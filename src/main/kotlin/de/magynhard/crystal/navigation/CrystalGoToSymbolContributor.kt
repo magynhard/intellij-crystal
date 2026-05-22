@@ -11,8 +11,7 @@ import com.intellij.util.Processor
 import com.intellij.util.indexing.FindSymbolParameters
 import com.intellij.util.indexing.IdFilter
 import de.magynhard.crystal.CrystalFileType
-import de.magynhard.crystal.lexer.CrystalTokenTypes
-import de.magynhard.crystal.structure.StructureKind
+import de.magynhard.crystal.psi.*
 
 class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
 
@@ -22,8 +21,7 @@ class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
 
         FileTypeIndex.processFiles(CrystalFileType, { virtualFile ->
             val psiFile = psiManager.findFile(virtualFile) ?: return@processFiles true
-            val symbols = extractSymbols(psiFile)
-            symbols.forEach { processor.process(it.name) }
+            extractSymbols(psiFile).forEach { processor.process(it.name) }
             true
         }, scope)
     }
@@ -38,52 +36,79 @@ class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
 
         FileTypeIndex.processFiles(CrystalFileType, { virtualFile ->
             val psiFile = psiManager.findFile(virtualFile) ?: return@processFiles true
-            val symbols = extractSymbols(psiFile)
-            symbols.filter { it.name == name }.forEach { symbol ->
-                val navItem = CrystalSymbolNavigationItem(symbol)
-                processor.process(navItem)
+            extractSymbols(psiFile).filter { it.name == name }.forEach { symbol ->
+                processor.process(CrystalNavigationItem(symbol))
             }
             true
         }, parameters.searchScope)
     }
 
-    private fun extractSymbols(file: PsiElement): List<CrystalSymbol> {
-        val symbols = mutableListOf<CrystalSymbol>()
-        val elements = PsiTreeUtil.collectElements(file) { true }
-
-        var i = 0
-        while (i < elements.size) {
-            val tokenType = elements[i].node?.elementType
-            val kind = when (tokenType) {
-                CrystalTokenTypes.CLASS -> StructureKind.CLASS
-                CrystalTokenTypes.MODULE -> StructureKind.MODULE
-                CrystalTokenTypes.STRUCT -> StructureKind.STRUCT
-                CrystalTokenTypes.ENUM -> StructureKind.ENUM
-                CrystalTokenTypes.DEF -> StructureKind.METHOD
-                CrystalTokenTypes.MACRO -> StructureKind.MACRO
-                CrystalTokenTypes.LIB -> StructureKind.LIB
-                CrystalTokenTypes.ANNOTATION -> StructureKind.ANNOTATION
-                else -> { i++; continue }
-            }
-
-            val name = findNextName(elements, i)
-            if (name != "<anonymous>") {
-                symbols.add(CrystalSymbol(name, kind, elements[i]))
-            }
-            i++
+    companion object {
+        fun extractSymbols(file: PsiElement): List<CrystalSymbol> {
+            val symbols = mutableListOf<CrystalSymbol>()
+            collectSymbols(file, symbols, allKinds = true)
+            return symbols
         }
-        return symbols
-    }
 
-    private fun findNextName(elements: Array<PsiElement>, startIndex: Int): String {
-        for (j in (startIndex + 1) until minOf(startIndex + 6, elements.size)) {
-            val type = elements[j].node?.elementType
-            if (type == CrystalTokenTypes.IDENTIFIER || type == CrystalTokenTypes.CONSTANT) {
-                return elements[j].text
-            }
-            if (type == CrystalTokenTypes.SELF || type == CrystalTokenTypes.DOT) continue
-            if (type == CrystalTokenTypes.WHITE_SPACE || type == CrystalTokenTypes.NEWLINE) continue
+        fun extractTypes(file: PsiElement): List<CrystalSymbol> {
+            val symbols = mutableListOf<CrystalSymbol>()
+            collectSymbols(file, symbols, allKinds = false)
+            return symbols
         }
-        return "<anonymous>"
+
+        private fun collectSymbols(element: PsiElement, symbols: MutableList<CrystalSymbol>, allKinds: Boolean) {
+            when (element) {
+                is CrystalClassDefinition -> {
+                    val name = element.typeName?.text ?: return
+                    symbols.add(CrystalSymbol(name, CrystalSymbolKind.CLASS, element))
+                    element.classBody?.let { collectSymbols(it, symbols, allKinds) }
+                }
+                is CrystalModuleDefinition -> {
+                    val name = element.typeName?.text ?: return
+                    symbols.add(CrystalSymbol(name, CrystalSymbolKind.MODULE, element))
+                    element.classBody?.let { collectSymbols(it, symbols, allKinds) }
+                }
+                is CrystalStructDefinition -> {
+                    val name = element.typeName?.text ?: return
+                    symbols.add(CrystalSymbol(name, CrystalSymbolKind.STRUCT, element))
+                    element.classBody?.let { collectSymbols(it, symbols, allKinds) }
+                }
+                is CrystalEnumDefinition -> {
+                    val name = element.typeName?.text ?: return
+                    symbols.add(CrystalSymbol(name, CrystalSymbolKind.ENUM, element))
+                }
+                is CrystalLibDefinition -> {
+                    val name = element.text.substringAfter("lib").trim().substringBefore("\n").trim()
+                    symbols.add(CrystalSymbol(name, CrystalSymbolKind.LIB, element))
+                }
+                is CrystalAnnotationDefinition -> {
+                    val name = element.typeName?.text ?: return
+                    symbols.add(CrystalSymbol(name, CrystalSymbolKind.ANNOTATION, element))
+                }
+                is CrystalMethodDefinition -> {
+                    if (allKinds) {
+                        val name = element.methodName?.text ?: return
+                        symbols.add(CrystalSymbol(name, CrystalSymbolKind.METHOD, element))
+                    }
+                }
+                is CrystalMacroDefinition -> {
+                    if (allKinds) {
+                        val name = element.methodName?.text ?: return
+                        symbols.add(CrystalSymbol(name, CrystalSymbolKind.MACRO, element))
+                    }
+                }
+                is CrystalAliasDefinition -> {
+                    val name = element.typeName?.text ?: return
+                    symbols.add(CrystalSymbol(name, CrystalSymbolKind.ALIAS, element))
+                }
+                is CrystalConstantAssignment -> {
+                    if (allKinds) {
+                        val name = element.firstChild?.text ?: return
+                        symbols.add(CrystalSymbol(name, CrystalSymbolKind.CONSTANT, element))
+                    }
+                }
+                else -> element.children.forEach { collectSymbols(it, symbols, allKinds) }
+            }
+        }
     }
 }
