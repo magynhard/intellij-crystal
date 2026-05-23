@@ -23,6 +23,7 @@ class CrystalRunConfigurationType : ConfigurationType {
 class CrystalRunFactory(type: ConfigurationType) : ConfigurationFactory(type) {
     override fun getId(): String = "Crystal Run"
     override fun getName(): String = "Run"
+    override fun getOptionsClass(): Class<out BaseState> = CrystalRunConfigurationOptions::class.java
     override fun createTemplateConfiguration(project: Project): RunConfiguration =
         CrystalRunConfiguration(project, this, "Crystal Run", CrystalCommand.RUN)
 }
@@ -30,6 +31,7 @@ class CrystalRunFactory(type: ConfigurationType) : ConfigurationFactory(type) {
 class CrystalBuildFactory(type: ConfigurationType) : ConfigurationFactory(type) {
     override fun getId(): String = "Crystal Build"
     override fun getName(): String = "Build"
+    override fun getOptionsClass(): Class<out BaseState> = CrystalRunConfigurationOptions::class.java
     override fun createTemplateConfiguration(project: Project): RunConfiguration =
         CrystalRunConfiguration(project, this, "Crystal Build", CrystalCommand.BUILD)
 }
@@ -37,6 +39,7 @@ class CrystalBuildFactory(type: ConfigurationType) : ConfigurationFactory(type) 
 class CrystalSpecFactory(type: ConfigurationType) : ConfigurationFactory(type) {
     override fun getId(): String = "Crystal Spec"
     override fun getName(): String = "Spec"
+    override fun getOptionsClass(): Class<out BaseState> = CrystalRunConfigurationOptions::class.java
     override fun createTemplateConfiguration(project: Project): RunConfiguration =
         CrystalRunConfiguration(project, this, "Crystal Spec", CrystalCommand.SPEC)
 }

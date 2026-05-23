@@ -7,6 +7,7 @@ import com.intellij.formatting.service.AsyncFormattingRequest
 import com.intellij.formatting.service.FormattingService
 import com.intellij.psi.PsiFile
 import de.magynhard.crystal.CrystalFileType
+import de.magynhard.crystal.sdk.CrystalSettings
 import java.nio.charset.StandardCharsets
 import java.util.EnumSet
 
@@ -33,7 +34,9 @@ class CrystalFormattingService : AsyncDocumentFormattingService() {
 
             override fun run() {
                 try {
-                    val commandLine = GeneralCommandLine("crystal", "tool", "format", "-")
+                    val project = request.context.project
+                    val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
+                    val commandLine = GeneralCommandLine(crystalPath, "tool", "format", "-")
                         .withCharset(StandardCharsets.UTF_8)
                         .withWorkDirectory(ioFile.parent)
 

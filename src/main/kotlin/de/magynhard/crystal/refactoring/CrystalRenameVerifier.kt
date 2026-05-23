@@ -10,6 +10,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.refactoring.listeners.RefactoringEventData
 import com.intellij.refactoring.listeners.RefactoringEventListener
 import de.magynhard.crystal.CrystalFileType
+import de.magynhard.crystal.sdk.CrystalSettings
 import java.nio.charset.StandardCharsets
 
 class CrystalRenameVerifier : RefactoringEventListener {
@@ -33,7 +34,8 @@ class CrystalRenameVerifier : RefactoringEventListener {
 
     private fun verifyWithCompiler(project: Project, basePath: String, file: VirtualFile) {
         try {
-            val commandLine = GeneralCommandLine("crystal", "build", "--no-codegen", file.path)
+            val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
+            val commandLine = GeneralCommandLine(crystalPath, "build", "--no-codegen", file.path)
                 .withCharset(StandardCharsets.UTF_8)
                 .withWorkDirectory(basePath)
 

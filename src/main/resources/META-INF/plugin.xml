@@ -135,6 +135,17 @@
 
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalClassIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMethodIndex"/>
+
+        <newProjectWizard.languageGenerator
+                implementation="de.magynhard.crystal.project.CrystalNewProjectWizard"/>
+
+        <projectConfigurable
+                parentId="language"
+                instance="de.magynhard.crystal.sdk.CrystalSettingsConfigurable"
+                id="de.magynhard.crystal.settings"
+                displayName="Crystal"/>
+
+        <projectService serviceImplementation="de.magynhard.crystal.sdk.CrystalSettings"/>
     </extensions>
 
     <projectListeners>
