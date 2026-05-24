@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalExpressionImpl extends ASTWrapperPsiElement implements CrystalExpression {
+public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements CrystalBareArgument {
 
-  public CrystalExpressionImpl(@NotNull ASTNode node) {
+  public CrystalBareArgumentImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitExpression(this);
+    visitor.visitBareArgument(this);
   }
 
   @Override
@@ -41,32 +41,14 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
-  public List<CrystalBareArgumentList> getBareArgumentListList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBareArgumentList.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalBeginStatement> getBeginStatementList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBeginStatement.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalBlock> getBlockList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBlock.class);
+  public List<CrystalBareMethodCallExpression> getBareMethodCallExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBareMethodCallExpression.class);
   }
 
   @Override
   @NotNull
   public List<CrystalCallArgs> getCallArgsList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalCallArgs.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalCaseStatement> getCaseStatementList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalCaseStatement.class);
   }
 
   @Override
@@ -95,20 +77,8 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
-  public List<CrystalIfStatement> getIfStatementList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalIfStatement.class);
-  }
-
-  @Override
-  @NotNull
   public List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalInstanceSizeofExpression.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalMethodCallExpression> getMethodCallExpressionList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMethodCallExpression.class);
   }
 
   @Override
@@ -145,12 +115,6 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
   @NotNull
   public List<CrystalTypeofExpression> getTypeofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeofExpression.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalUnlessStatement> getUnlessStatementList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalUnlessStatement.class);
   }
 
   @Override

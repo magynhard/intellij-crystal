@@ -31,6 +31,18 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitBareArgument(@NotNull CrystalBareArgument o) {
+    visitPsiElement(o);
+  }
+
+  public void visitBareArgumentList(@NotNull CrystalBareArgumentList o) {
+    visitPsiElement(o);
+  }
+
+  public void visitBareMethodCallExpression(@NotNull CrystalBareMethodCallExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitBeginStatement(@NotNull CrystalBeginStatement o) {
     visitPsiElement(o);
   }

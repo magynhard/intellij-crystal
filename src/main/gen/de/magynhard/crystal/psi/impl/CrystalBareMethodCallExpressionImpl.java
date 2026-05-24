@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalStringExpressionImpl extends ASTWrapperPsiElement implements CrystalStringExpression {
+public class CrystalBareMethodCallExpressionImpl extends ASTWrapperPsiElement implements CrystalBareMethodCallExpression {
 
-  public CrystalStringExpressionImpl(@NotNull ASTNode node) {
+  public CrystalBareMethodCallExpressionImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitStringExpression(this);
+    visitor.visitBareMethodCallExpression(this);
   }
 
   @Override
@@ -29,8 +29,8 @@ public class CrystalStringExpressionImpl extends ASTWrapperPsiElement implements
 
   @Override
   @NotNull
-  public List<CrystalExpression> getExpressionList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
+  public CrystalCallArgs getCallArgs() {
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalCallArgs.class));
   }
 
 }

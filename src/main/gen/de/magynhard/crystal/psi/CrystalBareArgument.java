@@ -5,7 +5,7 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalExpression extends PsiElement {
+public interface CrystalBareArgument extends PsiElement {
 
   @NotNull
   List<CrystalArgumentList> getArgumentListList();
@@ -14,19 +14,10 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalArrayLiteral> getArrayLiteralList();
 
   @NotNull
-  List<CrystalBareArgumentList> getBareArgumentListList();
-
-  @NotNull
-  List<CrystalBeginStatement> getBeginStatementList();
-
-  @NotNull
-  List<CrystalBlock> getBlockList();
+  List<CrystalBareMethodCallExpression> getBareMethodCallExpressionList();
 
   @NotNull
   List<CrystalCallArgs> getCallArgsList();
-
-  @NotNull
-  List<CrystalCaseStatement> getCaseStatementList();
 
   @NotNull
   List<CrystalExpression> getExpressionList();
@@ -41,13 +32,7 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalHeredocLiteral> getHeredocLiteralList();
 
   @NotNull
-  List<CrystalIfStatement> getIfStatementList();
-
-  @NotNull
   List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList();
-
-  @NotNull
-  List<CrystalMethodCallExpression> getMethodCallExpressionList();
 
   @NotNull
   List<CrystalPercentLiteral> getPercentLiteralList();
@@ -66,9 +51,6 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalTypeofExpression> getTypeofExpressionList();
-
-  @NotNull
-  List<CrystalUnlessStatement> getUnlessStatementList();
 
   @NotNull
   List<CrystalVariableReference> getVariableReferenceList();

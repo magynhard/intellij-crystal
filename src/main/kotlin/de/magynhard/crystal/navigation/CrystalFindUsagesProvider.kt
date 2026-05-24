@@ -5,28 +5,28 @@ import com.intellij.lang.findUsages.FindUsagesProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.TokenSet
 import de.magynhard.crystal.lexer.CrystalLexerAdapter
-import de.magynhard.crystal.lexer.CrystalTokenTypes
+import de.magynhard.crystal.psi.CrystalTypes
 
 class CrystalFindUsagesProvider : FindUsagesProvider {
 
     override fun getWordsScanner() = DefaultWordsScanner(
         CrystalLexerAdapter(),
-        TokenSet.create(CrystalTokenTypes.IDENTIFIER, CrystalTokenTypes.CONSTANT),
-        TokenSet.create(CrystalTokenTypes.LINE_COMMENT),
-        TokenSet.create(CrystalTokenTypes.STRING_LITERAL)
+        TokenSet.create(CrystalTypes.IDENTIFIER, CrystalTypes.CONSTANT),
+        TokenSet.create(CrystalTypes.LINE_COMMENT),
+        TokenSet.create(CrystalTypes.STRING_LITERAL)
     )
 
     override fun canFindUsagesFor(psiElement: PsiElement): Boolean {
         val tokenType = psiElement.node?.elementType
-        return tokenType == CrystalTokenTypes.IDENTIFIER || tokenType == CrystalTokenTypes.CONSTANT
+        return tokenType == CrystalTypes.IDENTIFIER || tokenType == CrystalTypes.CONSTANT
     }
 
     override fun getHelpId(psiElement: PsiElement): String? = null
 
     override fun getType(element: PsiElement): String {
         return when (element.node?.elementType) {
-            CrystalTokenTypes.CONSTANT -> "type"
-            CrystalTokenTypes.IDENTIFIER -> "symbol"
+            CrystalTypes.CONSTANT -> "type"
+            CrystalTypes.IDENTIFIER -> "symbol"
             else -> "element"
         }
     }

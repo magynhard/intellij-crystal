@@ -5,9 +5,9 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalStringExpression extends PsiElement {
+public interface CrystalBareArgumentList extends PsiElement {
 
   @NotNull
-  List<CrystalExpression> getExpressionList();
+  List<CrystalBareArgument> getBareArgumentList();
 
 }

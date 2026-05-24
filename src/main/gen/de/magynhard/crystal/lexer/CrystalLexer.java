@@ -5,7 +5,8 @@ package de.magynhard.crystal.lexer;
 
 import com.intellij.lexer.FlexLexer;
 import com.intellij.psi.tree.IElementType;
-import de.magynhard.crystal.lexer.CrystalTokenTypes;
+import de.magynhard.crystal.psi.CrystalTypes;
+import com.intellij.psi.TokenType;
 
 
 class CrystalLexer implements FlexLexer {
@@ -1093,182 +1094,182 @@ class CrystalLexer implements FlexLexer {
       else {
         switch (zzAction < 0 ? zzAction : ZZ_ACTION[zzAction]) {
           case 1:
-            { return CrystalTokenTypes.BAD_CHARACTER;
+            { return TokenType.BAD_CHARACTER;
             }
           // fall through
           case 147: break;
           case 2:
-            { return CrystalTokenTypes.WHITE_SPACE;
+            { return TokenType.WHITE_SPACE;
             }
           // fall through
           case 148: break;
           case 3:
-            { return CrystalTokenTypes.NEWLINE;
+            { return CrystalTypes.NEWLINE;
             }
           // fall through
           case 149: break;
           case 4:
-            { return CrystalTokenTypes.BANG;
+            { return CrystalTypes.BANG;
             }
           // fall through
           case 150: break;
           case 5:
-            { yybegin(STRING); return CrystalTokenTypes.STRING_LITERAL;
+            { yybegin(STRING); return CrystalTypes.STRING_LITERAL;
             }
           // fall through
           case 151: break;
           case 6:
-            { return CrystalTokenTypes.LINE_COMMENT;
+            { return CrystalTypes.LINE_COMMENT;
             }
           // fall through
           case 152: break;
           case 7:
-            { return CrystalTokenTypes.PERCENT;
+            { return CrystalTypes.PERCENT;
             }
           // fall through
           case 153: break;
           case 8:
-            { return CrystalTokenTypes.AMPERSAND;
+            { return CrystalTypes.AMPERSAND;
             }
           // fall through
           case 154: break;
           case 9:
-            { return CrystalTokenTypes.LPAREN;
+            { return CrystalTypes.LPAREN;
             }
           // fall through
           case 155: break;
           case 10:
-            { return CrystalTokenTypes.RPAREN;
+            { return CrystalTypes.RPAREN;
             }
           // fall through
           case 156: break;
           case 11:
-            { return CrystalTokenTypes.STAR;
+            { return CrystalTypes.STAR;
             }
           // fall through
           case 157: break;
           case 12:
-            { return CrystalTokenTypes.PLUS;
+            { return CrystalTypes.PLUS;
             }
           // fall through
           case 158: break;
           case 13:
-            { return CrystalTokenTypes.COMMA;
+            { return CrystalTypes.COMMA;
             }
           // fall through
           case 159: break;
           case 14:
-            { return CrystalTokenTypes.MINUS;
+            { return CrystalTypes.MINUS;
             }
           // fall through
           case 160: break;
           case 15:
-            { return CrystalTokenTypes.DOT;
+            { return CrystalTypes.DOT;
             }
           // fall through
           case 161: break;
           case 16:
-            { return CrystalTokenTypes.SLASH;
+            { return CrystalTypes.SLASH;
             }
           // fall through
           case 162: break;
           case 17:
-            { return CrystalTokenTypes.INTEGER_LITERAL;
+            { return CrystalTypes.INTEGER_LITERAL;
             }
           // fall through
           case 163: break;
           case 18:
-            { return CrystalTokenTypes.COLON;
+            { return CrystalTypes.COLON;
             }
           // fall through
           case 164: break;
           case 19:
-            { return CrystalTokenTypes.SEMICOLON;
+            { return CrystalTypes.SEMICOLON;
             }
           // fall through
           case 165: break;
           case 20:
-            { return CrystalTokenTypes.LT;
+            { return CrystalTypes.LT;
             }
           // fall through
           case 166: break;
           case 21:
-            { return CrystalTokenTypes.ASSIGN;
+            { return CrystalTypes.ASSIGN;
             }
           // fall through
           case 167: break;
           case 22:
-            { return CrystalTokenTypes.GT;
+            { return CrystalTypes.GT;
             }
           // fall through
           case 168: break;
           case 23:
-            { return CrystalTokenTypes.QUESTION;
+            { return CrystalTypes.QUESTION;
             }
           // fall through
           case 169: break;
           case 24:
-            { return CrystalTokenTypes.AT;
+            { return CrystalTypes.AT;
             }
           // fall through
           case 170: break;
           case 25:
-            { return CrystalTokenTypes.CONSTANT;
+            { return CrystalTypes.CONSTANT;
             }
           // fall through
           case 171: break;
           case 26:
-            { return CrystalTokenTypes.LBRACKET;
+            { return CrystalTypes.LBRACKET;
             }
           // fall through
           case 172: break;
           case 27:
-            { return CrystalTokenTypes.RBRACKET;
+            { return CrystalTypes.RBRACKET;
             }
           // fall through
           case 173: break;
           case 28:
-            { return CrystalTokenTypes.CARET;
+            { return CrystalTypes.CARET;
             }
           // fall through
           case 174: break;
           case 29:
-            { return CrystalTokenTypes.IDENTIFIER;
+            { return CrystalTypes.IDENTIFIER;
             }
           // fall through
           case 175: break;
           case 30:
-            { return CrystalTokenTypes.LBRACE;
+            { return CrystalTypes.LBRACE;
             }
           // fall through
           case 176: break;
           case 31:
-            { return CrystalTokenTypes.PIPE;
+            { return CrystalTypes.PIPE;
             }
           // fall through
           case 177: break;
           case 32:
-            { return CrystalTokenTypes.RBRACE;
+            { return CrystalTypes.RBRACE;
             }
           // fall through
           case 178: break;
           case 33:
-            { return CrystalTokenTypes.TILDE;
+            { return CrystalTypes.TILDE;
             }
           // fall through
           case 179: break;
           case 34:
-            { return CrystalTokenTypes.STRING_LITERAL;
+            { return CrystalTypes.STRING_LITERAL;
             }
           // fall through
           case 180: break;
           case 35:
-            { yybegin(YYINITIAL); return CrystalTokenTypes.STRING_LITERAL;
+            { yybegin(YYINITIAL); return CrystalTypes.STRING_LITERAL;
             }
           // fall through
           case 181: break;
           case 36:
-            { interpolationDepth++; return CrystalTokenTypes.LBRACE;
+            { interpolationDepth++; return CrystalTypes.LBRACE;
             }
           // fall through
           case 182: break;
@@ -1276,9 +1277,9 @@ class CrystalLexer implements FlexLexer {
             { interpolationDepth--;
                          if (interpolationDepth == 0) {
                            yybegin(STRING);
-                           return CrystalTokenTypes.STRING_INTERPOLATION_END;
+                           return CrystalTypes.STRING_INTERPOLATION_END;
                          }
-                         return CrystalTokenTypes.RBRACE;
+                         return CrystalTypes.RBRACE;
             }
           // fall through
           case 183: break;
@@ -1288,7 +1289,7 @@ class CrystalLexer implements FlexLexer {
                            percentDepth--;
                            if (percentDepth == 0) {
                              yybegin(YYINITIAL);
-                             return CrystalTokenTypes.PERCENT_LITERAL_END;
+                             return CrystalTypes.PERCENT_LITERAL_END;
                            }
                            return percentTokenType;
                          } else if (c == percentOpenChar && percentOpenChar != '|') {
@@ -1305,7 +1306,7 @@ class CrystalLexer implements FlexLexer {
           // fall through
           case 185: break;
           case 40:
-            { return CrystalTokenTypes.HEREDOC_CONTENT;
+            { return CrystalTypes.HEREDOC_CONTENT;
             }
           // fall through
           case 186: break;
@@ -1313,29 +1314,29 @@ class CrystalLexer implements FlexLexer {
             { String text = yytext().toString().trim();
                          if (text.equals(heredocId)) {
                            yybegin(YYINITIAL);
-                           return CrystalTokenTypes.HEREDOC_END;
+                           return CrystalTypes.HEREDOC_END;
                          }
-                         return CrystalTokenTypes.HEREDOC_CONTENT;
+                         return CrystalTypes.HEREDOC_CONTENT;
             }
           // fall through
           case 187: break;
           case 42:
-            { return CrystalTokenTypes.HEREDOC_START;
+            { return CrystalTypes.HEREDOC_START;
             }
           // fall through
           case 188: break;
           case 43:
-            { yybegin(HEREDOC_BODY); return CrystalTokenTypes.NEWLINE;
+            { yybegin(HEREDOC_BODY); return CrystalTypes.NEWLINE;
             }
           // fall through
           case 189: break;
           case 44:
-            { return CrystalTokenTypes.NEQ;
+            { return CrystalTypes.NEQ;
             }
           // fall through
           case 190: break;
           case 45:
-            { return CrystalTokenTypes.GLOBAL_VAR;
+            { return CrystalTypes.GLOBAL_VAR;
             }
           // fall through
           case 191: break;
@@ -1344,159 +1345,159 @@ class CrystalLexer implements FlexLexer {
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.STRING_LITERAL;
+                         percentTokenType = CrystalTypes.STRING_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
           case 192: break;
           case 47:
-            { return CrystalTokenTypes.PERCENT_ASSIGN;
+            { return CrystalTypes.PERCENT_ASSIGN;
             }
           // fall through
           case 193: break;
           case 48:
-            { return CrystalTokenTypes.AND_AND;
+            { return CrystalTypes.AND_AND;
             }
           // fall through
           case 194: break;
           case 49:
-            { return CrystalTokenTypes.AMPERSAND_ASSIGN;
+            { return CrystalTypes.AMPERSAND_ASSIGN;
             }
           // fall through
           case 195: break;
           case 50:
-            { return CrystalTokenTypes.DOUBLE_STAR;
+            { return CrystalTypes.DOUBLE_STAR;
             }
           // fall through
           case 196: break;
           case 51:
-            { return CrystalTokenTypes.STAR_ASSIGN;
+            { return CrystalTypes.STAR_ASSIGN;
             }
           // fall through
           case 197: break;
           case 52:
-            { return CrystalTokenTypes.PLUS_ASSIGN;
+            { return CrystalTypes.PLUS_ASSIGN;
             }
           // fall through
           case 198: break;
           case 53:
-            { return CrystalTokenTypes.MINUS_ASSIGN;
+            { return CrystalTypes.MINUS_ASSIGN;
             }
           // fall through
           case 199: break;
           case 54:
-            { return CrystalTokenTypes.ARROW;
+            { return CrystalTypes.ARROW;
             }
           // fall through
           case 200: break;
           case 55:
-            { return CrystalTokenTypes.DOTDOT;
+            { return CrystalTypes.DOTDOT;
             }
           // fall through
           case 201: break;
           case 56:
-            { return CrystalTokenTypes.DOUBLE_SLASH;
+            { return CrystalTypes.DOUBLE_SLASH;
             }
           // fall through
           case 202: break;
           case 57:
-            { return CrystalTokenTypes.SLASH_ASSIGN;
+            { return CrystalTypes.SLASH_ASSIGN;
             }
           // fall through
           case 203: break;
           case 58:
-            { return CrystalTokenTypes.DOUBLE_COLON;
+            { return CrystalTypes.DOUBLE_COLON;
             }
           // fall through
           case 204: break;
           case 59:
-            { return CrystalTokenTypes.SYMBOL_LITERAL;
+            { return CrystalTypes.SYMBOL_LITERAL;
             }
           // fall through
           case 205: break;
           case 60:
-            { return CrystalTokenTypes.LSHIFT;
+            { return CrystalTypes.LSHIFT;
             }
           // fall through
           case 206: break;
           case 61:
-            { return CrystalTokenTypes.LTE;
+            { return CrystalTypes.LTE;
             }
           // fall through
           case 207: break;
           case 62:
-            { return CrystalTokenTypes.EQ;
+            { return CrystalTypes.EQ;
             }
           // fall through
           case 208: break;
           case 63:
-            { return CrystalTokenTypes.DOUBLE_ARROW;
+            { return CrystalTypes.DOUBLE_ARROW;
             }
           // fall through
           case 209: break;
           case 64:
-            { return CrystalTokenTypes.GTE;
+            { return CrystalTypes.GTE;
             }
           // fall through
           case 210: break;
           case 65:
-            { return CrystalTokenTypes.RSHIFT;
+            { return CrystalTypes.RSHIFT;
             }
           // fall through
           case 211: break;
           case 66:
-            { return CrystalTokenTypes.INSTANCE_VAR;
+            { return CrystalTypes.INSTANCE_VAR;
             }
           // fall through
           case 212: break;
           case 67:
-            { return CrystalTokenTypes.CARET_ASSIGN;
+            { return CrystalTypes.CARET_ASSIGN;
             }
           // fall through
           case 213: break;
           case 68:
-            { return CrystalTokenTypes.COMMAND_LITERAL;
+            { return CrystalTypes.COMMAND_LITERAL;
             }
           // fall through
           case 214: break;
           case 69:
-            { return CrystalTokenTypes.AS;
+            { return CrystalTypes.AS;
             }
           // fall through
           case 215: break;
           case 70:
-            { return CrystalTokenTypes.DO;
+            { return CrystalTypes.DO;
             }
           // fall through
           case 216: break;
           case 71:
-            { return CrystalTokenTypes.IF;
+            { return CrystalTypes.IF;
             }
           // fall through
           case 217: break;
           case 72:
-            { return CrystalTokenTypes.IN;
+            { return CrystalTypes.IN;
             }
           // fall through
           case 218: break;
           case 73:
-            { return CrystalTokenTypes.OF;
+            { return CrystalTypes.OF;
             }
           // fall through
           case 219: break;
           case 74:
-            { return CrystalTokenTypes.PIPE_ASSIGN;
+            { return CrystalTypes.PIPE_ASSIGN;
             }
           // fall through
           case 220: break;
           case 75:
-            { return CrystalTokenTypes.OR_OR;
+            { return CrystalTypes.OR_OR;
             }
           // fall through
           case 221: break;
           case 76:
-            { interpolationDepth++; yybegin(INTERPOLATION); return CrystalTokenTypes.STRING_INTERPOLATION_BEGIN;
+            { interpolationDepth++; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN;
             }
           // fall through
           case 222: break;
@@ -1505,9 +1506,9 @@ class CrystalLexer implements FlexLexer {
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.SYMBOL_LITERAL;
+                         percentTokenType = CrystalTypes.SYMBOL_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
           case 223: break;
@@ -1516,114 +1517,114 @@ class CrystalLexer implements FlexLexer {
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.REGEX_LITERAL;
+                         percentTokenType = CrystalTypes.REGEX_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
           case 224: break;
           case 79:
-            { return CrystalTokenTypes.AND_AND_ASSIGN;
+            { return CrystalTypes.AND_AND_ASSIGN;
             }
           // fall through
           case 225: break;
           case 80:
-            { return CrystalTokenTypes.CHAR_LITERAL;
+            { return CrystalTypes.CHAR_LITERAL;
             }
           // fall through
           case 226: break;
           case 81:
-            { return CrystalTokenTypes.DOUBLE_STAR_ASSIGN;
+            { return CrystalTypes.DOUBLE_STAR_ASSIGN;
             }
           // fall through
           case 227: break;
           case 82:
-            { return CrystalTokenTypes.DOTDOTDOT;
+            { return CrystalTypes.DOTDOTDOT;
             }
           // fall through
           case 228: break;
           case 83:
-            { return CrystalTokenTypes.REGEX_LITERAL;
+            { return CrystalTypes.REGEX_LITERAL;
             }
           // fall through
           case 229: break;
           case 84:
-            { return CrystalTokenTypes.FLOAT_LITERAL;
+            { return CrystalTypes.FLOAT_LITERAL;
             }
           // fall through
           case 230: break;
           case 85:
-            { return CrystalTokenTypes.LSHIFT_ASSIGN;
+            { return CrystalTypes.LSHIFT_ASSIGN;
             }
           // fall through
           case 231: break;
           case 86:
-            { return CrystalTokenTypes.SPACESHIP;
+            { return CrystalTypes.SPACESHIP;
             }
           // fall through
           case 232: break;
           case 87:
-            { return CrystalTokenTypes.CASE_EQ;
+            { return CrystalTypes.CASE_EQ;
             }
           // fall through
           case 233: break;
           case 88:
-            { return CrystalTokenTypes.RSHIFT_ASSIGN;
+            { return CrystalTypes.RSHIFT_ASSIGN;
             }
           // fall through
           case 234: break;
           case 89:
-            { return CrystalTokenTypes.CLASS_VAR;
+            { return CrystalTypes.CLASS_VAR;
             }
           // fall through
           case 235: break;
           case 90:
-            { return CrystalTokenTypes.AS_QUESTION;
+            { return CrystalTypes.AS_QUESTION;
             }
           // fall through
           case 236: break;
           case 91:
-            { return CrystalTokenTypes.ASM;
+            { return CrystalTypes.ASM;
             }
           // fall through
           case 237: break;
           case 92:
-            { return CrystalTokenTypes.DEF;
+            { return CrystalTypes.DEF;
             }
           // fall through
           case 238: break;
           case 93:
-            { return CrystalTokenTypes.END;
+            { return CrystalTypes.END;
             }
           // fall through
           case 239: break;
           case 94:
-            { return CrystalTokenTypes.FOR;
+            { return CrystalTypes.FOR;
             }
           // fall through
           case 240: break;
           case 95:
-            { return CrystalTokenTypes.FUN;
+            { return CrystalTypes.FUN;
             }
           // fall through
           case 241: break;
           case 96:
-            { return CrystalTokenTypes.LIB;
+            { return CrystalTypes.LIB;
             }
           // fall through
           case 242: break;
           case 97:
-            { return CrystalTokenTypes.NIL;
+            { return CrystalTypes.NIL;
             }
           // fall through
           case 243: break;
           case 98:
-            { return CrystalTokenTypes.OUT;
+            { return CrystalTypes.OUT;
             }
           // fall through
           case 244: break;
           case 99:
-            { return CrystalTokenTypes.OR_OR_ASSIGN;
+            { return CrystalTypes.OR_OR_ASSIGN;
             }
           // fall through
           case 245: break;
@@ -1632,122 +1633,122 @@ class CrystalLexer implements FlexLexer {
                          heredocId = text.substring(3);
                          heredocIndented = true;
                          yybegin(HEREDOC_START_LINE);
-                         return CrystalTokenTypes.HEREDOC_START;
+                         return CrystalTypes.HEREDOC_START;
             }
           // fall through
           case 246: break;
           case 101:
-            { return CrystalTokenTypes.CASE;
+            { return CrystalTypes.CASE;
             }
           // fall through
           case 247: break;
           case 102:
-            { return CrystalTokenTypes.ELSE;
+            { return CrystalTypes.ELSE;
             }
           // fall through
           case 248: break;
           case 103:
-            { return CrystalTokenTypes.ENUM;
+            { return CrystalTypes.ENUM;
             }
           // fall through
           case 249: break;
           case 104:
-            { return CrystalTokenTypes.NEXT;
+            { return CrystalTypes.NEXT;
             }
           // fall through
           case 250: break;
           case 105:
-            { return CrystalTokenTypes.NIL_QUESTION;
+            { return CrystalTypes.NIL_QUESTION;
             }
           // fall through
           case 251: break;
           case 106:
-            { return CrystalTokenTypes.SELF;
+            { return CrystalTypes.SELF;
             }
           // fall through
           case 252: break;
           case 107:
-            { return CrystalTokenTypes.THEN;
+            { return CrystalTypes.THEN;
             }
           // fall through
           case 253: break;
           case 108:
-            { return CrystalTokenTypes.TRUE;
+            { return CrystalTypes.TRUE;
             }
           // fall through
           case 254: break;
           case 109:
-            { return CrystalTokenTypes.WHEN;
+            { return CrystalTypes.WHEN;
             }
           // fall through
           case 255: break;
           case 110:
-            { return CrystalTokenTypes.WITH;
+            { return CrystalTypes.WITH;
             }
           // fall through
           case 256: break;
           case 111:
-            { return CrystalTokenTypes.ALIAS;
+            { return CrystalTypes.ALIAS;
             }
           // fall through
           case 257: break;
           case 112:
-            { return CrystalTokenTypes.BEGIN;
+            { return CrystalTypes.BEGIN;
             }
           // fall through
           case 258: break;
           case 113:
-            { return CrystalTokenTypes.BREAK;
+            { return CrystalTypes.BREAK;
             }
           // fall through
           case 259: break;
           case 114:
-            { return CrystalTokenTypes.CLASS;
+            { return CrystalTypes.CLASS;
             }
           // fall through
           case 260: break;
           case 115:
-            { return CrystalTokenTypes.ELSIF;
+            { return CrystalTypes.ELSIF;
             }
           // fall through
           case 261: break;
           case 116:
-            { return CrystalTokenTypes.FALSE;
+            { return CrystalTypes.FALSE;
             }
           // fall through
           case 262: break;
           case 117:
-            { return CrystalTokenTypes.IS_A;
+            { return CrystalTypes.IS_A;
             }
           // fall through
           case 263: break;
           case 118:
-            { return CrystalTokenTypes.MACRO;
+            { return CrystalTypes.MACRO;
             }
           // fall through
           case 264: break;
           case 119:
-            { return CrystalTokenTypes.SUPER;
+            { return CrystalTypes.SUPER;
             }
           // fall through
           case 265: break;
           case 120:
-            { return CrystalTokenTypes.UNION;
+            { return CrystalTypes.UNION;
             }
           // fall through
           case 266: break;
           case 121:
-            { return CrystalTokenTypes.UNTIL;
+            { return CrystalTypes.UNTIL;
             }
           // fall through
           case 267: break;
           case 122:
-            { return CrystalTokenTypes.WHILE;
+            { return CrystalTypes.WHILE;
             }
           // fall through
           case 268: break;
           case 123:
-            { return CrystalTokenTypes.YIELD;
+            { return CrystalTypes.YIELD;
             }
           // fall through
           case 269: break;
@@ -1756,117 +1757,117 @@ class CrystalLexer implements FlexLexer {
                          heredocId = text.substring(4, text.length() - 1);
                          heredocIndented = true;
                          yybegin(HEREDOC_START_LINE);
-                         return CrystalTokenTypes.HEREDOC_START;
+                         return CrystalTypes.HEREDOC_START;
             }
           // fall through
           case 270: break;
           case 125:
-            { return CrystalTokenTypes.ENSURE;
+            { return CrystalTypes.ENSURE;
             }
           // fall through
           case 271: break;
           case 126:
-            { return CrystalTokenTypes.EXTEND;
+            { return CrystalTypes.EXTEND;
             }
           // fall through
           case 272: break;
           case 127:
-            { return CrystalTokenTypes.MODULE;
+            { return CrystalTypes.MODULE;
             }
           // fall through
           case 273: break;
           case 128:
-            { return CrystalTokenTypes.RESCUE;
+            { return CrystalTypes.RESCUE;
             }
           // fall through
           case 274: break;
           case 129:
-            { return CrystalTokenTypes.RETURN;
+            { return CrystalTypes.RETURN;
             }
           // fall through
           case 275: break;
           case 130:
-            { return CrystalTokenTypes.SELECT;
+            { return CrystalTypes.SELECT;
             }
           // fall through
           case 276: break;
           case 131:
-            { return CrystalTokenTypes.SIZEOF;
+            { return CrystalTypes.SIZEOF;
             }
           // fall through
           case 277: break;
           case 132:
-            { return CrystalTokenTypes.STRUCT;
+            { return CrystalTypes.STRUCT;
             }
           // fall through
           case 278: break;
           case 133:
-            { return CrystalTokenTypes.TYPEOF;
+            { return CrystalTypes.TYPEOF;
             }
           // fall through
           case 279: break;
           case 134:
-            { return CrystalTokenTypes.UNLESS;
+            { return CrystalTypes.UNLESS;
             }
           // fall through
           case 280: break;
           case 135:
-            { return CrystalTokenTypes.INCLUDE;
+            { return CrystalTypes.INCLUDE;
             }
           // fall through
           case 281: break;
           case 136:
-            { return CrystalTokenTypes.PRIVATE;
+            { return CrystalTypes.PRIVATE;
             }
           // fall through
           case 282: break;
           case 137:
-            { return CrystalTokenTypes.REQUIRE;
+            { return CrystalTypes.REQUIRE;
             }
           // fall through
           case 283: break;
           case 138:
-            { return CrystalTokenTypes.ABSTRACT;
+            { return CrystalTypes.ABSTRACT;
             }
           // fall through
           case 284: break;
           case 139:
-            { return CrystalTokenTypes.OFFSETOF;
+            { return CrystalTypes.OFFSETOF;
             }
           // fall through
           case 285: break;
           case 140:
-            { return CrystalTokenTypes.VERBATIM;
+            { return CrystalTypes.VERBATIM;
             }
           // fall through
           case 286: break;
           case 141:
-            { return CrystalTokenTypes.POINTEROF;
+            { return CrystalTypes.POINTEROF;
             }
           // fall through
           case 287: break;
           case 142:
-            { return CrystalTokenTypes.PROTECTED;
+            { return CrystalTypes.PROTECTED;
             }
           // fall through
           case 288: break;
           case 143:
-            { return CrystalTokenTypes.ANNOTATION;
+            { return CrystalTypes.ANNOTATION;
             }
           // fall through
           case 289: break;
           case 144:
-            { return CrystalTokenTypes.RESPONDS_TO;
+            { return CrystalTypes.RESPONDS_TO;
             }
           // fall through
           case 290: break;
           case 145:
-            { return CrystalTokenTypes.UNINITIALIZED;
+            { return CrystalTypes.UNINITIALIZED;
             }
           // fall through
           case 291: break;
           case 146:
-            { return CrystalTokenTypes.INSTANCE_SIZEOF;
+            { return CrystalTypes.INSTANCE_SIZEOF;
             }
           // fall through
           case 292: break;

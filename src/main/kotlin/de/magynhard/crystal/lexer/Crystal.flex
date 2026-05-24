@@ -2,7 +2,8 @@ package de.magynhard.crystal.lexer;
 
 import com.intellij.lexer.FlexLexer;
 import com.intellij.psi.tree.IElementType;
-import de.magynhard.crystal.lexer.CrystalTokenTypes;
+import de.magynhard.crystal.psi.CrystalTypes;
+import com.intellij.psi.TokenType;
 
 %%
 
@@ -74,80 +75,80 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 
 <YYINITIAL> {
   // Whitespace and comments
-  {WHITE_SPACE}        { return CrystalTokenTypes.WHITE_SPACE; }
-  {NEWLINE}            { return CrystalTokenTypes.NEWLINE; }
-  {LINE_COMMENT}       { return CrystalTokenTypes.LINE_COMMENT; }
+  {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  {NEWLINE}            { return CrystalTypes.NEWLINE; }
+  {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
 
   // Keywords (longest match first for keywords with ? suffix)
-  "abstract"           { return CrystalTokenTypes.ABSTRACT; }
-  "alias"              { return CrystalTokenTypes.ALIAS; }
-  "annotation"         { return CrystalTokenTypes.ANNOTATION; }
-  "as?"                { return CrystalTokenTypes.AS_QUESTION; }
-  "as"                 { return CrystalTokenTypes.AS; }
-  "asm"                { return CrystalTokenTypes.ASM; }
-  "begin"              { return CrystalTokenTypes.BEGIN; }
-  "break"              { return CrystalTokenTypes.BREAK; }
-  "case"               { return CrystalTokenTypes.CASE; }
-  "class"              { return CrystalTokenTypes.CLASS; }
-  "def"                { return CrystalTokenTypes.DEF; }
-  "do"                 { return CrystalTokenTypes.DO; }
-  "else"               { return CrystalTokenTypes.ELSE; }
-  "elsif"              { return CrystalTokenTypes.ELSIF; }
-  "end"                { return CrystalTokenTypes.END; }
-  "ensure"             { return CrystalTokenTypes.ENSURE; }
-  "enum"               { return CrystalTokenTypes.ENUM; }
-  "extend"             { return CrystalTokenTypes.EXTEND; }
-  "false"              { return CrystalTokenTypes.FALSE; }
-  "for"                { return CrystalTokenTypes.FOR; }
-  "fun"                { return CrystalTokenTypes.FUN; }
-  "if"                 { return CrystalTokenTypes.IF; }
-  "in"                 { return CrystalTokenTypes.IN; }
-  "include"            { return CrystalTokenTypes.INCLUDE; }
-  "instance_sizeof"    { return CrystalTokenTypes.INSTANCE_SIZEOF; }
-  "is_a?"              { return CrystalTokenTypes.IS_A; }
-  "lib"                { return CrystalTokenTypes.LIB; }
-  "macro"              { return CrystalTokenTypes.MACRO; }
-  "module"             { return CrystalTokenTypes.MODULE; }
-  "next"               { return CrystalTokenTypes.NEXT; }
-  "nil?"               { return CrystalTokenTypes.NIL_QUESTION; }
-  "nil"                { return CrystalTokenTypes.NIL; }
-  "of"                 { return CrystalTokenTypes.OF; }
-  "offsetof"           { return CrystalTokenTypes.OFFSETOF; }
-  "out"                { return CrystalTokenTypes.OUT; }
-  "pointerof"          { return CrystalTokenTypes.POINTEROF; }
-  "private"            { return CrystalTokenTypes.PRIVATE; }
-  "protected"          { return CrystalTokenTypes.PROTECTED; }
-  "require"            { return CrystalTokenTypes.REQUIRE; }
-  "rescue"             { return CrystalTokenTypes.RESCUE; }
-  "responds_to?"       { return CrystalTokenTypes.RESPONDS_TO; }
-  "return"             { return CrystalTokenTypes.RETURN; }
-  "select"             { return CrystalTokenTypes.SELECT; }
-  "self"               { return CrystalTokenTypes.SELF; }
-  "sizeof"             { return CrystalTokenTypes.SIZEOF; }
-  "struct"             { return CrystalTokenTypes.STRUCT; }
-  "super"              { return CrystalTokenTypes.SUPER; }
-  "then"               { return CrystalTokenTypes.THEN; }
-  "true"               { return CrystalTokenTypes.TRUE; }
-  "typeof"             { return CrystalTokenTypes.TYPEOF; }
-  "uninitialized"      { return CrystalTokenTypes.UNINITIALIZED; }
-  "union"              { return CrystalTokenTypes.UNION; }
-  "unless"             { return CrystalTokenTypes.UNLESS; }
-  "until"              { return CrystalTokenTypes.UNTIL; }
-  "verbatim"           { return CrystalTokenTypes.VERBATIM; }
-  "when"               { return CrystalTokenTypes.WHEN; }
-  "while"              { return CrystalTokenTypes.WHILE; }
-  "with"               { return CrystalTokenTypes.WITH; }
-  "yield"              { return CrystalTokenTypes.YIELD; }
+  "abstract"           { return CrystalTypes.ABSTRACT; }
+  "alias"              { return CrystalTypes.ALIAS; }
+  "annotation"         { return CrystalTypes.ANNOTATION; }
+  "as?"                { return CrystalTypes.AS_QUESTION; }
+  "as"                 { return CrystalTypes.AS; }
+  "asm"                { return CrystalTypes.ASM; }
+  "begin"              { return CrystalTypes.BEGIN; }
+  "break"              { return CrystalTypes.BREAK; }
+  "case"               { return CrystalTypes.CASE; }
+  "class"              { return CrystalTypes.CLASS; }
+  "def"                { return CrystalTypes.DEF; }
+  "do"                 { return CrystalTypes.DO; }
+  "else"               { return CrystalTypes.ELSE; }
+  "elsif"              { return CrystalTypes.ELSIF; }
+  "end"                { return CrystalTypes.END; }
+  "ensure"             { return CrystalTypes.ENSURE; }
+  "enum"               { return CrystalTypes.ENUM; }
+  "extend"             { return CrystalTypes.EXTEND; }
+  "false"              { return CrystalTypes.FALSE; }
+  "for"                { return CrystalTypes.FOR; }
+  "fun"                { return CrystalTypes.FUN; }
+  "if"                 { return CrystalTypes.IF; }
+  "in"                 { return CrystalTypes.IN; }
+  "include"            { return CrystalTypes.INCLUDE; }
+  "instance_sizeof"    { return CrystalTypes.INSTANCE_SIZEOF; }
+  "is_a?"              { return CrystalTypes.IS_A; }
+  "lib"                { return CrystalTypes.LIB; }
+  "macro"              { return CrystalTypes.MACRO; }
+  "module"             { return CrystalTypes.MODULE; }
+  "next"               { return CrystalTypes.NEXT; }
+  "nil?"               { return CrystalTypes.NIL_QUESTION; }
+  "nil"                { return CrystalTypes.NIL; }
+  "of"                 { return CrystalTypes.OF; }
+  "offsetof"           { return CrystalTypes.OFFSETOF; }
+  "out"                { return CrystalTypes.OUT; }
+  "pointerof"          { return CrystalTypes.POINTEROF; }
+  "private"            { return CrystalTypes.PRIVATE; }
+  "protected"          { return CrystalTypes.PROTECTED; }
+  "require"            { return CrystalTypes.REQUIRE; }
+  "rescue"             { return CrystalTypes.RESCUE; }
+  "responds_to?"       { return CrystalTypes.RESPONDS_TO; }
+  "return"             { return CrystalTypes.RETURN; }
+  "select"             { return CrystalTypes.SELECT; }
+  "self"               { return CrystalTypes.SELF; }
+  "sizeof"             { return CrystalTypes.SIZEOF; }
+  "struct"             { return CrystalTypes.STRUCT; }
+  "super"              { return CrystalTypes.SUPER; }
+  "then"               { return CrystalTypes.THEN; }
+  "true"               { return CrystalTypes.TRUE; }
+  "typeof"             { return CrystalTypes.TYPEOF; }
+  "uninitialized"      { return CrystalTypes.UNINITIALIZED; }
+  "union"              { return CrystalTypes.UNION; }
+  "unless"             { return CrystalTypes.UNLESS; }
+  "until"              { return CrystalTypes.UNTIL; }
+  "verbatim"           { return CrystalTypes.VERBATIM; }
+  "when"               { return CrystalTypes.WHEN; }
+  "while"              { return CrystalTypes.WHILE; }
+  "with"               { return CrystalTypes.WITH; }
+  "yield"              { return CrystalTypes.YIELD; }
 
   // Literals
-  {CHAR_LITERAL}       { return CrystalTokenTypes.CHAR_LITERAL; }
-  {SYMBOL}             { return CrystalTokenTypes.SYMBOL_LITERAL; }
+  {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
+  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
 
   // Numbers (float before int since float is more specific with dot)
-  {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTokenTypes.FLOAT_LITERAL; }
-  {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTokenTypes.FLOAT_LITERAL; }
-  {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTokenTypes.FLOAT_LITERAL; }
-  {INTEGER}            { return CrystalTokenTypes.INTEGER_LITERAL; }
+  {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTypes.FLOAT_LITERAL; }
+  {INTEGER}            { return CrystalTypes.INTEGER_LITERAL; }
 
   // Heredoc start: <<-IDENTIFIER or <<-'IDENTIFIER'
   "<<-'" [A-Za-z_][A-Za-z0-9_]* "'"  {
@@ -155,14 +156,14 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          heredocId = text.substring(4, text.length() - 1);
                          heredocIndented = true;
                          yybegin(HEREDOC_START_LINE);
-                         return CrystalTokenTypes.HEREDOC_START;
+                         return CrystalTypes.HEREDOC_START;
                        }
   "<<-" [A-Za-z_][A-Za-z0-9_]*       {
                          String text = yytext().toString();
                          heredocId = text.substring(3);
                          heredocIndented = true;
                          yybegin(HEREDOC_START_LINE);
-                         return CrystalTokenTypes.HEREDOC_START;
+                         return CrystalTypes.HEREDOC_START;
                        }
 
   // Percent literals: %w(...), %i(...), %(...), %[...], %{...}, %<...>, %|...|
@@ -171,171 +172,171 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.STRING_LITERAL;
+                         percentTokenType = CrystalTypes.STRING_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%i" [\(\[\{<|]     {
                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.SYMBOL_LITERAL;
+                         percentTokenType = CrystalTypes.SYMBOL_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%q" [\(\[\{<|]     {
                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.STRING_LITERAL;
+                         percentTokenType = CrystalTypes.STRING_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%Q" [\(\[\{<|]     {
                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.STRING_LITERAL;
+                         percentTokenType = CrystalTypes.STRING_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%r" [\(\[\{<|]     {
                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.REGEX_LITERAL;
+                         percentTokenType = CrystalTypes.REGEX_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%" [\(\[\{<|]      {
                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
-                         percentTokenType = CrystalTokenTypes.STRING_LITERAL;
+                         percentTokenType = CrystalTypes.STRING_LITERAL;
                          yybegin(PERCENT_LITERAL);
-                         return CrystalTokenTypes.PERCENT_LITERAL_BEGIN;
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
 
   // String start
-  \"                   { yybegin(STRING); return CrystalTokenTypes.STRING_LITERAL; }
+  \"                   { yybegin(STRING); return CrystalTypes.STRING_LITERAL; }
 
   // Command literal
-  "`" [^`]* "`"        { return CrystalTokenTypes.COMMAND_LITERAL; }
+  "`" [^`]* "`"        { return CrystalTypes.COMMAND_LITERAL; }
 
   // Regex literal (simple heuristic - at least one char between slashes)
-  "/" [^/\r\n]+ "/" [imx]* { return CrystalTokenTypes.REGEX_LITERAL; }
+  "/" [^/\r\n]+ "/" [imx]* { return CrystalTypes.REGEX_LITERAL; }
 
   // Multi-character operators (longest first)
-  "<=>"                { return CrystalTokenTypes.SPACESHIP; }
-  "==="                { return CrystalTokenTypes.CASE_EQ; }
-  "**="                { return CrystalTokenTypes.DOUBLE_STAR_ASSIGN; }
-  "<<="                { return CrystalTokenTypes.LSHIFT_ASSIGN; }
-  ">>="                { return CrystalTokenTypes.RSHIFT_ASSIGN; }
-  "||="                { return CrystalTokenTypes.OR_OR_ASSIGN; }
-  "&&="                { return CrystalTokenTypes.AND_AND_ASSIGN; }
-  "..."                { return CrystalTokenTypes.DOTDOTDOT; }
-  "**"                 { return CrystalTokenTypes.DOUBLE_STAR; }
-  "//"                 { return CrystalTokenTypes.DOUBLE_SLASH; }
-  "<<"                 { return CrystalTokenTypes.LSHIFT; }
-  ">>"                 { return CrystalTokenTypes.RSHIFT; }
-  "=="                 { return CrystalTokenTypes.EQ; }
-  "!="                 { return CrystalTokenTypes.NEQ; }
-  "<="                 { return CrystalTokenTypes.LTE; }
-  ">="                 { return CrystalTokenTypes.GTE; }
-  "&&"                 { return CrystalTokenTypes.AND_AND; }
-  "||"                 { return CrystalTokenTypes.OR_OR; }
-  "+="                 { return CrystalTokenTypes.PLUS_ASSIGN; }
-  "-="                 { return CrystalTokenTypes.MINUS_ASSIGN; }
-  "*="                 { return CrystalTokenTypes.STAR_ASSIGN; }
-  "/="                 { return CrystalTokenTypes.SLASH_ASSIGN; }
-  "%="                 { return CrystalTokenTypes.PERCENT_ASSIGN; }
-  "&="                 { return CrystalTokenTypes.AMPERSAND_ASSIGN; }
-  "|="                 { return CrystalTokenTypes.PIPE_ASSIGN; }
-  "^="                 { return CrystalTokenTypes.CARET_ASSIGN; }
-  ".."                 { return CrystalTokenTypes.DOTDOT; }
-  "->"                 { return CrystalTokenTypes.ARROW; }
-  "=>"                 { return CrystalTokenTypes.DOUBLE_ARROW; }
-  "::"                 { return CrystalTokenTypes.DOUBLE_COLON; }
+  "<=>"                { return CrystalTypes.SPACESHIP; }
+  "==="                { return CrystalTypes.CASE_EQ; }
+  "**="                { return CrystalTypes.DOUBLE_STAR_ASSIGN; }
+  "<<="                { return CrystalTypes.LSHIFT_ASSIGN; }
+  ">>="                { return CrystalTypes.RSHIFT_ASSIGN; }
+  "||="                { return CrystalTypes.OR_OR_ASSIGN; }
+  "&&="                { return CrystalTypes.AND_AND_ASSIGN; }
+  "..."                { return CrystalTypes.DOTDOTDOT; }
+  "**"                 { return CrystalTypes.DOUBLE_STAR; }
+  "//"                 { return CrystalTypes.DOUBLE_SLASH; }
+  "<<"                 { return CrystalTypes.LSHIFT; }
+  ">>"                 { return CrystalTypes.RSHIFT; }
+  "=="                 { return CrystalTypes.EQ; }
+  "!="                 { return CrystalTypes.NEQ; }
+  "<="                 { return CrystalTypes.LTE; }
+  ">="                 { return CrystalTypes.GTE; }
+  "&&"                 { return CrystalTypes.AND_AND; }
+  "||"                 { return CrystalTypes.OR_OR; }
+  "+="                 { return CrystalTypes.PLUS_ASSIGN; }
+  "-="                 { return CrystalTypes.MINUS_ASSIGN; }
+  "*="                 { return CrystalTypes.STAR_ASSIGN; }
+  "/="                 { return CrystalTypes.SLASH_ASSIGN; }
+  "%="                 { return CrystalTypes.PERCENT_ASSIGN; }
+  "&="                 { return CrystalTypes.AMPERSAND_ASSIGN; }
+  "|="                 { return CrystalTypes.PIPE_ASSIGN; }
+  "^="                 { return CrystalTypes.CARET_ASSIGN; }
+  ".."                 { return CrystalTypes.DOTDOT; }
+  "->"                 { return CrystalTypes.ARROW; }
+  "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
+  "::"                 { return CrystalTypes.DOUBLE_COLON; }
 
   // Single character operators
-  "+"                  { return CrystalTokenTypes.PLUS; }
-  "-"                  { return CrystalTokenTypes.MINUS; }
-  "*"                  { return CrystalTokenTypes.STAR; }
-  "/"                  { return CrystalTokenTypes.SLASH; }
-  "%"                  { return CrystalTokenTypes.PERCENT; }
-  "&"                  { return CrystalTokenTypes.AMPERSAND; }
-  "|"                  { return CrystalTokenTypes.PIPE; }
-  "^"                  { return CrystalTokenTypes.CARET; }
-  "~"                  { return CrystalTokenTypes.TILDE; }
-  "<"                  { return CrystalTokenTypes.LT; }
-  ">"                  { return CrystalTokenTypes.GT; }
-  "!"                  { return CrystalTokenTypes.BANG; }
-  "="                  { return CrystalTokenTypes.ASSIGN; }
-  "."                  { return CrystalTokenTypes.DOT; }
-  "?"                  { return CrystalTokenTypes.QUESTION; }
-  ":"                  { return CrystalTokenTypes.COLON; }
-  ";"                  { return CrystalTokenTypes.SEMICOLON; }
-  ","                  { return CrystalTokenTypes.COMMA; }
-  "@"                  { return CrystalTokenTypes.AT; }
+  "+"                  { return CrystalTypes.PLUS; }
+  "-"                  { return CrystalTypes.MINUS; }
+  "*"                  { return CrystalTypes.STAR; }
+  "/"                  { return CrystalTypes.SLASH; }
+  "%"                  { return CrystalTypes.PERCENT; }
+  "&"                  { return CrystalTypes.AMPERSAND; }
+  "|"                  { return CrystalTypes.PIPE; }
+  "^"                  { return CrystalTypes.CARET; }
+  "~"                  { return CrystalTypes.TILDE; }
+  "<"                  { return CrystalTypes.LT; }
+  ">"                  { return CrystalTypes.GT; }
+  "!"                  { return CrystalTypes.BANG; }
+  "="                  { return CrystalTypes.ASSIGN; }
+  "."                  { return CrystalTypes.DOT; }
+  "?"                  { return CrystalTypes.QUESTION; }
+  ":"                  { return CrystalTypes.COLON; }
+  ";"                  { return CrystalTypes.SEMICOLON; }
+  ","                  { return CrystalTypes.COMMA; }
+  "@"                  { return CrystalTypes.AT; }
 
   // Delimiters
-  "("                  { return CrystalTokenTypes.LPAREN; }
-  ")"                  { return CrystalTokenTypes.RPAREN; }
-  "["                  { return CrystalTokenTypes.LBRACKET; }
-  "]"                  { return CrystalTokenTypes.RBRACKET; }
-  "{"                  { return CrystalTokenTypes.LBRACE; }
-  "}"                  { return CrystalTokenTypes.RBRACE; }
+  "("                  { return CrystalTypes.LPAREN; }
+  ")"                  { return CrystalTypes.RPAREN; }
+  "["                  { return CrystalTypes.LBRACKET; }
+  "]"                  { return CrystalTypes.RBRACKET; }
+  "{"                  { return CrystalTypes.LBRACE; }
+  "}"                  { return CrystalTypes.RBRACE; }
 
   // Identifiers (after keywords to ensure keywords take priority)
-  {CLASS_VAR}          { return CrystalTokenTypes.CLASS_VAR; }
-  {INSTANCE_VAR}       { return CrystalTokenTypes.INSTANCE_VAR; }
-  {GLOBAL_VAR}         { return CrystalTokenTypes.GLOBAL_VAR; }
-  {CONSTANT}           { return CrystalTokenTypes.CONSTANT; }
-  {IDENTIFIER}         { return CrystalTokenTypes.IDENTIFIER; }
+  {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
+  {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
+  {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
+  {CONSTANT}           { return CrystalTypes.CONSTANT; }
+  {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
 }
 
 <STRING> {
-  \"                   { yybegin(YYINITIAL); return CrystalTokenTypes.STRING_LITERAL; }
-  "#{"                 { interpolationDepth++; yybegin(INTERPOLATION); return CrystalTokenTypes.STRING_INTERPOLATION_BEGIN; }
-  "\\" .               { return CrystalTokenTypes.STRING_LITERAL; }
-  [^\"\#\\]+           { return CrystalTokenTypes.STRING_LITERAL; }
-  "#"                  { return CrystalTokenTypes.STRING_LITERAL; }
+  \"                   { yybegin(YYINITIAL); return CrystalTypes.STRING_LITERAL; }
+  "#{"                 { interpolationDepth++; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
+  "\\" .               { return CrystalTypes.STRING_LITERAL; }
+  [^\"\#\\]+           { return CrystalTypes.STRING_LITERAL; }
+  "#"                  { return CrystalTypes.STRING_LITERAL; }
 }
 
 <INTERPOLATION> {
-  "{"                  { interpolationDepth++; return CrystalTokenTypes.LBRACE; }
+  "{"                  { interpolationDepth++; return CrystalTypes.LBRACE; }
   "}"                  { interpolationDepth--;
                          if (interpolationDepth == 0) {
                            yybegin(STRING);
-                           return CrystalTokenTypes.STRING_INTERPOLATION_END;
+                           return CrystalTypes.STRING_INTERPOLATION_END;
                          }
-                         return CrystalTokenTypes.RBRACE;
+                         return CrystalTypes.RBRACE;
                        }
   // All normal tokens are valid inside interpolation
-  {WHITE_SPACE}        { return CrystalTokenTypes.WHITE_SPACE; }
-  {NEWLINE}            { return CrystalTokenTypes.NEWLINE; }
-  {LINE_COMMENT}       { return CrystalTokenTypes.LINE_COMMENT; }
-  {IDENTIFIER}         { return CrystalTokenTypes.IDENTIFIER; }
-  {CONSTANT}           { return CrystalTokenTypes.CONSTANT; }
-  {INSTANCE_VAR}       { return CrystalTokenTypes.INSTANCE_VAR; }
-  {CLASS_VAR}          { return CrystalTokenTypes.CLASS_VAR; }
-  {DEC_INT}            { return CrystalTokenTypes.INTEGER_LITERAL; }
-  \"                   { yybegin(STRING); return CrystalTokenTypes.STRING_LITERAL; }
-  "."                  { return CrystalTokenTypes.DOT; }
-  "("                  { return CrystalTokenTypes.LPAREN; }
-  ")"                  { return CrystalTokenTypes.RPAREN; }
-  "["                  { return CrystalTokenTypes.LBRACKET; }
-  "]"                  { return CrystalTokenTypes.RBRACKET; }
-  "+"                  { return CrystalTokenTypes.PLUS; }
-  "-"                  { return CrystalTokenTypes.MINUS; }
-  "*"                  { return CrystalTokenTypes.STAR; }
-  ","                  { return CrystalTokenTypes.COMMA; }
-  [^]                  { return CrystalTokenTypes.BAD_CHARACTER; }
+  {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  {NEWLINE}            { return CrystalTypes.NEWLINE; }
+  {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
+  {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
+  {CONSTANT}           { return CrystalTypes.CONSTANT; }
+  {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
+  {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
+  {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  \"                   { yybegin(STRING); return CrystalTypes.STRING_LITERAL; }
+  "."                  { return CrystalTypes.DOT; }
+  "("                  { return CrystalTypes.LPAREN; }
+  ")"                  { return CrystalTypes.RPAREN; }
+  "["                  { return CrystalTypes.LBRACKET; }
+  "]"                  { return CrystalTypes.RBRACKET; }
+  "+"                  { return CrystalTypes.PLUS; }
+  "-"                  { return CrystalTypes.MINUS; }
+  "*"                  { return CrystalTypes.STAR; }
+  ","                  { return CrystalTypes.COMMA; }
+  [^]                  { return TokenType.BAD_CHARACTER; }
 }
 
 <PERCENT_LITERAL> {
@@ -346,7 +347,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                            percentDepth--;
                            if (percentDepth == 0) {
                              yybegin(YYINITIAL);
-                             return CrystalTokenTypes.PERCENT_LITERAL_END;
+                             return CrystalTypes.PERCENT_LITERAL_END;
                            }
                            return percentTokenType;
                          } else if (c == percentOpenChar && percentOpenChar != '|') {
@@ -361,8 +362,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 
 <HEREDOC_START_LINE> {
   // Consume the rest of the line after <<-ID (could have more code on same line)
-  {NEWLINE}            { yybegin(HEREDOC_BODY); return CrystalTokenTypes.NEWLINE; }
-  .+                   { return CrystalTokenTypes.HEREDOC_START; }
+  {NEWLINE}            { yybegin(HEREDOC_BODY); return CrystalTypes.NEWLINE; }
+  .+                   { return CrystalTypes.HEREDOC_START; }
 }
 
 <HEREDOC_BODY> {
@@ -371,20 +372,20 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          String text = yytext().toString().trim();
                          if (text.equals(heredocId)) {
                            yybegin(YYINITIAL);
-                           return CrystalTokenTypes.HEREDOC_END;
+                           return CrystalTypes.HEREDOC_END;
                          }
-                         return CrystalTokenTypes.HEREDOC_CONTENT;
+                         return CrystalTypes.HEREDOC_CONTENT;
                        }
   ^[ \t]* {IDENTIFIER} {
                          String text = yytext().toString().trim();
                          if (text.equals(heredocId)) {
                            yybegin(YYINITIAL);
-                           return CrystalTokenTypes.HEREDOC_END;
+                           return CrystalTypes.HEREDOC_END;
                          }
-                         return CrystalTokenTypes.HEREDOC_CONTENT;
+                         return CrystalTypes.HEREDOC_CONTENT;
                        }
-  [^\r\n]+             { return CrystalTokenTypes.HEREDOC_CONTENT; }
-  {NEWLINE}            { return CrystalTokenTypes.HEREDOC_CONTENT; }
+  [^\r\n]+             { return CrystalTypes.HEREDOC_CONTENT; }
+  {NEWLINE}            { return CrystalTypes.HEREDOC_CONTENT; }
 }
 
-[^]                    { return CrystalTokenTypes.BAD_CHARACTER; }
+[^]                    { return TokenType.BAD_CHARACTER; }

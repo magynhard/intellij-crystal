@@ -9,6 +9,7 @@ import com.intellij.openapi.fileTypes.SyntaxHighlighterBase
 import com.intellij.psi.tree.IElementType
 import de.magynhard.crystal.lexer.CrystalLexerAdapter
 import de.magynhard.crystal.lexer.CrystalTokenTypes
+import de.magynhard.crystal.psi.CrystalTypes
 
 class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
 
@@ -66,27 +67,27 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
             tokenType == null -> EMPTY_KEYS
             CrystalTokenTypes.KEYWORDS.contains(tokenType) -> KEYWORD_KEYS
             CrystalTokenTypes.NUMBERS.contains(tokenType) -> NUMBER_KEYS
-            tokenType == CrystalTokenTypes.STRING_LITERAL -> STRING_KEYS
-            tokenType == CrystalTokenTypes.CHAR_LITERAL -> CHAR_KEYS
-            tokenType == CrystalTokenTypes.COMMAND_LITERAL -> STRING_KEYS
-            tokenType == CrystalTokenTypes.HEREDOC_CONTENT || tokenType == CrystalTokenTypes.HEREDOC_START || tokenType == CrystalTokenTypes.HEREDOC_END -> STRING_KEYS
-            tokenType == CrystalTokenTypes.PERCENT_LITERAL_BEGIN || tokenType == CrystalTokenTypes.PERCENT_LITERAL_END -> STRING_KEYS
-            tokenType == CrystalTokenTypes.REGEX_LITERAL -> REGEX_KEYS
-            tokenType == CrystalTokenTypes.SYMBOL_LITERAL -> SYMBOL_KEYS
-            tokenType == CrystalTokenTypes.STRING_INTERPOLATION_BEGIN || tokenType == CrystalTokenTypes.STRING_INTERPOLATION_END -> INTERPOLATION_KEYS
-            tokenType == CrystalTokenTypes.LINE_COMMENT -> COMMENT_KEYS
-            tokenType == CrystalTokenTypes.IDENTIFIER -> IDENTIFIER_KEYS
-            tokenType == CrystalTokenTypes.CONSTANT -> CONSTANT_KEYS
-            tokenType == CrystalTokenTypes.INSTANCE_VAR -> INSTANCE_VAR_KEYS
-            tokenType == CrystalTokenTypes.CLASS_VAR -> CLASS_VAR_KEYS
-            tokenType == CrystalTokenTypes.GLOBAL_VAR -> GLOBAL_VAR_KEYS
+            tokenType == CrystalTypes.STRING_LITERAL -> STRING_KEYS
+            tokenType == CrystalTypes.CHAR_LITERAL -> CHAR_KEYS
+            tokenType == CrystalTypes.COMMAND_LITERAL -> STRING_KEYS
+            tokenType == CrystalTypes.HEREDOC_CONTENT || tokenType == CrystalTypes.HEREDOC_START || tokenType == CrystalTypes.HEREDOC_END -> STRING_KEYS
+            tokenType == CrystalTypes.PERCENT_LITERAL_BEGIN || tokenType == CrystalTypes.PERCENT_LITERAL_END -> STRING_KEYS
+            tokenType == CrystalTypes.REGEX_LITERAL -> REGEX_KEYS
+            tokenType == CrystalTypes.SYMBOL_LITERAL -> SYMBOL_KEYS
+            tokenType == CrystalTypes.STRING_INTERPOLATION_BEGIN || tokenType == CrystalTypes.STRING_INTERPOLATION_END -> INTERPOLATION_KEYS
+            tokenType == CrystalTypes.LINE_COMMENT -> COMMENT_KEYS
+            tokenType == CrystalTypes.IDENTIFIER -> IDENTIFIER_KEYS
+            tokenType == CrystalTypes.CONSTANT -> CONSTANT_KEYS
+            tokenType == CrystalTypes.INSTANCE_VAR -> INSTANCE_VAR_KEYS
+            tokenType == CrystalTypes.CLASS_VAR -> CLASS_VAR_KEYS
+            tokenType == CrystalTypes.GLOBAL_VAR -> GLOBAL_VAR_KEYS
             CrystalTokenTypes.OPERATORS.contains(tokenType) -> OPERATOR_KEYS
-            tokenType == CrystalTokenTypes.COMMA -> COMMA_KEYS
-            tokenType == CrystalTokenTypes.SEMICOLON -> SEMICOLON_KEYS
-            tokenType == CrystalTokenTypes.DOT -> DOT_KEYS
-            tokenType == CrystalTokenTypes.LPAREN || tokenType == CrystalTokenTypes.RPAREN -> PARENTHESES_KEYS
-            tokenType == CrystalTokenTypes.LBRACKET || tokenType == CrystalTokenTypes.RBRACKET -> BRACKETS_KEYS
-            tokenType == CrystalTokenTypes.LBRACE || tokenType == CrystalTokenTypes.RBRACE -> BRACES_KEYS
+            tokenType == CrystalTypes.COMMA -> COMMA_KEYS
+            tokenType == CrystalTypes.SEMICOLON -> SEMICOLON_KEYS
+            tokenType == CrystalTypes.DOT -> DOT_KEYS
+            tokenType == CrystalTypes.LPAREN || tokenType == CrystalTypes.RPAREN -> PARENTHESES_KEYS
+            tokenType == CrystalTypes.LBRACKET || tokenType == CrystalTypes.RBRACKET -> BRACKETS_KEYS
+            tokenType == CrystalTypes.LBRACE || tokenType == CrystalTypes.RBRACE -> BRACES_KEYS
             tokenType == CrystalTokenTypes.BAD_CHARACTER -> BAD_CHARACTER_KEYS
             else -> EMPTY_KEYS
         }

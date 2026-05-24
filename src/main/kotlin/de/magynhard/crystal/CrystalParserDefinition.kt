@@ -29,6 +29,8 @@ class CrystalParserDefinition : ParserDefinition {
 
     override fun getFileNodeType(): IFileElementType = FILE
 
+    override fun getWhitespaceTokens(): TokenSet = TokenSet.create(CrystalTokenTypes.WHITE_SPACE)
+
     override fun getCommentTokens(): TokenSet = CrystalTokenTypes.COMMENTS
 
     override fun getStringLiteralElements(): TokenSet = CrystalTokenTypes.STRINGS

@@ -16,6 +16,9 @@ public interface CrystalTypes {
   IElementType ARGUMENT_LIST = new CrystalElementType("ARGUMENT_LIST");
   IElementType ARRAY_LITERAL = new CrystalElementType("ARRAY_LITERAL");
   IElementType ASSIGNMENT = new CrystalElementType("ASSIGNMENT");
+  IElementType BARE_ARGUMENT = new CrystalElementType("BARE_ARGUMENT");
+  IElementType BARE_ARGUMENT_LIST = new CrystalElementType("BARE_ARGUMENT_LIST");
+  IElementType BARE_METHOD_CALL_EXPRESSION = new CrystalElementType("BARE_METHOD_CALL_EXPRESSION");
   IElementType BEGIN_STATEMENT = new CrystalElementType("BEGIN_STATEMENT");
   IElementType BLOCK = new CrystalElementType("BLOCK");
   IElementType BREAK_STATEMENT = new CrystalElementType("BREAK_STATEMENT");
@@ -240,6 +243,15 @@ public interface CrystalTypes {
       }
       else if (type == ASSIGNMENT) {
         return new CrystalAssignmentImpl(node);
+      }
+      else if (type == BARE_ARGUMENT) {
+        return new CrystalBareArgumentImpl(node);
+      }
+      else if (type == BARE_ARGUMENT_LIST) {
+        return new CrystalBareArgumentListImpl(node);
+      }
+      else if (type == BARE_METHOD_CALL_EXPRESSION) {
+        return new CrystalBareMethodCallExpressionImpl(node);
       }
       else if (type == BEGIN_STATEMENT) {
         return new CrystalBeginStatementImpl(node);

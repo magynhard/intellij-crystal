@@ -4,16 +4,16 @@ import com.intellij.lang.BracePair
 import com.intellij.lang.PairedBraceMatcher
 import com.intellij.psi.PsiFile
 import com.intellij.psi.tree.IElementType
-import de.magynhard.crystal.lexer.CrystalTokenTypes
+import de.magynhard.crystal.psi.CrystalTypes
 
 class CrystalBraceMatcher : PairedBraceMatcher {
 
     companion object {
         private val PAIRS = arrayOf(
-            BracePair(CrystalTokenTypes.LPAREN, CrystalTokenTypes.RPAREN, false),
-            BracePair(CrystalTokenTypes.LBRACKET, CrystalTokenTypes.RBRACKET, false),
-            BracePair(CrystalTokenTypes.LBRACE, CrystalTokenTypes.RBRACE, false),
-            BracePair(CrystalTokenTypes.PERCENT_LITERAL_BEGIN, CrystalTokenTypes.PERCENT_LITERAL_END, false),
+            BracePair(CrystalTypes.LPAREN, CrystalTypes.RPAREN, false),
+            BracePair(CrystalTypes.LBRACKET, CrystalTypes.RBRACKET, false),
+            BracePair(CrystalTypes.LBRACE, CrystalTypes.RBRACE, false),
+            BracePair(CrystalTypes.PERCENT_LITERAL_BEGIN, CrystalTypes.PERCENT_LITERAL_END, false),
         )
     }
 
