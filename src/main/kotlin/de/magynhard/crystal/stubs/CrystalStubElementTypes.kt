@@ -138,7 +138,7 @@ class CrystalMethodDefinitionElementType(debugName: String) :
     }
 
     override fun createStub(psi: CrystalMethodDefinition, parentStub: StubElement<out PsiElement>?): CrystalMethodDefinitionStub {
-        return CrystalMethodDefinitionStub(parentStub, this, psi.methodName?.text)
+        return CrystalMethodDefinitionStub(parentStub, this, psi.name)
     }
 
     override fun createPsi(stub: CrystalMethodDefinitionStub): CrystalMethodDefinition {
@@ -167,7 +167,7 @@ class CrystalMacroDefinitionElementType(debugName: String) :
     }
 
     override fun createStub(psi: CrystalMacroDefinition, parentStub: StubElement<out PsiElement>?): CrystalMacroDefinitionStub {
-        return CrystalMacroDefinitionStub(parentStub, this, psi.methodName?.text)
+        return CrystalMacroDefinitionStub(parentStub, this, psi.name)
     }
 
     override fun createPsi(stub: CrystalMacroDefinitionStub): CrystalMacroDefinition {

@@ -112,6 +112,9 @@
         <gotoSymbolContributor
                 implementation="de.magynhard.crystal.navigation.CrystalGoToSymbolContributor"/>
 
+        <gotoDeclarationHandler
+                implementation="de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler"/>
+
         <lang.findUsagesProvider
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.navigation.CrystalFindUsagesProvider"/>

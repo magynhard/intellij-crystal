@@ -29,6 +29,8 @@ Generated sources live in `src/main/gen/` and are **committed**. Regenerate with
 - **EnterHandler uses `postProcessEnter`** (not `preprocessEnter`) — avoids colliding with IntelliJ's normal Enter processing. Balance check scans the entire document.
 - **`liveTemplateContext` requires `contextId` attribute** in plugin.xml (IntelliJ 2025.1+). Without it, platform tests and IDE startup fail.
 - **Annotator for semantic highlighting** (PSI-based), not lexer-based. Lexer highlighting is token-level only.
+- **Go to Definition uses two mechanisms**: PSI mixins (on `variable_reference`, `method_call_expression`, `bare_method_call_expression`, `type_path`) for direct references, and `GotoDeclarationHandler` for DOT-call expressions (`obj.method`, `Class.method`). Never use `PsiReferenceContributor` — it doesn't receive leaf tokens.
+- **StubIndex stores cleaned names**: `def self.tanzen` is indexed as `"tanzen"` (via `psi.name`), not `"self.tanzen"` (via `psi.methodName?.text`).
 
 ## Key Directories
 
