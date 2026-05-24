@@ -16,14 +16,13 @@
   <li><b>Rename Refactoring</b> — in-place rename with preview and compiler verification (Shift+F6)</li>
   <li><b>Run Configurations</b> — crystal run, build, and spec</li>
   <li><b>Live Templates</b> — 21 code snippets for common patterns</li>
-  <li><b>Crystalline LSP</b> — optional integration for diagnostics, hover, completion</li>
+  <li><b>Go to Definition</b> — Ctrl+Click / Ctrl+B to jump to class, module, struct, enum, and method definitions</li>
   <li><b>Code Folding, Brace Matching, Auto-Insert, TODO Indexing</b></li>
 </ul>
 
 <h3>Requirements</h3>
 <ul>
   <li>Crystal installed and available in PATH</li>
-  <li>Crystalline (optional, for LSP features)</li>
 </ul>
 ]]></description>
 
@@ -38,7 +37,7 @@
   <li>Rename refactoring with compiler verification</li>
   <li>Run configurations for crystal run/build/spec</li>
   <li>21 Live Templates for common Crystal patterns</li>
-  <li>Crystalline LSP integration (auto-detection)</li>
+  <li>Crystalline LSP removed — all features are now plugin-native</li>
   <li>Code folding, brace matching, auto-insert, TODO indexing</li>
 </ul>
 ]]></change-notes>
@@ -75,9 +74,6 @@
 
         <colorSettingsPage
                 implementation="de.magynhard.crystal.highlighting.CrystalColorSettingsPage"/>
-
-        <platform.lsp.serverSupportProvider
-                implementation="de.magynhard.crystal.lsp.CrystalLspServerSupportProvider"/>
 
         <lang.quoteHandler
                 language="Crystal"
@@ -119,6 +115,10 @@
         <lang.findUsagesProvider
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.navigation.CrystalFindUsagesProvider"/>
+
+        <psi.referenceContributor
+                language="Crystal"
+                implementation="de.magynhard.crystal.psi.CrystalReferenceContributor"/>
 
         <gotoClassContributor
                 implementation="de.magynhard.crystal.navigation.CrystalGoToClassContributor"/>

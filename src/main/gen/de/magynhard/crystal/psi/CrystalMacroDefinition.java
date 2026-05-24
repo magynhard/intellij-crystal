@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.StubBasedPsiElement;
 import de.magynhard.crystal.stubs.CrystalMacroDefinitionStub;
 
-public interface CrystalMacroDefinition extends PsiElement, StubBasedPsiElement<CrystalMacroDefinitionStub> {
+public interface CrystalMacroDefinition extends CrystalNamedElement, StubBasedPsiElement<CrystalMacroDefinitionStub> {
 
   @Nullable
   CrystalMethodBody getMethodBody();

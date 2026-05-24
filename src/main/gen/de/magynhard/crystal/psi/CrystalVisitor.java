@@ -68,7 +68,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitClassDefinition(@NotNull CrystalClassDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitConstantAssignment(@NotNull CrystalConstantAssignment o) {
@@ -96,7 +96,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitEnumDefinition(@NotNull CrystalEnumDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitExpression(@NotNull CrystalExpression o) {
@@ -164,7 +164,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitMacroDefinition(@NotNull CrystalMacroDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitMethodBody(@NotNull CrystalMethodBody o) {
@@ -176,7 +176,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitMethodDefinition(@NotNull CrystalMethodDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitMethodName(@NotNull CrystalMethodName o) {
@@ -184,7 +184,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitModuleDefinition(@NotNull CrystalModuleDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitNextStatement(@NotNull CrystalNextStatement o) {
@@ -240,7 +240,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitStructDefinition(@NotNull CrystalStructDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitSuperclassClause(@NotNull CrystalSuperclassClause o) {
@@ -304,6 +304,10 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitYieldStatement(@NotNull CrystalYieldStatement o) {
+    visitPsiElement(o);
+  }
+
+  public void visitNamedElement(@NotNull CrystalNamedElement o) {
     visitPsiElement(o);
   }
 

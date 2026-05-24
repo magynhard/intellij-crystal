@@ -16,6 +16,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ### Navigation
 
+- **Go to Definition** (Ctrl+Click / Ctrl+B) — jump to class, module, struct, enum, and method definitions via StubIndex
 - **Go to Symbol** (Ctrl+Alt+Shift+N) — find any symbol in the project
 - **Go to Class** (Ctrl+N) — find classes, modules, structs, enums
 - **Find Usages** (Alt+F7) — word-based search with token type awareness
@@ -41,12 +42,6 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 - **Live Templates** — 21 snippets for common Crystal patterns (class, module, struct, def, spec, etc.)
 
-### LSP Integration
-
-- **Crystalline** — automatic detection and integration when installed
-- Provides additional semantic features (diagnostics, hover, go to definition, completion)
-- Works as enhancement — all core features work without LSP
-
 ### Parser
 
 - **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, expressions with operator precedence, type references, blocks, literals
@@ -57,7 +52,6 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 - **IntelliJ Platform** 2025.1 or later
 - **Crystal** installed and available in PATH (for formatting and compiler verification)
-- **Crystalline** (optional) — for LSP-based semantic features
 
 ## Installation
 
@@ -86,16 +80,15 @@ To run a development IDE instance:
 ```
 Crystal.flex (JFlex)     →  Lexer (tokenization, highlighting)
 Crystal.bnf (GrammarKit) →  Parser (PSI tree, structure)
-Stubs                    →  StubIndex (project-wide search)
-LSP                      →  Crystalline (optional semantic features)
+Stubs                    →  StubIndex (project-wide search, Go to Definition)
 ```
 
 ### Design Decisions
 
-- **Hybrid approach**: Plugin-native features for speed and offline use, LSP as optional enhancement
+- **All features plugin-native**: No external LSP dependency — everything works offline and instantly
 - **StubIndex over FileBasedIndex**: Industry standard for IntelliJ plugins, enables instant project-wide navigation
 - **External formatter**: Crystal's built-in `crystal tool format` is canonical — no need to reimplement
-- **Rename strategy**: Token-based + preview dialog + compiler verification. Crystalline does not support `textDocument/rename`, so a pure-LSP approach is not possible
+- **Rename strategy**: Token-based + preview dialog + compiler verification
 - **Generated files committed**: Standard convention for GrammarKit-based plugins to ensure reproducible builds
 
 ## Development
@@ -110,11 +103,10 @@ src/main/kotlin/de/magynhard/crystal/
 ├── stubs/              # StubIndex infrastructure
 ├── highlighting/       # Syntax highlighter + color settings
 ├── structure/          # Structure View (PSI-based)
-├── navigation/         # Go to Symbol/Class, Find Usages, Parameter Info
+├── navigation/         # Go to Symbol/Class, Find Usages, Parameter Info, Go to Definition
 ├── formatting/         # External formatter (crystal tool format)
 ├── refactoring/        # Rename support + compiler verification
 ├── run/                # Run configurations
-├── lsp/                # Crystalline LSP integration
 └── *.kt                # Core (language, file type, icons, commenter, etc.)
 
 src/main/gen/           # Generated lexer, parser, and PSI classes (committed)

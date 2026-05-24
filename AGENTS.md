@@ -37,7 +37,8 @@ src/main/kotlin/de/magynhard/crystal/
 ├── lexer/          Crystal.flex + CrystalTokenTypes.kt (TokenSets)
 ├── parser/         Crystal.bnf
 ├── highlighting/   Syntax highlighter + Annotator + Color settings
-├── lsp/            Crystalline LSP client
+├── psi/            CrystalNamedElement, CrystalReference, CrystalReferenceContributor
+├── navigation/     GoTo Symbol/Class, Find Usages, Parameter Info
 ├── run/            Run configurations (run/build/spec)
 └── settings/       SDK detector, settings configurable
 
@@ -66,4 +67,3 @@ All extensions are registered in `src/main/resources/META-INF/plugin.xml`. When 
 ## External Dependencies
 
 - Crystal compiler at `/usr/bin/crystal` (used by formatter, run configs)
-- Crystalline LSP: optional, auto-detected if installed

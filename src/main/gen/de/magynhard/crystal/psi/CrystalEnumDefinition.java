@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.StubBasedPsiElement;
 import de.magynhard.crystal.stubs.CrystalEnumDefinitionStub;
 
-public interface CrystalEnumDefinition extends PsiElement, StubBasedPsiElement<CrystalEnumDefinitionStub> {
+public interface CrystalEnumDefinition extends CrystalNamedElement, StubBasedPsiElement<CrystalEnumDefinitionStub> {
 
   @Nullable
   CrystalEnumBody getEnumBody();

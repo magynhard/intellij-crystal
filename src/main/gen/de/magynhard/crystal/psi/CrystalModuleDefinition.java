@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.StubBasedPsiElement;
 import de.magynhard.crystal.stubs.CrystalModuleDefinitionStub;
 
-public interface CrystalModuleDefinition extends PsiElement, StubBasedPsiElement<CrystalModuleDefinitionStub> {
+public interface CrystalModuleDefinition extends CrystalNamedElement, StubBasedPsiElement<CrystalModuleDefinitionStub> {
 
   @Nullable
   CrystalClassBody getClassBody();
