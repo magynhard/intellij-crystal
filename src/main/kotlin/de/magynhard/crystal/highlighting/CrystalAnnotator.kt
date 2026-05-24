@@ -3,6 +3,8 @@ package de.magynhard.crystal.highlighting
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.openapi.editor.colors.EditorColorsManager
+import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
@@ -27,27 +29,19 @@ class CrystalAnnotator : Annotator {
 
     private fun annotateMethodDefinition(element: CrystalMethodDefinition, holder: AnnotationHolder) {
         val methodName = element.methodName ?: return
-        holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
-            .range(methodName)
-            .textAttributes(CrystalSyntaxHighlighter.FUNCTION_DECLARATION)
-            .create()
+        applyEnforced(holder, methodName, CrystalSyntaxHighlighter.FUNCTION_DECLARATION)
     }
 
     /**
      * Highlight the CONSTANT leaf tokens inside a type_name composite.
-     * This ensures "class Apfel" highlights "Apfel" with CLASS_DECLARATION color,
-     * overriding the default CONSTANT highlighting from the lexer.
+     * Uses enforcedTextAttributes to override the lexer-level CONSTANT highlighting.
      */
     private fun annotateTypeDefinition(typeName: CrystalTypeName?, holder: AnnotationHolder) {
         if (typeName == null) return
-        // Walk leaf children to find all CONSTANT tokens (handles Foo::Bar::Baz)
         var child = typeName.firstChild
         while (child != null) {
             if (child.node.elementType == CrystalTypes.CONSTANT) {
-                holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
-                    .range(child)
-                    .textAttributes(CrystalSyntaxHighlighter.CLASS_DECLARATION)
-                    .create()
+                applyEnforced(holder, child, CrystalSyntaxHighlighter.CLASS_DECLARATION)
             }
             child = child.nextSibling
         }
@@ -58,10 +52,7 @@ class CrystalAnnotator : Annotator {
      */
     private fun annotateParameter(element: CrystalParameter, holder: AnnotationHolder) {
         val ident = element.node.findChildByType(CrystalTypes.IDENTIFIER) ?: return
-        holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
-            .range(ident.psi)
-            .textAttributes(CrystalSyntaxHighlighter.PARAMETER)
-            .create()
+        applyEnforced(holder, ident.psi, CrystalSyntaxHighlighter.PARAMETER)
     }
 
     /**
@@ -69,7 +60,6 @@ class CrystalAnnotator : Annotator {
      * highlight it as a parameter usage.
      */
     private fun annotateParameterUsage(element: PsiElement, holder: AnnotationHolder) {
-        // Only for IDENTIFIER leaf tokens
         val name = element.text
         if (name.isBlank()) return
 
@@ -95,9 +85,27 @@ class CrystalAnnotator : Annotator {
         }.toSet()
 
         if (name in paramNames) {
+            applyEnforced(holder, element, CrystalSyntaxHighlighter.PARAMETER)
+        }
+    }
+
+    /**
+     * Apply highlighting using enforcedTextAttributes so that it overrides
+     * the lexer-level token highlighting (e.g. CONSTANT, IDENTIFIER).
+     * Falls back to textAttributes if the color scheme lookup fails.
+     */
+    private fun applyEnforced(holder: AnnotationHolder, element: PsiElement, key: TextAttributesKey) {
+        val scheme = EditorColorsManager.getInstance().globalScheme
+        val attrs = scheme.getAttributes(key)
+        if (attrs != null) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                 .range(element)
-                .textAttributes(CrystalSyntaxHighlighter.PARAMETER)
+                .enforcedTextAttributes(attrs)
+                .create()
+        } else {
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                .range(element)
+                .textAttributes(key)
                 .create()
         }
     }
