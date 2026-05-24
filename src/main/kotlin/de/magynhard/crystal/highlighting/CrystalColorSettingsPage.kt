@@ -33,6 +33,8 @@ class CrystalColorSettingsPage : ColorSettingsPage {
             AttributesDescriptor("Semicolon", CrystalSyntaxHighlighter.SEMICOLON),
             AttributesDescriptor("Dot", CrystalSyntaxHighlighter.DOT),
             AttributesDescriptor("Bad character", CrystalSyntaxHighlighter.BAD_CHARACTER),
+            AttributesDescriptor("Function declaration", CrystalSyntaxHighlighter.FUNCTION_DECLARATION),
+            AttributesDescriptor("Class/Module declaration", CrystalSyntaxHighlighter.CLASS_DECLARATION),
         )
     }
 

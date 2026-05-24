@@ -83,8 +83,12 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalQuoteHandler"/>
 
-        <typedHandler
-                implementation="de.magynhard.crystal.CrystalTypedHandler"/>
+        <enterHandlerDelegate
+                implementation="de.magynhard.crystal.CrystalEnterHandler"/>
+
+        <annotator
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.highlighting.CrystalAnnotator"/>
 
         <todoIndexer
                 filetype="Crystal"
