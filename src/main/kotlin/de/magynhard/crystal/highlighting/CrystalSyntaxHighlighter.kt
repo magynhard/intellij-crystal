@@ -79,8 +79,9 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
             tokenType == CrystalTypes.SYMBOL_LITERAL -> SYMBOL_KEYS
             tokenType == CrystalTypes.STRING_INTERPOLATION_BEGIN || tokenType == CrystalTypes.STRING_INTERPOLATION_END -> INTERPOLATION_KEYS
             tokenType == CrystalTypes.LINE_COMMENT -> COMMENT_KEYS
-            tokenType == CrystalTypes.IDENTIFIER -> IDENTIFIER_KEYS
-            tokenType == CrystalTypes.CONSTANT -> CONSTANT_KEYS
+            // IDENTIFIER and CONSTANT are handled by the Annotator (context-sensitive)
+            tokenType == CrystalTypes.IDENTIFIER -> EMPTY_KEYS
+            tokenType == CrystalTypes.CONSTANT -> EMPTY_KEYS
             tokenType == CrystalTypes.INSTANCE_VAR -> INSTANCE_VAR_KEYS
             tokenType == CrystalTypes.CLASS_VAR -> CLASS_VAR_KEYS
             tokenType == CrystalTypes.GLOBAL_VAR -> GLOBAL_VAR_KEYS

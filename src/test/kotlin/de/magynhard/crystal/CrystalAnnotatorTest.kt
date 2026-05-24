@@ -1,77 +1,99 @@
 package de.magynhard.crystal
 
-import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.highlighting.CrystalSyntaxHighlighter
 
 /**
  * Tests for CrystalAnnotator — semantic highlighting of type declarations,
  * method declarations, and parameter highlighting (definition + usage).
- *
- * Uses enforcedTextAttributes, so we check forcedTextAttributes (not forcedTextAttributesKey).
  */
 class CrystalAnnotatorTest : BasePlatformTestCase() {
-
-    private fun hasEnforcedHighlight(text: String, key: com.intellij.openapi.editor.colors.TextAttributesKey): Boolean {
-        val highlights = myFixture.doHighlighting()
-        val scheme = EditorColorsManager.getInstance().globalScheme
-        val expectedAttrs = scheme.getAttributes(key)
-        return highlights.any { h ->
-            h.text == text && (
-                h.forcedTextAttributesKey == key ||
-                h.forcedTextAttributes == expectedAttrs
-            )
-        }
-    }
 
     // ==================== Type declaration highlighting ====================
 
     fun testClassNameHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "class Apfel\nend")
-        assertTrue("Class name 'Apfel' should be highlighted as CLASS_DECLARATION",
-            hasEnforcedHighlight("Apfel", CrystalSyntaxHighlighter.CLASS_DECLARATION))
+        val highlights = myFixture.doHighlighting()
+        val h = highlights.find {
+            it.text == "Apfel" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+        }
+        assertNotNull("Class name 'Apfel' should be highlighted as CLASS_DECLARATION", h)
     }
 
     fun testModuleNameHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "module Utils\nend")
-        assertTrue("Module name 'Utils' should be highlighted as CLASS_DECLARATION",
-            hasEnforcedHighlight("Utils", CrystalSyntaxHighlighter.CLASS_DECLARATION))
+        val highlights = myFixture.doHighlighting()
+        val h = highlights.find {
+            it.text == "Utils" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+        }
+        assertNotNull("Module name 'Utils' should be highlighted as CLASS_DECLARATION", h)
     }
 
     fun testStructNameHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "struct Point\nend")
-        assertTrue("Struct name 'Point' should be highlighted as CLASS_DECLARATION",
-            hasEnforcedHighlight("Point", CrystalSyntaxHighlighter.CLASS_DECLARATION))
+        val highlights = myFixture.doHighlighting()
+        val h = highlights.find {
+            it.text == "Point" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+        }
+        assertNotNull("Struct name 'Point' should be highlighted as CLASS_DECLARATION", h)
     }
 
     fun testEnumNameHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "enum Color\nRed\nend")
-        assertTrue("Enum name 'Color' should be highlighted as CLASS_DECLARATION",
-            hasEnforcedHighlight("Color", CrystalSyntaxHighlighter.CLASS_DECLARATION))
+        val highlights = myFixture.doHighlighting()
+        val h = highlights.find {
+            it.text == "Color" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+        }
+        assertNotNull("Enum name 'Color' should be highlighted as CLASS_DECLARATION", h)
     }
 
     fun testNamespacedClassNameHighlighted() {
         myFixture.configureByText("test.cr", "class Foo::Bar\nend")
-        assertTrue("Namespace 'Foo' should be highlighted as CLASS_DECLARATION",
-            hasEnforcedHighlight("Foo", CrystalSyntaxHighlighter.CLASS_DECLARATION))
-        assertTrue("Class 'Bar' should be highlighted as CLASS_DECLARATION",
-            hasEnforcedHighlight("Bar", CrystalSyntaxHighlighter.CLASS_DECLARATION))
+        val highlights = myFixture.doHighlighting()
+        val fooH = highlights.find {
+            it.text == "Foo" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+        }
+        val barH = highlights.find {
+            it.text == "Bar" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+        }
+        assertNotNull("Namespace 'Foo' should be highlighted as CLASS_DECLARATION", fooH)
+        assertNotNull("Class 'Bar' should be highlighted as CLASS_DECLARATION", barH)
+    }
+
+    // ==================== Constant reference highlighting ====================
+
+    fun testConstantReferenceHighlightedAsConstant() {
+        myFixture.configureByText("test.cr", "class Apfel\nend\nx = Apfel.new")
+        val highlights = myFixture.doHighlighting()
+        // The "Apfel" after "x = " should be CONSTANT (not CLASS_DECLARATION)
+        val constH = highlights.filter {
+            it.text == "Apfel" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
+        }
+        assertTrue("'Apfel' reference should be highlighted as CONSTANT", constH.isNotEmpty())
     }
 
     // ==================== Parameter highlighting ====================
 
     fun testParameterHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "def greet(name)\nend")
-        assertTrue("Parameter 'name' should be highlighted as PARAMETER",
-            hasEnforcedHighlight("name", CrystalSyntaxHighlighter.PARAMETER))
+        val highlights = myFixture.doHighlighting()
+        val h = highlights.find {
+            it.text == "name" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        }
+        assertNotNull("Parameter 'name' should be highlighted as PARAMETER", h)
     }
 
     fun testMultipleParametersHighlighted() {
         myFixture.configureByText("test.cr", "def add(a, b)\nend")
-        assertTrue("Parameter 'a' should be highlighted as PARAMETER",
-            hasEnforcedHighlight("a", CrystalSyntaxHighlighter.PARAMETER))
-        assertTrue("Parameter 'b' should be highlighted as PARAMETER",
-            hasEnforcedHighlight("b", CrystalSyntaxHighlighter.PARAMETER))
+        val highlights = myFixture.doHighlighting()
+        val aH = highlights.find {
+            it.text == "a" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        }
+        val bH = highlights.find {
+            it.text == "b" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        }
+        assertNotNull("Parameter 'a' should be highlighted as PARAMETER", aH)
+        assertNotNull("Parameter 'b' should be highlighted as PARAMETER", bH)
     }
 
     fun testParameterUsageHighlightedInMethodBody() {
@@ -81,13 +103,8 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         val highlights = myFixture.doHighlighting()
-        val scheme = EditorColorsManager.getInstance().globalScheme
-        val expectedAttrs = scheme.getAttributes(CrystalSyntaxHighlighter.PARAMETER)
-        val paramUsages = highlights.filter { h ->
-            h.text == "name" && (
-                h.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER ||
-                h.forcedTextAttributes == expectedAttrs
-            )
+        val paramUsages = highlights.filter {
+            it.text == "name" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
         }
         assertTrue(
             "Parameter 'name' should be highlighted in both definition and usage, found ${paramUsages.size}",
@@ -103,13 +120,8 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         val highlights = myFixture.doHighlighting()
-        val scheme = EditorColorsManager.getInstance().globalScheme
-        val expectedAttrs = scheme.getAttributes(CrystalSyntaxHighlighter.PARAMETER)
-        val xAsParam = highlights.filter { h ->
-            h.text == "x" && (
-                h.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER ||
-                h.forcedTextAttributes == expectedAttrs
-            )
+        val xAsParam = highlights.filter {
+            it.text == "x" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
         }
         assertTrue("Local variable 'x' should NOT be highlighted as PARAMETER", xAsParam.isEmpty())
     }
@@ -121,13 +133,8 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
             puts name
         """.trimIndent())
         val highlights = myFixture.doHighlighting()
-        val scheme = EditorColorsManager.getInstance().globalScheme
-        val expectedAttrs = scheme.getAttributes(CrystalSyntaxHighlighter.PARAMETER)
-        val paramHighlights = highlights.filter { h ->
-            h.text == "name" && (
-                h.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER ||
-                h.forcedTextAttributes == expectedAttrs
-            )
+        val paramHighlights = highlights.filter {
+            it.text == "name" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
         }
         assertEquals(
             "Only the parameter definition should be highlighted, not usage outside method",
@@ -139,7 +146,21 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
 
     fun testMethodNameHighlighted() {
         myFixture.configureByText("test.cr", "def greet\nend")
-        assertTrue("Method name 'greet' should be highlighted as FUNCTION_DECLARATION",
-            hasEnforcedHighlight("greet", CrystalSyntaxHighlighter.FUNCTION_DECLARATION))
+        val highlights = myFixture.doHighlighting()
+        val h = highlights.find {
+            it.text == "greet" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.FUNCTION_DECLARATION
+        }
+        assertNotNull("Method name 'greet' should be highlighted as FUNCTION_DECLARATION", h)
+    }
+
+    // ==================== Default identifier highlighting ====================
+
+    fun testLocalVariableHighlightedAsIdentifier() {
+        myFixture.configureByText("test.cr", "x = 1")
+        val highlights = myFixture.doHighlighting()
+        val h = highlights.find {
+            it.text == "x" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.IDENTIFIER
+        }
+        assertNotNull("Local variable 'x' should be highlighted as IDENTIFIER", h)
     }
 }
