@@ -29,7 +29,7 @@ The current grammar covers the most common constructs. The following extensions 
 
 ## IDE Features (require parser improvements)
 
-- [x] Reference resolution — resolve variables/methods to their declarations (via StubIndex + local scope)
+- [x] Reference resolution — resolve variables/methods to their declarations (via StubIndex + FileTypeIndex fallback + local scope; works cross-file)
 - [ ] Code completion — context-aware suggestions
 - [ ] Type inference (basic) — deduce variable type from assignment
 - [ ] Scope-aware rename — improve current token-based rename with scope analysis
@@ -63,7 +63,8 @@ The current grammar covers the most common constructs. The following extensions 
 
 ## Key Decisions
 
-- **Crystalline LSP removed** — unmaintained, replaced by plugin-native Go to Definition via CrystalReference + StubIndex.
+- **Crystalline LSP removed** — unmaintained, replaced by plugin-native Go to Definition via CrystalReference + StubIndex + FileTypeIndex fallback.
+- **Two-tier definition lookup** — CrystalDefinitionFinder uses StubIndex (fast) with FileTypeIndex + PSI tree walk fallback (always works regardless of index state). This makes Go to Definition robust against stale or incomplete stub caches.
 - **Crystalline does not support rename** — there is no `textDocument/rename` handler. The hybrid approach (token-based + preview dialog + compiler verification) is the only viable option.
 - **Crystal formatter has no options** — `crystal tool format` is canonical; no settings panel needed.
 - **StubIndex chosen over FileBasedIndex** — industry standard for IntelliJ plugins, provides instant project-wide navigation with proper PSI element access.
