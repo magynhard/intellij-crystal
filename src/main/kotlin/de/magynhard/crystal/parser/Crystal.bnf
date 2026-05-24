@@ -439,7 +439,9 @@ grouped_expression ::= LPAREN expression RPAREN
 
 method_call_expression ::= (IDENTIFIER | CONSTANT) call_args [block]
                          | (IDENTIFIER | CONSTANT) bare_argument_list [block]
-                         | (IDENTIFIER | CONSTANT) block
+                         | (IDENTIFIER | CONSTANT) block {
+  mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
+}
 
 call_args ::= LPAREN argument_list RPAREN
             | LPAREN RPAREN
@@ -508,7 +510,9 @@ private bare_primary_expression ::= grouped_expression
                                   | instance_sizeof_expression
                                   | pointerof_expression
 
-bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
+bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
+  mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
+}
 
 block ::= DO [PIPE parameter_list PIPE] statement_list END
         | LBRACE [PIPE parameter_list PIPE] statement_list RBRACE
@@ -548,7 +552,9 @@ hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
 
 // ==================== Variable References ====================
 
-variable_reference ::= INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | IDENTIFIER | CONSTANT
+variable_reference ::= INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | IDENTIFIER | CONSTANT {
+  mixin="de.magynhard.crystal.psi.impl.CrystalVariableReferenceMixin"
+}
 
 // ==================== Type References ====================
 
@@ -558,7 +564,9 @@ private type_union ::= type_single (PIPE type_single)*
 
 private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
 
-type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)*
+type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
+  mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"
+}
 
 type_arguments ::= LPAREN type_reference (COMMA type_reference)* RPAREN
 

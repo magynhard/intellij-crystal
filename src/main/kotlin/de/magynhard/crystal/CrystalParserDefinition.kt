@@ -20,7 +20,9 @@ import de.magynhard.crystal.psi.CrystalTypes
 class CrystalParserDefinition : ParserDefinition {
 
     companion object {
-        val FILE = IStubFileElementType<PsiFileStub<CrystalFile>>(CrystalLanguage)
+        val FILE = object : IStubFileElementType<PsiFileStub<CrystalFile>>(CrystalLanguage) {
+            override fun getExternalId(): String = "crystal.FILE"
+        }
     }
 
     override fun createLexer(project: Project?): Lexer = CrystalLexerAdapter()

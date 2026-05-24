@@ -116,10 +116,6 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.navigation.CrystalFindUsagesProvider"/>
 
-        <psi.referenceContributor
-                language="Crystal"
-                implementation="de.magynhard.crystal.psi.CrystalReferenceContributor"/>
-
         <gotoClassContributor
                 implementation="de.magynhard.crystal.navigation.CrystalGoToClassContributor"/>
 

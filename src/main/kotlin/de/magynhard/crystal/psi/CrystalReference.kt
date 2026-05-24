@@ -11,8 +11,12 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
  * Reference from an identifier usage to its definition (class/module/struct/enum/method/macro).
  * Resolves via StubIndex for project-wide lookup, with local-scope fallback.
  */
-class CrystalReference(element: PsiElement, private val name: String) :
-    PsiReferenceBase<PsiElement>(element, TextRange(0, element.textLength), true) {
+class CrystalReference(
+    element: PsiElement,
+    private val name: String,
+    rangeStart: Int,
+    rangeLength: Int
+) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
     override fun resolve(): PsiElement? {
         val project = element.project
@@ -32,8 +36,57 @@ class CrystalReference(element: PsiElement, private val name: String) :
         )
         if (methods.isNotEmpty()) return methods.first()
 
-        // 3. Local scope fallback: walk up PSI tree to find local variable assignments or parameters
+        // 3. Walk the file PSI tree to find method/macro definitions by name (covers non-stubbed cases)
+        val file = element.containingFile ?: return resolveLocal()
+        val fileDef = findDefinitionInTree(file)
+        if (fileDef != null) return fileDef
+
+        // 4. Local scope fallback: walk up PSI tree to find local variable assignments or parameters
         return resolveLocal()
+    }
+
+    private fun findDefinitionInTree(root: PsiElement): PsiElement? {
+        for (child in root.children) {
+            when (child) {
+                is CrystalMethodDefinition -> {
+                    if (child.name == name) return child
+                }
+                is CrystalMacroDefinition -> {
+                    if (child.name == name) return child
+                }
+                is CrystalClassDefinition -> {
+                    if (child.name == name) return child
+                    // Also search inside class bodies
+                    child.classBody?.let { body ->
+                        val inner = findDefinitionInTree(body)
+                        if (inner != null) return inner
+                    }
+                }
+                is CrystalModuleDefinition -> {
+                    if (child.name == name) return child
+                    child.classBody?.let { body ->
+                        val inner = findDefinitionInTree(body)
+                        if (inner != null) return inner
+                    }
+                }
+                is CrystalStructDefinition -> {
+                    if (child.name == name) return child
+                    child.classBody?.let { body ->
+                        val inner = findDefinitionInTree(body)
+                        if (inner != null) return inner
+                    }
+                }
+                is CrystalEnumDefinition -> {
+                    if (child.name == name) return child
+                }
+                else -> {
+                    // Recurse into other composite nodes (e.g. visibility_modifier wrapping a def)
+                    val found = findDefinitionInTree(child)
+                    if (found != null) return found
+                }
+            }
+        }
+        return null
     }
 
     private fun resolveLocal(): PsiElement? {

@@ -8,12 +8,11 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalMethodCallExpressionImpl extends ASTWrapperPsiElement implements CrystalMethodCallExpression {
+public class CrystalMethodCallExpressionImpl extends CrystalMethodCallExpressionMixin implements CrystalMethodCallExpression {
 
-  public CrystalMethodCallExpressionImpl(@NotNull ASTNode node) {
+  public CrystalMethodCallExpressionImpl(ASTNode node) {
     super(node);
   }
 

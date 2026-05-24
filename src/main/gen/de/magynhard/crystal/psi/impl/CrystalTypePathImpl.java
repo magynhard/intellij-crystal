@@ -8,12 +8,11 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalTypePathImpl extends ASTWrapperPsiElement implements CrystalTypePath {
+public class CrystalTypePathImpl extends CrystalTypePathMixin implements CrystalTypePath {
 
-  public CrystalTypePathImpl(@NotNull ASTNode node) {
+  public CrystalTypePathImpl(ASTNode node) {
     super(node);
   }
 

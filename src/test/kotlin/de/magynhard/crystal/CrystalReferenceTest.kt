@@ -10,6 +10,10 @@ import de.magynhard.crystal.psi.*
  */
 class CrystalReferenceTest : BasePlatformTestCase() {
 
+    /** Find the first non-empty reference on the element (covers both intrinsic and contributed). */
+    private fun findReference(element: PsiElement) =
+        element.references.firstOrNull { it is CrystalReference }
+
     // ==================== CrystalNamedElement ====================
 
     fun testClassDefinitionHasName() {
@@ -57,51 +61,96 @@ class CrystalReferenceTest : BasePlatformTestCase() {
 
     // ==================== Reference Resolution ====================
 
-    fun testReferenceResolvesToClassDefinition() {
-        myFixture.configureByText("test.cr", """
-            class Foo
-            end
-            x = Fo<caret>o.new
-        """.trimIndent())
-        val ref = myFixture.file.findElementAt(myFixture.caretOffset)?.parent?.reference
-            ?: myFixture.file.findElementAt(myFixture.caretOffset)?.reference
-        // Reference may be on the leaf node or its parent
-        val element = myFixture.file.findElementAt(myFixture.caretOffset)
-        assertNotNull("Should find element at caret", element)
-        val reference = element?.reference
-        if (reference != null) {
-            val resolved = reference.resolve()
-            if (resolved != null) {
-                assertTrue("Should resolve to CrystalClassDefinition", resolved is CrystalClassDefinition || resolved.parent is CrystalClassDefinition)
-            }
-        }
-    }
-
-    fun testReferenceResolvesToMethodDefinition() {
-        myFixture.configureByText("test.cr", """
+    fun testVariableReferenceResolvesToMethod() {
+        // "greet" without args is parsed as variable_reference
+        val file = myFixture.configureByText("test.cr", """
             def greet
             end
-            gre<caret>et
+            greet
         """.trimIndent())
-        val element = myFixture.file.findElementAt(myFixture.caretOffset)
-        assertNotNull("Should find element at caret", element)
-        val reference = element?.reference
-        if (reference != null) {
-            val resolved = reference.resolve()
-            if (resolved != null) {
-                assertTrue("Should resolve to method",
-                    resolved is CrystalMethodDefinition || resolved.parent is CrystalMethodDefinition)
-            }
+        val varRefs = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+        // Find the standalone "greet" usage (not inside method_name)
+        val greetRef = varRefs.find { ref ->
+            ref.text == "greet" &&
+            ref.parent !is CrystalMethodName &&
+            ref.parent?.parent !is CrystalMethodDefinition
         }
+        assertNotNull("Should find 'greet' variable reference", greetRef)
+        val reference = findReference(greetRef!!)
+        assertNotNull("variable_reference should have a CrystalReference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve to the method definition", resolved)
+        assertTrue("Should resolve to CrystalMethodDefinition",
+            resolved is CrystalMethodDefinition)
+        assertEquals("greet", (resolved as CrystalMethodDefinition).name)
     }
 
-    // ==================== Definition should NOT reference itself ====================
+    fun testMethodCallResolvesToMethod() {
+        // "greet(x)" with args is parsed as method_call_expression
+        val file = myFixture.configureByText("test.cr", """
+            def greet(name)
+            end
+            greet("world")
+        """.trimIndent())
+        val calls = PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java)
+        val greetCall = calls.find { it.text.startsWith("greet(\"world\")") }
+        assertNotNull("Should find method call expression", greetCall)
+        val reference = findReference(greetCall!!)
+        assertNotNull("method_call_expression should have a CrystalReference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve to the method definition", resolved)
+        assertTrue("Should resolve to CrystalMethodDefinition",
+            resolved is CrystalMethodDefinition)
+    }
 
-    fun testDefinitionNameDoesNotReferenceItself() {
-        myFixture.configureByText("test.cr", "class Fo<caret>o\nend")
-        val element = myFixture.file.findElementAt(myFixture.caretOffset)
-        assertNotNull(element)
-        // The definition name itself should not have a reference (it IS the definition)
-        // CrystalReferenceContributor skips elements whose parent is CrystalNamedElement
+    fun testTypePathResolvesToClass() {
+        // In "Foo.new", Foo is parsed as variable_reference (CONSTANT), not type_path
+        val file = myFixture.configureByText("test.cr", """
+            class Foo
+            end
+            x = Foo.new
+        """.trimIndent())
+        val varRefs = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+        val fooRef = varRefs.find { it.text == "Foo" }
+        assertNotNull("Should find Foo variable reference", fooRef)
+        val reference = findReference(fooRef!!)
+        assertNotNull("Foo should have a CrystalReference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve to class definition", resolved)
+        assertTrue("Should resolve to CrystalClassDefinition",
+            resolved is CrystalClassDefinition)
+    }
+
+    // ==================== No self-reference ====================
+
+    fun testDefinitionNameHasNoReference() {
+        val file = myFixture.configureByText("test.cr", "class Foo\nend")
+        val classDef = PsiTreeUtil.findChildOfType(file, CrystalClassDefinition::class.java)
+        assertNotNull(classDef)
+        // The class definition itself should not have a CrystalReference
+        val ref = findReference(classDef!!)
+        assertNull("Definition should not have a self-reference", ref)
+    }
+
+    // ==================== Forward reference ====================
+
+    fun testResolvesMethodDefinedAfterUsage() {
+        val file = myFixture.configureByText("test.cr", """
+            greet
+            def greet
+            end
+        """.trimIndent())
+        val varRefs = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+        val greetRef = varRefs.find { ref ->
+            ref.text == "greet" &&
+            ref.parent !is CrystalMethodName &&
+            ref.parent?.parent !is CrystalMethodDefinition
+        }
+        assertNotNull(greetRef)
+        val reference = findReference(greetRef!!)
+        assertNotNull("Should have reference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve forward reference", resolved)
+        assertTrue(resolved is CrystalMethodDefinition)
     }
 }
