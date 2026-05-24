@@ -52,6 +52,13 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 - Platform tests: `BasePlatformTestCase` subclasses (editor fixture tests)
 - Pure unit tests: no IDE dependency (e.g., `CrystalEnterHandlerBalanceTest`)
 
+**Rule: Every implementation must have unit tests.** Where testable, always create tests to catch regressions and provide fast feedback during refactoring. After each implementation, run `./gradlew test` and ensure all tests pass before committing.
+
+## Documentation
+
+- **`TODO.md`** must be kept up to date after every change — mark completed items, add new ones, remove stale entries.
+- **`README.md`** should be updated when user-facing features or setup instructions change.
+
 ## Plugin Registration
 
 All extensions are registered in `src/main/resources/META-INF/plugin.xml`. When adding new extension points, register them there — not via code-based registration.
