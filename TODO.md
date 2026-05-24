@@ -33,7 +33,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Code completion — context-aware suggestions
 - [ ] Type inference (basic) — deduce variable type from assignment
 - [ ] Scope-aware rename — improve current token-based rename with scope analysis
-- [ ] Semantic highlighting — visually distinguish variables, methods, and types
+- [x] Semantic highlighting — visually distinguish variables, methods, and types
 - [ ] Inlay hints — show inferred types on variables
 - [ ] Quick documentation — display doc comment above `def`
 - [ ] Implement members — generate stubs for abstract methods
@@ -46,7 +46,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Crystal Shards support — `shard.yml` parsing, dependency completion
 - [ ] Test runner — connect `crystal spec` to IntelliJ's test UI
 - [ ] Debugger integration — GDB/LLDB for Crystal binaries
-- [ ] Project SDK — detect and configure Crystal version
+- [x] Project SDK — detect and configure Crystal version
 - [ ] New file templates — create class, module, spec files
 - [ ] Spell checking in strings and comments
 - [ ] Markdown rendering for doc comments
@@ -54,10 +54,12 @@ The current grammar covers the most common constructs. The following extensions 
 ## Infrastructure
 
 - [ ] More lexer tests (edge cases: nested interpolation, regex vs. division)
-- [ ] Parser tests (gold-file based)
+- [ ] More lexer tests (edge cases: nested interpolation, regex vs. division)
+- [x] Parser tests (gold-file based)
+- [x] Platform tests (EnterHandler — 13 tests covering end-insertion, balance, indentation)
 - [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Plugin Marketplace publication
-- [ ] Plugin icon for Marketplace
+- [x] Plugin Marketplace publication
+- [x] Plugin icon for Marketplace
 - [ ] Automated changelog
 
 ## Key Decisions
@@ -67,3 +69,4 @@ The current grammar covers the most common constructs. The following extensions 
 - **StubIndex chosen over FileBasedIndex** — industry standard for IntelliJ plugins, provides instant project-wide navigation with proper PSI element access.
 - **Generated files are committed** — standard convention for GrammarKit plugins to ensure reproducible builds without requiring specific tool versions.
 - **Parser subset approach** — the grammar is intentionally incomplete and will be extended incrementally. Unsupported constructs degrade gracefully (error recovery, tokens remain highlighted).
+- **LiveTemplateContextBean requires contextId** — IntelliJ 2025.1+ requires `contextId` attribute on `liveTemplateContext` registration; without it, platform tests and potentially IDE startup fail.
