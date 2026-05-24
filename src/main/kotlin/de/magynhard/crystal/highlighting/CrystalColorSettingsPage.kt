@@ -35,6 +35,7 @@ class CrystalColorSettingsPage : ColorSettingsPage {
             AttributesDescriptor("Bad character", CrystalSyntaxHighlighter.BAD_CHARACTER),
             AttributesDescriptor("Function declaration", CrystalSyntaxHighlighter.FUNCTION_DECLARATION),
             AttributesDescriptor("Class/Module declaration", CrystalSyntaxHighlighter.CLASS_DECLARATION),
+            AttributesDescriptor("Parameter", CrystalSyntaxHighlighter.PARAMETER),
         )
     }
 
@@ -55,10 +56,20 @@ class CrystalColorSettingsPage : ColorSettingsPage {
           def greet(greeting = "Hello")
             puts "#{greeting}, #{@name}!"
           end
+
+          def farewell(name, message)
+            puts message
+            puts name
+          end
         end
 
         module Printable
           abstract def to_s : String
+        end
+
+        struct Point
+          def initialize(x : Int32, y : Int32)
+          end
         end
 
         enum Color

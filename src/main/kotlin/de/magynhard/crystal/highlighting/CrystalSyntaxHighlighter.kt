@@ -36,6 +36,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         val INTERPOLATION = createTextAttributesKey("CRYSTAL_INTERPOLATION", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
         val FUNCTION_DECLARATION = createTextAttributesKey("CRYSTAL_FUNCTION_DECLARATION", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION)
         val CLASS_DECLARATION = createTextAttributesKey("CRYSTAL_CLASS_DECLARATION", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val PARAMETER = createTextAttributesKey("CRYSTAL_PARAMETER", DefaultLanguageHighlighterColors.PARAMETER)
         val BAD_CHARACTER = createTextAttributesKey("CRYSTAL_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER)
 
         private val KEYWORD_KEYS = arrayOf(KEYWORD)

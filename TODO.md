@@ -33,7 +33,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Code completion — context-aware suggestions
 - [ ] Type inference (basic) — deduce variable type from assignment
 - [ ] Scope-aware rename — improve current token-based rename with scope analysis
-- [x] Semantic highlighting — visually distinguish variables, methods, and types
+- [x] Semantic highlighting — visually distinguish variables, methods, types, and parameters
 - [ ] Inlay hints — show inferred types on variables
 - [ ] Quick documentation — display doc comment above `def`
 - [ ] Implement members — generate stubs for abstract methods
