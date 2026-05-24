@@ -107,6 +107,7 @@
         <defaultLiveTemplates implementation="de.magynhard.crystal.CrystalLiveTemplateProvider"/>
 
         <liveTemplateContext
+                contextId="CRYSTAL"
                 implementation="de.magynhard.crystal.CrystalTemplateContextType"/>
 
         <formattingService
