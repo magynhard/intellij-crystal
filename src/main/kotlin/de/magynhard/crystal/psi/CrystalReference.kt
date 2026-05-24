@@ -2,14 +2,11 @@ package de.magynhard.crystal.psi
 
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
-import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
-import de.magynhard.crystal.stubs.CrystalClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodIndex
 
 /**
  * Reference from an identifier usage to its definition (class/module/struct/enum/method/macro).
- * Resolves via StubIndex for project-wide lookup, with local-scope fallback.
+ * Resolves via CrystalDefinitionFinder (StubIndex + FileTypeIndex fallback) for project-wide
+ * lookup, with local-scope fallback for variables and parameters.
  */
 class CrystalReference(
     element: PsiElement,
@@ -19,74 +16,12 @@ class CrystalReference(
 ) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
     override fun resolve(): PsiElement? {
-        val project = element.project
-        val scope = GlobalSearchScope.allScope(project)
+        // 1. Project-wide definition lookup (StubIndex + FileTypeIndex fallback)
+        val definitions = CrystalDefinitionFinder.findDefinitions(name, element.project)
+        if (definitions.isNotEmpty()) return definitions.first()
 
-        // 1. Try type index (classes, modules, structs, enums are all indexed under CrystalClassIndex)
-        val types = StubIndex.getElements(
-            CrystalClassIndex.KEY, name, project, scope,
-            CrystalClassDefinition::class.java
-        )
-        if (types.isNotEmpty()) return types.first()
-
-        // 2. Try method index
-        val methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, name, project, scope,
-            CrystalMethodDefinition::class.java
-        )
-        if (methods.isNotEmpty()) return methods.first()
-
-        // 3. Walk the file PSI tree to find method/macro definitions by name (covers non-stubbed cases)
-        val file = element.containingFile ?: return resolveLocal()
-        val fileDef = findDefinitionInTree(file)
-        if (fileDef != null) return fileDef
-
-        // 4. Local scope fallback: walk up PSI tree to find local variable assignments or parameters
+        // 2. Local scope fallback: variables and parameters
         return resolveLocal()
-    }
-
-    private fun findDefinitionInTree(root: PsiElement): PsiElement? {
-        for (child in root.children) {
-            when (child) {
-                is CrystalMethodDefinition -> {
-                    if (child.name == name) return child
-                }
-                is CrystalMacroDefinition -> {
-                    if (child.name == name) return child
-                }
-                is CrystalClassDefinition -> {
-                    if (child.name == name) return child
-                    // Also search inside class bodies
-                    child.classBody?.let { body ->
-                        val inner = findDefinitionInTree(body)
-                        if (inner != null) return inner
-                    }
-                }
-                is CrystalModuleDefinition -> {
-                    if (child.name == name) return child
-                    child.classBody?.let { body ->
-                        val inner = findDefinitionInTree(body)
-                        if (inner != null) return inner
-                    }
-                }
-                is CrystalStructDefinition -> {
-                    if (child.name == name) return child
-                    child.classBody?.let { body ->
-                        val inner = findDefinitionInTree(body)
-                        if (inner != null) return inner
-                    }
-                }
-                is CrystalEnumDefinition -> {
-                    if (child.name == name) return child
-                }
-                else -> {
-                    // Recurse into other composite nodes (e.g. visibility_modifier wrapping a def)
-                    val found = findDefinitionInTree(child)
-                    if (found != null) return found
-                }
-            }
-        }
-        return null
     }
 
     private fun resolveLocal(): PsiElement? {
@@ -95,7 +30,6 @@ class CrystalReference(
             // Walk siblings before the reference looking for assignments like "name = ..."
             var sibling = scope.prevSibling
             while (sibling != null) {
-                // Check assignment: IDENTIFIER ASSIGN ...
                 val firstChild = sibling.firstChild
                 if (firstChild != null && firstChild.text == name &&
                     firstChild.node.elementType == CrystalTypes.IDENTIFIER) {
