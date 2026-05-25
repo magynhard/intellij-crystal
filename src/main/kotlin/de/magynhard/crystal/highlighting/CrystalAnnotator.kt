@@ -29,39 +29,40 @@ class CrystalAnnotator : Annotator {
             annotateIdentifierToken(element, holder)
             return
         }
-
-        // Handle composite PSI elements (method declarations)
-        if (element is CrystalMethodDefinition) {
-            val methodName = element.methodName ?: return
-            apply(holder, methodName, CrystalSyntaxHighlighter.FUNCTION_DECLARATION)
-        }
     }
 
     /**
      * Context-sensitive highlighting for CONSTANT tokens:
      * - Inside type_name (class/module/struct/enum definition) → CLASS_DECLARATION
+     * - Inside method_name (def self.Foo) → FUNCTION_DECLARATION
      * - Everywhere else → CONSTANT (type references, standalone constants)
      */
     private fun annotateConstantToken(element: PsiElement, holder: AnnotationHolder) {
         val parent = element.parent
         if (parent is CrystalTypeName) {
-            // Inside a type definition name (class Foo, module Bar, etc.)
             apply(holder, element, CrystalSyntaxHighlighter.CLASS_DECLARATION)
+        } else if (parent is CrystalMethodName) {
+            apply(holder, element, CrystalSyntaxHighlighter.FUNCTION_DECLARATION)
         } else {
-            // Type reference, constant usage, etc.
             apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
         }
     }
 
     /**
      * Context-sensitive highlighting for IDENTIFIER tokens:
+     * - Inside method_name (def greet, def self.greet) → FUNCTION_DECLARATION
      * - Inside parameter definition → PARAMETER
      * - Usage of a parameter inside method body → PARAMETER
-     * - Inside method_name of a method definition → handled by composite branch above
      * - Everything else → IDENTIFIER (default)
      */
     private fun annotateIdentifierToken(element: PsiElement, holder: AnnotationHolder) {
         val parent = element.parent
+
+        // Method/macro name definition
+        if (parent is CrystalMethodName) {
+            apply(holder, element, CrystalSyntaxHighlighter.FUNCTION_DECLARATION)
+            return
+        }
 
         // Parameter definition
         if (parent is CrystalParameter) {

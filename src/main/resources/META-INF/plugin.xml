@@ -140,6 +140,8 @@
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalClassIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMethodIndex"/>
 
+        <stubElementTypeHolder class="de.magynhard.crystal.stubs.CrystalStubElementTypeHolder"/>
+
         <newProjectWizard.languageGenerator
                 implementation="de.magynhard.crystal.project.CrystalNewProjectWizard"/>
 
