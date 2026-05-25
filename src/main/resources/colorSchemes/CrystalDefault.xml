@@ -1,0 +1,9 @@
+<scheme name="Crystal" version="142" parent_scheme="Default">
+  <attributes>
+    <option name="CRYSTAL_PARAMETER">
+      <value>
+        <option name="FOREGROUND" value="660e7a"/>
+      </value>
+    </option>
+  </attributes>
+</scheme>

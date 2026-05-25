@@ -142,6 +142,9 @@
 
         <stubElementTypeHolder class="de.magynhard.crystal.stubs.CrystalStubElementTypeHolder"/>
 
+        <additionalTextAttributes scheme="Default" file="colorSchemes/CrystalDefault.xml"/>
+        <additionalTextAttributes scheme="Darcula" file="colorSchemes/CrystalDarcula.xml"/>
+
         <newProjectWizard.languageGenerator
                 implementation="de.magynhard.crystal.project.CrystalNewProjectWizard"/>
 

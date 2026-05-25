@@ -40,9 +40,9 @@ class CrystalAnnotator : Annotator {
     private fun annotateConstantToken(element: PsiElement, holder: AnnotationHolder) {
         val parent = element.parent
         if (parent is CrystalTypeName) {
-            apply(holder, element, CrystalSyntaxHighlighter.CLASS_DECLARATION)
+            apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
         } else if (parent is CrystalMethodName) {
-            apply(holder, element, CrystalSyntaxHighlighter.FUNCTION_DECLARATION)
+            apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
         } else {
             apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
         }
@@ -60,7 +60,7 @@ class CrystalAnnotator : Annotator {
 
         // Method/macro name definition
         if (parent is CrystalMethodName) {
-            apply(holder, element, CrystalSyntaxHighlighter.FUNCTION_DECLARATION)
+            apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
             return
         }
 

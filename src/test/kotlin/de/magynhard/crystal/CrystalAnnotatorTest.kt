@@ -15,49 +15,49 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", "class Apfel\nend")
         val highlights = myFixture.doHighlighting()
         val h = highlights.find {
-            it.text == "Apfel" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+            it.text == "Apfel" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
-        assertNotNull("Class name 'Apfel' should be highlighted as CLASS_DECLARATION", h)
+        assertNotNull("Class name 'Apfel' should be highlighted as CONSTANT", h)
     }
 
     fun testModuleNameHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "module Utils\nend")
         val highlights = myFixture.doHighlighting()
         val h = highlights.find {
-            it.text == "Utils" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+            it.text == "Utils" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
-        assertNotNull("Module name 'Utils' should be highlighted as CLASS_DECLARATION", h)
+        assertNotNull("Module name 'Utils' should be highlighted as CONSTANT", h)
     }
 
     fun testStructNameHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "struct Point\nend")
         val highlights = myFixture.doHighlighting()
         val h = highlights.find {
-            it.text == "Point" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+            it.text == "Point" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
-        assertNotNull("Struct name 'Point' should be highlighted as CLASS_DECLARATION", h)
+        assertNotNull("Struct name 'Point' should be highlighted as CONSTANT", h)
     }
 
     fun testEnumNameHighlightedInDefinition() {
         myFixture.configureByText("test.cr", "enum Color\nRed\nend")
         val highlights = myFixture.doHighlighting()
         val h = highlights.find {
-            it.text == "Color" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+            it.text == "Color" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
-        assertNotNull("Enum name 'Color' should be highlighted as CLASS_DECLARATION", h)
+        assertNotNull("Enum name 'Color' should be highlighted as CONSTANT", h)
     }
 
     fun testNamespacedClassNameHighlighted() {
         myFixture.configureByText("test.cr", "class Foo::Bar\nend")
         val highlights = myFixture.doHighlighting()
         val fooH = highlights.find {
-            it.text == "Foo" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+            it.text == "Foo" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
         val barH = highlights.find {
-            it.text == "Bar" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CLASS_DECLARATION
+            it.text == "Bar" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
-        assertNotNull("Namespace 'Foo' should be highlighted as CLASS_DECLARATION", fooH)
-        assertNotNull("Class 'Bar' should be highlighted as CLASS_DECLARATION", barH)
+        assertNotNull("Namespace 'Foo' should be highlighted as CONSTANT", fooH)
+        assertNotNull("Class 'Bar' should be highlighted as CONSTANT", barH)
     }
 
     // ==================== Constant reference highlighting ====================
@@ -65,11 +65,10 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
     fun testConstantReferenceHighlightedAsConstant() {
         myFixture.configureByText("test.cr", "class Apfel\nend\nx = Apfel.new")
         val highlights = myFixture.doHighlighting()
-        // The "Apfel" after "x = " should be CONSTANT (not CLASS_DECLARATION)
         val constH = highlights.filter {
             it.text == "Apfel" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
-        assertTrue("'Apfel' reference should be highlighted as CONSTANT", constH.isNotEmpty())
+        assertTrue("'Apfel' references should be highlighted as CONSTANT", constH.size >= 2)
     }
 
     // ==================== Parameter highlighting ====================
@@ -148,9 +147,9 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", "def greet\nend")
         val highlights = myFixture.doHighlighting()
         val h = highlights.find {
-            it.text == "greet" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.FUNCTION_DECLARATION
+            it.text == "greet" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.CONSTANT
         }
-        assertNotNull("Method name 'greet' should be highlighted as FUNCTION_DECLARATION", h)
+        assertNotNull("Method name 'greet' should be highlighted as CONSTANT", h)
     }
 
     // ==================== Default identifier highlighting ====================

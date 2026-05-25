@@ -1,0 +1,9 @@
+<scheme name="Crystal" version="142" parent_scheme="Darcula">
+  <attributes>
+    <option name="CRYSTAL_PARAMETER">
+      <value>
+        <option name="FOREGROUND" value="b389c5"/>
+      </value>
+    </option>
+  </attributes>
+</scheme>
