@@ -70,6 +70,28 @@ object CrystalCompletionHelper {
     }
 
     /**
+     * Finds the `initialize` method of a class (the Crystal constructor).
+     */
+    fun getInitializeMethod(className: String, project: Project): CrystalMethodDefinition? {
+        val classDef = findClassByName(className, project) ?: return null
+        return getMethodsFromBody(classDef).firstOrNull { it.name == "initialize" }
+    }
+
+    /**
+     * Builds a LookupElement for `new` with initialize parameters.
+     */
+    fun buildNewLookup(className: String, project: Project): LookupElementBuilder {
+        val initMethod = getInitializeMethod(className, project)
+        val signature = if (initMethod != null) getParameterSignature(initMethod) else "()"
+        val tailText = if (signature == "()") "" else signature
+
+        return LookupElementBuilder.create("new")
+            .withIcon(AllIcons.Nodes.Method)
+            .withTailText(tailText, true)
+            .withTypeText(className, true)
+    }
+
+    /**
      * Checks whether a method is a class method (def self.xxx).
      */
     fun isStaticMethod(method: CrystalMethodDefinition): Boolean {

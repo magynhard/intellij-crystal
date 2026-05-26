@@ -90,6 +90,57 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain new", names.contains("new"))
     }
 
+    fun testNewShowsInitializeParameters() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def initialize(name : String, gewicht : Int32)
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Apfel.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val newElement = lookups.first { it.lookupString == "new" }
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        newElement.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("Should show parameters: $tailText", tailText.contains("name") && tailText.contains("gewicht"))
+    }
+
+    fun testNewWithParameterlessInitialize() {
+        myFixture.addFileToProject("birne.cr", """
+            class Birne
+              def initialize
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Birne.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val newElement = lookups.first { it.lookupString == "new" }
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        newElement.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("Parameterless initialize should show empty tail: '$tailText'", tailText.isEmpty() || tailText == "()")
+    }
+
+    fun testNewWithoutInitialize() {
+        myFixture.addFileToProject("kirsche.cr", """
+            class Kirsche
+              def essen
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Kirsche.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val newElement = lookups.first { it.lookupString == "new" }
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        newElement.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("No initialize should show empty tail: '$tailText'", tailText.isEmpty() || tailText == "()")
+    }
+
     // ==================== Dot completion on variable (instance methods) ====================
 
     fun testDotCompletionOnVariableWithTypeInference() {
