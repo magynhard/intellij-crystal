@@ -204,4 +204,63 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         // Should not crash — may return null (auto-inserted) or empty
         // Just verifying no exception is thrown
     }
+
+    // ==================== Override method completion (def inside class) ====================
+
+    fun testDefInsideClassSuggestsInitialize() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def ini<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain initialize", names.contains("initialize"))
+    }
+
+    fun testDefInsideClassSuggestsToS() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def to<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain to_s", names.contains("to_s"))
+    }
+
+    fun testDefInsideClassInitializeInsertsSuper() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def ini<caret>
+            end
+        """.trimIndent())
+        myFixture.complete(CompletionType.BASIC)
+        // Select "initialize" from the list
+        myFixture.lookup?.currentItem = myFixture.lookupElements?.first { it.lookupString == "initialize" }
+        myFixture.finishLookup('\n')
+
+        val text = myFixture.editor.document.text
+        assertTrue("Should contain 'super' in body: $text", text.contains("super"))
+        assertTrue("Should contain 'end' closing: $text", text.contains("end"))
+    }
+
+    fun testDefOutsideClassNoOverrideSuggestions() {
+        myFixture.configureByText("main.cr", """
+            def ini<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        if (lookups != null) {
+            val names = lookups.map { it.lookupString }
+            // Should NOT contain override methods with "override" type text
+            val overrideItems = lookups.filter { element ->
+                val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+                element.renderElement(presentation)
+                presentation.typeText == "override"
+            }
+            assertTrue("Should have no override suggestions outside class", overrideItems.isEmpty())
+        }
+    }
 }

@@ -41,6 +41,14 @@ class CrystalCompletionContributor : CompletionContributor() {
             val position = parameters.position
             val project = position.project
 
+            // Case 4: After `def ` inside a class/struct body — offer override methods
+            if (isAfterDefKeywordInClassBody(position)) {
+                for (lookup in CrystalOverrideMethodProvider.getOverrideLookups()) {
+                    result.addElement(lookup)
+                }
+                // Don't return — also allow normal free-text completion
+            }
+
             // Check if we're after a dot
             val prevLeaf = getPreviousNonWhitespaceLeaf(position)
             if (prevLeaf != null && prevLeaf.text == ".") {
@@ -144,6 +152,22 @@ class CrystalCompletionContributor : CompletionContributor() {
                 prev = PsiTreeUtil.prevLeaf(prev)
             }
             return prev
+        }
+
+        /**
+         * Checks if the caret is after `def ` keyword inside a class/struct body.
+         */
+        private fun isAfterDefKeywordInClassBody(position: PsiElement): Boolean {
+            // Check if previous non-whitespace leaf is DEF keyword
+            val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
+            if (prev.node.elementType != CrystalTypes.DEF) return false
+
+            // Check if we're inside a class or struct body
+            val classBody = PsiTreeUtil.getParentOfType(position, CrystalClassBody::class.java)
+            if (classBody != null) return true
+            // Also check struct body (uses same interface via generated PSI)
+            val structDef = PsiTreeUtil.getParentOfType(position, CrystalStructDefinition::class.java)
+            return structDef != null
         }
     }
 }
