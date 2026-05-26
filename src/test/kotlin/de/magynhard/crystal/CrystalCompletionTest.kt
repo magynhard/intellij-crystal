@@ -141,6 +141,40 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("No initialize should show empty tail: '$tailText'", tailText.isEmpty() || tailText == "()")
     }
 
+    // ==================== Dot completion on module (static methods only) ====================
+
+    fun testDotCompletionOnModuleShowsStaticMethods() {
+        myFixture.addFileToProject("helper.cr", """
+            module MathHelper
+              def self.add(a : Int32, b : Int32) : Int32
+              end
+              def self.subtract(a : Int32, b : Int32) : Int32
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "MathHelper.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain add", names.contains("add"))
+        assertTrue("Should contain subtract", names.contains("subtract"))
+        assertFalse("Should NOT contain new", names.contains("new"))
+    }
+
+    fun testDotCompletionOnModuleDoesNotShowNew() {
+        myFixture.addFileToProject("utils.cr", """
+            module Utils
+              def self.helper
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Utils.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertFalse("Module should NOT offer new", names.contains("new"))
+    }
+
     // ==================== Dot completion on variable (instance methods) ====================
 
     fun testDotCompletionOnVariableWithTypeInference() {

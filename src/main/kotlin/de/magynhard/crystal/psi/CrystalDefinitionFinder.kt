@@ -30,7 +30,7 @@ object CrystalDefinitionFinder {
         // 1. StubIndex lookup (fast path)
         val types = StubIndex.getElements(
             CrystalClassIndex.KEY, name, project, scope,
-            CrystalClassDefinition::class.java
+            CrystalNamedElement::class.java
         )
         results.addAll(types)
 

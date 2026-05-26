@@ -63,8 +63,8 @@ class CrystalCompletionContributor : CompletionContributor() {
                             val lookup = CrystalCompletionHelper.buildMethodLookup(method)
                             if (lookup != null) result.addElement(lookup)
                         }
-                        // Offer "new" with initialize parameters if not already a defined static method named "new"
-                        if (staticMethods.none { it.name == "new" }) {
+                        // Offer "new" with initialize parameters only for classes/structs (not modules/enums)
+                        if (staticMethods.none { it.name == "new" } && CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
                             result.addElement(CrystalCompletionHelper.buildNewLookup(beforeDotText, project))
                         }
                         return

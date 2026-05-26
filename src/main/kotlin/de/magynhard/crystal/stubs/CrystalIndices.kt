@@ -2,14 +2,14 @@ package de.magynhard.crystal.stubs
 
 import com.intellij.psi.stubs.StringStubIndexExtension
 import com.intellij.psi.stubs.StubIndexKey
-import de.magynhard.crystal.psi.CrystalClassDefinition
 import de.magynhard.crystal.psi.CrystalMethodDefinition
+import de.magynhard.crystal.psi.CrystalNamedElement
 
-class CrystalClassIndex : StringStubIndexExtension<CrystalClassDefinition>() {
-    override fun getKey(): StubIndexKey<String, CrystalClassDefinition> = KEY
+class CrystalClassIndex : StringStubIndexExtension<CrystalNamedElement>() {
+    override fun getKey(): StubIndexKey<String, CrystalNamedElement> = KEY
 
     companion object {
-        val KEY: StubIndexKey<String, CrystalClassDefinition> =
+        val KEY: StubIndexKey<String, CrystalNamedElement> =
             StubIndexKey.createIndexKey("crystal.class.index")
     }
 }

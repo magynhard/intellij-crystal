@@ -3,6 +3,7 @@ package de.magynhard.crystal.completion
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.project.Project
 import com.intellij.icons.AllIcons
+import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
@@ -16,39 +17,71 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
 object CrystalCompletionHelper {
 
     /**
+     * Result of finding a type definition — carries the PSI element and its kind.
+     */
+    enum class TypeKind { CLASS, MODULE, STRUCT, ENUM }
+
+    data class TypeLookupResult(
+        val element: CrystalNamedElement,
+        val kind: TypeKind
+    )
+
+    /**
      * Finds a class/module/struct/enum definition by name.
+     * Returns the element and its kind, or null if not found.
      */
-    fun findClassByName(name: String, project: Project): CrystalClassDefinition? {
+    fun findTypeByName(name: String, project: Project): TypeLookupResult? {
         val scope = GlobalSearchScope.projectScope(project)
-        val results = StubIndex.getElements(
-            CrystalClassIndex.KEY, name, project, scope, CrystalClassDefinition::class.java
+        val elements = StubIndex.getElements(
+            CrystalClassIndex.KEY, name, project, scope, CrystalNamedElement::class.java
         )
-        return results.firstOrNull()
+        val element = elements.firstOrNull() ?: return null
+        val kind = when (element) {
+            is CrystalClassDefinition -> TypeKind.CLASS
+            is CrystalModuleDefinition -> TypeKind.MODULE
+            is CrystalStructDefinition -> TypeKind.STRUCT
+            is CrystalEnumDefinition -> TypeKind.ENUM
+            else -> return null
+        }
+        return TypeLookupResult(element, kind)
     }
 
     /**
-     * Returns all static methods (def self.xxx) of a class definition.
-     * Also searches in module/struct/enum bodies.
+     * Returns all static methods (def self.xxx) of a type definition.
      */
-    fun getStaticMethods(className: String, project: Project): List<CrystalMethodDefinition> {
-        val classDef = findClassByName(className, project) ?: return emptyList()
-        return getMethodsFromBody(classDef).filter { isStaticMethod(it) }
+    fun getStaticMethods(typeName: String, project: Project): List<CrystalMethodDefinition> {
+        val result = findTypeByName(typeName, project) ?: return emptyList()
+        return getMethodsFromType(result).filter { isStaticMethod(it) }
     }
 
     /**
-     * Returns all instance methods (def xxx, not self.xxx) of a class definition.
+     * Returns all instance methods (def xxx, not self.xxx) of a type definition.
      */
-    fun getInstanceMethods(className: String, project: Project): List<CrystalMethodDefinition> {
-        val classDef = findClassByName(className, project) ?: return emptyList()
-        return getMethodsFromBody(classDef).filter { !isStaticMethod(it) }
+    fun getInstanceMethods(typeName: String, project: Project): List<CrystalMethodDefinition> {
+        val result = findTypeByName(typeName, project) ?: return emptyList()
+        return getMethodsFromType(result).filter { !isStaticMethod(it) }
     }
 
     /**
-     * Returns all methods defined inside the body of a class/module/struct/enum.
+     * Returns all methods defined inside the body of a type (class/module/struct/enum).
      */
-    private fun getMethodsFromBody(classDef: CrystalClassDefinition): List<CrystalMethodDefinition> {
-        val body = classDef.classBody ?: return emptyList()
+    private fun getMethodsFromType(typeResult: TypeLookupResult): List<CrystalMethodDefinition> {
+        val body: PsiElement? = when (typeResult.kind) {
+            TypeKind.CLASS -> (typeResult.element as CrystalClassDefinition).classBody
+            TypeKind.MODULE -> (typeResult.element as CrystalModuleDefinition).classBody
+            TypeKind.STRUCT -> (typeResult.element as CrystalStructDefinition).classBody
+            TypeKind.ENUM -> (typeResult.element as CrystalEnumDefinition).enumBody
+        }
+        if (body == null) return emptyList()
         return PsiTreeUtil.getChildrenOfTypeAsList(body, CrystalMethodDefinition::class.java)
+    }
+
+    /**
+     * Returns whether a type can be instantiated with .new (classes and structs only).
+     */
+    fun canInstantiate(typeName: String, project: Project): Boolean {
+        val result = findTypeByName(typeName, project) ?: return true // unknown type — offer new as fallback
+        return result.kind == TypeKind.CLASS || result.kind == TypeKind.STRUCT
     }
 
     /**
@@ -70,11 +103,11 @@ object CrystalCompletionHelper {
     }
 
     /**
-     * Finds the `initialize` method of a class (the Crystal constructor).
+     * Finds the `initialize` method of a class/struct (the Crystal constructor).
      */
-    fun getInitializeMethod(className: String, project: Project): CrystalMethodDefinition? {
-        val classDef = findClassByName(className, project) ?: return null
-        return getMethodsFromBody(classDef).firstOrNull { it.name == "initialize" }
+    fun getInitializeMethod(typeName: String, project: Project): CrystalMethodDefinition? {
+        val result = findTypeByName(typeName, project) ?: return null
+        return getMethodsFromType(result).firstOrNull { it.name == "initialize" }
     }
 
     /**
@@ -100,11 +133,18 @@ object CrystalCompletionHelper {
     }
 
     /**
-     * Returns the enclosing class name of a method, or null if top-level.
+     * Returns the enclosing type name of a method, or null if top-level.
      */
     fun getEnclosingClassName(method: CrystalMethodDefinition): String? {
         val classDef = PsiTreeUtil.getParentOfType(method, CrystalClassDefinition::class.java)
-        return classDef?.name
+        if (classDef != null) return classDef.name
+        val moduleDef = PsiTreeUtil.getParentOfType(method, CrystalModuleDefinition::class.java)
+        if (moduleDef != null) return moduleDef.name
+        val structDef = PsiTreeUtil.getParentOfType(method, CrystalStructDefinition::class.java)
+        if (structDef != null) return structDef.name
+        val enumDef = PsiTreeUtil.getParentOfType(method, CrystalEnumDefinition::class.java)
+        if (enumDef != null) return enumDef.name
+        return null
     }
 
     /**
