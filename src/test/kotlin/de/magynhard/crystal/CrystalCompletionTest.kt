@@ -230,6 +230,83 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain schmecken", names.contains("schmecken"))
     }
 
+    // ==================== Type annotation completion ====================
+
+    fun testTypeAnnotationSuggestsStdlibTypes() {
+        myFixture.configureByText("main.cr", """
+            def foo(x : <caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertTrue("Should contain Int32", names.contains("Int32"))
+        assertTrue("Should contain Array", names.contains("Array"))
+        assertTrue("Should contain Bool", names.contains("Bool"))
+    }
+
+    fun testTypeAnnotationFiltersByPrefix() {
+        myFixture.configureByText("main.cr", """
+            def foo(x : Str<caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertTrue("Should contain Struct", names.contains("Struct"))
+    }
+
+    fun testReturnTypeAnnotation() {
+        myFixture.configureByText("main.cr", """
+            def foo : <caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertTrue("Should contain Int32", names.contains("Int32"))
+    }
+
+    fun testTypeAnnotationInsideClassIncludesSelf() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def foo(other : <caret>)
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain self inside class", names.contains("self"))
+    }
+
+    fun testTypeAnnotationTopLevelNoSelf() {
+        myFixture.configureByText("main.cr", """
+            def foo(x : <caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertFalse("Should NOT contain self at top-level", names.contains("self"))
+    }
+
+    fun testTypeAnnotationIncludesProjectTypes() {
+        myFixture.addFileToProject("apfel.cr", "class Apfel\nend\nclass Birne\nend\n")
+        myFixture.configureByText("main.cr", """
+            def foo(x : <caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain project type Apfel", names.contains("Apfel"))
+        assertTrue("Should contain project type Birne", names.contains("Birne"))
+    }
+
     // ==================== Edge cases ====================
 
     fun testNoCompletionsInEmptyFile() {

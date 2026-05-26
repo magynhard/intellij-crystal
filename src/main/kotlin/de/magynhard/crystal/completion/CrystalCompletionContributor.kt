@@ -49,6 +49,14 @@ class CrystalCompletionContributor : CompletionContributor() {
                 // Don't return — also allow normal free-text completion
             }
 
+            // Case 5: Type annotation context — after `:` in parameter or return type position
+            if (isInTypeAnnotationContext(position)) {
+                for (lookup in CrystalTypeCompletionProvider.getTypeLookups(position, project)) {
+                    result.addElement(lookup)
+                }
+                return
+            }
+
             // Check if we're after a dot
             val prevLeaf = getPreviousNonWhitespaceLeaf(position)
             if (prevLeaf != null && prevLeaf.text == ".") {
@@ -168,6 +176,24 @@ class CrystalCompletionContributor : CompletionContributor() {
             // Also check struct body (uses same interface via generated PSI)
             val structDef = PsiTreeUtil.getParentOfType(position, CrystalStructDefinition::class.java)
             return structDef != null
+        }
+
+        /**
+         * Checks if the caret is in a type annotation context (after `:` where a type is expected).
+         * Matches: `def foo(x : <caret>)` and `def foo : <caret>`
+         */
+        private fun isInTypeAnnotationContext(position: PsiElement): Boolean {
+            val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
+            if (prev.node.elementType != CrystalTypes.COLON) return false
+
+            // Verify that before the colon is either:
+            // - an IDENTIFIER (parameter name: `x : Type`)
+            // - a RPAREN (return type: `def foo(x) : Type`)
+            // - another type token (e.g. for union types, but skip for now)
+            val beforeColon = getPreviousNonWhitespaceLeaf(prev) ?: return false
+            val elementType = beforeColon.node.elementType
+            return elementType == CrystalTypes.IDENTIFIER ||
+                elementType == CrystalTypes.RPAREN
         }
     }
 }
