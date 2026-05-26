@@ -22,6 +22,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 - **Find Usages** (Alt+F7) — word-based search with token type awareness
 - **Structure View** — PSI-based tree with nested types, methods, macros, constants
 - **Parameter Info** (Ctrl+P) — shows method signature at call site, project-wide via StubIndex
+- **Code Completion** (Ctrl+Space) — context-aware: dot-completion on classes (static methods) and variables (instance methods via type inference), free-text completion for classes, methods, and local variables/parameters
 
 ### Refactoring
 

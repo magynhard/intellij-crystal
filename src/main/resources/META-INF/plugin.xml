@@ -13,6 +13,7 @@
   <li><b>Go to Symbol / Class</b> — project-wide navigation (Ctrl+N, Ctrl+Alt+Shift+N)</li>
   <li><b>Find Usages</b> — word-based search with token type awareness (Alt+F7)</li>
   <li><b>Parameter Info</b> — method signatures at call site, project-wide via StubIndex (Ctrl+P)</li>
+  <li><b>Code Completion</b> — context-aware dot-completion and free-text completion (Ctrl+Space)</li>
   <li><b>Rename Refactoring</b> — in-place rename with preview and compiler verification (Shift+F6)</li>
   <li><b>Run Configurations</b> — crystal run, build, and spec</li>
   <li><b>Live Templates</b> — 21 code snippets for common patterns</li>
@@ -155,6 +156,10 @@
                 displayName="Crystal"/>
 
         <projectService serviceImplementation="de.magynhard.crystal.sdk.CrystalSettings"/>
+
+        <completion.contributor
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.completion.CrystalCompletionContributor"/>
     </extensions>
 
     <projectListeners>
