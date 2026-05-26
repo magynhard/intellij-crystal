@@ -307,6 +307,98 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain project type Birne", names.contains("Birne"))
     }
 
+    // ==================== Class body macro/keyword completion ====================
+
+    fun testClassBodySuggestsGetter() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              get<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain getter", names.contains("getter"))
+        assertTrue("Should contain getter?", names.contains("getter?"))
+        assertTrue("Should contain getter!", names.contains("getter!"))
+    }
+
+    fun testClassBodySuggestsIncludeAndExtend() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              in<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain include", names.contains("include"))
+    }
+
+    fun testClassBodyNotInsideMethod() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def foo
+                get<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        if (lookups != null) {
+            val macroItems = lookups.filter { element ->
+                val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+                element.renderElement(presentation)
+                presentation.typeText == "define getter method"
+            }
+            assertTrue("Should NOT offer class macros inside method", macroItems.isEmpty())
+        }
+    }
+
+    fun testClassBodyNotAtTopLevel() {
+        myFixture.configureByText("main.cr", """
+            get<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        if (lookups != null) {
+            val macroItems = lookups.filter { element ->
+                val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+                element.renderElement(presentation)
+                presentation.typeText == "define getter method"
+            }
+            assertTrue("Should NOT offer class macros at top-level", macroItems.isEmpty())
+        }
+    }
+
+    fun testGetterInsertsSpace() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              get<caret>
+            end
+        """.trimIndent())
+        myFixture.complete(CompletionType.BASIC)
+        myFixture.lookup?.currentItem = myFixture.lookupElements?.first { it.lookupString == "getter" }
+        myFixture.finishLookup('\n')
+
+        val text = myFixture.editor.document.text
+        assertTrue("Should have space after getter: '$text'", text.contains("getter "))
+    }
+
+    // ==================== Annotation completion ====================
+
+    fun testAnnotationCompletion() {
+        myFixture.configureByText("main.cr", """
+            @[<caret>]
+            class Apfel
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Deprecated", names.contains("Deprecated"))
+        assertTrue("Should contain JSON::Serializable", names.contains("JSON::Serializable"))
+        assertTrue("Should contain Flags", names.contains("Flags"))
+    }
+
     // ==================== Edge cases ====================
 
     fun testNoCompletionsInEmptyFile() {

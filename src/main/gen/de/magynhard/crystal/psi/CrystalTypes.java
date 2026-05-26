@@ -12,6 +12,7 @@ public interface CrystalTypes {
 
   IElementType ALIAS_DEFINITION = new CrystalElementType("ALIAS_DEFINITION");
   IElementType ANNOTATION_DEFINITION = new CrystalElementType("ANNOTATION_DEFINITION");
+  IElementType ANNOTATION_USAGE = new CrystalElementType("ANNOTATION_USAGE");
   IElementType ARGUMENT = new CrystalElementType("ARGUMENT");
   IElementType ARGUMENT_LIST = new CrystalElementType("ARGUMENT_LIST");
   IElementType ARRAY_LITERAL = new CrystalElementType("ARRAY_LITERAL");
@@ -231,6 +232,9 @@ public interface CrystalTypes {
       }
       else if (type == ANNOTATION_DEFINITION) {
         return new CrystalAnnotationDefinitionImpl(node);
+      }
+      else if (type == ANNOTATION_USAGE) {
+        return new CrystalAnnotationUsageImpl(node);
       }
       else if (type == ARGUMENT) {
         return new CrystalArgumentImpl(node);

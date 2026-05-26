@@ -50,4 +50,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testTwoStatements() {
         doTest(true)
     }
+
+    fun testAnnotationUsage() {
+        doTest(true)
+    }
 }

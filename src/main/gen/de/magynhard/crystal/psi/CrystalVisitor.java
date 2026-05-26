@@ -15,6 +15,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitAnnotationUsage(@NotNull CrystalAnnotationUsage o) {
+    visitPsiElement(o);
+  }
+
   public void visitArgument(@NotNull CrystalArgument o) {
     visitPsiElement(o);
   }

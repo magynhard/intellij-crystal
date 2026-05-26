@@ -173,6 +173,7 @@ private top_level_statement ::= NEWLINE
                               | require_statement
                               | include_statement
                               | extend_statement
+                              | annotation_usage
                               | class_definition
                               | module_definition
                               | struct_definition
@@ -229,6 +230,8 @@ lib_definition ::= LIB CONSTANT lib_body END {pin=1}
 
 annotation_definition ::= ANNOTATION type_name END {pin=1}
 
+annotation_usage ::= AT LBRACKET type_path [LPAREN argument_list RPAREN] RBRACKET
+
 alias_definition ::= ALIAS type_name ASSIGN type_reference {pin=1}
 
 // ==================== Type Bodies ====================
@@ -237,6 +240,7 @@ class_body ::= class_member*
 
 private class_member ::= NEWLINE
                         | SEMICOLON
+                        | annotation_usage
                         | method_definition
                         | macro_definition
                         | class_definition
@@ -252,7 +256,7 @@ private class_member ::= NEWLINE
 
 enum_body ::= enum_member*
 
-private enum_member ::= NEWLINE | SEMICOLON | enum_constant | method_definition
+private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | enum_constant | method_definition
 
 enum_constant ::= CONSTANT [ASSIGN expression]
 

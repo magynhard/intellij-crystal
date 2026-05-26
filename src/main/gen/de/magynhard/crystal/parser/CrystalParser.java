@@ -178,6 +178,40 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // AT LBRACKET type_path [LPAREN argument_list RPAREN] RBRACKET
+  public static boolean annotation_usage(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "annotation_usage")) return false;
+    if (!nextTokenIs(builder_, AT)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokens(builder_, 0, AT, LBRACKET);
+    result_ = result_ && type_path(builder_, level_ + 1);
+    result_ = result_ && annotation_usage_3(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RBRACKET);
+    exit_section_(builder_, marker_, ANNOTATION_USAGE, result_);
+    return result_;
+  }
+
+  // [LPAREN argument_list RPAREN]
+  private static boolean annotation_usage_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "annotation_usage_3")) return false;
+    annotation_usage_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // LPAREN argument_list RPAREN
+  private static boolean annotation_usage_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "annotation_usage_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, LPAREN);
+    result_ = result_ && argument_list(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RPAREN);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // [IDENTIFIER COLON] expression
   //            | STAR expression
   //            | DOUBLE_STAR expression
@@ -1362,6 +1396,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // NEWLINE
   //                         | SEMICOLON
+  //                         | annotation_usage
   //                         | method_definition
   //                         | macro_definition
   //                         | class_definition
@@ -1379,6 +1414,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     boolean result_;
     result_ = consumeToken(builder_, NEWLINE);
     if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = annotation_usage(builder_, level_ + 1);
     if (!result_) result_ = method_definition(builder_, level_ + 1);
     if (!result_) result_ = macro_definition(builder_, level_ + 1);
     if (!result_) result_ = class_definition(builder_, level_ + 1);
@@ -1591,12 +1627,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // NEWLINE | SEMICOLON | enum_constant | method_definition
+  // NEWLINE | SEMICOLON | annotation_usage | enum_constant | method_definition
   static boolean enum_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "enum_member")) return false;
     boolean result_;
     result_ = consumeToken(builder_, NEWLINE);
     if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = annotation_usage(builder_, level_ + 1);
     if (!result_) result_ = enum_constant(builder_, level_ + 1);
     if (!result_) result_ = method_definition(builder_, level_ + 1);
     return result_;
@@ -3315,6 +3352,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                               | require_statement
   //                               | include_statement
   //                               | extend_statement
+  //                               | annotation_usage
   //                               | class_definition
   //                               | module_definition
   //                               | struct_definition
@@ -3334,6 +3372,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = require_statement(builder_, level_ + 1);
     if (!result_) result_ = include_statement(builder_, level_ + 1);
     if (!result_) result_ = extend_statement(builder_, level_ + 1);
+    if (!result_) result_ = annotation_usage(builder_, level_ + 1);
     if (!result_) result_ = class_definition(builder_, level_ + 1);
     if (!result_) result_ = module_definition(builder_, level_ + 1);
     if (!result_) result_ = struct_definition(builder_, level_ + 1);

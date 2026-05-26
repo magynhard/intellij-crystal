@@ -12,7 +12,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Pattern matching (`case...in`, Crystal 1.x+)
 - [ ] Multi-assignment (`a, b = 1, 2`)
 - [ ] Splat parameters (`*args`, `**kwargs`)
-- [ ] Annotation bodies (`@[JSON::Field(key: "x")]`)
+- [x] Annotation usage parsing (`@[Deprecated]`, `@[JSON::Serializable]`, `@[Link("sqlite3")]`)
 - [ ] `asm` blocks
 - [ ] Named tuples (`{name: "foo", age: 42}`)
 - [ ] `select` statement (concurrency)

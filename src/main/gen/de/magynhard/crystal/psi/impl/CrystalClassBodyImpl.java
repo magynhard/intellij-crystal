@@ -35,6 +35,12 @@ public class CrystalClassBodyImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @NotNull
+  public List<CrystalAnnotationUsage> getAnnotationUsageList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAnnotationUsage.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalClassDefinition> getClassDefinitionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalClassDefinition.class);
   }

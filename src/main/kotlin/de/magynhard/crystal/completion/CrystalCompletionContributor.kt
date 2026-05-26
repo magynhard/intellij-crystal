@@ -57,6 +57,22 @@ class CrystalCompletionContributor : CompletionContributor() {
                 return
             }
 
+            // Case 6: Class/struct/module body level — macros and keywords (not inside a method)
+            if (isInClassBodyNotMethod(position)) {
+                for (lookup in CrystalClassBodyCompletionProvider.getClassBodyLookups()) {
+                    result.addElement(lookup)
+                }
+                // Don't return — also allow normal free-text completion
+            }
+
+            // Case 7: Annotation context — after `@[`
+            if (isInAnnotationContext(position)) {
+                for (lookup in CrystalAnnotationCompletionProvider.getAnnotationLookups()) {
+                    result.addElement(lookup)
+                }
+                return
+            }
+
             // Check if we're after a dot
             val prevLeaf = getPreviousNonWhitespaceLeaf(position)
             if (prevLeaf != null && prevLeaf.text == ".") {
@@ -194,6 +210,37 @@ class CrystalCompletionContributor : CompletionContributor() {
             val elementType = beforeColon.node.elementType
             return elementType == CrystalTypes.IDENTIFIER ||
                 elementType == CrystalTypes.RPAREN
+        }
+
+        /**
+         * Checks if the caret is in a class/struct/module body but NOT inside a method body.
+         * Also excludes `def ` context (handled by Case 4).
+         */
+        private fun isInClassBodyNotMethod(position: PsiElement): Boolean {
+            // Must be inside a class body
+            val classBody = PsiTreeUtil.getParentOfType(position, CrystalClassBody::class.java)
+                ?: return false
+
+            // Must NOT be inside a method body
+            val methodBody = PsiTreeUtil.getParentOfType(position, CrystalMethodBody::class.java)
+            if (methodBody != null) return false
+
+            // Must NOT be after `def` keyword (that's Case 4)
+            val prev = getPreviousNonWhitespaceLeaf(position)
+            if (prev != null && prev.node.elementType == CrystalTypes.DEF) return false
+
+            return true
+        }
+
+        /**
+         * Checks if the caret is in an annotation context (after `@[`).
+         */
+        private fun isInAnnotationContext(position: PsiElement): Boolean {
+            val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
+            if (prev.node.elementType != CrystalTypes.LBRACKET) return false
+
+            val beforeBracket = getPreviousNonWhitespaceLeaf(prev) ?: return false
+            return beforeBracket.node.elementType == CrystalTypes.AT
         }
     }
 }

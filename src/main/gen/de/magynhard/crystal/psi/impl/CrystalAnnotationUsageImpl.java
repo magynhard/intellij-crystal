@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalEnumBodyImpl extends ASTWrapperPsiElement implements CrystalEnumBody {
+public class CrystalAnnotationUsageImpl extends ASTWrapperPsiElement implements CrystalAnnotationUsage {
 
-  public CrystalEnumBodyImpl(@NotNull ASTNode node) {
+  public CrystalAnnotationUsageImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitEnumBody(this);
+    visitor.visitAnnotationUsage(this);
   }
 
   @Override
@@ -28,21 +28,15 @@ public class CrystalEnumBodyImpl extends ASTWrapperPsiElement implements Crystal
   }
 
   @Override
-  @NotNull
-  public List<CrystalAnnotationUsage> getAnnotationUsageList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAnnotationUsage.class);
+  @Nullable
+  public CrystalArgumentList getArgumentList() {
+    return PsiTreeUtil.getChildOfType(this, CrystalArgumentList.class);
   }
 
   @Override
   @NotNull
-  public List<CrystalEnumConstant> getEnumConstantList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalEnumConstant.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalMethodDefinition> getMethodDefinitionList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMethodDefinition.class);
+  public CrystalTypePath getTypePath() {
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalTypePath.class));
   }
 
 }
