@@ -62,4 +62,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testTypedDeclaration() {
         doTest(true)
     }
+
+    fun testStringInterpolation() {
+        doTest(true)
+    }
 }
