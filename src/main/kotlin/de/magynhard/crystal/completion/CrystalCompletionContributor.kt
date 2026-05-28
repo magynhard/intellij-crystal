@@ -200,18 +200,23 @@ class CrystalCompletionContributor : CompletionContributor() {
          */
         private fun isInTypeAnnotationContext(position: PsiElement): Boolean {
             val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
-            if (prev.node.elementType != CrystalTypes.COLON) return false
-
-            // Verify that before the colon is either:
-            // - an IDENTIFIER (parameter name: `x : Type`)
-            // - a RPAREN (return type: `def foo(x) : Type`)
-            // - another type token (e.g. for union types, but skip for now)
-            val beforeColon = getPreviousNonWhitespaceLeaf(prev) ?: return false
-            val elementType = beforeColon.node.elementType
-            return elementType == CrystalTypes.IDENTIFIER ||
-                elementType == CrystalTypes.RPAREN ||
-                elementType == CrystalTypes.INSTANCE_VAR ||
-                elementType == CrystalTypes.CLASS_VAR
+            if (prev.node.elementType == CrystalTypes.COLON) {
+                val beforeColon = getPreviousNonWhitespaceLeaf(prev) ?: return false
+                val elementType = beforeColon.node.elementType
+                return elementType == CrystalTypes.IDENTIFIER ||
+                    elementType == CrystalTypes.RPAREN ||
+                    elementType == CrystalTypes.INSTANCE_VAR ||
+                    elementType == CrystalTypes.CLASS_VAR
+            }
+            // After PIPE in a union type context: `String | <caret>`
+            if (prev.node.elementType == CrystalTypes.PIPE) {
+                val beforePipe = getPreviousNonWhitespaceLeaf(prev) ?: return false
+                val elementType = beforePipe.node.elementType
+                return elementType == CrystalTypes.CONSTANT ||
+                    elementType == CrystalTypes.QUESTION ||
+                    elementType == CrystalTypes.RPAREN
+            }
+            return false
         }
 
         /**

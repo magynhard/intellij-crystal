@@ -491,4 +491,36 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain Int32", names.contains("Int32"))
     }
+
+    fun testTypeCompletionAfterLocalVarColon() {
+        myFixture.configureByText("test.cr", """
+            x : <caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer type completions after x :", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertTrue("Should contain Int32", names.contains("Int32"))
+    }
+
+    fun testTypeCompletionAfterPipeInUnion() {
+        myFixture.configureByText("test.cr", """
+            x : String | <caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer type completions after pipe in union", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Int32", names.contains("Int32"))
+        assertTrue("Should contain Nil", names.contains("Nil"))
+    }
+
+    fun testTypeCompletionAfterMultiplePipes() {
+        myFixture.configureByText("test.cr", """
+            x : String | Int32 | <caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer type completions after multiple pipes", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Nil", names.contains("Nil"))
+    }
 }

@@ -83,6 +83,12 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
+  public CrystalPropertyDeclaration getPropertyDeclaration() {
+    return PsiTreeUtil.getChildOfType(this, CrystalPropertyDeclaration.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalReturnStatement getReturnStatement() {
     return PsiTreeUtil.getChildOfType(this, CrystalReturnStatement.class);
   }

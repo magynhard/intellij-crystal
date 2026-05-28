@@ -329,6 +329,7 @@ statement ::= if_statement
             | break_statement
             | next_statement
             | yield_statement
+            | property_declaration
             | assignment
             | constant_assignment
             | expression_statement

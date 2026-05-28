@@ -35,6 +35,9 @@ public interface CrystalStatement extends PsiElement {
   CrystalNextStatement getNextStatement();
 
   @Nullable
+  CrystalPropertyDeclaration getPropertyDeclaration();
+
+  @Nullable
   CrystalReturnStatement getReturnStatement();
 
   @Nullable

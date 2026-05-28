@@ -3317,6 +3317,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //             | break_statement
   //             | next_statement
   //             | yield_statement
+  //             | property_declaration
   //             | assignment
   //             | constant_assignment
   //             | expression_statement
@@ -3335,6 +3336,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = break_statement(builder_, level_ + 1);
     if (!result_) result_ = next_statement(builder_, level_ + 1);
     if (!result_) result_ = yield_statement(builder_, level_ + 1);
+    if (!result_) result_ = property_declaration(builder_, level_ + 1);
     if (!result_) result_ = assignment(builder_, level_ + 1);
     if (!result_) result_ = constant_assignment(builder_, level_ + 1);
     if (!result_) result_ = expression_statement(builder_, level_ + 1);

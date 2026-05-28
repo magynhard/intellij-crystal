@@ -58,4 +58,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testPostfixControl() {
         doTest(true)
     }
+
+    fun testTypedDeclaration() {
+        doTest(true)
+    }
 }
