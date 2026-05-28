@@ -8,6 +8,12 @@ import com.intellij.psi.PsiElement;
 public interface CrystalPointerofExpression extends PsiElement {
 
   @Nullable
+  CrystalClassVarAccess getClassVarAccess();
+
+  @Nullable
+  CrystalInstanceVarAccess getInstanceVarAccess();
+
+  @Nullable
   CrystalVariableReference getVariableReference();
 
 }

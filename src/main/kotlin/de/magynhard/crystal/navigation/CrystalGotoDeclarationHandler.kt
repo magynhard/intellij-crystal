@@ -6,12 +6,9 @@ import com.intellij.psi.PsiElement
 import de.magynhard.crystal.psi.*
 
 /**
- * Handles Go to Definition (Ctrl+Click / Ctrl+B) for identifiers after DOT,
- * e.g. "Apfel.tanzen" → jumps to "def self.tanzen" or "def tanzen".
- *
- * This complements the PSI mixin-based references (which handle variable_reference,
- * method_call_expression, etc.) by covering leaf IDENTIFIER tokens in postfix_op
- * positions that don't have their own composite PSI wrapper.
+ * Handles Go to Definition (Ctrl+Click / Ctrl+B) for:
+ * 1. Identifiers after DOT (e.g. "Apfel.tanzen" → jumps to "def self.tanzen" or "def tanzen")
+ * 2. Instance variables (@name) and class variables (@@name) → jumps to property declaration or shows all usages
  */
 class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
 
@@ -23,6 +20,28 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         if (sourceElement == null) return null
 
         val elementType = sourceElement.node.elementType
+
+        // Handle instance variables (@name) and class variables (@@name)
+        if (elementType == CrystalTypes.INSTANCE_VAR || elementType == CrystalTypes.CLASS_VAR) {
+            // The leaf token's parent should be the CrystalInstanceVarAccess/CrystalClassVarAccess composite
+            val varAccess = sourceElement.parent
+            if (varAccess is CrystalInstanceVarAccess || varAccess is CrystalClassVarAccess) {
+                val varName = varAccess.text
+                val targets = CrystalInstanceVarFinder.findDefinitionTargets(varName, varAccess)
+                if (targets.isNotEmpty()) return targets.toTypedArray()
+                val usages = CrystalInstanceVarFinder.findAllUsages(varName, varAccess)
+                    .filter { it !== varAccess }
+                return if (usages.isNotEmpty()) usages.toTypedArray() else null
+            }
+            // Fallback for @name in property_declaration or parameter (still leaf tokens)
+            val varName = sourceElement.text
+            val targets = CrystalInstanceVarFinder.findDefinitionTargets(varName, sourceElement)
+            if (targets.isNotEmpty()) return targets.toTypedArray()
+            val usages = CrystalInstanceVarFinder.findAllUsages(varName, sourceElement)
+                .filter { it !== sourceElement }
+            return if (usages.isNotEmpty()) usages.toTypedArray() else null
+        }
+
         if (elementType != CrystalTypes.IDENTIFIER && elementType != CrystalTypes.CONSTANT) {
             return null
         }

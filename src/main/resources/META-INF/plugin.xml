@@ -120,6 +120,9 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.navigation.CrystalFindUsagesProvider"/>
 
+        <referencesSearch
+                implementation="de.magynhard.crystal.navigation.CrystalInstanceVarReferencesSearcher"/>
+
         <gotoClassContributor
                 implementation="de.magynhard.crystal.navigation.CrystalGoToClassContributor"/>
 

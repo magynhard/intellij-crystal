@@ -8,7 +8,13 @@ import com.intellij.psi.PsiElement;
 public interface CrystalPropertyDeclaration extends PsiElement {
 
   @Nullable
+  CrystalClassVarAccess getClassVarAccess();
+
+  @Nullable
   CrystalExpression getExpression();
+
+  @Nullable
+  CrystalInstanceVarAccess getInstanceVarAccess();
 
   @NotNull
   CrystalTypeReference getTypeReference();

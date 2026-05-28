@@ -29,8 +29,20 @@ public class CrystalAssignmentImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
 }

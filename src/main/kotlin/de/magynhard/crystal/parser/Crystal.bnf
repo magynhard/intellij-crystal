@@ -302,11 +302,11 @@ macro_definition ::= MACRO method_name [LPAREN parameter_list RPAREN] method_bod
 parameter_list ::= [parameter (COMMA parameter)*]
 
 parameter ::= [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
-            | [STAR | DOUBLE_STAR | AMPERSAND] INSTANCE_VAR [COLON type_reference] [ASSIGN expression]
+            | [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
 
 // ==================== Property Declarations ====================
 
-property_declaration ::= (IDENTIFIER | SELF DOT IDENTIFIER) COLON type_reference [ASSIGN expression]
+property_declaration ::= (instance_var_access | class_var_access | IDENTIFIER | SELF DOT IDENTIFIER) COLON type_reference [ASSIGN expression]
 
 // ==================== Visibility ====================
 
@@ -375,7 +375,7 @@ assignment ::= variable assign_op expression {pin=2}
 
 constant_assignment ::= CONSTANT ASSIGN expression {pin=2}
 
-private variable ::= INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | IDENTIFIER
+private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
 
 private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
                      | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
@@ -429,6 +429,8 @@ private primary_expression ::= grouped_expression
                              | tuple_literal
                              | method_call_expression
                              | literal
+                             | instance_var_access
+                             | class_var_access
                              | variable_reference
                              | typeof_expression
                              | sizeof_expression
@@ -508,6 +510,8 @@ private bare_primary_expression ::= grouped_expression
                                   | tuple_literal
                                   | bare_method_call_expression
                                   | literal
+                                  | instance_var_access
+                                  | class_var_access
                                   | variable_reference
                                   | typeof_expression
                                   | sizeof_expression
@@ -556,7 +560,17 @@ hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
 
 // ==================== Variable References ====================
 
-variable_reference ::= INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | IDENTIFIER | CONSTANT {
+instance_var_access ::= INSTANCE_VAR {
+  mixin="de.magynhard.crystal.psi.impl.CrystalInstanceVarAccessMixin"
+  implements="de.magynhard.crystal.psi.CrystalNamedElement"
+}
+
+class_var_access ::= CLASS_VAR {
+  mixin="de.magynhard.crystal.psi.impl.CrystalClassVarAccessMixin"
+  implements="de.magynhard.crystal.psi.CrystalNamedElement"
+}
+
+variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT {
   mixin="de.magynhard.crystal.psi.impl.CrystalVariableReferenceMixin"
 }
 
@@ -588,7 +602,7 @@ sizeof_expression ::= SIZEOF LPAREN type_reference RPAREN {pin=1}
 
 instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN type_reference RPAREN {pin=1}
 
-pointerof_expression ::= POINTEROF LPAREN variable_reference RPAREN {pin=1}
+pointerof_expression ::= POINTEROF LPAREN (instance_var_access | class_var_access | variable_reference) RPAREN {pin=1}
 
 // ==================== Expression Lists ====================
 

@@ -16,10 +16,10 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ### Navigation
 
-- **Go to Definition** (Ctrl+Click / Ctrl+B) — jump to class, module, struct, enum, and method definitions via StubIndex
+- **Go to Definition** (Ctrl+Click / Ctrl+B) — jump to class, module, struct, enum, method definitions, and instance/class variable declarations (`@name`, `@@name`)
 - **Go to Symbol** (Ctrl+Alt+Shift+N) — find any symbol in the project
 - **Go to Class** (Ctrl+N) — find classes, modules, structs, enums
-- **Find Usages** (Alt+F7) — word-based search with token type awareness
+- **Find Usages** (Alt+F7) — find all usages of methods, classes, instance variables (`@name`), and class variables (`@@name`) within the enclosing class
 - **Structure View** — PSI-based tree with nested types, methods, macros, constants
 - **Parameter Info** (Ctrl+P) — shows method signature at call site, project-wide via StubIndex
 - **Code Completion** (Ctrl+Space) — context-aware: dot-completion on classes (static methods) and variables (instance methods via type inference), free-text completion for classes, methods, and local variables/parameters

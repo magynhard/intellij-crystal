@@ -29,6 +29,18 @@ public class CrystalPointerofExpressionImpl extends ASTWrapperPsiElement impleme
 
   @Override
   @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalVariableReference getVariableReference() {
     return PsiTreeUtil.getChildOfType(this, CrystalVariableReference.class);
   }

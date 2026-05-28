@@ -30,6 +30,7 @@ The current grammar covers the most common constructs. The following extensions 
 ## IDE Features (require parser improvements)
 
 - [x] Reference resolution — resolve variables/methods to their declarations (via StubIndex + FileTypeIndex fallback + local scope; works cross-file)
+- [x] Instance/class variable navigation — Go to Definition (@name/@@name → property declaration/getter/assignment) + Find Usages within class
 - [x] Code completion — context-aware suggestions (dot-completion with type inference, free-text with classes/methods/locals)
 - [x] Type inference (basic) — deduce variable type from assignment (`x = Klasse.new`) and parameter annotations (`x : Type`)
 - [ ] Scope-aware rename — improve current token-based rename with scope analysis

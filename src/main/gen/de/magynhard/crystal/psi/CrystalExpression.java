@@ -29,6 +29,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalCaseStatement> getCaseStatementList();
 
   @NotNull
+  List<CrystalClassVarAccess> getClassVarAccessList();
+
+  @NotNull
   List<CrystalExpression> getExpressionList();
 
   @NotNull
@@ -45,6 +48,9 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList();
+
+  @NotNull
+  List<CrystalInstanceVarAccess> getInstanceVarAccessList();
 
   @NotNull
   List<CrystalMethodCallExpression> getMethodCallExpressionList();

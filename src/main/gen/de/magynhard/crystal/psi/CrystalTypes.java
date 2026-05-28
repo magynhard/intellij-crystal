@@ -27,6 +27,7 @@ public interface CrystalTypes {
   IElementType CASE_STATEMENT = new CrystalElementType("CASE_STATEMENT");
   IElementType CLASS_BODY = new CrystalElementType("CLASS_BODY");
   IElementType CLASS_DEFINITION = CrystalStubElementTypeFactory.create("CLASS_DEFINITION");
+  IElementType CLASS_VAR_ACCESS = new CrystalElementType("CLASS_VAR_ACCESS");
   IElementType CONSTANT_ASSIGNMENT = new CrystalElementType("CONSTANT_ASSIGNMENT");
   IElementType ELSE_CLAUSE = new CrystalElementType("ELSE_CLAUSE");
   IElementType ELSIF_CLAUSE = new CrystalElementType("ELSIF_CLAUSE");
@@ -47,6 +48,7 @@ public interface CrystalTypes {
   IElementType IF_STATEMENT = new CrystalElementType("IF_STATEMENT");
   IElementType INCLUDE_STATEMENT = new CrystalElementType("INCLUDE_STATEMENT");
   IElementType INSTANCE_SIZEOF_EXPRESSION = new CrystalElementType("INSTANCE_SIZEOF_EXPRESSION");
+  IElementType INSTANCE_VAR_ACCESS = new CrystalElementType("INSTANCE_VAR_ACCESS");
   IElementType LIB_BODY = new CrystalElementType("LIB_BODY");
   IElementType LIB_DEFINITION = new CrystalElementType("LIB_DEFINITION");
   IElementType LIB_STRUCT_DEFINITION = new CrystalElementType("LIB_STRUCT_DEFINITION");
@@ -278,6 +280,9 @@ public interface CrystalTypes {
       else if (type == CLASS_DEFINITION) {
         return new CrystalClassDefinitionImpl(node);
       }
+      else if (type == CLASS_VAR_ACCESS) {
+        return new CrystalClassVarAccessImpl(node);
+      }
       else if (type == CONSTANT_ASSIGNMENT) {
         return new CrystalConstantAssignmentImpl(node);
       }
@@ -337,6 +342,9 @@ public interface CrystalTypes {
       }
       else if (type == INSTANCE_SIZEOF_EXPRESSION) {
         return new CrystalInstanceSizeofExpressionImpl(node);
+      }
+      else if (type == INSTANCE_VAR_ACCESS) {
+        return new CrystalInstanceVarAccessImpl(node);
       }
       else if (type == LIB_BODY) {
         return new CrystalLibBodyImpl(node);

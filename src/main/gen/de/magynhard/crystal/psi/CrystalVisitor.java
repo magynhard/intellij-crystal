@@ -75,6 +75,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitNamedElement(o);
   }
 
+  public void visitClassVarAccess(@NotNull CrystalClassVarAccess o) {
+    visitNamedElement(o);
+  }
+
   public void visitConstantAssignment(@NotNull CrystalConstantAssignment o) {
     visitPsiElement(o);
   }
@@ -153,6 +157,10 @@ public class CrystalVisitor extends PsiElementVisitor {
 
   public void visitInstanceSizeofExpression(@NotNull CrystalInstanceSizeofExpression o) {
     visitPsiElement(o);
+  }
+
+  public void visitInstanceVarAccess(@NotNull CrystalInstanceVarAccess o) {
+    visitNamedElement(o);
   }
 
   public void visitLibBody(@NotNull CrystalLibBody o) {

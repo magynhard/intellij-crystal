@@ -20,6 +20,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalCallArgs> getCallArgsList();
 
   @NotNull
+  List<CrystalClassVarAccess> getClassVarAccessList();
+
+  @NotNull
   List<CrystalExpression> getExpressionList();
 
   @NotNull
@@ -33,6 +36,9 @@ public interface CrystalBareArgument extends PsiElement {
 
   @NotNull
   List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList();
+
+  @NotNull
+  List<CrystalInstanceVarAccess> getInstanceVarAccessList();
 
   @NotNull
   List<CrystalPercentLiteral> getPercentLiteralList();
