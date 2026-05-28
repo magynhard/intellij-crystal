@@ -50,19 +50,28 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
 
         if (!endsWithBlockOpener(trimmed)) return EnterHandlerDelegate.Result.Continue
 
-        // Balance check: scan the entire document
-        // Count all openers vs all 'end's
+        // Add indentation to the current (new) line
+        val baseIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
+        val newIndent = "$baseIndent  "
+        val currentLineStart = document.getLineStartOffset(caretLine)
+        val currentLineEnd = document.getLineEndOffset(caretLine)
+        val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
+        val currentLineContent = currentLineText.trimStart()
+
+        // Replace current line content with proper indentation
+        document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
+        editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
+
+        // Balance check: scan the entire document to decide if 'end' is needed
         val fullText = document.text
-        if (isDocumentBalanced(fullText)) return EnterHandlerDelegate.Result.Continue
+        if (isDocumentBalanced(fullText)) return EnterHandlerDelegate.Result.Stop
 
         // Insert 'end' on a new line below the cursor, with same indentation as the opener line
-        val indent = prevLineText.takeWhile { it == ' ' || it == '\t' }
+        val updatedCaretLine = document.getLineNumber(editor.caretModel.offset)
+        val updatedLineEnd = document.getLineEndOffset(updatedCaretLine)
+        document.insertString(updatedLineEnd, "\n${baseIndent}end")
 
-        // Find the end of the current caret line to insert after it
-        val currentLineEnd = document.getLineEndOffset(caretLine)
-        document.insertString(currentLineEnd, "\n${indent}end")
-
-        return EnterHandlerDelegate.Result.Continue
+        return EnterHandlerDelegate.Result.Stop
     }
 
     /**

@@ -98,4 +98,55 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val text = myFixture.editor.document.text
         assertTrue("end should be indented to match 'def'", text.contains("  end"))
     }
+
+    fun testIndentAfterClass() {
+        myFixture.configureByText("test.cr", "class Beispiel<caret>")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        // Cursor should be at indented position (2 spaces)
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should be after 2-space indent", "  ", textBeforeCaret)
+    }
+
+    fun testIndentAfterDef() {
+        myFixture.configureByText("test.cr", "def foo<caret>")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should be after 2-space indent", "  ", textBeforeCaret)
+    }
+
+    fun testIndentAfterDefWithParams() {
+        myFixture.configureByText("test.cr", "def foo(x, y)<caret>")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should be after 2-space indent", "  ", textBeforeCaret)
+    }
+
+    fun testIndentAfterNestedDef() {
+        myFixture.configureByText("test.cr", "class Foo\n  def bar<caret>\n  end\nend")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should be after 4-space indent (nested)", "    ", textBeforeCaret)
+    }
+
+    fun testNoIndentAfterNormalLine() {
+        myFixture.configureByText("test.cr", "puts \"hello\"<caret>")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should have no indent after normal line", "", textBeforeCaret)
+    }
 }
