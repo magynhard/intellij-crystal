@@ -523,4 +523,36 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain Nil", names.contains("Nil"))
     }
+
+    fun testTypeCompletionInsideGenericParens() {
+        myFixture.configureByText("test.cr", """
+            x : Array(<caret>)
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer type completions inside generic parens", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertTrue("Should contain Int32", names.contains("Int32"))
+    }
+
+    fun testTypeCompletionInsideGenericAfterComma() {
+        myFixture.configureByText("test.cr", """
+            x : Hash(String, <caret>)
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer type completions after comma in generic", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Int32", names.contains("Int32"))
+    }
+
+    fun testStdlibTypesInFreeTextCompletion() {
+        myFixture.configureByText("test.cr", """
+            x = <caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Array from stdlib", names.contains("Array"))
+        assertTrue("Should contain String from stdlib", names.contains("String"))
+    }
 }

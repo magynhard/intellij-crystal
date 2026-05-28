@@ -113,7 +113,10 @@ class CrystalCompletionContributor : CompletionContributor() {
                 }
             }
 
-            // Case 3: Free-text completion — classes + methods + local vars/params
+            // Case 3: Free-text completion — classes + methods + local vars/params + stdlib types
+            for (lookup in CrystalTypeCompletionProvider.getStdlibTypeLookups()) {
+                result.addElement(lookup)
+            }
             addAllClasses(project, result)
             addAllMethods(project, result)
             addLocalVariablesAndParameters(position, result)
@@ -215,6 +218,16 @@ class CrystalCompletionContributor : CompletionContributor() {
                 return elementType == CrystalTypes.CONSTANT ||
                     elementType == CrystalTypes.QUESTION ||
                     elementType == CrystalTypes.RPAREN
+            }
+            // After LPAREN preceded by CONSTANT: `Array(<caret>)`
+            if (prev.node.elementType == CrystalTypes.LPAREN) {
+                val beforeParen = getPreviousNonWhitespaceLeaf(prev) ?: return false
+                return beforeParen.node.elementType == CrystalTypes.CONSTANT
+            }
+            // After COMMA inside type_arguments: `Hash(String, <caret>)`
+            if (prev.node.elementType == CrystalTypes.COMMA) {
+                val parent = prev.parent
+                return parent?.node?.elementType == CrystalTypes.TYPE_ARGUMENTS
             }
             return false
         }

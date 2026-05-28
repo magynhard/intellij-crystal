@@ -106,6 +106,17 @@ object CrystalTypeCompletionProvider {
     )
 
     /**
+     * Returns LookupElements for stdlib types only (used in free-text completion when prefix is uppercase).
+     */
+    fun getStdlibTypeLookups(): List<LookupElementBuilder> {
+        return STDLIB_TYPES.map { typeName ->
+            LookupElementBuilder.create(typeName)
+                .withIcon(AllIcons.Nodes.Class)
+                .withTypeText("stdlib", true)
+        }
+    }
+
+    /**
      * Returns LookupElements for all type completions in the given context.
      */
     fun getTypeLookups(position: PsiElement, project: Project): List<LookupElementBuilder> {
