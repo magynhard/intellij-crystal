@@ -209,7 +209,9 @@ class CrystalCompletionContributor : CompletionContributor() {
             val beforeColon = getPreviousNonWhitespaceLeaf(prev) ?: return false
             val elementType = beforeColon.node.elementType
             return elementType == CrystalTypes.IDENTIFIER ||
-                elementType == CrystalTypes.RPAREN
+                elementType == CrystalTypes.RPAREN ||
+                elementType == CrystalTypes.INSTANCE_VAR ||
+                elementType == CrystalTypes.CLASS_VAR
         }
 
         /**

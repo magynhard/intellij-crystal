@@ -466,4 +466,29 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             assertTrue("Should have no override suggestions outside class", overrideItems.isEmpty())
         }
     }
+
+    fun testTypeCompletionAfterInstanceVarColon() {
+        myFixture.configureByText("main.cr", """
+            class Foo
+              @name : <caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer type completions after @name :", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertTrue("Should contain Int32", names.contains("Int32"))
+    }
+
+    fun testTypeCompletionAfterClassVarColon() {
+        myFixture.configureByText("main.cr", """
+            class Foo
+              @@count : <caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer type completions after @@count :", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Int32", names.contains("Int32"))
+    }
 }
