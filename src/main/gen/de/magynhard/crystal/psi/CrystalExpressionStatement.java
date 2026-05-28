@@ -5,9 +5,9 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalReturnStatement extends PsiElement {
+public interface CrystalExpressionStatement extends PsiElement {
 
-  @Nullable
+  @NotNull
   CrystalExpression getExpression();
 
   @Nullable

@@ -16,4 +16,7 @@ public interface CrystalAssignment extends PsiElement {
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
+  @Nullable
+  CrystalPostfixModifier getPostfixModifier();
+
 }

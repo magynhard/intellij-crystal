@@ -10,4 +10,7 @@ public interface CrystalBreakStatement extends PsiElement {
   @Nullable
   CrystalExpression getExpression();
 
+  @Nullable
+  CrystalPostfixModifier getPostfixModifier();
+
 }

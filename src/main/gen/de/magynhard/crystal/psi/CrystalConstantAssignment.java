@@ -10,4 +10,7 @@ public interface CrystalConstantAssignment extends PsiElement {
   @Nullable
   CrystalExpression getExpression();
 
+  @Nullable
+  CrystalPostfixModifier getPostfixModifier();
+
 }

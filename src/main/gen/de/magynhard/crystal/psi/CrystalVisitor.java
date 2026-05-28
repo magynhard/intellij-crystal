@@ -115,6 +115,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitExpressionStatement(@NotNull CrystalExpressionStatement o) {
+    visitPsiElement(o);
+  }
+
   public void visitExtendStatement(@NotNull CrystalExtendStatement o) {
     visitPsiElement(o);
   }
@@ -216,6 +220,10 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitPointerofExpression(@NotNull CrystalPointerofExpression o) {
+    visitPsiElement(o);
+  }
+
+  public void visitPostfixModifier(@NotNull CrystalPostfixModifier o) {
     visitPsiElement(o);
   }
 

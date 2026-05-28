@@ -23,7 +23,7 @@ public interface CrystalStatement extends PsiElement {
   CrystalConstantAssignment getConstantAssignment();
 
   @Nullable
-  CrystalExpression getExpression();
+  CrystalExpressionStatement getExpressionStatement();
 
   @Nullable
   CrystalForStatement getForStatement();

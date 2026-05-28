@@ -331,7 +331,11 @@ statement ::= if_statement
             | yield_statement
             | assignment
             | constant_assignment
-            | expression
+            | expression_statement
+
+expression_statement ::= expression [postfix_modifier]
+
+postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL) expression
 
 // ==================== Control Flow ====================
 
@@ -361,19 +365,19 @@ rescue_clause ::= RESCUE [IDENTIFIER [COLON type_reference]] then_clause stateme
 
 ensure_clause ::= ENSURE statement_list
 
-return_statement ::= RETURN [expression] {pin=1}
+return_statement ::= RETURN [expression] [postfix_modifier] {pin=1}
 
-break_statement ::= BREAK [expression] {pin=1}
+break_statement ::= BREAK [expression] [postfix_modifier] {pin=1}
 
-next_statement ::= NEXT [expression] {pin=1}
+next_statement ::= NEXT [expression] [postfix_modifier] {pin=1}
 
-yield_statement ::= YIELD [LPAREN argument_list RPAREN] {pin=1}
+yield_statement ::= YIELD [LPAREN argument_list RPAREN] [postfix_modifier] {pin=1}
 
 // ==================== Assignments ====================
 
-assignment ::= variable assign_op expression {pin=2}
+assignment ::= variable assign_op expression [postfix_modifier] {pin=2}
 
-constant_assignment ::= CONSTANT ASSIGN expression {pin=2}
+constant_assignment ::= CONSTANT ASSIGN expression [postfix_modifier] {pin=2}
 
 private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
 

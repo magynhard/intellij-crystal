@@ -45,4 +45,10 @@ public class CrystalAssignmentImpl extends ASTWrapperPsiElement implements Cryst
     return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalPostfixModifier getPostfixModifier() {
+    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
+  }
+
 }

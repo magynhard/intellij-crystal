@@ -33,4 +33,10 @@ public class CrystalBreakStatementImpl extends ASTWrapperPsiElement implements C
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalPostfixModifier getPostfixModifier() {
+    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
+  }
+
 }

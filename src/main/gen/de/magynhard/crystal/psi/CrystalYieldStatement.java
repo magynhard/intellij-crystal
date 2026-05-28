@@ -10,4 +10,7 @@ public interface CrystalYieldStatement extends PsiElement {
   @Nullable
   CrystalArgumentList getArgumentList();
 
+  @Nullable
+  CrystalPostfixModifier getPostfixModifier();
+
 }

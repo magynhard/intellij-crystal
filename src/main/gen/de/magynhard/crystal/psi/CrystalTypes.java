@@ -37,6 +37,7 @@ public interface CrystalTypes {
   IElementType ENUM_DEFINITION = CrystalStubElementTypeFactory.create("ENUM_DEFINITION");
   IElementType EXPRESSION = new CrystalElementType("EXPRESSION");
   IElementType EXPRESSION_LIST = new CrystalElementType("EXPRESSION_LIST");
+  IElementType EXPRESSION_STATEMENT = new CrystalElementType("EXPRESSION_STATEMENT");
   IElementType EXTEND_STATEMENT = new CrystalElementType("EXTEND_STATEMENT");
   IElementType FOR_STATEMENT = new CrystalElementType("FOR_STATEMENT");
   IElementType FUN_DEFINITION = new CrystalElementType("FUN_DEFINITION");
@@ -63,6 +64,7 @@ public interface CrystalTypes {
   IElementType PARAMETER_LIST = new CrystalElementType("PARAMETER_LIST");
   IElementType PERCENT_LITERAL = new CrystalElementType("PERCENT_LITERAL");
   IElementType POINTEROF_EXPRESSION = new CrystalElementType("POINTEROF_EXPRESSION");
+  IElementType POSTFIX_MODIFIER = new CrystalElementType("POSTFIX_MODIFIER");
   IElementType PROPERTY_DECLARATION = new CrystalElementType("PROPERTY_DECLARATION");
   IElementType REQUIRE_STATEMENT = new CrystalElementType("REQUIRE_STATEMENT");
   IElementType RESCUE_CLAUSE = new CrystalElementType("RESCUE_CLAUSE");
@@ -310,6 +312,9 @@ public interface CrystalTypes {
       else if (type == EXPRESSION_LIST) {
         return new CrystalExpressionListImpl(node);
       }
+      else if (type == EXPRESSION_STATEMENT) {
+        return new CrystalExpressionStatementImpl(node);
+      }
       else if (type == EXTEND_STATEMENT) {
         return new CrystalExtendStatementImpl(node);
       }
@@ -387,6 +392,9 @@ public interface CrystalTypes {
       }
       else if (type == POINTEROF_EXPRESSION) {
         return new CrystalPointerofExpressionImpl(node);
+      }
+      else if (type == POSTFIX_MODIFIER) {
+        return new CrystalPostfixModifierImpl(node);
       }
       else if (type == PROPERTY_DECLARATION) {
         return new CrystalPropertyDeclarationImpl(node);

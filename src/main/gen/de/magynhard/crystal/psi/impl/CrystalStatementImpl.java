@@ -59,8 +59,8 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
-  public CrystalExpression getExpression() {
-    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
+  public CrystalExpressionStatement getExpressionStatement() {
+    return PsiTreeUtil.getChildOfType(this, CrystalExpressionStatement.class);
   }
 
   @Override
