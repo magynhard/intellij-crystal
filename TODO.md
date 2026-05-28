@@ -6,7 +6,7 @@ The current grammar covers the most common constructs. The following extensions 
 
 - [ ] Full generics (`Array(T)`, `forall T`, constraints)
 - [ ] Macro body parsing (`{% %}`, `{{ }}`, `{% for %}`)
-- [ ] Union types as type annotations (`Int32 | String`)
+- [x] Union types as type annotations (`Int32 | String`)
 - [ ] Proc/Lambda types (`-> Int32`, `Proc(Int32, String)`)
 - [ ] Proc literals (`->{ }`, `->(x) { }`)
 - [ ] Pattern matching (`case...in`, Crystal 1.x+)
@@ -18,20 +18,22 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] `select` statement (concurrency)
 - [ ] Heredocs as expressions in parser (lexer already supports them)
 - [ ] Better operator precedence (Pratt parsing or precedence climbing)
-- [ ] Type restrictions on parameters (`def foo(x : Int32)`)
+- [x] Type restrictions on parameters (`def foo(x : Int32)`)
 - [ ] Default parameter values (full expressions)
 - [ ] Visibility modifiers as modifier nodes on PSI elements
 - [ ] `with...yield` blocks
 - [ ] `pointerof`, `offsetof` as expressions
 - [ ] String interpolation as nested expressions in parser
-- [ ] Suffix if/unless/while (`expr if condition`)
+- [x] Suffix if/unless/while (`expr if condition`)
 - [ ] Ternary operator (partially exists: `? :` in expression rule)
+- [x] Typed variable declarations (`x : String | Nil`) as statements
+- [x] Generic type arguments in type references (`Array(String)`, `Hash(String, Int32)`)
 
 ## IDE Features (require parser improvements)
 
 - [x] Reference resolution — resolve variables/methods to their declarations (via StubIndex + FileTypeIndex fallback + local scope; works cross-file)
 - [x] Instance/class variable navigation — Go to Definition (@name/@@name → property declaration/getter/assignment) + Find Usages within class
-- [x] Code completion — context-aware suggestions (dot-completion with type inference, free-text with classes/methods/locals)
+- [x] Code completion — context-aware suggestions (dot-completion with type inference, free-text with classes/methods/locals, type completion in annotations/generics/union types, stdlib types)
 - [x] Type inference (basic) — deduce variable type from assignment (`x = Klasse.new`) and parameter annotations (`x : Type`)
 - [ ] Scope-aware rename — improve current token-based rename with scope analysis
 - [x] Semantic highlighting — visually distinguish variables, methods, types, and parameters
@@ -56,7 +58,7 @@ The current grammar covers the most common constructs. The following extensions 
 
 - [ ] More lexer tests (edge cases: nested interpolation, regex vs. division)
 - [x] Parser tests (gold-file based)
-- [x] Platform tests (EnterHandler — 13 tests covering end-insertion, balance, indentation)
+- [x] Platform tests (EnterHandler — 16 tests covering end-insertion, balance, indentation)
 - [ ] CI/CD pipeline (GitHub Actions)
 - [x] Plugin Marketplace publication
 - [x] Plugin icon for Marketplace

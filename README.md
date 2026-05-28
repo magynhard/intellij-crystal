@@ -10,8 +10,9 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 - **Color Settings Page** — customizable colors for all token types
 - **Code Folding** — collapse blocks, methods, classes, multi-line comments
 - **Brace Matching** — parentheses, brackets, braces, percent literal delimiters
-- **Auto-Insert** — automatic closing quotes, brackets, `end` after block keywords
+- **Auto-Insert** — automatic closing quotes, brackets, `end` after block keywords, auto-indentation after block openers
 - **Line Commenter** — toggle `#` comments
+- **Postfix Control Flow** — parser recognizes `expr if condition`, `expr unless condition`, `expr while condition`
 - **TODO/FIXME Indexing** — highlights and indexes task comments
 
 ### Navigation
@@ -22,7 +23,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 - **Find Usages** (Alt+F7) — find all usages of methods, classes, instance variables (`@name`), and class variables (`@@name`) within the enclosing class
 - **Structure View** — PSI-based tree with nested types, methods, macros, constants
 - **Parameter Info** (Ctrl+P) — shows method signature at call site, project-wide via StubIndex
-- **Code Completion** (Ctrl+Space) — context-aware: dot-completion on classes (static methods) and variables (instance methods via type inference), free-text completion for classes, methods, and local variables/parameters
+- **Code Completion** (Ctrl+Space) — context-aware: dot-completion on classes (static methods) and variables (instance methods via type inference), free-text completion for classes/methods/locals/stdlib types, type completion after `:` in annotations, inside generics (`Array(<caret>)`), and in union types (`String | <caret>`)
 
 ### Refactoring
 
@@ -45,7 +46,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ### Parser
 
-- **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, expressions with operator precedence, type references, blocks, literals
+- **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, postfix if/unless/while/until, typed declarations, expressions with operator precedence, type references with generics and union types, blocks, literals
 - **StubIndex** — project-wide index for classes and methods (instant navigation even in large projects)
 - **Error-tolerant** — pin/recovery rules ensure the parser works with incomplete code while typing
 
