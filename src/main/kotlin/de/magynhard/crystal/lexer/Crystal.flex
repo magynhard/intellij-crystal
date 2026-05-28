@@ -22,6 +22,9 @@ import com.intellij.psi.TokenType;
   private String heredocId = "";
   private boolean heredocIndented = false;
 
+  public int getInterpolationDepth() { return interpolationDepth; }
+  public void setInterpolationDepth(int depth) { this.interpolationDepth = depth; }
+
   private static char closingChar(char open) {
     switch (open) {
       case '(': return ')';

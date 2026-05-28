@@ -555,4 +555,12 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain Array from stdlib", names.contains("Array"))
         assertTrue("Should contain String from stdlib", names.contains("String"))
     }
+
+    fun testNoCompletionInsideStringLiteral() {
+        myFixture.configureByText("test.cr", """
+            x = "hello <caret>"
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertTrue("Should NOT offer completions inside string", lookups == null || lookups.isEmpty())
+    }
 }

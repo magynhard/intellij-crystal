@@ -232,4 +232,17 @@ class CrystalLexerTest {
         assertTrue("Should contain HEREDOC_START", types.contains(CrystalTypes.HEREDOC_START))
         assertTrue("Should contain HEREDOC_END", types.contains(CrystalTypes.HEREDOC_END))
     }
+
+    @Test
+    fun testStringInterpolationTokens() {
+        val text = """"Example is #{1+1}""""
+        val tokens = nonWhitespaceTokens(text)
+        val types = tokens.map { it.first }
+        assertTrue("Should contain STRING_INTERPOLATION_BEGIN", types.contains(CrystalTypes.STRING_INTERPOLATION_BEGIN))
+        assertTrue("Should contain STRING_INTERPOLATION_END", types.contains(CrystalTypes.STRING_INTERPOLATION_END))
+        // Verify the closing } is STRING_INTERPOLATION_END, not RBRACE
+        val endIndex = tokens.indexOfFirst { it.first == CrystalTypes.STRING_INTERPOLATION_END }
+        assertTrue("STRING_INTERPOLATION_END should be present", endIndex >= 0)
+        assertEquals("STRING_INTERPOLATION_END should be '}'", "}", tokens[endIndex].second)
+    }
 }

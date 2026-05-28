@@ -41,6 +41,9 @@ class CrystalCompletionContributor : CompletionContributor() {
             val position = parameters.position
             val project = position.project
 
+            // Suppress completion inside string literals (but not inside interpolation)
+            if (isInsideStringLiteral(position)) return
+
             // Case 4: After `def ` inside a class/struct body — offer override methods
             if (isAfterDefKeywordInClassBody(position)) {
                 for (lookup in CrystalOverrideMethodProvider.getOverrideLookups()) {
@@ -261,6 +264,31 @@ class CrystalCompletionContributor : CompletionContributor() {
 
             val beforeBracket = getPreviousNonWhitespaceLeaf(prev) ?: return false
             return beforeBracket.node.elementType == CrystalTypes.AT
+        }
+
+        /**
+         * Checks if the position is inside a string literal (not inside interpolation).
+         * Returns true if completion should be suppressed.
+         */
+        private fun isInsideStringLiteral(position: PsiElement): Boolean {
+            // If the dummy identifier is placed inside a STRING_LITERAL token context
+            val tokenType = position.node?.elementType
+            if (tokenType == CrystalTypes.STRING_LITERAL) return true
+
+            // Check if parent is a string_expression — we might be between string parts
+            val parent = position.parent
+            if (parent?.node?.elementType == CrystalTypes.STRING_EXPRESSION) {
+                // If we're inside interpolation (between INTERPOLATION_BEGIN and END), allow completion
+                var sibling = position.prevSibling
+                while (sibling != null) {
+                    val sibType = sibling.node?.elementType
+                    if (sibType == CrystalTypes.STRING_INTERPOLATION_BEGIN) return false
+                    if (sibType == CrystalTypes.STRING_INTERPOLATION_END) break
+                    sibling = sibling.prevSibling
+                }
+                return true
+            }
+            return false
         }
     }
 }

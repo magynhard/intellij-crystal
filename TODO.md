@@ -23,7 +23,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Visibility modifiers as modifier nodes on PSI elements
 - [ ] `with...yield` blocks
 - [ ] `pointerof`, `offsetof` as expressions
-- [ ] String interpolation as nested expressions in parser
+- [x] String interpolation as nested expressions in parser
 - [x] Suffix if/unless/while (`expr if condition`)
 - [ ] Ternary operator (partially exists: `? :` in expression rule)
 - [x] Typed variable declarations (`x : String | Nil`) as statements
