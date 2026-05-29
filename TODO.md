@@ -42,6 +42,9 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Implement members — generate stubs for abstract methods
 
 > **Note:** Parameter Info and Structure View are already implemented using the PSI parser and StubIndex.
+> Parameter Info supports parenthesized calls, bare (parenthesis-free) calls, dot-calls, and class method calls.
+> It works correctly when the cursor is after a comma (with or without trailing whitespace/argument),
+> and also when no argument has been typed yet (e.g. `foo ` with cursor after the space).
 
 ## IDE Features (independent of parser)
 
