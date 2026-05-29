@@ -38,6 +38,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Scope-aware rename — improve current token-based rename with scope analysis
 - [x] Semantic highlighting — visually distinguish variables, methods, types, and parameters
 - [ ] Inlay hints — show inferred types on variables
+- [ ] Type checking — validate argument types against method parameter type annotations (e.g. passing `String` to a parameter typed `Int32` should show a warning/error)
 - [ ] Quick documentation — display doc comment above `def`
 - [ ] Implement members — generate stubs for abstract methods
 
