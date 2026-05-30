@@ -90,6 +90,15 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.highlighting.CrystalAnnotator"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Type mismatch in method arguments"
+                shortName="CrystalTypeMismatch"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalTypeCheckInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>

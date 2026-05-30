@@ -533,15 +533,22 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
     }
 
     private fun extractIdentifierFromCallExpression(expression: PsiElement): String? {
+        // For dot-calls (Foo.bar, obj.method): return the IDENTIFIER after the last DOT
         var child = expression.firstChild
+        var foundDot = false
+        var lastNameBeforeDot: String? = null
         while (child != null) {
             val type = child.node?.elementType
-            if (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT) {
+            if (type == CrystalTypes.DOT) {
+                foundDot = true
+            } else if (foundDot && (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT)) {
                 return child.text
+            } else if (!foundDot && (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT)) {
+                lastNameBeforeDot = child.text
             }
             child = child.nextSibling
         }
-        return null
+        return lastNameBeforeDot
     }
 
     /**
