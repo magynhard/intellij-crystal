@@ -388,6 +388,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
                 // At top level: check stop conditions
                 depth == 0 -> {
                     when {
+                        type == CrystalTypes.NEWLINE -> break // Statement boundary
                         STOP_OPERATORS.contains(type) -> break
                         STRUCTURAL_KEYWORDS.contains(type) -> break
                         else -> leaves.add(current)
