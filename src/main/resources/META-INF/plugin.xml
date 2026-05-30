@@ -103,6 +103,15 @@
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.inspections.CrystalTypeCheckInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Wrong number of arguments in method call"
+                shortName="CrystalArgumentCount"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="de.magynhard.crystal.inspections.CrystalArgumentCountInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>

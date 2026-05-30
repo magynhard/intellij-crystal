@@ -4,6 +4,7 @@
 
 - **Always implement the "correct" solution** — proper architecture, full functionality, future-proof. Only consider a "nice-to-have" or simplified approach when the correct solution is technically nearly impossible.
 - Never cut corners for convenience. If a feature requires deeper refactoring (e.g., lexer state stack for nested interpolation), do the refactoring.
+- **Never commit immediately after implementation.** Always let the user test manually first and wait for their explicit "go" / "commit" before committing. This avoids commits with broken code.
 
 ## Build & Test
 
