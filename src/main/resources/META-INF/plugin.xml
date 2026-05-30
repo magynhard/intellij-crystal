@@ -73,6 +73,10 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalFoldingBuilder"/>
 
+        <lang.documentationProvider
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.documentation.CrystalDocumentationProvider"/>
+
         <colorSettingsPage
                 implementation="de.magynhard.crystal.highlighting.CrystalColorSettingsPage"/>
 

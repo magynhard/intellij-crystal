@@ -39,7 +39,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [x] Semantic highlighting — visually distinguish variables, methods, types, and parameters
 - [ ] Inlay hints — show inferred types on variables
 - [x] Type checking — validate argument types against method parameter type annotations (e.g. passing `String` to a parameter typed `Int32` shows an error). Supports numeric autocasting, union types, nilable types, overloads, named args, splat skip. Phase 2: inheritance hierarchy, generics, array/hash literals.
-- [ ] Quick documentation — display doc comment above `def`
+- [x] Quick documentation — display doc comment above `def` (Ctrl+Q / F1 / hover; shows syntax-highlighted signature + Markdown-rendered doc comments with code blocks)
 - [ ] Implement members — generate stubs for abstract methods
 
 > **Note:** Parameter Info and Structure View are already implemented using the PSI parser and StubIndex.
