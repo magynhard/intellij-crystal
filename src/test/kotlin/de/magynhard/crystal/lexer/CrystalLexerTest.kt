@@ -245,4 +245,64 @@ class CrystalLexerTest {
         assertTrue("STRING_INTERPOLATION_END should be present", endIndex >= 0)
         assertEquals("STRING_INTERPOLATION_END should be '}'", "}", tokens[endIndex].second)
     }
+
+    @Test
+    fun testHeredocInterpolation() {
+        val text = "<<-HEREDOC\n  hello #" + "{name}\n  HEREDOC"
+        val tokens = nonWhitespaceTokens(text)
+        val types = tokens.map { it.first }
+        assertTrue("Should contain HEREDOC_START", types.contains(CrystalTypes.HEREDOC_START))
+        assertTrue("Should contain HEREDOC_CONTENT", types.contains(CrystalTypes.HEREDOC_CONTENT))
+        assertTrue("Should contain STRING_INTERPOLATION_BEGIN", types.contains(CrystalTypes.STRING_INTERPOLATION_BEGIN))
+        assertTrue("Should contain STRING_INTERPOLATION_END", types.contains(CrystalTypes.STRING_INTERPOLATION_END))
+        assertTrue("Should contain IDENTIFIER inside interpolation", types.contains(CrystalTypes.IDENTIFIER))
+        assertTrue("Should contain HEREDOC_END", types.contains(CrystalTypes.HEREDOC_END))
+    }
+
+    @Test
+    fun testHeredocInterpolationReturnsToHeredoc() {
+        // After interpolation, remaining content should still be HEREDOC_CONTENT
+        val text = "<<-HEREDOC\n  #" + "{x} world\n  HEREDOC"
+        val tokens = nonWhitespaceTokens(text)
+        val interpolationEnd = tokens.indexOfFirst { it.first == CrystalTypes.STRING_INTERPOLATION_END }
+        assertTrue("Should have interpolation end", interpolationEnd >= 0)
+        // Next token after interpolation end should be HEREDOC_CONTENT (the " world" part)
+        val afterInterpolation = tokens[interpolationEnd + 1]
+        assertEquals("After interpolation should be HEREDOC_CONTENT", CrystalTypes.HEREDOC_CONTENT, afterInterpolation.first)
+    }
+
+    @Test
+    fun testHeredocRawNoInterpolation() {
+        // <<-'RAW' should NOT interpolate
+        val text = "<<-'RAW'\n  hello #" + "{name}\n  RAW"
+        val tokens = nonWhitespaceTokens(text)
+        val types = tokens.map { it.first }
+        assertTrue("Should contain HEREDOC_START", types.contains(CrystalTypes.HEREDOC_START))
+        assertTrue("Should contain HEREDOC_END", types.contains(CrystalTypes.HEREDOC_END))
+        assertFalse("Should NOT contain STRING_INTERPOLATION_BEGIN", types.contains(CrystalTypes.STRING_INTERPOLATION_BEGIN))
+    }
+
+    @Test
+    fun testHeredocMultipleInterpolations() {
+        val text = "<<-HEREDOC\n  #" + "{a} and #" + "{b}\n  HEREDOC"
+        val tokens = nonWhitespaceTokens(text)
+        val interpolationBegins = tokens.count { it.first == CrystalTypes.STRING_INTERPOLATION_BEGIN }
+        val interpolationEnds = tokens.count { it.first == CrystalTypes.STRING_INTERPOLATION_END }
+        assertEquals("Should have 2 interpolation begins", 2, interpolationBegins)
+        assertEquals("Should have 2 interpolation ends", 2, interpolationEnds)
+    }
+
+    @Test
+    fun testStringInterpolationStillWorks() {
+        // Ensure string interpolation still returns to STRING state correctly
+        val text = "\"hello #" + "{name} world\""
+        val tokens = nonWhitespaceTokens(text)
+        val types = tokens.map { it.first }
+        assertTrue("Should contain STRING_INTERPOLATION_BEGIN", types.contains(CrystalTypes.STRING_INTERPOLATION_BEGIN))
+        assertTrue("Should contain STRING_INTERPOLATION_END", types.contains(CrystalTypes.STRING_INTERPOLATION_END))
+        // After interpolation, should have STRING_LITERAL for " world"
+        val endIdx = tokens.indexOfFirst { it.first == CrystalTypes.STRING_INTERPOLATION_END }
+        val afterInterpolation = tokens[endIdx + 1]
+        assertEquals("After interpolation should be STRING_LITERAL", CrystalTypes.STRING_LITERAL, afterInterpolation.first)
+    }
 }

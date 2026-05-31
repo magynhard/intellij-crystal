@@ -1960,7 +1960,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // HEREDOC_START HEREDOC_CONTENT* HEREDOC_END
+  // HEREDOC_START (HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END
   public static boolean heredoc_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "heredoc_literal")) return false;
     if (!nextTokenIs(builder_, HEREDOC_START)) return false;
@@ -1973,15 +1973,38 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // HEREDOC_CONTENT*
+  // (HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)*
   private static boolean heredoc_literal_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "heredoc_literal_1")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!consumeToken(builder_, HEREDOC_CONTENT)) break;
+      if (!heredoc_literal_1_0(builder_, level_ + 1)) break;
       if (!empty_element_parsed_guard_(builder_, "heredoc_literal_1", pos_)) break;
     }
     return true;
+  }
+
+  // HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  private static boolean heredoc_literal_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "heredoc_literal_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, HEREDOC_CONTENT);
+    if (!result_) result_ = heredoc_literal_1_0_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  private static boolean heredoc_literal_1_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "heredoc_literal_1_0_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, STRING_INTERPOLATION_END);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
   }
 
   /* ********************************************************** */

@@ -16,7 +16,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] `asm` blocks
 - [ ] Named tuples (`{name: "foo", age: 42}`)
 - [ ] `select` statement (concurrency)
-- [ ] Heredocs as expressions in parser (lexer already supports them)
+- [x] Heredocs as expressions in parser (lexer already supports them)
 - [ ] Better operator precedence (Pratt parsing or precedence climbing)
 - [x] Type restrictions on parameters (`def foo(x : Int32)`)
 - [ ] Default parameter values (full expressions)

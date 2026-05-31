@@ -15,12 +15,14 @@ import com.intellij.psi.TokenType;
 
 %{
   private int interpolationDepth = 0;
+  private int interpolationReturnState = STRING;
   private int percentDepth = 0;
   private char percentOpenChar = 0;
   private char percentCloseChar = 0;
   private IElementType percentTokenType = null;
   private String heredocId = "";
   private boolean heredocIndented = false;
+  private boolean heredocRaw = false;
 
   public int getInterpolationDepth() { return interpolationDepth; }
   public void setInterpolationDepth(int depth) { this.interpolationDepth = depth; }
@@ -158,6 +160,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          String text = yytext().toString();
                          heredocId = text.substring(4, text.length() - 1);
                          heredocIndented = true;
+                         heredocRaw = true;
                          yybegin(HEREDOC_START_LINE);
                          return CrystalTypes.HEREDOC_START;
                        }
@@ -165,6 +168,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          String text = yytext().toString();
                          heredocId = text.substring(3);
                          heredocIndented = true;
+                         heredocRaw = false;
                          yybegin(HEREDOC_START_LINE);
                          return CrystalTypes.HEREDOC_START;
                        }
@@ -305,7 +309,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 
 <STRING> {
   \"                   { yybegin(YYINITIAL); return CrystalTypes.STRING_LITERAL; }
-  "#{"                 { interpolationDepth++; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
+  "#{"                 { interpolationDepth++; interpolationReturnState = STRING; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
   "\\" .               { return CrystalTypes.STRING_LITERAL; }
   [^\"\#\\]+           { return CrystalTypes.STRING_LITERAL; }
   "#"                  { return CrystalTypes.STRING_LITERAL; }
@@ -315,7 +319,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "{"                  { interpolationDepth++; return CrystalTypes.LBRACE; }
   "}"                  { interpolationDepth--;
                          if (interpolationDepth == 0) {
-                           yybegin(STRING);
+                           yybegin(interpolationReturnState);
                            return CrystalTypes.STRING_INTERPOLATION_END;
                          }
                          return CrystalTypes.RBRACE;
@@ -365,7 +369,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 
 <HEREDOC_START_LINE> {
   // Consume the rest of the line after <<-ID (could have more code on same line)
-  {NEWLINE}            { yybegin(HEREDOC_BODY); return CrystalTypes.NEWLINE; }
+  {NEWLINE}            { yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_CONTENT; }
   .+                   { return CrystalTypes.HEREDOC_START; }
 }
 
@@ -387,7 +391,9 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          }
                          return CrystalTypes.HEREDOC_CONTENT;
                        }
-  [^\r\n]+             { return CrystalTypes.HEREDOC_CONTENT; }
+  [^\r\n\#]+           { return CrystalTypes.HEREDOC_CONTENT; }
+  "#{"                 { if (!heredocRaw) { interpolationDepth++; interpolationReturnState = HEREDOC_BODY; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT; }
+  "#"                  { return CrystalTypes.HEREDOC_CONTENT; }
   {NEWLINE}            { return CrystalTypes.HEREDOC_CONTENT; }
 }
 
