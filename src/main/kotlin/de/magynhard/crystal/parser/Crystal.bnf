@@ -454,10 +454,10 @@ method_call_expression ::= (IDENTIFIER | CONSTANT) call_args [block]
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
 
-call_args ::= LPAREN argument_list RPAREN
+call_args ::= LPAREN NLS argument_list NLS RPAREN
             | LPAREN RPAREN
 
-argument_list ::= argument (COMMA argument)*
+argument_list ::= argument (NLS COMMA NLS argument)*
 
 argument ::= [IDENTIFIER COLON] expression
            | STAR expression
@@ -553,13 +553,13 @@ heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN 
 
 percent_literal ::= PERCENT_LITERAL_BEGIN PERCENT_LITERAL_END
 
-array_literal ::= LBRACKET [expression_list] RBRACKET [OF type_reference]
+array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference]
 
-hash_literal ::= LBRACE [hash_entry_list] RBRACE [OF type_reference DOUBLE_ARROW type_reference]
+hash_literal ::= LBRACE NLS [hash_entry_list] NLS RBRACE [OF type_reference DOUBLE_ARROW type_reference]
 
-tuple_literal ::= LBRACE expression_list RBRACE
+tuple_literal ::= LBRACE NLS expression_list NLS RBRACE
 
-hash_entry_list ::= hash_entry (COMMA hash_entry)*
+hash_entry_list ::= hash_entry (NLS COMMA NLS hash_entry)* [COMMA]
 
 hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
 
@@ -611,4 +611,8 @@ pointerof_expression ::= POINTEROF LPAREN (instance_var_access | class_var_acces
 
 // ==================== Expression Lists ====================
 
-expression_list ::= expression (COMMA expression)*
+expression_list ::= expression (NLS COMMA NLS expression)* [COMMA]
+
+// ==================== Helper Rules ====================
+
+private NLS ::= NEWLINE*
