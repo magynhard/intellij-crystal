@@ -112,6 +112,15 @@
                 level="WARNING"
                 implementationClass="de.magynhard.crystal.inspections.CrystalArgumentCountInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Unused variable"
+                shortName="CrystalUnusedVariable"
+                enabledByDefault="true"
+                level="WEAK WARNING"
+                implementationClass="de.magynhard.crystal.inspections.CrystalUnusedVariableInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>

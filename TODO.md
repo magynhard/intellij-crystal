@@ -40,6 +40,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Inlay hints — show inferred types on variables
 - [x] Type checking — validate argument types against method parameter type annotations (e.g. passing `String` to a parameter typed `Int32` shows an error). Supports numeric autocasting, union types, nilable types, overloads, named args, splat skip. Phase 2: inheritance hierarchy, generics, array/hash literals.
 - [x] Argument count checking — validate number of arguments against method parameters. Reports missing required arguments (warning on method name) and excess arguments (warning on each extra arg). Supports named args, splat/double-splat, block params, default values, overloads, DOT-calls, bare calls.
+- [x] Unused variable detection — reports local variables that are assigned but never read (WEAK_WARNING). Supports reassignment analysis (each overwritten-before-read assignment warned individually), compound assignments (treated as read), underscore-prefix convention. Ignores method parameters, instance/class vars.
 - [x] Quick documentation — display doc comment above `def` (Ctrl+Q / F1 / hover; shows syntax-highlighted signature + Markdown-rendered doc comments with code blocks)
 - [ ] Implement members — generate stubs for abstract methods
 
