@@ -2,12 +2,14 @@ package de.magynhard.crystal.run
 
 import com.intellij.execution.Executor
 import com.intellij.execution.configurations.*
+import com.intellij.execution.executors.DefaultDebugExecutor
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessHandlerFactory
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
+import de.magynhard.crystal.debugger.CrystalDebugRunState
 import org.jdom.Element
 
 class CrystalRunConfiguration(
@@ -49,6 +51,10 @@ class CrystalRunConfiguration(
     }
 
     override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState {
+        // Debug executor → use DAP-based debug run state
+        if (executor.id == DefaultDebugExecutor.EXECUTOR_ID) {
+            return CrystalDebugRunState(environment, this)
+        }
         return if (command == CrystalCommand.SPEC) {
             CrystalTestRunState(environment, this)
         } else {

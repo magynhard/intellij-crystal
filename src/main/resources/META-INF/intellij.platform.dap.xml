@@ -1,0 +1,6 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij.platform.dap">
+        <debugAdapterSupportProvider
+                implementation="de.magynhard.crystal.debugger.CrystalDebugAdapterSupportProvider"/>
+    </extensions>
+</idea-plugin>

@@ -45,6 +45,10 @@
 
     <depends>com.intellij.modules.platform</depends>
 
+    <dependencies>
+        <module name="intellij.platform.dap"/>
+    </dependencies>
+
     <extensions defaultExtensionNs="com.intellij">
         <fileType
                 name="Crystal"
@@ -204,6 +208,13 @@
         <completion.contributor
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.completion.CrystalCompletionContributor"/>
+
+        <!-- Debugger -->
+        <xdebugger.breakpointType
+                implementation="de.magynhard.crystal.debugger.CrystalLineBreakpointType"/>
+
+        <programRunner
+                implementation="de.magynhard.crystal.debugger.CrystalDebugProgramRunner"/>
     </extensions>
 
     <projectListeners>
