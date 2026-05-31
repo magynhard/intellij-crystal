@@ -135,6 +135,13 @@
         <runConfigurationProducer
                 implementation="de.magynhard.crystal.run.CrystalRunConfigurationProducer"/>
 
+        <runLineMarkerContributor
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.run.CrystalRunLineMarkerProvider"/>
+
+        <testLocator
+                implementation="de.magynhard.crystal.run.CrystalTestLocator"/>
+
         <defaultLiveTemplates implementation="de.magynhard.crystal.CrystalLiveTemplateProvider"/>
 
         <liveTemplateContext

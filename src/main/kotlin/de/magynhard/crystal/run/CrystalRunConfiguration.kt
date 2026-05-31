@@ -37,6 +37,9 @@ class CrystalRunConfiguration(
         get() = options.crystalPath ?: "crystal"
         set(value) { options.crystalPath = value }
 
+    /** Line number for single-test execution (crystal spec file:line). 0 means run all. */
+    var specLine: Int = 0
+
     override fun getOptions(): CrystalRunConfigurationOptions {
         return super.getOptions() as CrystalRunConfigurationOptions
     }
@@ -46,7 +49,11 @@ class CrystalRunConfiguration(
     }
 
     override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState {
-        return CrystalRunState(environment, this)
+        return if (command == CrystalCommand.SPEC) {
+            CrystalTestRunState(environment, this)
+        } else {
+            CrystalRunState(environment, this)
+        }
     }
 
     override fun readExternal(element: Element) {

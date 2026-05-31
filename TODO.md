@@ -53,7 +53,7 @@ The current grammar covers the most common constructs. The following extensions 
 
 - [ ] Ameba integration (Crystal linter) — show inspections from `ameba`
 - [ ] Crystal Shards support — `shard.yml` parsing, dependency completion
-- [ ] Test runner — connect `crystal spec` to IntelliJ's test UI
+- [x] Test runner — connect `crystal spec` to IntelliJ's test UI (SMTRunner with real-time output parsing, gutter run icons, single-test execution via file:line, re-run failed tests)
 - [ ] Debugger integration — GDB/LLDB for Crystal binaries
 - [x] Project SDK — detect and configure Crystal version
 - [ ] New file templates — create class, module, spec files
