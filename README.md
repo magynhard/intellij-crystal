@@ -43,6 +43,8 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 ### Run & Debug
 
 - **Run Configurations** — crystal run, build, and spec with configurable arguments, environment variables, and working directory
+- **Debugger** — breakpoints, variable inspection, and stepping via lldb-dap (DAP protocol)
+- **Test Runner** — integrated spec runner with gutter icons, single-test execution, and result tree
 - **Context-aware** — right-click a `.cr` file to run it
 
 ### Code Generation
@@ -59,6 +61,11 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 - **IntelliJ Platform** 2025.1 or later
 - **Crystal** installed and available in PATH (for formatting and compiler verification)
+- **LLDB DAP** (optional, for debugging) — the `lldb-dap` binary must be installed:
+  - **Linux (Arch/Manjaro):** `sudo pacman -S lldb`
+  - **Linux (Debian/Ubuntu):** `sudo apt install lldb`
+  - **macOS:** Included with Xcode Command Line Tools (`xcode-select --install`), or `brew install llvm`
+  - **Windows:** Install LLVM from [releases.llvm.org](https://releases.llvm.org/) (includes `lldb-dap.exe`)
 
 ## Installation
 

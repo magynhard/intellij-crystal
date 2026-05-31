@@ -209,6 +209,13 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.completion.CrystalCompletionContributor"/>
 
+        <!-- Icons -->
+        <iconProvider
+                implementation="de.magynhard.crystal.CrystalIconProvider"/>
+
+        <postStartupActivity
+                implementation="de.magynhard.crystal.CrystalSpecSourceRootConfigurator"/>
+
         <!-- Debugger -->
         <xdebugger.breakpointType
                 implementation="de.magynhard.crystal.debugger.CrystalLineBreakpointType"/>
