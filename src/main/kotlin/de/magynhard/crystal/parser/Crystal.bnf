@@ -264,7 +264,7 @@ lib_body ::= lib_member*
 
 private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition
 
-fun_definition ::= FUN IDENTIFIER [LPAREN parameter_list RPAREN] [COLON type_reference] {pin=1}
+fun_definition ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 
 type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
 
@@ -272,7 +272,7 @@ lib_struct_definition ::= STRUCT CONSTANT lib_body END
 
 // ==================== Methods ====================
 
-method_definition ::= [ABSTRACT] DEF method_name [LPAREN parameter_list RPAREN] [COLON type_reference] method_body END {
+method_definition ::= [ABSTRACT] DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {
   pin(".*")=2
   stubClass="de.magynhard.crystal.stubs.CrystalMethodDefinitionStub"
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMethodDefinitionImpl"
@@ -290,7 +290,7 @@ private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSA
 
 method_body ::= statement_list
 
-macro_definition ::= MACRO method_name [LPAREN parameter_list RPAREN] method_body END {
+macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] method_body END {
   pin=1
   stubClass="de.magynhard.crystal.stubs.CrystalMacroDefinitionStub"
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMacroDefinitionImpl"
@@ -299,10 +299,12 @@ macro_definition ::= MACRO method_name [LPAREN parameter_list RPAREN] method_bod
 
 // ==================== Parameters ====================
 
-parameter_list ::= [parameter (COMMA parameter)*]
+parameter_list ::= [parameter_item (COMMA NLS parameter_item)*]
+private parameter_item ::= bare_splat_separator | parameter
 
 parameter ::= [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
             | [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
 
 // ==================== Property Declarations ====================
 
@@ -432,6 +434,7 @@ private primary_expression ::= grouped_expression
                              | array_literal
                              | hash_literal
                              | tuple_literal
+                             | proc_literal
                              | method_call_expression
                              | literal
                              | instance_var_access
@@ -515,6 +518,7 @@ private bare_primary_expression ::= grouped_expression
                                   | array_literal
                                   | hash_literal
                                   | tuple_literal
+                                  | proc_literal
                                   | bare_method_call_expression
                                   | literal
                                   | instance_var_access
@@ -533,6 +537,11 @@ bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
 
 block ::= DO [PIPE parameter_list PIPE] statement_list END
         | LBRACE [PIPE parameter_list PIPE] statement_list RBRACE
+
+// Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
+proc_literal ::= ARROW LPAREN parameter_list RPAREN LBRACE statement_list RBRACE
+               | ARROW LBRACE statement_list RBRACE
+               | ARROW (IDENTIFIER | CONSTANT) [DOT (IDENTIFIER | CONSTANT)] [LPAREN type_reference (COMMA type_reference)* RPAREN] {pin=1}
 
 // ==================== Literals ====================
 

@@ -74,4 +74,20 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testAsmAndUninitialized() {
         doTest(true)
     }
+
+    fun testDefaultParam() {
+        doTest(true)
+    }
+
+    fun testMultiLineParams() {
+        doTest(true)
+    }
+
+    fun testBareSplat() {
+        doTest(true)
+    }
+
+    fun testNestedStringInterpolation() {
+        doTest(true)
+    }
 }

@@ -143,6 +143,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalProcLiteral> getProcLiteralList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalProcLiteral.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalSizeofExpression> getSizeofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalSizeofExpression.class);
   }

@@ -235,6 +235,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitProcLiteral(@NotNull CrystalProcLiteral o) {
+    visitPsiElement(o);
+  }
+
   public void visitPropertyDeclaration(@NotNull CrystalPropertyDeclaration o) {
     visitPsiElement(o);
   }

@@ -15,7 +15,6 @@ import com.intellij.psi.TokenType;
 
 %{
   private int interpolationDepth = 0;
-  private int interpolationReturnState = STRING;
   private int percentDepth = 0;
   private char percentOpenChar = 0;
   private char percentCloseChar = 0;
@@ -23,6 +22,23 @@ import com.intellij.psi.TokenType;
   private String heredocId = "";
   private boolean heredocIndented = false;
   private boolean heredocRaw = false;
+
+  // State stack for nested string interpolation
+  private final java.util.ArrayDeque<Integer> stateStack = new java.util.ArrayDeque<>();
+  private final java.util.ArrayDeque<Integer> depthStack = new java.util.ArrayDeque<>();
+
+  private void pushState(int newState) {
+    stateStack.push(zzLexicalState);
+    yybegin(newState);
+  }
+
+  private void popState() {
+    if (!stateStack.isEmpty()) {
+      yybegin(stateStack.pop());
+    } else {
+      yybegin(YYINITIAL);
+    }
+  }
 
   public int getInterpolationDepth() { return interpolationDepth; }
   public void setInterpolationDepth(int depth) { this.interpolationDepth = depth; }
@@ -230,7 +246,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                        }
 
   // String start
-  \"                   { yybegin(STRING); return CrystalTypes.STRING_LITERAL; }
+  \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
 
   // Command literal
   "`" [^`]* "`"        { return CrystalTypes.COMMAND_LITERAL; }
@@ -308,8 +324,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 }
 
 <STRING> {
-  \"                   { yybegin(YYINITIAL); return CrystalTypes.STRING_LITERAL; }
-  "#{"                 { interpolationDepth++; interpolationReturnState = STRING; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
+  \"                   { popState(); return CrystalTypes.STRING_LITERAL; }
+  "#{"                 { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
   "\\" .               { return CrystalTypes.STRING_LITERAL; }
   [^\"\#\\]+           { return CrystalTypes.STRING_LITERAL; }
   "#"                  { return CrystalTypes.STRING_LITERAL; }
@@ -319,7 +335,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "{"                  { interpolationDepth++; return CrystalTypes.LBRACE; }
   "}"                  { interpolationDepth--;
                          if (interpolationDepth == 0) {
-                           yybegin(interpolationReturnState);
+                           interpolationDepth = depthStack.isEmpty() ? 0 : depthStack.pop();
+                           popState();
                            return CrystalTypes.STRING_INTERPOLATION_END;
                          }
                          return CrystalTypes.RBRACE;
@@ -333,7 +350,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
-  \"                   { yybegin(STRING); return CrystalTypes.STRING_LITERAL; }
+  \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
   "."                  { return CrystalTypes.DOT; }
   "("                  { return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
@@ -392,7 +409,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          return CrystalTypes.HEREDOC_CONTENT;
                        }
   [^\r\n\#]+           { return CrystalTypes.HEREDOC_CONTENT; }
-  "#{"                 { if (!heredocRaw) { interpolationDepth++; interpolationReturnState = HEREDOC_BODY; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT; }
+  "#{"                 { if (!heredocRaw) { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT; }
   "#"                  { return CrystalTypes.HEREDOC_CONTENT; }
   {NEWLINE}            { return CrystalTypes.HEREDOC_CONTENT; }
 }

@@ -67,6 +67,7 @@ public interface CrystalTypes {
   IElementType PERCENT_LITERAL = new CrystalElementType("PERCENT_LITERAL");
   IElementType POINTEROF_EXPRESSION = new CrystalElementType("POINTEROF_EXPRESSION");
   IElementType POSTFIX_MODIFIER = new CrystalElementType("POSTFIX_MODIFIER");
+  IElementType PROC_LITERAL = new CrystalElementType("PROC_LITERAL");
   IElementType PROPERTY_DECLARATION = new CrystalElementType("PROPERTY_DECLARATION");
   IElementType REQUIRE_STATEMENT = new CrystalElementType("REQUIRE_STATEMENT");
   IElementType RESCUE_CLAUSE = new CrystalElementType("RESCUE_CLAUSE");
@@ -404,6 +405,9 @@ public interface CrystalTypes {
       }
       else if (type == POSTFIX_MODIFIER) {
         return new CrystalPostfixModifierImpl(node);
+      }
+      else if (type == PROC_LITERAL) {
+        return new CrystalProcLiteralImpl(node);
       }
       else if (type == PROPERTY_DECLARATION) {
         return new CrystalPropertyDeclarationImpl(node);

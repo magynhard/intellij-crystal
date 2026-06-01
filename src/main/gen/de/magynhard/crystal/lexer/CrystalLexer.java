@@ -803,7 +803,6 @@ class CrystalLexer implements FlexLexer {
 
   /* user code: */
   private int interpolationDepth = 0;
-  private int interpolationReturnState = STRING;
   private int percentDepth = 0;
   private char percentOpenChar = 0;
   private char percentCloseChar = 0;
@@ -811,6 +810,23 @@ class CrystalLexer implements FlexLexer {
   private String heredocId = "";
   private boolean heredocIndented = false;
   private boolean heredocRaw = false;
+
+  // State stack for nested string interpolation
+  private final java.util.ArrayDeque<Integer> stateStack = new java.util.ArrayDeque<>();
+  private final java.util.ArrayDeque<Integer> depthStack = new java.util.ArrayDeque<>();
+
+  private void pushState(int newState) {
+    stateStack.push(zzLexicalState);
+    yybegin(newState);
+  }
+
+  private void popState() {
+    if (!stateStack.isEmpty()) {
+      yybegin(stateStack.pop());
+    } else {
+      yybegin(YYINITIAL);
+    }
+  }
 
   public int getInterpolationDepth() { return interpolationDepth; }
   public void setInterpolationDepth(int depth) { this.interpolationDepth = depth; }
@@ -1122,7 +1138,7 @@ class CrystalLexer implements FlexLexer {
           // fall through
           case 151: break;
           case 5:
-            { yybegin(STRING); return CrystalTypes.STRING_LITERAL;
+            { pushState(STRING); return CrystalTypes.STRING_LITERAL;
             }
           // fall through
           case 152: break;
@@ -1272,7 +1288,7 @@ class CrystalLexer implements FlexLexer {
           // fall through
           case 181: break;
           case 35:
-            { yybegin(YYINITIAL); return CrystalTypes.STRING_LITERAL;
+            { popState(); return CrystalTypes.STRING_LITERAL;
             }
           // fall through
           case 182: break;
@@ -1284,7 +1300,8 @@ class CrystalLexer implements FlexLexer {
           case 37:
             { interpolationDepth--;
                          if (interpolationDepth == 0) {
-                           yybegin(interpolationReturnState);
+                           interpolationDepth = depthStack.isEmpty() ? 0 : depthStack.pop();
+                           popState();
                            return CrystalTypes.STRING_INTERPOLATION_END;
                          }
                          return CrystalTypes.RBRACE;
@@ -1505,12 +1522,12 @@ class CrystalLexer implements FlexLexer {
           // fall through
           case 222: break;
           case 76:
-            { interpolationDepth++; interpolationReturnState = STRING; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN;
+            { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN;
             }
           // fall through
           case 223: break;
           case 77:
-            { if (!heredocRaw) { interpolationDepth++; interpolationReturnState = HEREDOC_BODY; yybegin(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT;
+            { if (!heredocRaw) { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT;
             }
           // fall through
           case 224: break;

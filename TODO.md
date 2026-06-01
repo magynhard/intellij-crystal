@@ -8,7 +8,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Macro body parsing (`{% %}`, `{{ }}`, `{% for %}`)
 - [x] Union types as type annotations (`Int32 | String`)
 - [ ] Proc/Lambda types (`-> Int32`, `Proc(Int32, String)`)
-- [ ] Proc literals (`->{ }`, `->(x) { }`)
+- [x] Proc literals (`->{ }`, `->(x) { }`, `->method_name(Type)`)
 - [ ] Pattern matching (`case...in`, Crystal 1.x+)
 - [ ] Multi-assignment (`a, b = 1, 2`)
 - [ ] Splat parameters (`*args`, `**kwargs`)
@@ -19,7 +19,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [x] Heredocs as expressions in parser (lexer already supports them)
 - [ ] Better operator precedence (Pratt parsing or precedence climbing)
 - [x] Type restrictions on parameters (`def foo(x : Int32)`)
-- [ ] Default parameter values (full expressions)
+- [x] Default parameter values (full expressions)
 - [ ] Visibility modifiers as modifier nodes on PSI elements
 - [ ] `with...yield` blocks
 - [x] `pointerof`, `offsetof` as expressions

@@ -50,6 +50,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalPointerofExpression> getPointerofExpressionList();
 
   @NotNull
+  List<CrystalProcLiteral> getProcLiteralList();
+
+  @NotNull
   List<CrystalSizeofExpression> getSizeofExpressionList();
 
   @NotNull
