@@ -12,7 +12,7 @@ class CrystalBraceMatcher : PairedBraceMatcher {
         private val PAIRS = arrayOf(
             BracePair(CrystalTypes.LPAREN, CrystalTypes.RPAREN, false),
             BracePair(CrystalTypes.LBRACKET, CrystalTypes.RBRACKET, false),
-            BracePair(CrystalTypes.LBRACE, CrystalTypes.RBRACE, false),
+            BracePair(CrystalTypes.LBRACE, CrystalTypes.RBRACE, true),
             BracePair(CrystalTypes.PERCENT_LITERAL_BEGIN, CrystalTypes.PERCENT_LITERAL_END, false),
         )
     }

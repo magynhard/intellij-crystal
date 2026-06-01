@@ -48,6 +48,43 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
         val trimmed = prevLineText.trimEnd()
         if (trimmed.isEmpty()) return EnterHandlerDelegate.Result.Continue
 
+        // Handle brace/bracket enter: { | } or [ | ]
+        if (trimmed.endsWith("{") || trimmed.endsWith("[")) {
+            val totalLines = document.lineCount
+            if (caretLine < totalLines) {
+                val nextLineStart = document.getLineStartOffset(caretLine)
+                val nextLineEnd = document.getLineEndOffset(caretLine)
+                val nextLineText = document.getText(TextRange(nextLineStart, nextLineEnd))
+                val nextTrimmed = nextLineText.trimStart()
+                if (nextTrimmed.startsWith("}") || nextTrimmed.startsWith("]")) {
+                    // We're between matching braces — indent cursor and move close brace down
+                    val baseIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
+                    val newIndent = "$baseIndent  "
+                    val currentLineStart = document.getLineStartOffset(caretLine)
+                    val currentLineEnd = document.getLineEndOffset(caretLine)
+
+                    // Replace current line (which has the closing brace) with:
+                    // - indented cursor line
+                    // - closing brace on its own line with base indent
+                    document.replaceString(currentLineStart, currentLineEnd, "$newIndent\n$baseIndent${nextTrimmed}")
+                    editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
+                    return EnterHandlerDelegate.Result.Stop
+                }
+            }
+
+            // Fallback: previous line ends with { or [ but closing brace is not on next line
+            // Just indent the cursor one level deeper
+            val baseIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
+            val newIndent = "$baseIndent  "
+            val currentLineStart = document.getLineStartOffset(caretLine)
+            val currentLineEnd = document.getLineEndOffset(caretLine)
+            val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
+            val currentLineContent = currentLineText.trimStart()
+            document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
+            editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
+            return EnterHandlerDelegate.Result.Stop
+        }
+
         if (!endsWithBlockOpener(trimmed)) return EnterHandlerDelegate.Result.Continue
 
         // Add indentation to the current (new) line
