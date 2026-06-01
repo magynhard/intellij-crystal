@@ -24,6 +24,9 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             "begin", "do", "macro", "lib", "fun", "annotation",
             "for"
         )
+
+        // Keywords that should be dedented to match their opening block keyword
+        private val DEDENT_KEYWORDS = setOf("else", "elsif", "end", "when", "ensure", "rescue", "in")
     }
 
     override fun postProcessEnter(
@@ -47,6 +50,59 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
         // Check if previous line ends with a block-opening keyword
         val trimmed = prevLineText.trimEnd()
         if (trimmed.isEmpty()) return EnterHandlerDelegate.Result.Continue
+
+        // Electric dedent: if the previous line is a dedent keyword (else, end, etc.),
+        // adjust its indentation to match the opening block keyword
+        val prevTrimmedStart = prevLineText.trimStart()
+        val dedentKeyword = DEDENT_KEYWORDS.find { kw ->
+            prevTrimmedStart == kw || prevTrimmedStart.startsWith("$kw ") || prevTrimmedStart.startsWith("$kw\t")
+        }
+        if (dedentKeyword != null) {
+            val expectedIndent = findOpeningBlockIndent(document, prevLineNumber, dedentKeyword)
+            if (expectedIndent != null) {
+                val currentIndentLen = prevLineText.length - prevLineText.trimStart().length
+                val currentIndent = prevLineText.substring(0, currentIndentLen)
+                if (currentIndent != expectedIndent) {
+                    // Fix the previous line's indentation
+                    document.replaceString(prevLineStart, prevLineStart + currentIndentLen, expectedIndent)
+                    val delta = expectedIndent.length - currentIndentLen
+                    // Also fix caret line position (it shifted)
+                    editor.caretModel.moveToOffset(editor.caretModel.offset + delta)
+                }
+            }
+            // For dedent keywords that also open a sub-block (else, elsif, rescue, ensure, when, in),
+            // we still want to indent the new line one level deeper
+            if (dedentKeyword != "end") {
+                val updatedCaretOffset = editor.caretModel.offset
+                val updatedCaretLine = document.getLineNumber(updatedCaretOffset)
+                val updatedPrevLineStart = document.getLineStartOffset(updatedCaretLine - 1)
+                val updatedPrevLineEnd = document.getLineEndOffset(updatedCaretLine - 1)
+                val updatedPrevLineText = document.getText(TextRange(updatedPrevLineStart, updatedPrevLineEnd))
+                val baseIndent = updatedPrevLineText.takeWhile { it == ' ' || it == '\t' }
+                val newIndent = "$baseIndent  "
+                val currentLineStart = document.getLineStartOffset(updatedCaretLine)
+                val currentLineEnd = document.getLineEndOffset(updatedCaretLine)
+                val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
+                val currentLineContent = currentLineText.trimStart()
+                document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
+                editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
+                return EnterHandlerDelegate.Result.Stop
+            }
+            // For "end", just adjust indent of cursor line to match end's level
+            val updatedCaretOffset = editor.caretModel.offset
+            val updatedCaretLine = document.getLineNumber(updatedCaretOffset)
+            val updatedPrevLineStart = document.getLineStartOffset(updatedCaretLine - 1)
+            val updatedPrevLineEnd = document.getLineEndOffset(updatedCaretLine - 1)
+            val updatedPrevLineText = document.getText(TextRange(updatedPrevLineStart, updatedPrevLineEnd))
+            val baseIndent = updatedPrevLineText.takeWhile { it == ' ' || it == '\t' }
+            val currentLineStart = document.getLineStartOffset(updatedCaretLine)
+            val currentLineEnd = document.getLineEndOffset(updatedCaretLine)
+            val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
+            val currentLineContent = currentLineText.trimStart()
+            document.replaceString(currentLineStart, currentLineEnd, "$baseIndent$currentLineContent")
+            editor.caretModel.moveToOffset(currentLineStart + baseIndent.length)
+            return EnterHandlerDelegate.Result.Stop
+        }
 
         // Handle brace/bracket enter: { | } or [ | ]
         if (trimmed.endsWith("{") || trimmed.endsWith("[")) {
@@ -150,6 +206,48 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             }
         }
         return depth <= 0
+    }
+
+    /**
+     * Scans backwards from the current line to find the opening block keyword
+     * and returns its indentation string.
+     */
+    private fun findOpeningBlockIndent(document: com.intellij.openapi.editor.Document, currentLine: Int, keyword: String): String? {
+        val blockOpeners = setOf("if", "unless", "case", "while", "until", "begin", "def", "class", "module", "struct", "enum", "lib", "do", "for", "macro", "select", "fun", "annotation")
+        val midKeywords = setOf("else", "elsif", "when", "in", "ensure", "rescue")
+
+        var depth = 0
+        for (line in (currentLine - 1) downTo 0) {
+            val lineStart = document.getLineStartOffset(line)
+            val lineEnd = document.getLineEndOffset(line)
+            val text = document.getText(TextRange(lineStart, lineEnd))
+            val trimmed = text.trimStart()
+
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+
+            val firstWord = trimmed.split(Regex("[\\s({]"), 2)[0]
+
+            if (firstWord == "end") {
+                depth++
+                continue
+            }
+
+            if (depth > 0 && (firstWord in blockOpeners || endsWithBlockOpener(trimmed.trimEnd()))) {
+                depth--
+                continue
+            }
+
+            if (depth == 0) {
+                if (firstWord in midKeywords) {
+                    // Same level — skip and keep looking for opener
+                    continue
+                }
+                if (firstWord in blockOpeners || endsWithBlockOpener(trimmed.trimEnd())) {
+                    return text.substring(0, text.length - text.trimStart().length)
+                }
+            }
+        }
+        return null
     }
 
     /**
