@@ -16,6 +16,8 @@ public interface CrystalTypes {
   IElementType ARGUMENT = new CrystalElementType("ARGUMENT");
   IElementType ARGUMENT_LIST = new CrystalElementType("ARGUMENT_LIST");
   IElementType ARRAY_LITERAL = new CrystalElementType("ARRAY_LITERAL");
+  IElementType ASM_EXPRESSION = new CrystalElementType("ASM_EXPRESSION");
+  IElementType ASM_OPERAND = new CrystalElementType("ASM_OPERAND");
   IElementType ASSIGNMENT = new CrystalElementType("ASSIGNMENT");
   IElementType BARE_ARGUMENT = new CrystalElementType("BARE_ARGUMENT");
   IElementType BARE_ARGUMENT_LIST = new CrystalElementType("BARE_ARGUMENT_LIST");
@@ -83,6 +85,7 @@ public interface CrystalTypes {
   IElementType TYPE_PARAMETERS = new CrystalElementType("TYPE_PARAMETERS");
   IElementType TYPE_PATH = new CrystalElementType("TYPE_PATH");
   IElementType TYPE_REFERENCE = new CrystalElementType("TYPE_REFERENCE");
+  IElementType UNINITIALIZED_EXPRESSION = new CrystalElementType("UNINITIALIZED_EXPRESSION");
   IElementType UNLESS_STATEMENT = new CrystalElementType("UNLESS_STATEMENT");
   IElementType UNTIL_STATEMENT = new CrystalElementType("UNTIL_STATEMENT");
   IElementType VARIABLE_REFERENCE = new CrystalElementType("VARIABLE_REFERENCE");
@@ -248,6 +251,12 @@ public interface CrystalTypes {
       }
       else if (type == ARRAY_LITERAL) {
         return new CrystalArrayLiteralImpl(node);
+      }
+      else if (type == ASM_EXPRESSION) {
+        return new CrystalAsmExpressionImpl(node);
+      }
+      else if (type == ASM_OPERAND) {
+        return new CrystalAsmOperandImpl(node);
       }
       else if (type == ASSIGNMENT) {
         return new CrystalAssignmentImpl(node);
@@ -449,6 +458,9 @@ public interface CrystalTypes {
       }
       else if (type == TYPE_REFERENCE) {
         return new CrystalTypeReferenceImpl(node);
+      }
+      else if (type == UNINITIALIZED_EXPRESSION) {
+        return new CrystalUninitializedExpressionImpl(node);
       }
       else if (type == UNLESS_STATEMENT) {
         return new CrystalUnlessStatementImpl(node);

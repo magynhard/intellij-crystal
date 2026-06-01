@@ -70,4 +70,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testMultiLineLiterals() {
         doTest(true)
     }
+
+    fun testAsmAndUninitialized() {
+        doTest(true)
+    }
 }

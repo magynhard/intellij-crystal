@@ -357,6 +357,461 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // string_expression (NLS COMMA NLS string_expression)*
+  static boolean asm_clobber_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_clobber_list")) return false;
+    if (!nextTokenIs(builder_, "", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = string_expression(builder_, level_ + 1);
+    result_ = result_ && asm_clobber_list_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (NLS COMMA NLS string_expression)*
+  private static boolean asm_clobber_list_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_clobber_list_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!asm_clobber_list_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "asm_clobber_list_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // NLS COMMA NLS string_expression
+  private static boolean asm_clobber_list_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_clobber_list_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && string_expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // ASM LPAREN NLS string_expression NLS [asm_sections] NLS RPAREN
+  public static boolean asm_expression(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_expression")) return false;
+    if (!nextTokenIs(builder_, ASM)) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, ASM_EXPRESSION, null);
+    result_ = consumeTokens(builder_, 1, ASM, LPAREN);
+    pinned_ = result_; // pin = 1
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && report_error_(builder_, string_expression(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && report_error_(builder_, NLS(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && report_error_(builder_, asm_expression_5(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && report_error_(builder_, NLS(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && consumeToken(builder_, RPAREN) && result_;
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
+  }
+
+  // [asm_sections]
+  private static boolean asm_expression_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_expression_5")) return false;
+    asm_sections(builder_, level_ + 1);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // string_expression LPAREN expression RPAREN
+  public static boolean asm_operand(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_operand")) return false;
+    if (!nextTokenIs(builder_, "<asm operand>", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, ASM_OPERAND, "<asm operand>");
+    result_ = string_expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, LPAREN);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RPAREN);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // asm_operand (NLS COMMA NLS asm_operand)*
+  static boolean asm_operand_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_operand_list")) return false;
+    if (!nextTokenIs(builder_, "", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = asm_operand(builder_, level_ + 1);
+    result_ = result_ && asm_operand_list_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (NLS COMMA NLS asm_operand)*
+  private static boolean asm_operand_list_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_operand_list_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!asm_operand_list_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "asm_operand_list_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // NLS COMMA NLS asm_operand
+  private static boolean asm_operand_list_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_operand_list_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_operand(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // string_expression (NLS COMMA NLS string_expression)*
+  static boolean asm_option_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_option_list")) return false;
+    if (!nextTokenIs(builder_, "", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = string_expression(builder_, level_ + 1);
+    result_ = result_ && asm_option_list_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (NLS COMMA NLS string_expression)*
+  private static boolean asm_option_list_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_option_list_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!asm_option_list_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "asm_option_list_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // NLS COMMA NLS string_expression
+  private static boolean asm_option_list_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_option_list_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && string_expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // DOUBLE_COLON NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+  //                        | DOUBLE_COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]
+  //                        | COLON NLS [asm_operand_list] NLS DOUBLE_COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+  //                        | COLON NLS [asm_operand_list] [NLS COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]]
+  static boolean asm_sections(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections")) return false;
+    if (!nextTokenIs(builder_, "", COLON, DOUBLE_COLON)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = asm_sections_0(builder_, level_ + 1);
+    if (!result_) result_ = asm_sections_1(builder_, level_ + 1);
+    if (!result_) result_ = asm_sections_2(builder_, level_ + 1);
+    if (!result_) result_ = asm_sections_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // DOUBLE_COLON NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, DOUBLE_COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_0_4(builder_, level_ + 1);
+    result_ = result_ && asm_sections_0_5(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_clobber_list]
+  private static boolean asm_sections_0_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_0_4")) return false;
+    asm_clobber_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_0_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_0_5")) return false;
+    asm_sections_0_5_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS COLON NLS [asm_option_list]
+  private static boolean asm_sections_0_5_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_0_5_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_0_5_0_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_option_list]
+  private static boolean asm_sections_0_5_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_0_5_0_3")) return false;
+    asm_option_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // DOUBLE_COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]
+  private static boolean asm_sections_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, DOUBLE_COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_1_2(builder_, level_ + 1);
+    result_ = result_ && asm_sections_1_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_operand_list]
+  private static boolean asm_sections_1_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1_2")) return false;
+    asm_operand_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]
+  private static boolean asm_sections_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1_3")) return false;
+    asm_sections_1_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_1_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_1_3_0_3(builder_, level_ + 1);
+    result_ = result_ && asm_sections_1_3_0_4(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_clobber_list]
+  private static boolean asm_sections_1_3_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1_3_0_3")) return false;
+    asm_clobber_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_1_3_0_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1_3_0_4")) return false;
+    asm_sections_1_3_0_4_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS COLON NLS [asm_option_list]
+  private static boolean asm_sections_1_3_0_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1_3_0_4_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_1_3_0_4_0_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_option_list]
+  private static boolean asm_sections_1_3_0_4_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_1_3_0_4_0_3")) return false;
+    asm_option_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // COLON NLS [asm_operand_list] NLS DOUBLE_COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_2_2(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, DOUBLE_COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_2_6(builder_, level_ + 1);
+    result_ = result_ && asm_sections_2_7(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_operand_list]
+  private static boolean asm_sections_2_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_2_2")) return false;
+    asm_operand_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [asm_clobber_list]
+  private static boolean asm_sections_2_6(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_2_6")) return false;
+    asm_clobber_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_2_7(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_2_7")) return false;
+    asm_sections_2_7_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS COLON NLS [asm_option_list]
+  private static boolean asm_sections_2_7_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_2_7_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_2_7_0_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_option_list]
+  private static boolean asm_sections_2_7_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_2_7_0_3")) return false;
+    asm_option_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // COLON NLS [asm_operand_list] [NLS COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]]
+  private static boolean asm_sections_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_3_2(builder_, level_ + 1);
+    result_ = result_ && asm_sections_3_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_operand_list]
+  private static boolean asm_sections_3_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_2")) return false;
+    asm_operand_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [NLS COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]]
+  private static boolean asm_sections_3_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3")) return false;
+    asm_sections_3_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]
+  private static boolean asm_sections_3_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_3_3_0_3(builder_, level_ + 1);
+    result_ = result_ && asm_sections_3_3_0_4(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_operand_list]
+  private static boolean asm_sections_3_3_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0_3")) return false;
+    asm_operand_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]
+  private static boolean asm_sections_3_3_0_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0_4")) return false;
+    asm_sections_3_3_0_4_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_3_3_0_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0_4_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_3_3_0_4_0_3(builder_, level_ + 1);
+    result_ = result_ && asm_sections_3_3_0_4_0_4(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_clobber_list]
+  private static boolean asm_sections_3_3_0_4_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0_4_0_3")) return false;
+    asm_clobber_list(builder_, level_ + 1);
+    return true;
+  }
+
+  // [NLS COLON NLS [asm_option_list]]
+  private static boolean asm_sections_3_3_0_4_0_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0_4_0_4")) return false;
+    asm_sections_3_3_0_4_0_4_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS COLON NLS [asm_option_list]
+  private static boolean asm_sections_3_3_0_4_0_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0_4_0_4_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && asm_sections_3_3_0_4_0_4_0_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [asm_option_list]
+  private static boolean asm_sections_3_3_0_4_0_4_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "asm_sections_3_3_0_4_0_4_0_3")) return false;
+    asm_option_list(builder_, level_ + 1);
+    return true;
+  }
+
+  /* ********************************************************** */
   // ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
   //                      | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
   //                      | DOUBLE_STAR_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
@@ -970,6 +1425,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                                   | sizeof_expression
   //                                   | instance_sizeof_expression
   //                                   | pointerof_expression
+  //                                   | uninitialized_expression
+  //                                   | asm_expression
   static boolean bare_primary_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_primary_expression")) return false;
     boolean result_;
@@ -986,6 +1443,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = sizeof_expression(builder_, level_ + 1);
     if (!result_) result_ = instance_sizeof_expression(builder_, level_ + 1);
     if (!result_) result_ = pointerof_expression(builder_, level_ + 1);
+    if (!result_) result_ = uninitialized_expression(builder_, level_ + 1);
+    if (!result_) result_ = asm_expression(builder_, level_ + 1);
     return result_;
   }
 
@@ -3105,6 +3564,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                              | sizeof_expression
   //                              | instance_sizeof_expression
   //                              | pointerof_expression
+  //                              | uninitialized_expression
+  //                              | asm_expression
   //                              | if_statement
   //                              | unless_statement
   //                              | case_statement
@@ -3125,6 +3586,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = sizeof_expression(builder_, level_ + 1);
     if (!result_) result_ = instance_sizeof_expression(builder_, level_ + 1);
     if (!result_) result_ = pointerof_expression(builder_, level_ + 1);
+    if (!result_) result_ = uninitialized_expression(builder_, level_ + 1);
+    if (!result_) result_ = asm_expression(builder_, level_ + 1);
     if (!result_) result_ = if_statement(builder_, level_ + 1);
     if (!result_) result_ = unless_statement(builder_, level_ + 1);
     if (!result_) result_ = case_statement(builder_, level_ + 1);
@@ -3894,6 +4357,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, AMPERSAND);
     if (!result_) result_ = consumeToken(builder_, STAR);
     return result_;
+  }
+
+  /* ********************************************************** */
+  // UNINITIALIZED type_reference
+  public static boolean uninitialized_expression(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "uninitialized_expression")) return false;
+    if (!nextTokenIs(builder_, UNINITIALIZED)) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, UNINITIALIZED_EXPRESSION, null);
+    result_ = consumeToken(builder_, UNINITIALIZED);
+    pinned_ = result_; // pin = 1
+    result_ = result_ && type_reference(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
   }
 
   /* ********************************************************** */

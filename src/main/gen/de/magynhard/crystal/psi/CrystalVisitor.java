@@ -31,6 +31,14 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitAsmExpression(@NotNull CrystalAsmExpression o) {
+    visitPsiElement(o);
+  }
+
+  public void visitAsmOperand(@NotNull CrystalAsmOperand o) {
+    visitPsiElement(o);
+  }
+
   public void visitAssignment(@NotNull CrystalAssignment o) {
     visitPsiElement(o);
   }
@@ -296,6 +304,10 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitTypeofExpression(@NotNull CrystalTypeofExpression o) {
+    visitPsiElement(o);
+  }
+
+  public void visitUninitializedExpression(@NotNull CrystalUninitializedExpression o) {
     visitPsiElement(o);
   }
 

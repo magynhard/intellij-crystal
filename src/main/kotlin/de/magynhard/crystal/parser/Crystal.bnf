@@ -441,6 +441,8 @@ private primary_expression ::= grouped_expression
                              | sizeof_expression
                              | instance_sizeof_expression
                              | pointerof_expression
+                             | uninitialized_expression
+                             | asm_expression
                              | if_statement
                              | unless_statement
                              | case_statement
@@ -522,6 +524,8 @@ private bare_primary_expression ::= grouped_expression
                                   | sizeof_expression
                                   | instance_sizeof_expression
                                   | pointerof_expression
+                                  | uninitialized_expression
+                                  | asm_expression
 
 bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
@@ -608,6 +612,25 @@ sizeof_expression ::= SIZEOF LPAREN type_reference RPAREN {pin=1}
 instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN type_reference RPAREN {pin=1}
 
 pointerof_expression ::= POINTEROF LPAREN (instance_var_access | class_var_access | variable_reference) RPAREN {pin=1}
+
+uninitialized_expression ::= UNINITIALIZED type_reference {pin=1}
+
+asm_expression ::= ASM LPAREN NLS string_expression NLS [asm_sections] NLS RPAREN {pin=1}
+
+// ASM sections: up to 4 colon-separated sections (outputs, inputs, clobbers, options)
+// DOUBLE_COLON (::) counts as two consecutive colons (skipping a section)
+private asm_sections ::= DOUBLE_COLON NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+                       | DOUBLE_COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]
+                       | COLON NLS [asm_operand_list] NLS DOUBLE_COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]
+                       | COLON NLS [asm_operand_list] [NLS COLON NLS [asm_operand_list] [NLS COLON NLS [asm_clobber_list] [NLS COLON NLS [asm_option_list]]]]
+
+private asm_operand_list ::= asm_operand (NLS COMMA NLS asm_operand)*
+
+asm_operand ::= string_expression LPAREN expression RPAREN
+
+private asm_clobber_list ::= string_expression (NLS COMMA NLS string_expression)*
+
+private asm_option_list ::= string_expression (NLS COMMA NLS string_expression)*
 
 // ==================== Expression Lists ====================
 

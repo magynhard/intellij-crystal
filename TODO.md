@@ -13,7 +13,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Multi-assignment (`a, b = 1, 2`)
 - [ ] Splat parameters (`*args`, `**kwargs`)
 - [x] Annotation usage parsing (`@[Deprecated]`, `@[JSON::Serializable]`, `@[Link("sqlite3")]`)
-- [ ] `asm` blocks
+- [x] `asm` blocks
 - [ ] Named tuples (`{name: "foo", age: 42}`)
 - [ ] `select` statement (concurrency)
 - [x] Heredocs as expressions in parser (lexer already supports them)
@@ -22,7 +22,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [ ] Default parameter values (full expressions)
 - [ ] Visibility modifiers as modifier nodes on PSI elements
 - [ ] `with...yield` blocks
-- [ ] `pointerof`, `offsetof` as expressions
+- [x] `pointerof`, `offsetof` as expressions
 - [x] String interpolation as nested expressions in parser
 - [x] Suffix if/unless/while (`expr if condition`)
 - [ ] Ternary operator (partially exists: `? :` in expression rule)

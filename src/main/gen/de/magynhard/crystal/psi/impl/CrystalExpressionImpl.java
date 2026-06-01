@@ -41,6 +41,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalAsmExpression> getAsmExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAsmExpression.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalBareArgumentList> getBareArgumentListList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBareArgumentList.class);
   }
@@ -157,6 +163,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
   @NotNull
   public List<CrystalTypeofExpression> getTypeofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeofExpression.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalUninitializedExpression> getUninitializedExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalUninitializedExpression.class);
   }
 
   @Override
