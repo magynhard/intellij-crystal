@@ -125,6 +125,15 @@
                 level="WEAK WARNING"
                 implementationClass="de.magynhard.crystal.inspections.CrystalUnusedVariableInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Empty collection literal without type annotation"
+                shortName="CrystalEmptyCollection"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalEmptyCollectionInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>
