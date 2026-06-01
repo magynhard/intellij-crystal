@@ -195,6 +195,10 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.navigation.CrystalParameterInfoHandler"/>
 
+        <codeInsight.parameterInfo
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.navigation.CrystalAsmParameterInfoHandler"/>
+
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalClassIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMethodIndex"/>
 

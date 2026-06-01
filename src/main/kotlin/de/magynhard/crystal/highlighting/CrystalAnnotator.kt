@@ -4,6 +4,7 @@ import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
@@ -27,6 +28,12 @@ class CrystalAnnotator : Annotator {
         }
         if (elementType == CrystalTypes.IDENTIFIER) {
             annotateIdentifierToken(element, holder)
+            return
+        }
+
+        // Highlight $0, $1, etc. inside asm template strings
+        if (elementType == CrystalTypes.STRING_LITERAL) {
+            annotateAsmOperandReferences(element, holder)
             return
         }
     }
@@ -106,6 +113,31 @@ class CrystalAnnotator : Annotator {
         }.toSet()
 
         return name in paramNames
+    }
+
+    /**
+     * Highlights $0, $1, $2, ... operand references inside asm template strings
+     * with the same color as numbers.
+     */
+    private fun annotateAsmOperandReferences(element: PsiElement, holder: AnnotationHolder) {
+        // Only inside asm expressions
+        val asmExpr = PsiTreeUtil.getParentOfType(element, CrystalAsmExpression::class.java) ?: return
+
+        // Only the first string_expression (template) — check it's the template, not a constraint
+        val stringExpr = element.parent
+        val asmOperand = PsiTreeUtil.getParentOfType(stringExpr, CrystalAsmOperand::class.java)
+        if (asmOperand != null) return // This is a constraint string like "=r", not the template
+
+        val text = element.text
+        val startOffset = element.textRange.startOffset
+        val regex = Regex("\\$\\d+")
+        for (match in regex.findAll(text)) {
+            val range = TextRange(startOffset + match.range.first, startOffset + match.range.last + 1)
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                .range(range)
+                .textAttributes(CrystalSyntaxHighlighter.NUMBER)
+                .create()
+        }
     }
 
     private fun apply(holder: AnnotationHolder, element: PsiElement, key: TextAttributesKey) {
