@@ -189,4 +189,10 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalVariableReference.class);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalYieldExpression> getYieldExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalYieldExpression.class);
+  }
+
 }

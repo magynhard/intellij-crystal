@@ -13,4 +13,7 @@ public interface CrystalTypeReference extends PsiElement {
   @NotNull
   List<CrystalTypePath> getTypePathList();
 
+  @NotNull
+  List<CrystalTypeReference> getTypeReferenceList();
+
 }

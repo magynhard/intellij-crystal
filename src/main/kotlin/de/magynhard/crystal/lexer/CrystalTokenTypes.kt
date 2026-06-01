@@ -22,7 +22,7 @@ object CrystalTokenTypes {
         CrystalTypes.CLASS, CrystalTypes.DEF, CrystalTypes.DO,
         CrystalTypes.ELSE, CrystalTypes.ELSIF, CrystalTypes.END,
         CrystalTypes.ENSURE, CrystalTypes.ENUM, CrystalTypes.EXTEND,
-        CrystalTypes.FALSE, CrystalTypes.FOR, CrystalTypes.FUN,
+        CrystalTypes.FALSE, CrystalTypes.FOR, CrystalTypes.FORALL, CrystalTypes.FUN,
         CrystalTypes.IF, CrystalTypes.IN, CrystalTypes.INCLUDE,
         CrystalTypes.INSTANCE_SIZEOF, CrystalTypes.IS_A,
         CrystalTypes.LIB, CrystalTypes.MACRO, CrystalTypes.MODULE,

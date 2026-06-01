@@ -88,4 +88,7 @@ public interface CrystalExpression extends PsiElement {
   @NotNull
   List<CrystalVariableReference> getVariableReferenceList();
 
+  @NotNull
+  List<CrystalYieldExpression> getYieldExpressionList();
+
 }

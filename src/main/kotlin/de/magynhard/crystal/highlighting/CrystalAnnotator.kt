@@ -77,6 +77,12 @@ class CrystalAnnotator : Annotator {
             return
         }
 
+        // Built-in macros (getter, setter, property, etc.) highlighted as keywords
+        if (isBuiltinMacroCall(element)) {
+            apply(holder, element, CrystalSyntaxHighlighter.KEYWORD)
+            return
+        }
+
         // Parameter usage inside method/macro body
         if (isParameterUsage(element)) {
             apply(holder, element, CrystalSyntaxHighlighter.PARAMETER)
@@ -85,6 +91,21 @@ class CrystalAnnotator : Annotator {
 
         // Default: normal identifier
         apply(holder, element, CrystalSyntaxHighlighter.IDENTIFIER)
+    }
+
+    /**
+     * Check if an IDENTIFIER is a built-in macro call (getter, setter, property, etc.)
+     * These are highlighted as keywords since they act like language constructs.
+     */
+    private fun isBuiltinMacroCall(element: PsiElement): Boolean {
+        val text = element.text
+        if (text !in BUILTIN_MACROS) return false
+        // Must be a statement-level call (first token on a logical line / inside class body)
+        val parent = element.parent
+        // Bare method call expression or direct child of statement list
+        return parent is CrystalBareMethodCallExpression ||
+               (parent?.parent is CrystalStatementList) ||
+               (parent?.parent is CrystalClassBody)
     }
 
     /**
@@ -145,5 +166,15 @@ class CrystalAnnotator : Annotator {
             .range(element)
             .textAttributes(key)
             .create()
+    }
+
+    companion object {
+        private val BUILTIN_MACROS = setOf(
+            "getter", "setter", "property",
+            "class_getter", "class_setter", "class_property",
+            "record", "delegate", "forward_missing_to",
+            "def_equals", "def_hash", "def_equals_and_hash",
+            "def_clone", "def_clone_as"
+        )
     }
 }

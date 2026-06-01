@@ -90,4 +90,20 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testNestedStringInterpolation() {
         doTest(true)
     }
+
+    fun testBlockParam() {
+        doTest(true)
+    }
+
+    fun testYieldExpr() {
+        doTest(true)
+    }
+
+    fun testMultiParamBlock() {
+        doTest(true)
+    }
+
+    fun testAbstractDef() {
+        doTest(true)
+    }
 }

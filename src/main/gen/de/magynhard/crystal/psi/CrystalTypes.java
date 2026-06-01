@@ -93,6 +93,7 @@ public interface CrystalTypes {
   IElementType VISIBILITY_MODIFIER = new CrystalElementType("VISIBILITY_MODIFIER");
   IElementType WHEN_CLAUSE = new CrystalElementType("WHEN_CLAUSE");
   IElementType WHILE_STATEMENT = new CrystalElementType("WHILE_STATEMENT");
+  IElementType YIELD_EXPRESSION = new CrystalElementType("YIELD_EXPRESSION");
   IElementType YIELD_STATEMENT = new CrystalElementType("YIELD_STATEMENT");
 
   IElementType ABSTRACT = new CrystalTokenType("ABSTRACT");
@@ -142,6 +143,7 @@ public interface CrystalTypes {
   IElementType FALSE = new CrystalTokenType("FALSE");
   IElementType FLOAT_LITERAL = new CrystalTokenType("FLOAT_LITERAL");
   IElementType FOR = new CrystalTokenType("FOR");
+  IElementType FORALL = new CrystalTokenType("FORALL");
   IElementType FUN = new CrystalTokenType("FUN");
   IElementType GLOBAL_VAR = new CrystalTokenType("GLOBAL_VAR");
   IElementType GT = new CrystalTokenType("GT");
@@ -483,6 +485,9 @@ public interface CrystalTypes {
       }
       else if (type == WHILE_STATEMENT) {
         return new CrystalWhileStatementImpl(node);
+      }
+      else if (type == YIELD_EXPRESSION) {
+        return new CrystalYieldExpressionImpl(node);
       }
       else if (type == YIELD_STATEMENT) {
         return new CrystalYieldStatementImpl(node);

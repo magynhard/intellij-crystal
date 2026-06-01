@@ -158,7 +158,7 @@ object CrystalCompletionHelper {
         val paramStrings = params.map { param ->
             val nameNode = param.node.findChildByType(CrystalTypes.IDENTIFIER)
             val name = nameNode?.text ?: "?"
-            val typeRef = param.typeReference
+            val typeRef = param.typeReferenceList.firstOrNull()
             if (typeRef != null) "$name : ${typeRef.text}" else name
         }
         return "(${paramStrings.joinToString(", ")})"

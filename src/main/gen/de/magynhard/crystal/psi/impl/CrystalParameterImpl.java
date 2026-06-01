@@ -40,9 +40,21 @@ public class CrystalParameterImpl extends ASTWrapperPsiElement implements Crysta
   }
 
   @Override
-  @Nullable
-  public CrystalTypeReference getTypeReference() {
-    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
+  @NotNull
+  public List<CrystalTypeArguments> getTypeArgumentsList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeArguments.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalTypePath> getTypePathList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypePath.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalTypeReference> getTypeReferenceList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeReference.class);
   }
 
 }

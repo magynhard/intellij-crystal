@@ -35,6 +35,12 @@ public class CrystalYieldStatementImpl extends ASTWrapperPsiElement implements C
 
   @Override
   @Nullable
+  public CrystalBareArgumentList getBareArgumentList() {
+    return PsiTreeUtil.getChildOfType(this, CrystalBareArgumentList.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalPostfixModifier getPostfixModifier() {
     return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
   }

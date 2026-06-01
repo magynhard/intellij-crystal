@@ -13,7 +13,13 @@ public interface CrystalParameter extends PsiElement {
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
-  @Nullable
-  CrystalTypeReference getTypeReference();
+  @NotNull
+  List<CrystalTypeArguments> getTypeArgumentsList();
+
+  @NotNull
+  List<CrystalTypePath> getTypePathList();
+
+  @NotNull
+  List<CrystalTypeReference> getTypeReferenceList();
 
 }

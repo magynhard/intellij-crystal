@@ -339,6 +339,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitYieldExpression(@NotNull CrystalYieldExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitYieldStatement(@NotNull CrystalYieldStatement o) {
     visitPsiElement(o);
   }

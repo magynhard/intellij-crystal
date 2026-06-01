@@ -139,6 +139,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "pointerof"          { return CrystalTypes.POINTEROF; }
   "private"            { return CrystalTypes.PRIVATE; }
   "protected"          { return CrystalTypes.PROTECTED; }
+  "forall"             { return CrystalTypes.FORALL; }
   "require"            { return CrystalTypes.REQUIRE; }
   "rescue"             { return CrystalTypes.RESCUE; }
   "responds_to?"       { return CrystalTypes.RESPONDS_TO; }

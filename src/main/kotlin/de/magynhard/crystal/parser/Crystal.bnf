@@ -35,6 +35,7 @@
     EXTEND="EXTEND"
     FALSE="FALSE"
     FOR="FOR"
+    FORALL="FORALL"
     FUN="FUN"
     IF="IF"
     IN="IN"
@@ -272,7 +273,8 @@ lib_struct_definition ::= STRUCT CONSTANT lib_body END
 
 // ==================== Methods ====================
 
-method_definition ::= [ABSTRACT] DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {
+method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*]
+                    | DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*] method_body END {
   pin(".*")=2
   stubClass="de.magynhard.crystal.stubs.CrystalMethodDefinitionStub"
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMethodDefinitionImpl"
@@ -304,6 +306,8 @@ private parameter_item ::= bare_splat_separator | parameter
 
 parameter ::= [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
             | [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+            | AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
+            | AMPERSAND [COLON type_reference]
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
 
 // ==================== Property Declarations ====================
@@ -374,7 +378,8 @@ break_statement ::= BREAK [expression] [postfix_modifier] {pin=1}
 
 next_statement ::= NEXT [expression] [postfix_modifier] {pin=1}
 
-yield_statement ::= YIELD [LPAREN argument_list RPAREN] [postfix_modifier] {pin=1}
+yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
+yield_expression ::= YIELD expression {pin=1}
 
 // ==================== Assignments ====================
 
@@ -446,6 +451,7 @@ private primary_expression ::= grouped_expression
                              | pointerof_expression
                              | uninitialized_expression
                              | asm_expression
+                             | yield_expression
                              | if_statement
                              | unless_statement
                              | case_statement
@@ -594,11 +600,12 @@ variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT {
 
 // ==================== Type References ====================
 
-type_reference ::= type_union
+type_reference ::= type_union [ARROW [type_union]]
 
 private type_union ::= type_single (PIPE type_single)*
 
 private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
+                       | LPAREN type_reference (COMMA type_reference)* RPAREN
 
 type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"
