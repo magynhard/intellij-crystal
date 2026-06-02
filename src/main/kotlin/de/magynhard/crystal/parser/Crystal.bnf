@@ -331,6 +331,7 @@ parameter ::= [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference]
             | [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
             | AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | AMPERSAND [COLON type_reference]
+            | LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
 
 // ==================== Property Declarations ====================
@@ -358,6 +359,7 @@ statement ::= if_statement
             | break_statement
             | next_statement
             | yield_statement
+            | multi_assignment
             | property_declaration
             | assignment
             | constant_assignment
@@ -406,7 +408,16 @@ yield_expression ::= YIELD expression {pin=1}
 
 // ==================== Assignments ====================
 
-assignment ::= variable assign_op expression [postfix_modifier] {pin=2}
+assignment ::= variable assign_op (assignment | expression) [postfix_modifier] {pin=2}
+
+multi_assignment ::= multi_assign_target COMMA multi_assign_target_list ASSIGN multi_assign_values {pin=4}
+private multi_assign_target_list ::= multi_assign_target (COMMA multi_assign_target)*
+multi_assign_target ::= STAR variable
+                       | STAR UNDERSCORE
+                       | variable [COLON type_reference]
+                       | UNDERSCORE
+                       | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
+private multi_assign_values ::= expression (COMMA expression)*
 
 constant_assignment ::= CONSTANT ASSIGN expression [postfix_modifier] {pin=2}
 
@@ -629,6 +640,7 @@ private type_union ::= type_single (PIPE type_single)*
 
 private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
+                       | LBRACE type_reference (COMMA type_reference)* RBRACE
 
 type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"

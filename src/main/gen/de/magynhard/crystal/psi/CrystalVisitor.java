@@ -223,6 +223,14 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitNamedElement(o);
   }
 
+  public void visitMultiAssignTarget(@NotNull CrystalMultiAssignTarget o) {
+    visitPsiElement(o);
+  }
+
+  public void visitMultiAssignment(@NotNull CrystalMultiAssignment o) {
+    visitPsiElement(o);
+  }
+
   public void visitNextStatement(@NotNull CrystalNextStatement o) {
     visitPsiElement(o);
   }

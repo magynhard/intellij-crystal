@@ -5,19 +5,16 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalParameter extends PsiElement {
+public interface CrystalMultiAssignTarget extends PsiElement {
 
   @Nullable
-  CrystalExpression getExpression();
+  CrystalClassVarAccess getClassVarAccess();
 
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
   @NotNull
-  List<CrystalTypeArguments> getTypeArgumentsList();
-
-  @NotNull
-  List<CrystalTypePath> getTypePathList();
+  List<CrystalMultiAssignTarget> getMultiAssignTargetList();
 
   @Nullable
   CrystalTypeReference getTypeReference();

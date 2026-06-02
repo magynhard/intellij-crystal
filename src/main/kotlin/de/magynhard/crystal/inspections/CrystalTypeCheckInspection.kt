@@ -94,7 +94,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     break
                 }
 
-                val paramTypeRef = param.typeReferenceList.firstOrNull()
+                val paramTypeRef = param.typeReference
                 if (paramTypeRef == null) {
                     // No type annotation → duck typing, always compatible
                     anyOverloadAccepts = true
@@ -201,7 +201,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             for (method in methods) {
                 val params = method.parameterList?.parameterList ?: continue
                 val param = findMatchingParameter(params, argIndex, argInfo.name) ?: continue
-                val paramTypeRef = param.typeReferenceList.firstOrNull() ?: continue
+                val paramTypeRef = param.typeReference ?: continue
                 val paramType = paramTypeRef.text
                 expectedTypes.add(paramType)
 

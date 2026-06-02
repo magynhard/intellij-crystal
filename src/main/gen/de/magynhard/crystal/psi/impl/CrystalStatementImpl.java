@@ -77,6 +77,12 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
+  public CrystalMultiAssignment getMultiAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMultiAssignment.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalNextStatement getNextStatement() {
     return PsiTreeUtil.getChildOfType(this, CrystalNextStatement.class);
   }

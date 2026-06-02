@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalAssignment extends PsiElement {
 
   @Nullable
+  CrystalAssignment getAssignment();
+
+  @Nullable
   CrystalClassVarAccess getClassVarAccess();
 
   @Nullable

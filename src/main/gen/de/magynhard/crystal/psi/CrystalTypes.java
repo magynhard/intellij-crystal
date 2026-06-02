@@ -64,6 +64,8 @@ public interface CrystalTypes {
   IElementType METHOD_DEFINITION = CrystalStubElementTypeFactory.create("METHOD_DEFINITION");
   IElementType METHOD_NAME = new CrystalElementType("METHOD_NAME");
   IElementType MODULE_DEFINITION = CrystalStubElementTypeFactory.create("MODULE_DEFINITION");
+  IElementType MULTI_ASSIGNMENT = new CrystalElementType("MULTI_ASSIGNMENT");
+  IElementType MULTI_ASSIGN_TARGET = new CrystalElementType("MULTI_ASSIGN_TARGET");
   IElementType NEXT_STATEMENT = new CrystalElementType("NEXT_STATEMENT");
   IElementType PARAMETER = new CrystalElementType("PARAMETER");
   IElementType PARAMETER_LIST = new CrystalElementType("PARAMETER_LIST");
@@ -232,6 +234,7 @@ public interface CrystalTypes {
   IElementType TILDE = new CrystalTokenType("TILDE");
   IElementType TRUE = new CrystalTokenType("TRUE");
   IElementType TYPEOF = new CrystalTokenType("TYPEOF");
+  IElementType UNDERSCORE = new CrystalTokenType("UNDERSCORE");
   IElementType UNINITIALIZED = new CrystalTokenType("UNINITIALIZED");
   IElementType UNION = new CrystalTokenType("UNION");
   IElementType UNLESS = new CrystalTokenType("UNLESS");
@@ -406,6 +409,12 @@ public interface CrystalTypes {
       }
       else if (type == MODULE_DEFINITION) {
         return new CrystalModuleDefinitionImpl(node);
+      }
+      else if (type == MULTI_ASSIGNMENT) {
+        return new CrystalMultiAssignmentImpl(node);
+      }
+      else if (type == MULTI_ASSIGN_TARGET) {
+        return new CrystalMultiAssignTargetImpl(node);
       }
       else if (type == NEXT_STATEMENT) {
         return new CrystalNextStatementImpl(node);

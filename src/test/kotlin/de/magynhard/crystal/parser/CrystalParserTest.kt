@@ -110,4 +110,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testMacroBody() {
         doTest(true)
     }
+
+    fun testMultiAssignment() {
+        doTest(true)
+    }
 }

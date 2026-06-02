@@ -44,7 +44,7 @@ object CrystalTypeInference {
             val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
             if (paramName == name) {
                 // Has type annotation?
-                val typeRef = param.typeReferenceList.firstOrNull()
+                val typeRef = param.typeReference
                 if (typeRef != null) {
                     return extractTypeName(typeRef.text)
                 }

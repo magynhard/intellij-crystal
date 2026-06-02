@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalParameterImpl extends ASTWrapperPsiElement implements CrystalParameter {
+public class CrystalMultiAssignTargetImpl extends ASTWrapperPsiElement implements CrystalMultiAssignTarget {
 
-  public CrystalParameterImpl(@NotNull ASTNode node) {
+  public CrystalMultiAssignTargetImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitParameter(this);
+    visitor.visitMultiAssignTarget(this);
   }
 
   @Override
@@ -29,8 +29,8 @@ public class CrystalParameterImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
-  public CrystalExpression getExpression() {
-    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
   }
 
   @Override
@@ -41,14 +41,8 @@ public class CrystalParameterImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @NotNull
-  public List<CrystalTypeArguments> getTypeArgumentsList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeArguments.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalTypePath> getTypePathList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypePath.class);
+  public List<CrystalMultiAssignTarget> getMultiAssignTargetList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMultiAssignTarget.class);
   }
 
   @Override
