@@ -27,6 +27,12 @@ import com.intellij.psi.TokenType;
   private final java.util.ArrayDeque<Integer> stateStack = new java.util.ArrayDeque<>();
   private final java.util.ArrayDeque<Integer> depthStack = new java.util.ArrayDeque<>();
 
+  // Macro body state tracking
+  private boolean macroHeaderSeen = false;
+  private int macroBodyDepth = 0;
+  private int macroNestingLevel = 0;
+  private StringBuilder macroBodyBuffer = new StringBuilder();
+
   private void pushState(int newState) {
     stateStack.push(zzLexicalState);
     yybegin(newState);
@@ -90,14 +96,14 @@ CHAR_LITERAL = "'" ( [^'\\] | {CHAR_ESCAPE} ) "'"
 // Symbol
 SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 
-%state STRING INTERPOLATION PERCENT_LITERAL HEREDOC_BODY HEREDOC_START_LINE
+%state STRING INTERPOLATION PERCENT_LITERAL HEREDOC_BODY HEREDOC_START_LINE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
 
 %%
 
 <YYINITIAL> {
   // Whitespace and comments
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
-  {NEWLINE}            { return CrystalTypes.NEWLINE; }
+  {NEWLINE}            { if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; yybegin(MACRO_BODY); } return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
 
   // Keywords (longest match first for keywords with ? suffix)
@@ -128,7 +134,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "instance_sizeof"    { return CrystalTypes.INSTANCE_SIZEOF; }
   "is_a?"              { return CrystalTypes.IS_A; }
   "lib"                { return CrystalTypes.LIB; }
-  "macro"              { return CrystalTypes.MACRO; }
+  "macro"              { macroHeaderSeen = true; return CrystalTypes.MACRO; }
   "module"             { return CrystalTypes.MODULE; }
   "next"               { return CrystalTypes.NEXT; }
   "nil?"               { return CrystalTypes.NIL_QUESTION; }
@@ -413,6 +419,113 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "#{"                 { if (!heredocRaw) { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT; }
   "#"                  { return CrystalTypes.HEREDOC_CONTENT; }
   {NEWLINE}            { return CrystalTypes.HEREDOC_CONTENT; }
+}
+
+<MACRO_BODY> {
+  "{{"                 { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN; }
+  "{%"                 { pushState(MACRO_CONTROL); return CrystalTypes.MACRO_CONTROL_BEGIN; }
+  "#{"                 { return CrystalTypes.MACRO_BODY_CONTENT; }
+  // Track block openers to count depth for END detection
+  // We need to detect 'end' at depth 0 as the macro's closing END
+  "end"  / [ \t\r\n]  { if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
+                         macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
+  "end"  / [\)\]\},;]  { if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
+                         macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
+  // end at EOF
+  "end"               { if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
+                         macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
+  // Block openers increase depth
+  ("def" | "class" | "module" | "struct" | "enum" | "lib" | "fun" | "macro" | "if" | "unless" | "while" | "until" | "case" | "begin" | "do" | "select" | "annotation") / [ \t\r\n(]
+                       { macroBodyDepth++; return CrystalTypes.MACRO_BODY_CONTENT; }
+  {NEWLINE}            { return CrystalTypes.NEWLINE; }
+  {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  "#" [^\r\n{]*        { return CrystalTypes.MACRO_BODY_CONTENT; }
+  [^ \t\r\n\{\}#]+    { return CrystalTypes.MACRO_BODY_CONTENT; }
+  "{"                  { return CrystalTypes.MACRO_BODY_CONTENT; }
+  "}"                  { return CrystalTypes.MACRO_BODY_CONTENT; }
+  [^]                  { return CrystalTypes.MACRO_BODY_CONTENT; }
+}
+
+<MACRO_INTERPOLATION> {
+  "}}"                 { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
+  {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
+  {CONSTANT}           { return CrystalTypes.CONSTANT; }
+  {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
+  {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  "."                  { return CrystalTypes.DOT; }
+  "("                  { return CrystalTypes.LPAREN; }
+  ")"                  { return CrystalTypes.RPAREN; }
+  "["                  { return CrystalTypes.LBRACKET; }
+  "]"                  { return CrystalTypes.RBRACKET; }
+  ","                  { return CrystalTypes.COMMA; }
+  "+"                  { return CrystalTypes.PLUS; }
+  "-"                  { return CrystalTypes.MINUS; }
+  "*"                  { return CrystalTypes.STAR; }
+  "/"                  { return CrystalTypes.SLASH; }
+  ":"                  { return CrystalTypes.COLON; }
+  "=="                 { return CrystalTypes.EQ; }
+  "!="                 { return CrystalTypes.NEQ; }
+  "<"                  { return CrystalTypes.LT; }
+  ">"                  { return CrystalTypes.GT; }
+  "||"                 { return CrystalTypes.OR_OR; }
+  "&&"                 { return CrystalTypes.AND_AND; }
+  "|"                  { return CrystalTypes.PIPE; }
+  "&"                  { return CrystalTypes.AMPERSAND; }
+  "?"                  { return CrystalTypes.QUESTION; }
+  "!"                  { return CrystalTypes.BANG; }
+  [^]                  { return TokenType.BAD_CHARACTER; }
+}
+
+<MACRO_CONTROL> {
+  "%}"                 { popState(); return CrystalTypes.MACRO_CONTROL_END; }
+  {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  "if"                 { return CrystalTypes.IF; }
+  "else"               { return CrystalTypes.ELSE; }
+  "elsif"              { return CrystalTypes.ELSIF; }
+  "end"                { return CrystalTypes.END; }
+  "for"                { return CrystalTypes.FOR; }
+  "in"                 { return CrystalTypes.IN; }
+  "unless"             { return CrystalTypes.UNLESS; }
+  "begin"              { return CrystalTypes.BEGIN; }
+  "yield"              { return CrystalTypes.YIELD; }
+  "true"               { return CrystalTypes.TRUE; }
+  "false"              { return CrystalTypes.FALSE; }
+  "nil"                { return CrystalTypes.NIL; }
+  {CONSTANT}           { return CrystalTypes.CONSTANT; }
+  {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
+  {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
+  {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
+  {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  "("                  { return CrystalTypes.LPAREN; }
+  ")"                  { return CrystalTypes.RPAREN; }
+  "["                  { return CrystalTypes.LBRACKET; }
+  "]"                  { return CrystalTypes.RBRACKET; }
+  ","                  { return CrystalTypes.COMMA; }
+  "."                  { return CrystalTypes.DOT; }
+  ":"                  { return CrystalTypes.COLON; }
+  "=="                 { return CrystalTypes.EQ; }
+  "!="                 { return CrystalTypes.NEQ; }
+  "<="                 { return CrystalTypes.LTE; }
+  ">="                 { return CrystalTypes.GTE; }
+  "<"                  { return CrystalTypes.LT; }
+  ">"                  { return CrystalTypes.GT; }
+  "||"                 { return CrystalTypes.OR_OR; }
+  "&&"                 { return CrystalTypes.AND_AND; }
+  "|"                  { return CrystalTypes.PIPE; }
+  "&"                  { return CrystalTypes.AMPERSAND; }
+  "="                  { return CrystalTypes.ASSIGN; }
+  "+"                  { return CrystalTypes.PLUS; }
+  "-"                  { return CrystalTypes.MINUS; }
+  "*"                  { return CrystalTypes.STAR; }
+  "/"                  { return CrystalTypes.SLASH; }
+  "?"                  { return CrystalTypes.QUESTION; }
+  "!"                  { return CrystalTypes.BANG; }
+  ".."                 { return CrystalTypes.DOTDOT; }
+  "..."                { return CrystalTypes.DOTDOTDOT; }
+  [^]                  { return TokenType.BAD_CHARACTER; }
 }
 
 [^]                    { return TokenType.BAD_CHARACTER; }

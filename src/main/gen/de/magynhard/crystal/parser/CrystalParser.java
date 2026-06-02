@@ -2713,7 +2713,130 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] method_body END
+  // macro_body_element*
+  public static boolean macro_body(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_body")) return false;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, MACRO_BODY, "<macro body>");
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!macro_body_element(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "macro_body", pos_)) break;
+    }
+    exit_section_(builder_, level_, marker_, true, false, null);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // MACRO_BODY_CONTENT
+  //                              | macro_interpolation
+  //                              | macro_control
+  //                              | NEWLINE
+  static boolean macro_body_element(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_body_element")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, MACRO_BODY_CONTENT);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, NEWLINE);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
+  public static boolean macro_control(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_control")) return false;
+    if (!nextTokenIs(builder_, MACRO_CONTROL_BEGIN)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, MACRO_CONTROL_BEGIN);
+    result_ = result_ && macro_control_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, MACRO_CONTROL_END);
+    exit_section_(builder_, marker_, MACRO_CONTROL, result_);
+    return result_;
+  }
+
+  // macro_control_token*
+  private static boolean macro_control_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_control_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!macro_control_token(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "macro_control_1", pos_)) break;
+    }
+    return true;
+  }
+
+  /* ********************************************************** */
+  // IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
+  //     | INTEGER_LITERAL | STRING_LITERAL | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
+  //     | TRUE | FALSE | NIL
+  //     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD
+  //     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
+  //     | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
+  //     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
+  //     | NEWLINE | SEMICOLON | HASH | AT | ARROW | ANNOTATION
+  static boolean macro_control_token(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_control_token")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = consumeToken(builder_, INSTANCE_VAR);
+    if (!result_) result_ = consumeToken(builder_, CLASS_VAR);
+    if (!result_) result_ = consumeToken(builder_, INTEGER_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, STRING_INTERPOLATION_END);
+    if (!result_) result_ = consumeToken(builder_, TRUE);
+    if (!result_) result_ = consumeToken(builder_, FALSE);
+    if (!result_) result_ = consumeToken(builder_, NIL);
+    if (!result_) result_ = consumeToken(builder_, IF);
+    if (!result_) result_ = consumeToken(builder_, ELSE);
+    if (!result_) result_ = consumeToken(builder_, ELSIF);
+    if (!result_) result_ = consumeToken(builder_, END);
+    if (!result_) result_ = consumeToken(builder_, FOR);
+    if (!result_) result_ = consumeToken(builder_, IN);
+    if (!result_) result_ = consumeToken(builder_, UNLESS);
+    if (!result_) result_ = consumeToken(builder_, BEGIN);
+    if (!result_) result_ = consumeToken(builder_, YIELD);
+    if (!result_) result_ = consumeToken(builder_, LPAREN);
+    if (!result_) result_ = consumeToken(builder_, RPAREN);
+    if (!result_) result_ = consumeToken(builder_, LBRACKET);
+    if (!result_) result_ = consumeToken(builder_, RBRACKET);
+    if (!result_) result_ = consumeToken(builder_, LBRACE);
+    if (!result_) result_ = consumeToken(builder_, RBRACE);
+    if (!result_) result_ = consumeToken(builder_, COMMA);
+    if (!result_) result_ = consumeToken(builder_, DOT);
+    if (!result_) result_ = consumeToken(builder_, COLON);
+    if (!result_) result_ = consumeToken(builder_, EQ);
+    if (!result_) result_ = consumeToken(builder_, NEQ);
+    if (!result_) result_ = consumeToken(builder_, LT);
+    if (!result_) result_ = consumeToken(builder_, GT);
+    if (!result_) result_ = consumeToken(builder_, LTE);
+    if (!result_) result_ = consumeToken(builder_, GTE);
+    if (!result_) result_ = consumeToken(builder_, OR_OR);
+    if (!result_) result_ = consumeToken(builder_, AND_AND);
+    if (!result_) result_ = consumeToken(builder_, PIPE);
+    if (!result_) result_ = consumeToken(builder_, AMPERSAND);
+    if (!result_) result_ = consumeToken(builder_, ASSIGN);
+    if (!result_) result_ = consumeToken(builder_, PLUS);
+    if (!result_) result_ = consumeToken(builder_, MINUS);
+    if (!result_) result_ = consumeToken(builder_, STAR);
+    if (!result_) result_ = consumeToken(builder_, SLASH);
+    if (!result_) result_ = consumeToken(builder_, QUESTION);
+    if (!result_) result_ = consumeToken(builder_, BANG);
+    if (!result_) result_ = consumeToken(builder_, DOTDOT);
+    if (!result_) result_ = consumeToken(builder_, DOTDOTDOT);
+    if (!result_) result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = consumeToken(builder_, HASH);
+    if (!result_) result_ = consumeToken(builder_, AT);
+    if (!result_) result_ = consumeToken(builder_, ARROW);
+    if (!result_) result_ = consumeToken(builder_, ANNOTATION);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] macro_body END
   public static boolean macro_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_definition")) return false;
     if (!nextTokenIs(builder_, MACRO)) return false;
@@ -2723,7 +2846,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     pinned_ = result_; // pin = 1
     result_ = result_ && report_error_(builder_, method_name(builder_, level_ + 1));
     result_ = pinned_ && report_error_(builder_, macro_definition_2(builder_, level_ + 1)) && result_;
-    result_ = pinned_ && report_error_(builder_, method_body(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && report_error_(builder_, macro_body(builder_, level_ + 1)) && result_;
     result_ = pinned_ && consumeToken(builder_, END) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
@@ -2747,6 +2870,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // MACRO_INTERPOLATION_BEGIN expression MACRO_INTERPOLATION_END
+  public static boolean macro_interpolation(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_interpolation")) return false;
+    if (!nextTokenIs(builder_, MACRO_INTERPOLATION_BEGIN)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, MACRO_INTERPOLATION_BEGIN);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, MACRO_INTERPOLATION_END);
+    exit_section_(builder_, marker_, MACRO_INTERPOLATION, result_);
     return result_;
   }
 

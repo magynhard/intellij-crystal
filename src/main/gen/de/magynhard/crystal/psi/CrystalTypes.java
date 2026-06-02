@@ -55,7 +55,10 @@ public interface CrystalTypes {
   IElementType LIB_BODY = new CrystalElementType("LIB_BODY");
   IElementType LIB_DEFINITION = new CrystalElementType("LIB_DEFINITION");
   IElementType LIB_STRUCT_DEFINITION = new CrystalElementType("LIB_STRUCT_DEFINITION");
+  IElementType MACRO_BODY = new CrystalElementType("MACRO_BODY");
+  IElementType MACRO_CONTROL = new CrystalElementType("MACRO_CONTROL");
   IElementType MACRO_DEFINITION = CrystalStubElementTypeFactory.create("MACRO_DEFINITION");
+  IElementType MACRO_INTERPOLATION = new CrystalElementType("MACRO_INTERPOLATION");
   IElementType METHOD_BODY = new CrystalElementType("METHOD_BODY");
   IElementType METHOD_CALL_EXPRESSION = new CrystalElementType("METHOD_CALL_EXPRESSION");
   IElementType METHOD_DEFINITION = CrystalStubElementTypeFactory.create("METHOD_DEFINITION");
@@ -170,6 +173,11 @@ public interface CrystalTypes {
   IElementType LT = new CrystalTokenType("LT");
   IElementType LTE = new CrystalTokenType("LTE");
   IElementType MACRO = new CrystalTokenType("MACRO");
+  IElementType MACRO_BODY_CONTENT = new CrystalTokenType("MACRO_BODY_CONTENT");
+  IElementType MACRO_CONTROL_BEGIN = new CrystalTokenType("MACRO_CONTROL_BEGIN");
+  IElementType MACRO_CONTROL_END = new CrystalTokenType("MACRO_CONTROL_END");
+  IElementType MACRO_INTERPOLATION_BEGIN = new CrystalTokenType("MACRO_INTERPOLATION_BEGIN");
+  IElementType MACRO_INTERPOLATION_END = new CrystalTokenType("MACRO_INTERPOLATION_END");
   IElementType MINUS = new CrystalTokenType("MINUS");
   IElementType MINUS_ASSIGN = new CrystalTokenType("MINUS_ASSIGN");
   IElementType MODULE = new CrystalTokenType("MODULE");
@@ -372,8 +380,17 @@ public interface CrystalTypes {
       else if (type == LIB_STRUCT_DEFINITION) {
         return new CrystalLibStructDefinitionImpl(node);
       }
+      else if (type == MACRO_BODY) {
+        return new CrystalMacroBodyImpl(node);
+      }
+      else if (type == MACRO_CONTROL) {
+        return new CrystalMacroControlImpl(node);
+      }
       else if (type == MACRO_DEFINITION) {
         return new CrystalMacroDefinitionImpl(node);
+      }
+      else if (type == MACRO_INTERPOLATION) {
+        return new CrystalMacroInterpolationImpl(node);
       }
       else if (type == METHOD_BODY) {
         return new CrystalMethodBodyImpl(node);

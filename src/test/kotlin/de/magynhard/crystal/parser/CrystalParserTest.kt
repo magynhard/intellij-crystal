@@ -106,4 +106,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testAbstractDef() {
         doTest(true)
     }
+
+    fun testMacroBody() {
+        doTest(true)
+    }
 }

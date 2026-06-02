@@ -10,7 +10,7 @@ import de.magynhard.crystal.stubs.CrystalMacroDefinitionStub;
 public interface CrystalMacroDefinition extends CrystalNamedElement, StubBasedPsiElement<CrystalMacroDefinitionStub> {
 
   @Nullable
-  CrystalMethodBody getMethodBody();
+  CrystalMacroBody getMacroBody();
 
   @Nullable
   CrystalMethodName getMethodName();

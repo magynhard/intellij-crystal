@@ -175,7 +175,7 @@ class CrystalMacroDefinitionElementType(debugName: String) :
     }
 
     override fun indexStub(stub: CrystalMacroDefinitionStub, sink: IndexSink) {
-        stub.name?.let { sink.occurrence(CrystalMethodIndex.KEY, it) }
+        stub.name?.let { sink.occurrence(CrystalMacroIndex.KEY, it) }
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true

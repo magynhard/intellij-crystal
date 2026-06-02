@@ -34,8 +34,8 @@ public class CrystalMacroDefinitionImpl extends CrystalStubbedMacroDefinitionImp
 
   @Override
   @Nullable
-  public CrystalMethodBody getMethodBody() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMethodBody.class);
+  public CrystalMacroBody getMacroBody() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroBody.class);
   }
 
   @Override

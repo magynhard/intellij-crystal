@@ -92,6 +92,13 @@
     PERCENT_LITERAL_BEGIN="PERCENT_LITERAL_BEGIN"
     PERCENT_LITERAL_END="PERCENT_LITERAL_END"
 
+    // Macro body tokens
+    MACRO_BODY_CONTENT="MACRO_BODY_CONTENT"
+    MACRO_INTERPOLATION_BEGIN="MACRO_INTERPOLATION_BEGIN"
+    MACRO_INTERPOLATION_END="MACRO_INTERPOLATION_END"
+    MACRO_CONTROL_BEGIN="MACRO_CONTROL_BEGIN"
+    MACRO_CONTROL_END="MACRO_CONTROL_END"
+
     // Identifiers
     IDENTIFIER="IDENTIFIER"
     CONSTANT="CONSTANT"
@@ -292,7 +299,23 @@ private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSA
 
 method_body ::= statement_list
 
-macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] method_body END {
+macro_body ::= macro_body_element*
+private macro_body_element ::= MACRO_BODY_CONTENT
+                             | macro_interpolation
+                             | macro_control
+                             | NEWLINE
+macro_interpolation ::= MACRO_INTERPOLATION_BEGIN expression MACRO_INTERPOLATION_END
+macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
+private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
+    | INTEGER_LITERAL | STRING_LITERAL | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
+    | TRUE | FALSE | NIL
+    | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD
+    | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
+    | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
+    | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
+    | NEWLINE | SEMICOLON | HASH | AT | ARROW | ANNOTATION
+
+macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] macro_body END {
   pin=1
   stubClass="de.magynhard.crystal.stubs.CrystalMacroDefinitionStub"
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMacroDefinitionImpl"

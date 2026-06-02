@@ -5,7 +5,7 @@
 The current grammar covers the most common constructs. The following extensions are planned:
 
 - [ ] Full generics (`Array(T)`, `forall T`, constraints)
-- [ ] Macro body parsing (`{% %}`, `{{ }}`, `{% for %}`)
+- [x] Macro body parsing (`{% %}`, `{{ }}`, `{% for %}`)
 - [x] Union types as type annotations (`Int32 | String`)
 - [ ] Proc/Lambda types (`-> Int32`, `Proc(Int32, String)`)
 - [x] Proc literals (`->{ }`, `->(x) { }`, `->method_name(Type)`)
