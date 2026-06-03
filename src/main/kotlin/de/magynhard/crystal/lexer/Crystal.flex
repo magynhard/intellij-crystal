@@ -27,6 +27,18 @@ import com.intellij.psi.TokenType;
   private final java.util.ArrayDeque<Integer> stateStack = new java.util.ArrayDeque<>();
   private final java.util.ArrayDeque<Integer> depthStack = new java.util.ArrayDeque<>();
 
+  // Regex disambiguation: regex literals can only start in operator position
+  private boolean isRegexAllowed() {
+    // Check the character immediately before the current token (skip whitespace already consumed)
+    int pos = zzStartRead - 1;
+    while (pos >= 0 && (zzBuffer.charAt(pos) == ' ' || zzBuffer.charAt(pos) == '\t')) pos--;
+    if (pos < 0) return true; // start of file
+    char c = zzBuffer.charAt(pos);
+    // After identifiers, constants, numbers, ), ] — it's division, not regex
+    if (Character.isLetterOrDigit(c) || c == '_' || c == ')' || c == ']' || c == '"' || c == '\'') return false;
+    return true;
+  }
+
   // Macro body state tracking
   private boolean macroHeaderSeen = false;
   private int macroBodyDepth = 0;
@@ -258,13 +270,16 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   // Command literal
   "`" [^`]* "`"        { return CrystalTypes.COMMAND_LITERAL; }
 
-  // Regex literal (simple heuristic - at least one char between slashes)
-  "/" [^/\r\n]+ "/" [imx]* { return CrystalTypes.REGEX_LITERAL; }
+  // Regex literal (only in operator position — not after identifiers, constants, literals, ) or ])
+  "/" [^/\r\n]+ "/" [imx]* { if (isRegexAllowed()) { return CrystalTypes.REGEX_LITERAL; }
+                             // Not regex context: put back everything except first /
+                             yypushback(yylength() - 1); return CrystalTypes.SLASH; }
 
   // Multi-character operators (longest first)
   "<=>"                { return CrystalTypes.SPACESHIP; }
   "==="                { return CrystalTypes.CASE_EQ; }
   "**="                { return CrystalTypes.DOUBLE_STAR_ASSIGN; }
+  "//="                { return CrystalTypes.DOUBLE_SLASH_ASSIGN; }
   "<<="                { return CrystalTypes.LSHIFT_ASSIGN; }
   ">>="                { return CrystalTypes.RSHIFT_ASSIGN; }
   "||="                { return CrystalTypes.OR_OR_ASSIGN; }
@@ -306,6 +321,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "<"                  { return CrystalTypes.LT; }
   ">"                  { return CrystalTypes.GT; }
   "!"                  { return CrystalTypes.BANG; }
+  "=~"                 { return CrystalTypes.MATCH_OP; }
   "="                  { return CrystalTypes.ASSIGN; }
   "."                  { return CrystalTypes.DOT; }
   "?"                  { return CrystalTypes.QUESTION; }
@@ -352,6 +368,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {NEWLINE}            { return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
+  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
@@ -363,9 +380,28 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   ")"                  { return CrystalTypes.RPAREN; }
   "["                  { return CrystalTypes.LBRACKET; }
   "]"                  { return CrystalTypes.RBRACKET; }
+  ":"                  { return CrystalTypes.COLON; }
+  "=="                 { return CrystalTypes.EQ; }
+  "!="                 { return CrystalTypes.NEQ; }
+  "<="                 { return CrystalTypes.LTE; }
+  ">="                 { return CrystalTypes.GTE; }
+  "&&"                 { return CrystalTypes.AND_AND; }
+  "||"                 { return CrystalTypes.OR_OR; }
+  "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
+  "/"                  { return CrystalTypes.SLASH; }
+  "%"                  { return CrystalTypes.PERCENT; }
+  "<"                  { return CrystalTypes.LT; }
+  ">"                  { return CrystalTypes.GT; }
+  "&"                  { return CrystalTypes.AMPERSAND; }
+  "|"                  { return CrystalTypes.PIPE; }
+  "^"                  { return CrystalTypes.CARET; }
+  "~"                  { return CrystalTypes.TILDE; }
+  "!"                  { return CrystalTypes.BANG; }
+  "?"                  { return CrystalTypes.QUESTION; }
+  "="                  { return CrystalTypes.ASSIGN; }
   ","                  { return CrystalTypes.COMMA; }
   [^]                  { return TokenType.BAD_CHARACTER; }
 }

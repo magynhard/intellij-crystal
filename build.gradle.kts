@@ -65,6 +65,10 @@ intellijPlatform {
 }
 
 tasks {
+    runIde {
+        systemProperty("idea.trust.all.projects", "true")
+    }
+
     generateLexer {
         sourceFile.set(file("src/main/kotlin/de/magynhard/crystal/lexer/Crystal.flex"))
         targetOutputDir.set(file("src/main/gen/de/magynhard/crystal/lexer"))

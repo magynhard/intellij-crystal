@@ -114,4 +114,44 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testMultiAssignment() {
         doTest(true)
     }
+
+    fun testNamedTuple() {
+        doTest(true)
+    }
+
+    fun testOperatorPrecedence() {
+        doTest(true)
+    }
+
+    fun testPatternMatching() {
+        doTest(true)
+    }
+
+    fun testSelectStatement() {
+        doTest(true)
+    }
+
+    fun testTernaryOperator() {
+        doTest(true)
+    }
+
+    fun testVisibilityModifiers() {
+        doTest(true)
+    }
+
+    fun testWithYield() {
+        doTest(true)
+    }
+
+    fun testPointerofOffsetof() {
+        doTest(true)
+    }
+
+    fun testGenerics() {
+        doTest(true)
+    }
+
+    fun testMultiLineNamedTupleType() {
+        doTest(false)
+    }
 }

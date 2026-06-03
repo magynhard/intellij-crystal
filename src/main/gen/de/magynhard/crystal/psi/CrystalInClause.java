@@ -5,19 +5,10 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalBlock extends PsiElement {
-
-  @Nullable
-  CrystalElseClause getElseClause();
-
-  @Nullable
-  CrystalEnsureClause getEnsureClause();
-
-  @Nullable
-  CrystalParameterList getParameterList();
+public interface CrystalInClause extends PsiElement {
 
   @NotNull
-  List<CrystalRescueClause> getRescueClauseList();
+  CrystalExpressionList getExpressionList();
 
   @NotNull
   CrystalStatementList getStatementList();

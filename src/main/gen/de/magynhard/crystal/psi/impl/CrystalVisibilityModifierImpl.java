@@ -29,6 +29,24 @@ public class CrystalVisibilityModifierImpl extends ASTWrapperPsiElement implemen
 
   @Override
   @Nullable
+  public CrystalBareArgumentList getBareArgumentList() {
+    return PsiTreeUtil.getChildOfType(this, CrystalBareArgumentList.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalBlock getBlock() {
+    return PsiTreeUtil.getChildOfType(this, CrystalBlock.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalCallArgs getCallArgs() {
+    return PsiTreeUtil.getChildOfType(this, CrystalCallArgs.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalClassDefinition getClassDefinition() {
     return PsiTreeUtil.getChildOfType(this, CrystalClassDefinition.class);
   }

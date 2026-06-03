@@ -26,10 +26,16 @@ public interface CrystalStatement extends PsiElement {
   CrystalExpressionStatement getExpressionStatement();
 
   @Nullable
+  CrystalExtendStatement getExtendStatement();
+
+  @Nullable
   CrystalForStatement getForStatement();
 
   @Nullable
   CrystalIfStatement getIfStatement();
+
+  @Nullable
+  CrystalIncludeStatement getIncludeStatement();
 
   @Nullable
   CrystalMultiAssignment getMultiAssignment();
@@ -44,6 +50,9 @@ public interface CrystalStatement extends PsiElement {
   CrystalReturnStatement getReturnStatement();
 
   @Nullable
+  CrystalSelectStatement getSelectStatement();
+
+  @Nullable
   CrystalUnlessStatement getUnlessStatement();
 
   @Nullable
@@ -51,6 +60,9 @@ public interface CrystalStatement extends PsiElement {
 
   @Nullable
   CrystalWhileStatement getWhileStatement();
+
+  @Nullable
+  CrystalWithYieldStatement getWithYieldStatement();
 
   @Nullable
   CrystalYieldStatement getYieldStatement();

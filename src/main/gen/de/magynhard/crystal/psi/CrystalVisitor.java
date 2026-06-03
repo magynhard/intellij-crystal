@@ -163,6 +163,14 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitImplicitObjectCall(@NotNull CrystalImplicitObjectCall o) {
+    visitPsiElement(o);
+  }
+
+  public void visitInClause(@NotNull CrystalInClause o) {
+    visitPsiElement(o);
+  }
+
   public void visitIncludeStatement(@NotNull CrystalIncludeStatement o) {
     visitPsiElement(o);
   }
@@ -235,6 +243,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitOffsetofExpression(@NotNull CrystalOffsetofExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitParameter(@NotNull CrystalParameter o) {
     visitPsiElement(o);
   }
@@ -272,6 +284,14 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitReturnStatement(@NotNull CrystalReturnStatement o) {
+    visitPsiElement(o);
+  }
+
+  public void visitSelectStatement(@NotNull CrystalSelectStatement o) {
+    visitPsiElement(o);
+  }
+
+  public void visitSelectWhenClause(@NotNull CrystalSelectWhenClause o) {
     visitPsiElement(o);
   }
 
@@ -356,6 +376,10 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitWhileStatement(@NotNull CrystalWhileStatement o) {
+    visitPsiElement(o);
+  }
+
+  public void visitWithYieldStatement(@NotNull CrystalWithYieldStatement o) {
     visitPsiElement(o);
   }
 

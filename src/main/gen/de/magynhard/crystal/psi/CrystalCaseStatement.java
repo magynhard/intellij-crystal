@@ -14,6 +14,9 @@ public interface CrystalCaseStatement extends PsiElement {
   CrystalExpression getExpression();
 
   @NotNull
+  List<CrystalInClause> getInClauseList();
+
+  @NotNull
   List<CrystalWhenClause> getWhenClauseList();
 
 }

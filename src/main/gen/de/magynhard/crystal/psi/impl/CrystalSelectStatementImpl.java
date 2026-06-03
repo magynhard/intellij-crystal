@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalBlockImpl extends ASTWrapperPsiElement implements CrystalBlock {
+public class CrystalSelectStatementImpl extends ASTWrapperPsiElement implements CrystalSelectStatement {
 
-  public CrystalBlockImpl(@NotNull ASTNode node) {
+  public CrystalSelectStatementImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitBlock(this);
+    visitor.visitSelectStatement(this);
   }
 
   @Override
@@ -34,27 +34,9 @@ public class CrystalBlockImpl extends ASTWrapperPsiElement implements CrystalBlo
   }
 
   @Override
-  @Nullable
-  public CrystalEnsureClause getEnsureClause() {
-    return PsiTreeUtil.getChildOfType(this, CrystalEnsureClause.class);
-  }
-
-  @Override
-  @Nullable
-  public CrystalParameterList getParameterList() {
-    return PsiTreeUtil.getChildOfType(this, CrystalParameterList.class);
-  }
-
-  @Override
   @NotNull
-  public List<CrystalRescueClause> getRescueClauseList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalRescueClause.class);
-  }
-
-  @Override
-  @NotNull
-  public CrystalStatementList getStatementList() {
-    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalStatementList.class));
+  public List<CrystalSelectWhenClause> getSelectWhenClauseList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalSelectWhenClause.class);
   }
 
 }

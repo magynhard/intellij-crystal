@@ -113,6 +113,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalImplicitObjectCall> getImplicitObjectCallList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalImplicitObjectCall.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalInstanceSizeofExpression.class);
   }
@@ -127,6 +133,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
   @NotNull
   public List<CrystalMethodCallExpression> getMethodCallExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMethodCallExpression.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalOffsetofExpression> getOffsetofExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalOffsetofExpression.class);
   }
 
   @Override
@@ -163,6 +175,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
   @NotNull
   public List<CrystalTupleLiteral> getTupleLiteralList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTupleLiteral.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalTypeReference> getTypeReferenceList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeReference.class);
   }
 
   @Override

@@ -50,6 +50,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalIfStatement> getIfStatementList();
 
   @NotNull
+  List<CrystalImplicitObjectCall> getImplicitObjectCallList();
+
+  @NotNull
   List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList();
 
   @NotNull
@@ -57,6 +60,9 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalMethodCallExpression> getMethodCallExpressionList();
+
+  @NotNull
+  List<CrystalOffsetofExpression> getOffsetofExpressionList();
 
   @NotNull
   List<CrystalPercentLiteral> getPercentLiteralList();
@@ -75,6 +81,9 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalTupleLiteral> getTupleLiteralList();
+
+  @NotNull
+  List<CrystalTypeReference> getTypeReferenceList();
 
   @NotNull
   List<CrystalTypeofExpression> getTypeofExpressionList();

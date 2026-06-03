@@ -41,6 +41,12 @@ public class CrystalCaseStatementImpl extends ASTWrapperPsiElement implements Cr
 
   @Override
   @NotNull
+  public List<CrystalInClause> getInClauseList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalInClause.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalWhenClause> getWhenClauseList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalWhenClause.class);
   }

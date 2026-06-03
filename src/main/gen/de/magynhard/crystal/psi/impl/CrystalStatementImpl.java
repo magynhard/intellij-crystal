@@ -65,6 +65,12 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
+  public CrystalExtendStatement getExtendStatement() {
+    return PsiTreeUtil.getChildOfType(this, CrystalExtendStatement.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalForStatement getForStatement() {
     return PsiTreeUtil.getChildOfType(this, CrystalForStatement.class);
   }
@@ -73,6 +79,12 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
   @Nullable
   public CrystalIfStatement getIfStatement() {
     return PsiTreeUtil.getChildOfType(this, CrystalIfStatement.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalIncludeStatement getIncludeStatement() {
+    return PsiTreeUtil.getChildOfType(this, CrystalIncludeStatement.class);
   }
 
   @Override
@@ -101,6 +113,12 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
+  public CrystalSelectStatement getSelectStatement() {
+    return PsiTreeUtil.getChildOfType(this, CrystalSelectStatement.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalUnlessStatement getUnlessStatement() {
     return PsiTreeUtil.getChildOfType(this, CrystalUnlessStatement.class);
   }
@@ -115,6 +133,12 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
   @Nullable
   public CrystalWhileStatement getWhileStatement() {
     return PsiTreeUtil.getChildOfType(this, CrystalWhileStatement.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalWithYieldStatement getWithYieldStatement() {
+    return PsiTreeUtil.getChildOfType(this, CrystalWithYieldStatement.class);
   }
 
   @Override

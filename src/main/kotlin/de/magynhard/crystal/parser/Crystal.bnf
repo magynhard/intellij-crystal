@@ -128,6 +128,7 @@
     GTE="GTE"
     SPACESHIP="SPACESHIP"
     CASE_EQ="CASE_EQ"
+    MATCH_OP="MATCH_OP"
     BANG="BANG"
     AND_AND="AND_AND"
     OR_OR="OR_OR"
@@ -141,6 +142,7 @@
     PIPE_ASSIGN="PIPE_ASSIGN"
     CARET_ASSIGN="CARET_ASSIGN"
     DOUBLE_STAR_ASSIGN="DOUBLE_STAR_ASSIGN"
+    DOUBLE_SLASH_ASSIGN="DOUBLE_SLASH_ASSIGN"
     LSHIFT_ASSIGN="LSHIFT_ASSIGN"
     RSHIFT_ASSIGN="RSHIFT_ASSIGN"
     OR_OR_ASSIGN="OR_OR_ASSIGN"
@@ -200,7 +202,7 @@ require_statement ::= REQUIRE string_expression {pin=1}
 
 include_statement ::= INCLUDE type_reference {pin=1}
 
-extend_statement ::= EXTEND type_reference {pin=1}
+extend_statement ::= EXTEND (type_reference | SELF) {pin=1}
 
 // ==================== Type Definitions ====================
 
@@ -292,10 +294,11 @@ method_name ::= IDENTIFIER
               | CONSTANT
               | operator_method_name
               | SELF DOT (IDENTIFIER | CONSTANT | operator_method_name)
+              | SELECT
 
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
                                 | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
-                                | SPACESHIP | CASE_EQ | LBRACKET RBRACKET | LBRACKET RBRACKET ASSIGN
+                                | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET
 
 method_body ::= statement_list
 
@@ -341,6 +344,8 @@ property_declaration ::= (instance_var_access | class_var_access | IDENTIFIER | 
 // ==================== Visibility ====================
 
 visibility_modifier ::= (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | constant_assignment | statement)
+                      | (PRIVATE | PROTECTED) SELF DOT IDENTIFIER [call_args | bare_argument_list] [block]
+                      | (PRIVATE | PROTECTED) &NEWLINE
 
 // ==================== Statements ====================
 
@@ -355,17 +360,23 @@ statement ::= if_statement
             | case_statement
             | begin_statement
             | for_statement
+            | select_statement
             | return_statement
             | break_statement
             | next_statement
             | yield_statement
+            | with_yield_statement
+            | include_statement
+            | extend_statement
             | multi_assignment
             | property_declaration
             | assignment
             | constant_assignment
             | expression_statement
 
-expression_statement ::= expression [postfix_modifier]
+expression_statement ::= expression [expression_assign_suffix | postfix_modifier]
+
+private expression_assign_suffix ::= assign_op expression
 
 postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL) expression
 
@@ -381,9 +392,13 @@ until_statement ::= UNTIL expression then_clause statement_list END {pin=1}
 
 for_statement ::= FOR IDENTIFIER IN expression then_clause statement_list END {pin=1}
 
-case_statement ::= CASE [expression] NEWLINE* when_clause+ [else_clause] END {pin=1}
+case_statement ::= CASE [expression] NEWLINE* (when_clause | in_clause)+ [else_clause] END {pin=1}
 
 begin_statement ::= BEGIN statement_list rescue_clause* [else_clause] [ensure_clause] END {pin=1}
+
+select_statement ::= SELECT NEWLINE+ select_when_clause+ [else_clause] END
+
+select_when_clause ::= WHEN statement then_clause statement_list
 
 private then_clause ::= THEN | NEWLINE | SEMICOLON
 
@@ -392,6 +407,8 @@ elsif_clause ::= ELSIF expression then_clause statement_list
 else_clause ::= ELSE statement_list
 
 when_clause ::= WHEN expression_list then_clause statement_list
+
+in_clause ::= IN expression_list then_clause statement_list
 
 rescue_clause ::= RESCUE [IDENTIFIER [COLON type_reference]] then_clause statement_list
 
@@ -405,6 +422,8 @@ next_statement ::= NEXT [expression] [postfix_modifier] {pin=1}
 
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
 yield_expression ::= YIELD expression {pin=1}
+
+with_yield_statement ::= WITH expression YIELD {pin=1}
 
 // ==================== Assignments ====================
 
@@ -425,7 +444,7 @@ private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENT
 
 private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
                      | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
-                     | DOUBLE_STAR_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
+                     | DOUBLE_STAR_ASSIGN | DOUBLE_SLASH_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
                      | OR_OR_ASSIGN | AND_AND_ASSIGN
 
 // ==================== Expressions ====================
@@ -438,9 +457,9 @@ private and_expression ::= not_expression (AND_AND not_expression)*
 
 private not_expression ::= BANG not_expression | comparison_expression
 
-private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ) range_expression)*
+private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) range_expression)*
 
-private range_expression ::= or_bitwise_expression [(DOTDOT | DOTDOTDOT) or_bitwise_expression]
+private range_expression ::= or_bitwise_expression [(DOTDOT | DOTDOTDOT) [or_bitwise_expression]]
 
 private or_bitwise_expression ::= xor_expression (PIPE xor_expression)*
 
@@ -461,7 +480,8 @@ private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) unary_exp
 
 private postfix_expression ::= primary_expression postfix_op*
 
-private postfix_op ::= DOT (IDENTIFIER | CONSTANT) [call_args | bare_argument_list] [block]
+private postfix_op ::= DOT (IDENTIFIER | CONSTANT | CLASS | NIL_QUESTION | RESPONDS_TO) [call_args | bare_argument_list] [block]
+                     | DOT (AS | IS_A) LPAREN type_reference RPAREN
                      | DOUBLE_COLON CONSTANT
                      | LBRACKET argument_list RBRACKET
                      | call_args [block]
@@ -475,6 +495,7 @@ private primary_expression ::= grouped_expression
                              | tuple_literal
                              | proc_literal
                              | method_call_expression
+                             | implicit_object_call
                              | literal
                              | instance_var_access
                              | class_var_access
@@ -482,7 +503,8 @@ private primary_expression ::= grouped_expression
                              | typeof_expression
                              | sizeof_expression
                              | instance_sizeof_expression
-                             | pointerof_expression
+                              | pointerof_expression
+                             | offsetof_expression
                              | uninitialized_expression
                              | asm_expression
                              | yield_expression
@@ -493,11 +515,14 @@ private primary_expression ::= grouped_expression
 
 grouped_expression ::= LPAREN expression RPAREN
 
-method_call_expression ::= (IDENTIFIER | CONSTANT) call_args [block]
-                         | (IDENTIFIER | CONSTANT) bare_argument_list [block]
+method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
+                         | (IDENTIFIER | CONSTANT | SELECT) bare_argument_list [block]
                          | (IDENTIFIER | CONSTANT) block {
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
+
+// Implicit object call: .method? (used in case/when patterns)
+implicit_object_call ::= DOT IDENTIFIER [call_args]
 
 call_args ::= LPAREN NLS argument_list NLS RPAREN
             | LPAREN RPAREN
@@ -525,9 +550,9 @@ private bare_and_expression ::= bare_not_expression (AND_AND bare_not_expression
 
 private bare_not_expression ::= BANG bare_not_expression | bare_comparison_expression
 
-private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ) bare_range_expression)*
+private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) bare_range_expression)*
 
-private bare_range_expression ::= bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) bare_or_bitwise_expression]
+private bare_range_expression ::= bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) [bare_or_bitwise_expression]]
 
 private bare_or_bitwise_expression ::= bare_xor_expression (PIPE bare_xor_expression)*
 
@@ -568,6 +593,7 @@ private bare_primary_expression ::= grouped_expression
                                   | sizeof_expression
                                   | instance_sizeof_expression
                                   | pointerof_expression
+                                  | offsetof_expression
                                   | uninitialized_expression
                                   | asm_expression
 
@@ -575,7 +601,7 @@ bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 
-block ::= DO [PIPE parameter_list PIPE] statement_list END
+block ::= DO [PIPE parameter_list PIPE] statement_list rescue_clause* [else_clause] [ensure_clause] END
         | LBRACE [PIPE parameter_list PIPE] statement_list RBRACE
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
@@ -635,18 +661,22 @@ variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT {
 // ==================== Type References ====================
 
 type_reference ::= type_union [ARROW [type_union]]
+                 | ARROW [type_union]
 
 private type_union ::= type_single (PIPE type_single)*
 
 private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
-                       | LBRACE type_reference (COMMA type_reference)* RBRACE
+                       | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
+                       | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
 
 type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"
 }
 
-type_arguments ::= LPAREN type_reference (COMMA type_reference)* RPAREN
+type_arguments ::= LPAREN type_argument (COMMA type_argument)* RPAREN
+
+private type_argument ::= type_reference | INTEGER_LITERAL
 
 type_parameters ::= LPAREN CONSTANT (COMMA CONSTANT)* RPAREN
 
@@ -663,6 +693,8 @@ sizeof_expression ::= SIZEOF LPAREN type_reference RPAREN {pin=1}
 instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN type_reference RPAREN {pin=1}
 
 pointerof_expression ::= POINTEROF LPAREN (instance_var_access | class_var_access | variable_reference) RPAREN {pin=1}
+
+offsetof_expression ::= OFFSETOF LPAREN type_reference COMMA instance_var_access RPAREN {pin=1}
 
 uninitialized_expression ::= UNINITIALIZED type_reference {pin=1}
 

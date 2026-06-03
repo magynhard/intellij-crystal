@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalExpressionStatementImpl extends ASTWrapperPsiElement implements CrystalExpressionStatement {
+public class CrystalImplicitObjectCallImpl extends ASTWrapperPsiElement implements CrystalImplicitObjectCall {
 
-  public CrystalExpressionStatementImpl(@NotNull ASTNode node) {
+  public CrystalImplicitObjectCallImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitExpressionStatement(this);
+    visitor.visitImplicitObjectCall(this);
   }
 
   @Override
@@ -28,15 +28,9 @@ public class CrystalExpressionStatementImpl extends ASTWrapperPsiElement impleme
   }
 
   @Override
-  @NotNull
-  public List<CrystalExpression> getExpressionList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
-  }
-
-  @Override
   @Nullable
-  public CrystalPostfixModifier getPostfixModifier() {
-    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
+  public CrystalCallArgs getCallArgs() {
+    return PsiTreeUtil.getChildOfType(this, CrystalCallArgs.class);
   }
 
 }
