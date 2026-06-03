@@ -65,6 +65,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalTupleLiteral> getTupleLiteralList();
 
   @NotNull
+  List<CrystalTypeReference> getTypeReferenceList();
+
+  @NotNull
   List<CrystalTypeofExpression> getTypeofExpressionList();
 
   @NotNull

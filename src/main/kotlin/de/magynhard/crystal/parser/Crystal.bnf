@@ -480,12 +480,33 @@ private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) unary_exp
 
 private postfix_expression ::= primary_expression postfix_op*
 
-private postfix_op ::= DOT (IDENTIFIER | CONSTANT | CLASS | NIL_QUESTION | RESPONDS_TO) [call_args | bare_argument_list] [block]
-                     | DOT (AS | IS_A) LPAREN type_reference RPAREN
+private postfix_op ::= DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+                     | DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args | bare_argument_list] [block]
                      | DOUBLE_COLON CONSTANT
                      | LBRACKET argument_list RBRACKET
                      | call_args [block]
                      | DOT IDENTIFIER assign_op expression
+
+// Keywords that Crystal allows as method names after DOT
+private keyword_as_method ::= ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
+                            | BEGIN | BREAK
+                            | CASE | CLASS
+                            | DEF | DO
+                            | ELSE | ELSIF | END | ENSURE | ENUM | EXTEND
+                            | FALSE | FOR | FORALL | FUN
+                            | IF | IN | INCLUDE | INSTANCE_SIZEOF | IS_A
+                            | LIB
+                            | MACRO | MODULE
+                            | NEXT | NIL | NIL_QUESTION
+                            | OF | OFFSETOF | OUT
+                            | POINTEROF | PRIVATE | PROTECTED
+                            | REQUIRE | RESCUE | RESPONDS_TO | RETURN
+                            | SELECT | SELF | SIZEOF | STRUCT | SUPER
+                            | THEN | TRUE | TYPEOF
+                            | UNINITIALIZED | UNION | UNLESS | UNTIL
+                            | VERBATIM
+                            | WHEN | WHILE | WITH
+                            | YIELD
 
 // ==================== Primary Expressions ====================
 
@@ -521,8 +542,8 @@ method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
 
-// Implicit object call: .method? (used in case/when patterns)
-implicit_object_call ::= DOT IDENTIFIER [call_args]
+// Implicit object call: .method? or .operator (used in &.foo shorthand and case/when patterns)
+implicit_object_call ::= DOT (IDENTIFIER | operator_method_name) [call_args]
 
 call_args ::= LPAREN NLS argument_list NLS RPAREN
             | LPAREN RPAREN
@@ -573,7 +594,8 @@ private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) bare
 
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
-private bare_postfix_op ::= DOT (IDENTIFIER | CONSTANT) [call_args]
+private bare_postfix_op ::= DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+                          | DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args]
                           | DOUBLE_COLON CONSTANT
                           | LBRACKET argument_list RBRACKET
                           | call_args

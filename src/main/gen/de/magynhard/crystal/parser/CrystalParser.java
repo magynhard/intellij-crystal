@@ -1332,7 +1332,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // DOT (IDENTIFIER | CONSTANT) [call_args]
+  // DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+  //                           | DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args]
   //                           | DOUBLE_COLON CONSTANT
   //                           | LBRACKET argument_list RBRACKET
   //                           | call_args
@@ -1341,44 +1342,70 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = bare_postfix_op_0(builder_, level_ + 1);
+    if (!result_) result_ = bare_postfix_op_1(builder_, level_ + 1);
     if (!result_) result_ = parseTokens(builder_, 0, DOUBLE_COLON, CONSTANT);
-    if (!result_) result_ = bare_postfix_op_2(builder_, level_ + 1);
+    if (!result_) result_ = bare_postfix_op_3(builder_, level_ + 1);
     if (!result_) result_ = call_args(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // DOT (IDENTIFIER | CONSTANT) [call_args]
+  // DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
   private static boolean bare_postfix_op_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_postfix_op_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, DOT);
     result_ = result_ && bare_postfix_op_0_1(builder_, level_ + 1);
-    result_ = result_ && bare_postfix_op_0_2(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, LPAREN);
+    result_ = result_ && type_reference(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // IDENTIFIER | CONSTANT
+  // AS | AS_QUESTION | IS_A
   private static boolean bare_postfix_op_0_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_postfix_op_0_1")) return false;
     boolean result_;
+    result_ = consumeToken(builder_, AS);
+    if (!result_) result_ = consumeToken(builder_, AS_QUESTION);
+    if (!result_) result_ = consumeToken(builder_, IS_A);
+    return result_;
+  }
+
+  // DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args]
+  private static boolean bare_postfix_op_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, DOT);
+    result_ = result_ && bare_postfix_op_1_1(builder_, level_ + 1);
+    result_ = result_ && bare_postfix_op_1_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // IDENTIFIER | CONSTANT | keyword_as_method
+  private static boolean bare_postfix_op_1_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_1_1")) return false;
+    boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
     return result_;
   }
 
   // [call_args]
-  private static boolean bare_postfix_op_0_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_postfix_op_0_2")) return false;
+  private static boolean bare_postfix_op_1_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_1_2")) return false;
     call_args(builder_, level_ + 1);
     return true;
   }
 
   // LBRACKET argument_list RBRACKET
-  private static boolean bare_postfix_op_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_postfix_op_2")) return false;
+  private static boolean bare_postfix_op_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_3")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LBRACKET);
@@ -2669,15 +2696,25 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // DOT IDENTIFIER [call_args]
+  // DOT (IDENTIFIER | operator_method_name) [call_args]
   public static boolean implicit_object_call(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "implicit_object_call")) return false;
     if (!nextTokenIs(builder_, DOT)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeTokens(builder_, 0, DOT, IDENTIFIER);
+    result_ = consumeToken(builder_, DOT);
+    result_ = result_ && implicit_object_call_1(builder_, level_ + 1);
     result_ = result_ && implicit_object_call_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, IMPLICIT_OBJECT_CALL, result_);
+    return result_;
+  }
+
+  // IDENTIFIER | operator_method_name
+  private static boolean implicit_object_call_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "implicit_object_call_1")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = operator_method_name(builder_, level_ + 1);
     return result_;
   }
 
@@ -2741,6 +2778,91 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, INSTANCE_VAR);
     exit_section_(builder_, marker_, INSTANCE_VAR_ACCESS, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
+  //                             | BEGIN | BREAK
+  //                             | CASE | CLASS
+  //                             | DEF | DO
+  //                             | ELSE | ELSIF | END | ENSURE | ENUM | EXTEND
+  //                             | FALSE | FOR | FORALL | FUN
+  //                             | IF | IN | INCLUDE | INSTANCE_SIZEOF | IS_A
+  //                             | LIB
+  //                             | MACRO | MODULE
+  //                             | NEXT | NIL | NIL_QUESTION
+  //                             | OF | OFFSETOF | OUT
+  //                             | POINTEROF | PRIVATE | PROTECTED
+  //                             | REQUIRE | RESCUE | RESPONDS_TO | RETURN
+  //                             | SELECT | SELF | SIZEOF | STRUCT | SUPER
+  //                             | THEN | TRUE | TYPEOF
+  //                             | UNINITIALIZED | UNION | UNLESS | UNTIL
+  //                             | VERBATIM
+  //                             | WHEN | WHILE | WITH
+  //                             | YIELD
+  static boolean keyword_as_method(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "keyword_as_method")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, ABSTRACT);
+    if (!result_) result_ = consumeToken(builder_, ALIAS);
+    if (!result_) result_ = consumeToken(builder_, AS);
+    if (!result_) result_ = consumeToken(builder_, AS_QUESTION);
+    if (!result_) result_ = consumeToken(builder_, ASM);
+    if (!result_) result_ = consumeToken(builder_, BEGIN);
+    if (!result_) result_ = consumeToken(builder_, BREAK);
+    if (!result_) result_ = consumeToken(builder_, CASE);
+    if (!result_) result_ = consumeToken(builder_, CLASS);
+    if (!result_) result_ = consumeToken(builder_, DEF);
+    if (!result_) result_ = consumeToken(builder_, DO);
+    if (!result_) result_ = consumeToken(builder_, ELSE);
+    if (!result_) result_ = consumeToken(builder_, ELSIF);
+    if (!result_) result_ = consumeToken(builder_, END);
+    if (!result_) result_ = consumeToken(builder_, ENSURE);
+    if (!result_) result_ = consumeToken(builder_, ENUM);
+    if (!result_) result_ = consumeToken(builder_, EXTEND);
+    if (!result_) result_ = consumeToken(builder_, FALSE);
+    if (!result_) result_ = consumeToken(builder_, FOR);
+    if (!result_) result_ = consumeToken(builder_, FORALL);
+    if (!result_) result_ = consumeToken(builder_, FUN);
+    if (!result_) result_ = consumeToken(builder_, IF);
+    if (!result_) result_ = consumeToken(builder_, IN);
+    if (!result_) result_ = consumeToken(builder_, INCLUDE);
+    if (!result_) result_ = consumeToken(builder_, INSTANCE_SIZEOF);
+    if (!result_) result_ = consumeToken(builder_, IS_A);
+    if (!result_) result_ = consumeToken(builder_, LIB);
+    if (!result_) result_ = consumeToken(builder_, MACRO);
+    if (!result_) result_ = consumeToken(builder_, MODULE);
+    if (!result_) result_ = consumeToken(builder_, NEXT);
+    if (!result_) result_ = consumeToken(builder_, NIL);
+    if (!result_) result_ = consumeToken(builder_, NIL_QUESTION);
+    if (!result_) result_ = consumeToken(builder_, OF);
+    if (!result_) result_ = consumeToken(builder_, OFFSETOF);
+    if (!result_) result_ = consumeToken(builder_, OUT);
+    if (!result_) result_ = consumeToken(builder_, POINTEROF);
+    if (!result_) result_ = consumeToken(builder_, PRIVATE);
+    if (!result_) result_ = consumeToken(builder_, PROTECTED);
+    if (!result_) result_ = consumeToken(builder_, REQUIRE);
+    if (!result_) result_ = consumeToken(builder_, RESCUE);
+    if (!result_) result_ = consumeToken(builder_, RESPONDS_TO);
+    if (!result_) result_ = consumeToken(builder_, RETURN);
+    if (!result_) result_ = consumeToken(builder_, SELECT);
+    if (!result_) result_ = consumeToken(builder_, SELF);
+    if (!result_) result_ = consumeToken(builder_, SIZEOF);
+    if (!result_) result_ = consumeToken(builder_, STRUCT);
+    if (!result_) result_ = consumeToken(builder_, SUPER);
+    if (!result_) result_ = consumeToken(builder_, THEN);
+    if (!result_) result_ = consumeToken(builder_, TRUE);
+    if (!result_) result_ = consumeToken(builder_, TYPEOF);
+    if (!result_) result_ = consumeToken(builder_, UNINITIALIZED);
+    if (!result_) result_ = consumeToken(builder_, UNION);
+    if (!result_) result_ = consumeToken(builder_, UNLESS);
+    if (!result_) result_ = consumeToken(builder_, UNTIL);
+    if (!result_) result_ = consumeToken(builder_, VERBATIM);
+    if (!result_) result_ = consumeToken(builder_, WHEN);
+    if (!result_) result_ = consumeToken(builder_, WHILE);
+    if (!result_) result_ = consumeToken(builder_, WITH);
+    if (!result_) result_ = consumeToken(builder_, YIELD);
     return result_;
   }
 
@@ -4152,8 +4274,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // DOT (IDENTIFIER | CONSTANT | CLASS | NIL_QUESTION | RESPONDS_TO) [call_args | bare_argument_list] [block]
-  //                      | DOT (AS | IS_A) LPAREN type_reference RPAREN
+  // DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+  //                      | DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args | bare_argument_list] [block]
   //                      | DOUBLE_COLON CONSTANT
   //                      | LBRACKET argument_list RBRACKET
   //                      | call_args [block]
@@ -4172,61 +4294,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // DOT (IDENTIFIER | CONSTANT | CLASS | NIL_QUESTION | RESPONDS_TO) [call_args | bare_argument_list] [block]
+  // DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
   private static boolean postfix_op_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, DOT);
     result_ = result_ && postfix_op_0_1(builder_, level_ + 1);
-    result_ = result_ && postfix_op_0_2(builder_, level_ + 1);
-    result_ = result_ && postfix_op_0_3(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
-  // IDENTIFIER | CONSTANT | CLASS | NIL_QUESTION | RESPONDS_TO
-  private static boolean postfix_op_0_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "postfix_op_0_1")) return false;
-    boolean result_;
-    result_ = consumeToken(builder_, IDENTIFIER);
-    if (!result_) result_ = consumeToken(builder_, CONSTANT);
-    if (!result_) result_ = consumeToken(builder_, CLASS);
-    if (!result_) result_ = consumeToken(builder_, NIL_QUESTION);
-    if (!result_) result_ = consumeToken(builder_, RESPONDS_TO);
-    return result_;
-  }
-
-  // [call_args | bare_argument_list]
-  private static boolean postfix_op_0_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "postfix_op_0_2")) return false;
-    postfix_op_0_2_0(builder_, level_ + 1);
-    return true;
-  }
-
-  // call_args | bare_argument_list
-  private static boolean postfix_op_0_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "postfix_op_0_2_0")) return false;
-    boolean result_;
-    result_ = call_args(builder_, level_ + 1);
-    if (!result_) result_ = bare_argument_list(builder_, level_ + 1);
-    return result_;
-  }
-
-  // [block]
-  private static boolean postfix_op_0_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "postfix_op_0_3")) return false;
-    block(builder_, level_ + 1);
-    return true;
-  }
-
-  // DOT (AS | IS_A) LPAREN type_reference RPAREN
-  private static boolean postfix_op_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "postfix_op_1")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, DOT);
-    result_ = result_ && postfix_op_1_1(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, LPAREN);
     result_ = result_ && type_reference(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
@@ -4234,13 +4308,60 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // AS | IS_A
+  // AS | AS_QUESTION | IS_A
+  private static boolean postfix_op_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_0_1")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, AS);
+    if (!result_) result_ = consumeToken(builder_, AS_QUESTION);
+    if (!result_) result_ = consumeToken(builder_, IS_A);
+    return result_;
+  }
+
+  // DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args | bare_argument_list] [block]
+  private static boolean postfix_op_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, DOT);
+    result_ = result_ && postfix_op_1_1(builder_, level_ + 1);
+    result_ = result_ && postfix_op_1_2(builder_, level_ + 1);
+    result_ = result_ && postfix_op_1_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // IDENTIFIER | CONSTANT | keyword_as_method
   private static boolean postfix_op_1_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op_1_1")) return false;
     boolean result_;
-    result_ = consumeToken(builder_, AS);
-    if (!result_) result_ = consumeToken(builder_, IS_A);
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
     return result_;
+  }
+
+  // [call_args | bare_argument_list]
+  private static boolean postfix_op_1_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_1_2")) return false;
+    postfix_op_1_2_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // call_args | bare_argument_list
+  private static boolean postfix_op_1_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_1_2_0")) return false;
+    boolean result_;
+    result_ = call_args(builder_, level_ + 1);
+    if (!result_) result_ = bare_argument_list(builder_, level_ + 1);
+    return result_;
+  }
+
+  // [block]
+  private static boolean postfix_op_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_1_3")) return false;
+    block(builder_, level_ + 1);
+    return true;
   }
 
   // LBRACKET argument_list RBRACKET
