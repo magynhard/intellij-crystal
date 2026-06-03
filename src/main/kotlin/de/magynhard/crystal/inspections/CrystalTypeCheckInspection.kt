@@ -53,6 +53,13 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         if (methodName == null) {
             return
         }
+
+        // Skip if method name is actually a local variable/parameter (binary operator ambiguity)
+        // e.g. "text * times" parsed as bare call "text(*times)" but actually is binary "text * times"
+        if (isLocalVariableOrParameter(callExpr, methodName)) {
+            return
+        }
+
         val arguments = extractArguments(callExpr)
         if (arguments.isEmpty()) {
             return
@@ -376,6 +383,43 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     }
 
     // ==================== Method Name Extraction ====================
+
+    /**
+     * Checks if the given name is a local variable or method parameter in the enclosing scope.
+     * This helps disambiguate "text * times" (binary op) from "text(*times)" (bare call with splat).
+     */
+    private fun isLocalVariableOrParameter(callExpr: PsiElement, name: String): Boolean {
+        // Walk up to find enclosing method definition
+        var parent = callExpr.parent
+        while (parent != null) {
+            if (parent is CrystalMethodDefinition) {
+                // Check parameters
+                val params = parent.parameterList?.parameterList ?: emptyList()
+                for (param in params) {
+                    val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
+                        ?: param.node.findChildByType(CrystalTypes.INSTANCE_VAR)?.text?.removePrefix("@")
+                    if (paramName == name) return true
+                }
+                break
+            }
+            parent = parent.parent
+        }
+
+        // Check local variable assignments before this expression
+        var sibling = callExpr.parent?.prevSibling
+        while (sibling != null) {
+            if (sibling is CrystalStatement) {
+                val assignment = sibling.firstChild as? CrystalAssignment
+                if (assignment != null) {
+                    val varName = assignment.firstChild?.text
+                    if (varName == name) return true
+                }
+            }
+            sibling = sibling.prevSibling
+        }
+
+        return false
+    }
 
     private fun extractMethodName(callExpr: PsiElement): String? {
         // For dot-calls (Foo.bar, obj.method): find IDENTIFIER/CONSTANT after DOT

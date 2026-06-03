@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalTypeReference extends PsiElement {
 
   @NotNull
+  List<CrystalExpression> getExpressionList();
+
+  @NotNull
   List<CrystalTypeArguments> getTypeArgumentsList();
 
   @NotNull

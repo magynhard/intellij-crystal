@@ -48,7 +48,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // multiplicative_expression ((PLUS | MINUS) multiplicative_expression)*
+  // multiplicative_expression ((PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS multiplicative_expression)*
   static boolean additive_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "additive_expression")) return false;
     boolean result_;
@@ -59,7 +59,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((PLUS | MINUS) multiplicative_expression)*
+  // ((PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS multiplicative_expression)*
   private static boolean additive_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "additive_expression_1")) return false;
     while (true) {
@@ -70,23 +70,26 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (PLUS | MINUS) multiplicative_expression
+  // (PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS multiplicative_expression
   private static boolean additive_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "additive_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = additive_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && multiplicative_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // PLUS | MINUS
+  // PLUS | MINUS | WRAP_PLUS | WRAP_MINUS
   private static boolean additive_expression_1_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "additive_expression_1_0_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, PLUS);
     if (!result_) result_ = consumeToken(builder_, MINUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_PLUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_MINUS);
     return result_;
   }
 
@@ -107,7 +110,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // shift_expression (AMPERSAND shift_expression)*
+  // shift_expression (AMPERSAND NLS shift_expression)*
   static boolean and_bitwise_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "and_bitwise_expression")) return false;
     boolean result_;
@@ -118,7 +121,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (AMPERSAND shift_expression)*
+  // (AMPERSAND NLS shift_expression)*
   private static boolean and_bitwise_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "and_bitwise_expression_1")) return false;
     while (true) {
@@ -129,19 +132,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // AMPERSAND shift_expression
+  // AMPERSAND NLS shift_expression
   private static boolean and_bitwise_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "and_bitwise_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, AMPERSAND);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && shift_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   /* ********************************************************** */
-  // not_expression (AND_AND not_expression)*
+  // not_expression (AND_AND NLS not_expression)*
   static boolean and_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "and_expression")) return false;
     boolean result_;
@@ -152,7 +156,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (AND_AND not_expression)*
+  // (AND_AND NLS not_expression)*
   private static boolean and_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "and_expression_1")) return false;
     while (true) {
@@ -163,12 +167,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // AND_AND not_expression
+  // AND_AND NLS not_expression
   private static boolean and_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "and_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, AND_AND);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && not_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -829,6 +834,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                      | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
   //                      | DOUBLE_STAR_ASSIGN | DOUBLE_SLASH_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
   //                      | OR_OR_ASSIGN | AND_AND_ASSIGN
+  //                      | WRAP_PLUS_ASSIGN | WRAP_MINUS_ASSIGN | WRAP_STAR_ASSIGN | WRAP_DOUBLE_STAR_ASSIGN
   static boolean assign_op(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "assign_op")) return false;
     boolean result_;
@@ -847,11 +853,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, RSHIFT_ASSIGN);
     if (!result_) result_ = consumeToken(builder_, OR_OR_ASSIGN);
     if (!result_) result_ = consumeToken(builder_, AND_AND_ASSIGN);
+    if (!result_) result_ = consumeToken(builder_, WRAP_PLUS_ASSIGN);
+    if (!result_) result_ = consumeToken(builder_, WRAP_MINUS_ASSIGN);
+    if (!result_) result_ = consumeToken(builder_, WRAP_STAR_ASSIGN);
+    if (!result_) result_ = consumeToken(builder_, WRAP_DOUBLE_STAR_ASSIGN);
     return result_;
   }
 
   /* ********************************************************** */
-  // variable assign_op (assignment | expression) [postfix_modifier]
+  // variable assign_op NLS (assignment | expression) [postfix_modifier]
   public static boolean assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "assignment")) return false;
     boolean result_, pinned_;
@@ -859,15 +869,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = variable(builder_, level_ + 1);
     result_ = result_ && assign_op(builder_, level_ + 1);
     pinned_ = result_; // pin = 2
-    result_ = result_ && report_error_(builder_, assignment_2(builder_, level_ + 1));
-    result_ = pinned_ && assignment_3(builder_, level_ + 1) && result_;
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && report_error_(builder_, assignment_3(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && assignment_4(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
 
   // assignment | expression
-  private static boolean assignment_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "assignment_2")) return false;
+  private static boolean assignment_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_3")) return false;
     boolean result_;
     result_ = assignment(builder_, level_ + 1);
     if (!result_) result_ = expression(builder_, level_ + 1);
@@ -875,14 +886,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [postfix_modifier]
-  private static boolean assignment_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "assignment_3")) return false;
+  private static boolean assignment_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_4")) return false;
     postfix_modifier(builder_, level_ + 1);
     return true;
   }
 
   /* ********************************************************** */
-  // bare_multiplicative_expression ((PLUS | MINUS) bare_multiplicative_expression)*
+  // bare_multiplicative_expression ((PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS bare_multiplicative_expression)*
   static boolean bare_additive_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_additive_expression")) return false;
     boolean result_;
@@ -893,7 +904,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((PLUS | MINUS) bare_multiplicative_expression)*
+  // ((PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS bare_multiplicative_expression)*
   private static boolean bare_additive_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_additive_expression_1")) return false;
     while (true) {
@@ -904,28 +915,31 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (PLUS | MINUS) bare_multiplicative_expression
+  // (PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS bare_multiplicative_expression
   private static boolean bare_additive_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_additive_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = bare_additive_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_multiplicative_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // PLUS | MINUS
+  // PLUS | MINUS | WRAP_PLUS | WRAP_MINUS
   private static boolean bare_additive_expression_1_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_additive_expression_1_0_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, PLUS);
     if (!result_) result_ = consumeToken(builder_, MINUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_PLUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_MINUS);
     return result_;
   }
 
   /* ********************************************************** */
-  // bare_shift_expression (AMPERSAND bare_shift_expression)*
+  // bare_shift_expression (AMPERSAND NLS bare_shift_expression)*
   static boolean bare_and_bitwise_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_and_bitwise_expression")) return false;
     boolean result_;
@@ -936,7 +950,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (AMPERSAND bare_shift_expression)*
+  // (AMPERSAND NLS bare_shift_expression)*
   private static boolean bare_and_bitwise_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_and_bitwise_expression_1")) return false;
     while (true) {
@@ -947,19 +961,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // AMPERSAND bare_shift_expression
+  // AMPERSAND NLS bare_shift_expression
   private static boolean bare_and_bitwise_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_and_bitwise_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, AMPERSAND);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_shift_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   /* ********************************************************** */
-  // bare_not_expression (AND_AND bare_not_expression)*
+  // bare_not_expression (AND_AND NLS bare_not_expression)*
   static boolean bare_and_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_and_expression")) return false;
     boolean result_;
@@ -970,7 +985,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (AND_AND bare_not_expression)*
+  // (AND_AND NLS bare_not_expression)*
   private static boolean bare_and_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_and_expression_1")) return false;
     while (true) {
@@ -981,12 +996,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // AND_AND bare_not_expression
+  // AND_AND NLS bare_not_expression
   private static boolean bare_and_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_and_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, AND_AND);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_not_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -1082,7 +1098,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) bare_range_expression)*
+  // bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
   static boolean bare_comparison_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_comparison_expression")) return false;
     boolean result_;
@@ -1093,7 +1109,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) bare_range_expression)*
+  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
   private static boolean bare_comparison_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_comparison_expression_1")) return false;
     while (true) {
@@ -1104,12 +1120,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) bare_range_expression
+  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression
   private static boolean bare_comparison_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_comparison_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = bare_comparison_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_range_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -1186,7 +1203,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT) bare_power_expression)*
+  // bare_power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS bare_power_expression)*
   static boolean bare_multiplicative_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_multiplicative_expression")) return false;
     boolean result_;
@@ -1197,7 +1214,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((STAR | SLASH | DOUBLE_SLASH | PERCENT) bare_power_expression)*
+  // ((STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS bare_power_expression)*
   private static boolean bare_multiplicative_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_multiplicative_expression_1")) return false;
     while (true) {
@@ -1208,18 +1225,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (STAR | SLASH | DOUBLE_SLASH | PERCENT) bare_power_expression
+  // (STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS bare_power_expression
   private static boolean bare_multiplicative_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_multiplicative_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = bare_multiplicative_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_power_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // STAR | SLASH | DOUBLE_SLASH | PERCENT
+  // STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR
   private static boolean bare_multiplicative_expression_1_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_multiplicative_expression_1_0_0")) return false;
     boolean result_;
@@ -1227,6 +1245,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, SLASH);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
     if (!result_) result_ = consumeToken(builder_, PERCENT);
+    if (!result_) result_ = consumeToken(builder_, WRAP_STAR);
     return result_;
   }
 
@@ -1254,7 +1273,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_xor_expression (PIPE bare_xor_expression)*
+  // bare_xor_expression (PIPE NLS bare_xor_expression)*
   static boolean bare_or_bitwise_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_or_bitwise_expression")) return false;
     boolean result_;
@@ -1265,7 +1284,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (PIPE bare_xor_expression)*
+  // (PIPE NLS bare_xor_expression)*
   private static boolean bare_or_bitwise_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_or_bitwise_expression_1")) return false;
     while (true) {
@@ -1276,19 +1295,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // PIPE bare_xor_expression
+  // PIPE NLS bare_xor_expression
   private static boolean bare_or_bitwise_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_or_bitwise_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, PIPE);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_xor_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   /* ********************************************************** */
-  // bare_and_expression (OR_OR bare_and_expression)*
+  // bare_and_expression (OR_OR NLS bare_and_expression)*
   static boolean bare_or_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_or_expression")) return false;
     boolean result_;
@@ -1299,7 +1319,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (OR_OR bare_and_expression)*
+  // (OR_OR NLS bare_and_expression)*
   private static boolean bare_or_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_or_expression_1")) return false;
     while (true) {
@@ -1310,12 +1330,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // OR_OR bare_and_expression
+  // OR_OR NLS bare_and_expression
   private static boolean bare_or_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_or_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, OR_OR);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_and_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -1429,7 +1450,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_unary_expression (DOUBLE_STAR bare_unary_expression)*
+  // bare_unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS bare_unary_expression)*
   static boolean bare_power_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_power_expression")) return false;
     boolean result_;
@@ -1440,7 +1461,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (DOUBLE_STAR bare_unary_expression)*
+  // ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS bare_unary_expression)*
   private static boolean bare_power_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_power_expression_1")) return false;
     while (true) {
@@ -1451,14 +1472,24 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // DOUBLE_STAR bare_unary_expression
+  // (DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS bare_unary_expression
   private static boolean bare_power_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_power_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, DOUBLE_STAR);
+    result_ = bare_power_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_unary_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // DOUBLE_STAR | WRAP_DOUBLE_STAR
+  private static boolean bare_power_expression_1_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_power_expression_1_0_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, DOUBLE_STAR);
+    if (!result_) result_ = consumeToken(builder_, WRAP_DOUBLE_STAR);
     return result_;
   }
 
@@ -1550,7 +1581,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_additive_expression ((LSHIFT | RSHIFT) bare_additive_expression)*
+  // bare_additive_expression ((LSHIFT | RSHIFT) NLS bare_additive_expression)*
   static boolean bare_shift_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_shift_expression")) return false;
     boolean result_;
@@ -1561,7 +1592,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((LSHIFT | RSHIFT) bare_additive_expression)*
+  // ((LSHIFT | RSHIFT) NLS bare_additive_expression)*
   private static boolean bare_shift_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_shift_expression_1")) return false;
     while (true) {
@@ -1572,12 +1603,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (LSHIFT | RSHIFT) bare_additive_expression
+  // (LSHIFT | RSHIFT) NLS bare_additive_expression
   private static boolean bare_shift_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_shift_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = bare_shift_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_additive_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -1662,7 +1694,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_and_bitwise_expression (CARET bare_and_bitwise_expression)*
+  // bare_and_bitwise_expression (CARET NLS bare_and_bitwise_expression)*
   static boolean bare_xor_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_xor_expression")) return false;
     boolean result_;
@@ -1673,7 +1705,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (CARET bare_and_bitwise_expression)*
+  // (CARET NLS bare_and_bitwise_expression)*
   private static boolean bare_xor_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_xor_expression_1")) return false;
     while (true) {
@@ -1684,12 +1716,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // CARET bare_and_bitwise_expression
+  // CARET NLS bare_and_bitwise_expression
   private static boolean bare_xor_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_xor_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, CARET);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && bare_and_bitwise_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -2072,7 +2105,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) range_expression)*
+  // range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
   static boolean comparison_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "comparison_expression")) return false;
     boolean result_;
@@ -2083,7 +2116,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) range_expression)*
+  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
   private static boolean comparison_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "comparison_expression_1")) return false;
     while (true) {
@@ -2094,12 +2127,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) range_expression
+  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression
   private static boolean comparison_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "comparison_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = comparison_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && range_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -2122,7 +2156,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // CONSTANT ASSIGN expression [postfix_modifier]
+  // CONSTANT ASSIGN NLS expression [postfix_modifier]
   public static boolean constant_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "constant_assignment")) return false;
     if (!nextTokenIs(builder_, CONSTANT)) return false;
@@ -2130,15 +2164,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _NONE_, CONSTANT_ASSIGNMENT, null);
     result_ = consumeTokens(builder_, 2, CONSTANT, ASSIGN);
     pinned_ = result_; // pin = 2
-    result_ = result_ && report_error_(builder_, expression(builder_, level_ + 1));
-    result_ = pinned_ && constant_assignment_3(builder_, level_ + 1) && result_;
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && report_error_(builder_, expression(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && constant_assignment_4(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
 
   // [postfix_modifier]
-  private static boolean constant_assignment_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "constant_assignment_3")) return false;
+  private static boolean constant_assignment_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "constant_assignment_4")) return false;
     postfix_modifier(builder_, level_ + 1);
     return true;
   }
@@ -2322,12 +2357,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // assign_op expression
+  // assign_op NLS expression
   static boolean expression_assign_suffix(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "expression_assign_suffix")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = assign_op(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -2500,14 +2536,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // LPAREN expression RPAREN
+  // LPAREN NLS expression NLS RPAREN
   public static boolean grouped_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "grouped_expression")) return false;
     if (!nextTokenIs(builder_, LPAREN)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LPAREN);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, GROUPED_EXPRESSION, result_);
     return result_;
@@ -3661,7 +3699,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // multi_assign_target COMMA multi_assign_target_list ASSIGN multi_assign_values
+  // multi_assign_target COMMA multi_assign_target_list ASSIGN NLS multi_assign_values
   public static boolean multi_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assignment")) return false;
     boolean result_, pinned_;
@@ -3671,13 +3709,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && multi_assign_target_list(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, ASSIGN);
     pinned_ = result_; // pin = 4
-    result_ = result_ && multi_assign_values(builder_, level_ + 1);
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && multi_assign_values(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
 
   /* ********************************************************** */
-  // power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT) power_expression)*
+  // power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS power_expression)*
   static boolean multiplicative_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multiplicative_expression")) return false;
     boolean result_;
@@ -3688,7 +3727,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((STAR | SLASH | DOUBLE_SLASH | PERCENT) power_expression)*
+  // ((STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS power_expression)*
   private static boolean multiplicative_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multiplicative_expression_1")) return false;
     while (true) {
@@ -3699,18 +3738,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (STAR | SLASH | DOUBLE_SLASH | PERCENT) power_expression
+  // (STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS power_expression
   private static boolean multiplicative_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multiplicative_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = multiplicative_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && power_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // STAR | SLASH | DOUBLE_SLASH | PERCENT
+  // STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR
   private static boolean multiplicative_expression_1_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multiplicative_expression_1_0_0")) return false;
     boolean result_;
@@ -3718,6 +3758,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, SLASH);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
     if (!result_) result_ = consumeToken(builder_, PERCENT);
+    if (!result_) result_ = consumeToken(builder_, WRAP_STAR);
     return result_;
   }
 
@@ -3792,6 +3833,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
+  //                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
   //                                 | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
   //                                 | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET
   static boolean operator_method_name(PsiBuilder builder_, int level_) {
@@ -3807,6 +3849,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, PIPE);
     if (!result_) result_ = consumeToken(builder_, CARET);
     if (!result_) result_ = consumeToken(builder_, TILDE);
+    if (!result_) result_ = consumeToken(builder_, WRAP_PLUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_MINUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_STAR);
+    if (!result_) result_ = consumeToken(builder_, WRAP_DOUBLE_STAR);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
     if (!result_) result_ = consumeToken(builder_, LSHIFT);
     if (!result_) result_ = consumeToken(builder_, RSHIFT);
@@ -3826,7 +3872,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // xor_expression (PIPE xor_expression)*
+  // xor_expression (PIPE NLS xor_expression)*
   static boolean or_bitwise_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "or_bitwise_expression")) return false;
     boolean result_;
@@ -3837,7 +3883,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (PIPE xor_expression)*
+  // (PIPE NLS xor_expression)*
   private static boolean or_bitwise_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "or_bitwise_expression_1")) return false;
     while (true) {
@@ -3848,19 +3894,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // PIPE xor_expression
+  // PIPE NLS xor_expression
   private static boolean or_bitwise_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "or_bitwise_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, PIPE);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && xor_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   /* ********************************************************** */
-  // and_expression (OR_OR and_expression)*
+  // and_expression (OR_OR NLS and_expression)*
   static boolean or_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "or_expression")) return false;
     boolean result_;
@@ -3871,7 +3918,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (OR_OR and_expression)*
+  // (OR_OR NLS and_expression)*
   private static boolean or_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "or_expression_1")) return false;
     while (true) {
@@ -3882,12 +3929,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // OR_OR and_expression
+  // OR_OR NLS and_expression
   private static boolean or_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "or_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, OR_OR);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && and_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -4420,7 +4468,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // unary_expression (DOUBLE_STAR unary_expression)*
+  // unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS unary_expression)*
   static boolean power_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "power_expression")) return false;
     boolean result_;
@@ -4431,7 +4479,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (DOUBLE_STAR unary_expression)*
+  // ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS unary_expression)*
   private static boolean power_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "power_expression_1")) return false;
     while (true) {
@@ -4442,14 +4490,24 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // DOUBLE_STAR unary_expression
+  // (DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS unary_expression
   private static boolean power_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "power_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, DOUBLE_STAR);
+    result_ = power_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && unary_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // DOUBLE_STAR | WRAP_DOUBLE_STAR
+  private static boolean power_expression_1_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "power_expression_1_0_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, DOUBLE_STAR);
+    if (!result_) result_ = consumeToken(builder_, WRAP_DOUBLE_STAR);
     return result_;
   }
 
@@ -4893,7 +4951,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // additive_expression ((LSHIFT | RSHIFT) additive_expression)*
+  // additive_expression ((LSHIFT | RSHIFT) NLS additive_expression)*
   static boolean shift_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "shift_expression")) return false;
     boolean result_;
@@ -4904,7 +4962,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((LSHIFT | RSHIFT) additive_expression)*
+  // ((LSHIFT | RSHIFT) NLS additive_expression)*
   private static boolean shift_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "shift_expression_1")) return false;
     while (true) {
@@ -4915,12 +4973,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (LSHIFT | RSHIFT) additive_expression
+  // (LSHIFT | RSHIFT) NLS additive_expression
   private static boolean shift_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "shift_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = shift_expression_1_0_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && additive_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -5425,6 +5484,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
+  //                        | SELF [QUESTION]
+  //                        | TYPEOF LPAREN expression RPAREN [QUESTION]
   //                        | LPAREN type_reference (COMMA type_reference)* RPAREN
   //                        | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
   //                        | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
@@ -5436,6 +5497,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = type_single_1(builder_, level_ + 1);
     if (!result_) result_ = type_single_2(builder_, level_ + 1);
     if (!result_) result_ = type_single_3(builder_, level_ + 1);
+    if (!result_) result_ = type_single_4(builder_, level_ + 1);
+    if (!result_) result_ = type_single_5(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -5482,33 +5545,71 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // LPAREN type_reference (COMMA type_reference)* RPAREN
+  // SELF [QUESTION]
   private static boolean type_single_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_single_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, SELF);
+    result_ = result_ && type_single_1_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [QUESTION]
+  private static boolean type_single_1_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_1_1")) return false;
+    consumeToken(builder_, QUESTION);
+    return true;
+  }
+
+  // TYPEOF LPAREN expression RPAREN [QUESTION]
+  private static boolean type_single_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokens(builder_, 0, TYPEOF, LPAREN);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RPAREN);
+    result_ = result_ && type_single_2_4(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [QUESTION]
+  private static boolean type_single_2_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_2_4")) return false;
+    consumeToken(builder_, QUESTION);
+    return true;
+  }
+
+  // LPAREN type_reference (COMMA type_reference)* RPAREN
+  private static boolean type_single_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_3")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LPAREN);
     result_ = result_ && type_reference(builder_, level_ + 1);
-    result_ = result_ && type_single_1_2(builder_, level_ + 1);
+    result_ = result_ && type_single_3_2(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // (COMMA type_reference)*
-  private static boolean type_single_1_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_1_2")) return false;
+  private static boolean type_single_3_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_3_2")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!type_single_1_2_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "type_single_1_2", pos_)) break;
+      if (!type_single_3_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "type_single_3_2", pos_)) break;
     }
     return true;
   }
 
   // COMMA type_reference
-  private static boolean type_single_1_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_1_2_0")) return false;
+  private static boolean type_single_3_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_3_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, COMMA);
@@ -5518,15 +5619,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
-  private static boolean type_single_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_2")) return false;
+  private static boolean type_single_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_4")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LBRACE);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeTokens(builder_, 0, IDENTIFIER, COLON);
     result_ = result_ && type_reference(builder_, level_ + 1);
-    result_ = result_ && type_single_2_5(builder_, level_ + 1);
+    result_ = result_ && type_single_4_5(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACE);
     exit_section_(builder_, marker_, null, result_);
@@ -5534,19 +5635,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // (NLS COMMA NLS IDENTIFIER COLON type_reference)*
-  private static boolean type_single_2_5(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_2_5")) return false;
+  private static boolean type_single_4_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_4_5")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!type_single_2_5_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "type_single_2_5", pos_)) break;
+      if (!type_single_4_5_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "type_single_4_5", pos_)) break;
     }
     return true;
   }
 
   // NLS COMMA NLS IDENTIFIER COLON type_reference
-  private static boolean type_single_2_5_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_2_5_0")) return false;
+  private static boolean type_single_4_5_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_4_5_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = NLS(builder_, level_ + 1);
@@ -5559,14 +5660,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
-  private static boolean type_single_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_3")) return false;
+  private static boolean type_single_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_5")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LBRACE);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && type_reference(builder_, level_ + 1);
-    result_ = result_ && type_single_3_3(builder_, level_ + 1);
+    result_ = result_ && type_single_5_3(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACE);
     exit_section_(builder_, marker_, null, result_);
@@ -5574,19 +5675,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // (NLS COMMA NLS type_reference)*
-  private static boolean type_single_3_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_3_3")) return false;
+  private static boolean type_single_5_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_5_3")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!type_single_3_3_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "type_single_3_3", pos_)) break;
+      if (!type_single_5_3_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "type_single_5_3", pos_)) break;
     }
     return true;
   }
 
   // NLS COMMA NLS type_reference
-  private static boolean type_single_3_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_single_3_3_0")) return false;
+  private static boolean type_single_5_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_5_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = NLS(builder_, level_ + 1);
@@ -5935,7 +6036,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // and_bitwise_expression (CARET and_bitwise_expression)*
+  // and_bitwise_expression (CARET NLS and_bitwise_expression)*
   static boolean xor_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "xor_expression")) return false;
     boolean result_;
@@ -5946,7 +6047,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (CARET and_bitwise_expression)*
+  // (CARET NLS and_bitwise_expression)*
   private static boolean xor_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "xor_expression_1")) return false;
     while (true) {
@@ -5957,12 +6058,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // CARET and_bitwise_expression
+  // CARET NLS and_bitwise_expression
   private static boolean xor_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "xor_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, CARET);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && and_bitwise_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;

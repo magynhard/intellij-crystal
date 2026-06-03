@@ -251,6 +251,14 @@ public interface CrystalTypes {
   IElementType WHEN = new CrystalTokenType("WHEN");
   IElementType WHILE = new CrystalTokenType("WHILE");
   IElementType WITH = new CrystalTokenType("WITH");
+  IElementType WRAP_DOUBLE_STAR = new CrystalTokenType("WRAP_DOUBLE_STAR");
+  IElementType WRAP_DOUBLE_STAR_ASSIGN = new CrystalTokenType("WRAP_DOUBLE_STAR_ASSIGN");
+  IElementType WRAP_MINUS = new CrystalTokenType("WRAP_MINUS");
+  IElementType WRAP_MINUS_ASSIGN = new CrystalTokenType("WRAP_MINUS_ASSIGN");
+  IElementType WRAP_PLUS = new CrystalTokenType("WRAP_PLUS");
+  IElementType WRAP_PLUS_ASSIGN = new CrystalTokenType("WRAP_PLUS_ASSIGN");
+  IElementType WRAP_STAR = new CrystalTokenType("WRAP_STAR");
+  IElementType WRAP_STAR_ASSIGN = new CrystalTokenType("WRAP_STAR_ASSIGN");
   IElementType YIELD = new CrystalTokenType("YIELD");
 
   class Factory {

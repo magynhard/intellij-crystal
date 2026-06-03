@@ -154,4 +154,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testMultiLineNamedTupleType() {
         doTest(false)
     }
+
+    fun testWrappingOperators() {
+        doTest(true)
+    }
 }

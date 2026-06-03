@@ -118,6 +118,10 @@
     CARET="CARET"
     TILDE="TILDE"
     DOUBLE_STAR="DOUBLE_STAR"
+    WRAP_PLUS="WRAP_PLUS"
+    WRAP_MINUS="WRAP_MINUS"
+    WRAP_STAR="WRAP_STAR"
+    WRAP_DOUBLE_STAR="WRAP_DOUBLE_STAR"
     LSHIFT="LSHIFT"
     RSHIFT="RSHIFT"
     EQ="EQ"
@@ -142,6 +146,10 @@
     PIPE_ASSIGN="PIPE_ASSIGN"
     CARET_ASSIGN="CARET_ASSIGN"
     DOUBLE_STAR_ASSIGN="DOUBLE_STAR_ASSIGN"
+    WRAP_PLUS_ASSIGN="WRAP_PLUS_ASSIGN"
+    WRAP_MINUS_ASSIGN="WRAP_MINUS_ASSIGN"
+    WRAP_STAR_ASSIGN="WRAP_STAR_ASSIGN"
+    WRAP_DOUBLE_STAR_ASSIGN="WRAP_DOUBLE_STAR_ASSIGN"
     DOUBLE_SLASH_ASSIGN="DOUBLE_SLASH_ASSIGN"
     LSHIFT_ASSIGN="LSHIFT_ASSIGN"
     RSHIFT_ASSIGN="RSHIFT_ASSIGN"
@@ -297,6 +305,7 @@ method_name ::= IDENTIFIER
               | SELECT
 
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
+                               | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
                                 | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
                                 | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET
 
@@ -376,7 +385,7 @@ statement ::= if_statement
 
 expression_statement ::= expression [expression_assign_suffix | postfix_modifier]
 
-private expression_assign_suffix ::= assign_op expression
+private expression_assign_suffix ::= assign_op NLS expression
 
 postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL) expression
 
@@ -427,9 +436,9 @@ with_yield_statement ::= WITH expression YIELD {pin=1}
 
 // ==================== Assignments ====================
 
-assignment ::= variable assign_op (assignment | expression) [postfix_modifier] {pin=2}
+assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] {pin=2}
 
-multi_assignment ::= multi_assign_target COMMA multi_assign_target_list ASSIGN multi_assign_values {pin=4}
+multi_assignment ::= multi_assign_target COMMA multi_assign_target_list ASSIGN NLS multi_assign_values {pin=4}
 private multi_assign_target_list ::= multi_assign_target (COMMA multi_assign_target)*
 multi_assign_target ::= STAR variable
                        | STAR UNDERSCORE
@@ -438,7 +447,7 @@ multi_assign_target ::= STAR variable
                        | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
 private multi_assign_values ::= expression (COMMA expression)*
 
-constant_assignment ::= CONSTANT ASSIGN expression [postfix_modifier] {pin=2}
+constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {pin=2}
 
 private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
 
@@ -446,34 +455,35 @@ private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_
                      | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
                      | DOUBLE_STAR_ASSIGN | DOUBLE_SLASH_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
                      | OR_OR_ASSIGN | AND_AND_ASSIGN
+                     | WRAP_PLUS_ASSIGN | WRAP_MINUS_ASSIGN | WRAP_STAR_ASSIGN | WRAP_DOUBLE_STAR_ASSIGN
 
 // ==================== Expressions ====================
 
 expression ::= or_expression [QUESTION expression COLON expression]
 
-private or_expression ::= and_expression (OR_OR and_expression)*
+private or_expression ::= and_expression (OR_OR NLS and_expression)*
 
-private and_expression ::= not_expression (AND_AND not_expression)*
+private and_expression ::= not_expression (AND_AND NLS not_expression)*
 
 private not_expression ::= BANG not_expression | comparison_expression
 
-private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) range_expression)*
+private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
 
 private range_expression ::= or_bitwise_expression [(DOTDOT | DOTDOTDOT) [or_bitwise_expression]]
 
-private or_bitwise_expression ::= xor_expression (PIPE xor_expression)*
+private or_bitwise_expression ::= xor_expression (PIPE NLS xor_expression)*
 
-private xor_expression ::= and_bitwise_expression (CARET and_bitwise_expression)*
+private xor_expression ::= and_bitwise_expression (CARET NLS and_bitwise_expression)*
 
-private and_bitwise_expression ::= shift_expression (AMPERSAND shift_expression)*
+private and_bitwise_expression ::= shift_expression (AMPERSAND NLS shift_expression)*
 
-private shift_expression ::= additive_expression ((LSHIFT | RSHIFT) additive_expression)*
+private shift_expression ::= additive_expression ((LSHIFT | RSHIFT) NLS additive_expression)*
 
-private additive_expression ::= multiplicative_expression ((PLUS | MINUS) multiplicative_expression)*
+private additive_expression ::= multiplicative_expression ((PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS multiplicative_expression)*
 
-private multiplicative_expression ::= power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT) power_expression)*
+private multiplicative_expression ::= power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS power_expression)*
 
-private power_expression ::= unary_expression (DOUBLE_STAR unary_expression)*
+private power_expression ::= unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS unary_expression)*
 
 private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) unary_expression
                             | postfix_expression
@@ -534,7 +544,7 @@ private primary_expression ::= grouped_expression
                              | case_statement
                              | begin_statement
 
-grouped_expression ::= LPAREN expression RPAREN
+grouped_expression ::= LPAREN NLS expression NLS RPAREN
 
 method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
                          | (IDENTIFIER | CONSTANT | SELECT) bare_argument_list [block]
@@ -566,29 +576,29 @@ bare_argument ::= [IDENTIFIER COLON] bare_expression
 // This prevents the bare argument from eating the 'do' that belongs to the outer method call
 private bare_expression ::= bare_or_expression [QUESTION expression COLON expression]
 
-private bare_or_expression ::= bare_and_expression (OR_OR bare_and_expression)*
+private bare_or_expression ::= bare_and_expression (OR_OR NLS bare_and_expression)*
 
-private bare_and_expression ::= bare_not_expression (AND_AND bare_not_expression)*
+private bare_and_expression ::= bare_not_expression (AND_AND NLS bare_not_expression)*
 
 private bare_not_expression ::= BANG bare_not_expression | bare_comparison_expression
 
-private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) bare_range_expression)*
+private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
 
 private bare_range_expression ::= bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) [bare_or_bitwise_expression]]
 
-private bare_or_bitwise_expression ::= bare_xor_expression (PIPE bare_xor_expression)*
+private bare_or_bitwise_expression ::= bare_xor_expression (PIPE NLS bare_xor_expression)*
 
-private bare_xor_expression ::= bare_and_bitwise_expression (CARET bare_and_bitwise_expression)*
+private bare_xor_expression ::= bare_and_bitwise_expression (CARET NLS bare_and_bitwise_expression)*
 
-private bare_and_bitwise_expression ::= bare_shift_expression (AMPERSAND bare_shift_expression)*
+private bare_and_bitwise_expression ::= bare_shift_expression (AMPERSAND NLS bare_shift_expression)*
 
-private bare_shift_expression ::= bare_additive_expression ((LSHIFT | RSHIFT) bare_additive_expression)*
+private bare_shift_expression ::= bare_additive_expression ((LSHIFT | RSHIFT) NLS bare_additive_expression)*
 
-private bare_additive_expression ::= bare_multiplicative_expression ((PLUS | MINUS) bare_multiplicative_expression)*
+private bare_additive_expression ::= bare_multiplicative_expression ((PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS bare_multiplicative_expression)*
 
-private bare_multiplicative_expression ::= bare_power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT) bare_power_expression)*
+private bare_multiplicative_expression ::= bare_power_expression ((STAR | SLASH | DOUBLE_SLASH | PERCENT | WRAP_STAR) NLS bare_power_expression)*
 
-private bare_power_expression ::= bare_unary_expression (DOUBLE_STAR bare_unary_expression)*
+private bare_power_expression ::= bare_unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS bare_unary_expression)*
 
 private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) bare_unary_expression
                                 | bare_postfix_expression
@@ -689,6 +699,8 @@ type_reference ::= type_union [ARROW [type_union]]
 private type_union ::= type_single (PIPE type_single)*
 
 private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
+                       | SELF [QUESTION]
+                       | TYPEOF LPAREN expression RPAREN [QUESTION]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
                        | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
                        | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE

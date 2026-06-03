@@ -285,6 +285,14 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "||="                { return CrystalTypes.OR_OR_ASSIGN; }
   "&&="                { return CrystalTypes.AND_AND_ASSIGN; }
   "..."                { return CrystalTypes.DOTDOTDOT; }
+  "&**="               { return CrystalTypes.WRAP_DOUBLE_STAR_ASSIGN; }
+  "&**"                { return CrystalTypes.WRAP_DOUBLE_STAR; }
+  "&*="                { return CrystalTypes.WRAP_STAR_ASSIGN; }
+  "&*"                 { return CrystalTypes.WRAP_STAR; }
+  "&+="                { return CrystalTypes.WRAP_PLUS_ASSIGN; }
+  "&+"                 { return CrystalTypes.WRAP_PLUS; }
+  "&-="                { return CrystalTypes.WRAP_MINUS_ASSIGN; }
+  "&-"                 { return CrystalTypes.WRAP_MINUS; }
   "**"                 { return CrystalTypes.DOUBLE_STAR; }
   "//"                 { return CrystalTypes.DOUBLE_SLASH; }
   "<<"                 { return CrystalTypes.LSHIFT; }

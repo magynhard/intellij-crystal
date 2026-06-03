@@ -29,6 +29,12 @@ public class CrystalTypeReferenceImpl extends ASTWrapperPsiElement implements Cr
 
   @Override
   @NotNull
+  public List<CrystalExpression> getExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalTypeArguments> getTypeArgumentsList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeArguments.class);
   }
