@@ -550,9 +550,9 @@ call_args ::= LPAREN NLS argument_list NLS RPAREN
 
 argument_list ::= argument (NLS COMMA NLS argument)*
 
-argument ::= [IDENTIFIER COLON] expression
-           | STAR expression
+argument ::= STAR expression
            | DOUBLE_STAR expression
+           | [IDENTIFIER COLON] expression
 
 // Bare (parenthesis-free) arguments — used for calls like: describe App5 do ... end
 bare_argument_list ::= bare_argument (COMMA bare_argument)*

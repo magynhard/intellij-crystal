@@ -80,16 +80,38 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         methodNameElement: PsiElement,
         holder: ProblemsHolder
     ) {
-        val argCount = arguments.size
-        val namedArgNames = arguments.mapNotNull { it.name }.toSet()
-        val positionalCount = arguments.count { it.name == null }
+        // If any argument has an unresolvable splat/double-splat, skip the check entirely
+        val hasUnresolvedSplat = arguments.any { it.isSplat && it.resolvedSplatCount == null }
+        val hasUnresolvedDoubleSplat = arguments.any { it.isDoubleSplat && it.resolvedDoubleSplatKeys == null }
+        if (hasUnresolvedSplat || hasUnresolvedDoubleSplat) return
+
+        // Expand resolved splats into effective argument counts
+        val effectivePositionalCount = arguments.sumOf { arg ->
+            when {
+                arg.isSplat -> arg.resolvedSplatCount ?: 1
+                arg.isDoubleSplat -> 0 // double-splat contributes named args, not positional
+                arg.name != null -> 0 // named args aren't positional
+                else -> 1
+            }
+        }
+
+        // Collect named arg names (including resolved double-splat keys)
+        val namedArgNames = mutableSetOf<String>()
+        for (arg in arguments) {
+            if (arg.name != null) namedArgNames.add(arg.name)
+            if (arg.isDoubleSplat && arg.resolvedDoubleSplatKeys != null) {
+                namedArgNames.addAll(arg.resolvedDoubleSplatKeys)
+            }
+        }
+
+        val effectiveArgCount = effectivePositionalCount + namedArgNames.size
 
         // Check each overload
         var bestMatch: OverloadMatch? = null
 
         for (method in methods) {
             val params = method.parameterList?.parameterList ?: emptyList()
-            val match = evaluateOverload(params, argCount, positionalCount, namedArgNames)
+            val match = evaluateOverload(params, effectiveArgCount, effectivePositionalCount, namedArgNames)
 
             if (match.isValid) return // At least one overload accepts this call
 
@@ -108,31 +130,48 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 holder.registerProblem(
                     methodNameElement,
                     "Missing required argument(s): $missing",
-                    ProblemHighlightType.WARNING
+                    ProblemHighlightType.GENERIC_ERROR
                 )
             }
             match.excessStartIndex >= 0 -> {
-                // Highlight each excess argument
-                for (i in match.excessStartIndex until arguments.size) {
-                    val argExpr = arguments[i].element
-                    val target = findHighlightTarget(argExpr)
+                if (arguments.none { it.isSplat || it.isDoubleSplat }) {
+                    for (i in match.excessStartIndex until arguments.size) {
+                        val argExpr = arguments[i].element
+                        val target = findHighlightTarget(argExpr)
+                        holder.registerProblem(
+                            target,
+                            "Too many arguments: expected at most ${match.maxArgs}, got ${effectiveArgCount}",
+                            ProblemHighlightType.GENERIC_ERROR
+                        )
+                    }
+                } else {
                     holder.registerProblem(
-                        target,
-                        "Too many arguments: expected at most ${match.maxArgs}, got $argCount",
-                        ProblemHighlightType.WARNING
+                        methodNameElement,
+                        "Too many arguments: expected at most ${match.maxArgs}, got ${effectiveArgCount}",
+                        ProblemHighlightType.GENERIC_ERROR
                     )
                 }
             }
             match.unknownNamedArgs.isNotEmpty() -> {
-                // Highlight unknown named args — highlight the entire argument (including label)
+                val unknownNames = match.unknownNamedArgs.joinToString(", ") { "'$it'" }
+                var highlighted = false
                 for (arg in arguments) {
                     if (arg.name != null && arg.name in match.unknownNamedArgs) {
                         holder.registerProblem(
                             arg.element,
                             "Unknown named argument '${arg.name}'",
-                            ProblemHighlightType.WARNING
+                            ProblemHighlightType.GENERIC_ERROR
                         )
+                        highlighted = true
                     }
+                }
+                if (!highlighted) {
+                    // Unknown keys came from resolved double-splat — report on method name
+                    holder.registerProblem(
+                        methodNameElement,
+                        "Unknown named argument(s): $unknownNames",
+                        ProblemHighlightType.GENERIC_ERROR
+                    )
                 }
             }
         }
@@ -247,7 +286,13 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
     data class ArgumentInfo(
         val element: PsiElement,
-        val name: String? = null
+        val name: String? = null,
+        val isSplat: Boolean = false,
+        val isDoubleSplat: Boolean = false,
+        /** For splat args resolved to tuple literals: the element count */
+        val resolvedSplatCount: Int? = null,
+        /** For double-splat args resolved to named tuple literals: the key names */
+        val resolvedDoubleSplatKeys: Set<String>? = null
     )
 
     private fun extractArguments(callExpr: PsiElement): List<ArgumentInfo> {
@@ -309,27 +354,199 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     private fun extractArgInfo(arg: CrystalArgument): ArgumentInfo {
         val children = arg.node.getChildren(null)
         var namedLabel: String? = null
+        var isSplat = false
+        var isDoubleSplat = false
+
         for (i in children.indices) {
-            if (children[i].elementType == CrystalTypes.COLON && i > 0
+            val type = children[i].elementType
+            if (type == CrystalTypes.STAR) isSplat = true
+            if (type == CrystalTypes.DOUBLE_STAR) isDoubleSplat = true
+            if (type == CrystalTypes.COLON && i > 0
                 && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
                 namedLabel = children[i - 1].text
                 break
             }
         }
-        return ArgumentInfo(arg, namedLabel)
+
+        val resolvedSplatCount = if (isSplat) resolveSplatCount(arg) else null
+        val resolvedDoubleSplatKeys = if (isDoubleSplat) resolveDoubleSplatKeys(arg) else null
+
+        return ArgumentInfo(arg, namedLabel, isSplat, isDoubleSplat, resolvedSplatCount, resolvedDoubleSplatKeys)
     }
 
     private fun extractBareArgInfo(bareArg: CrystalBareArgument): ArgumentInfo {
         val children = bareArg.node.getChildren(null)
         var namedLabel: String? = null
+        var isSplat = false
+        var isDoubleSplat = false
+
         for (i in children.indices) {
-            if (children[i].elementType == CrystalTypes.COLON && i > 0
+            val type = children[i].elementType
+            if (type == CrystalTypes.STAR) isSplat = true
+            if (type == CrystalTypes.DOUBLE_STAR) isDoubleSplat = true
+            if (type == CrystalTypes.COLON && i > 0
                 && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
                 namedLabel = children[i - 1].text
                 break
             }
         }
-        return ArgumentInfo(bareArg, namedLabel)
+
+        val resolvedSplatCount = if (isSplat) resolveSplatCount(bareArg) else null
+        val resolvedDoubleSplatKeys = if (isDoubleSplat) resolveDoubleSplatKeys(bareArg) else null
+
+        return ArgumentInfo(bareArg, namedLabel, isSplat, isDoubleSplat, resolvedSplatCount, resolvedDoubleSplatKeys)
+    }
+
+    // ==================== Splat Resolution ====================
+
+    /**
+     * For a splat argument (*expr), try to resolve the expression to a tuple literal
+     * and return its element count. Returns null if not resolvable.
+     */
+    private fun resolveSplatCount(argElement: PsiElement): Int? {
+        val varName = findSplatVariableName(argElement) ?: return null
+        val tupleLiteral = resolveVariableToLiteral(argElement, varName) ?: return null
+        return countTupleElements(tupleLiteral)
+    }
+
+    /**
+     * For a double-splat argument (**expr), try to resolve the expression to a named tuple
+     * literal and return its key names. Returns null if not resolvable.
+     */
+    private fun resolveDoubleSplatKeys(argElement: PsiElement): Set<String>? {
+        val varName = findSplatVariableName(argElement) ?: return null
+        val literal = resolveVariableToLiteral(argElement, varName) ?: return null
+        return extractNamedTupleKeys(literal)
+    }
+
+    /**
+     * Extract the variable name from a splat/double-splat argument.
+     * For `*args` or `**options`, returns "args" or "options".
+     */
+    private fun findSplatVariableName(argElement: PsiElement): String? {
+        // The argument node children include STAR/DOUBLE_STAR followed by EXPRESSION(VARIABLE_REFERENCE(IDENTIFIER))
+        val children = argElement.node.getChildren(null)
+        var foundSplat = false
+        for (child in children) {
+            val type = child.elementType
+            if (type == CrystalTypes.STAR || type == CrystalTypes.DOUBLE_STAR) {
+                foundSplat = true
+            } else if (foundSplat && type == CrystalTypes.EXPRESSION) {
+                // Look for VARIABLE_REFERENCE > IDENTIFIER inside the expression
+                val varRef = child.findChildByType(CrystalTypes.VARIABLE_REFERENCE)
+                if (varRef != null) {
+                    val id = varRef.findChildByType(CrystalTypes.IDENTIFIER)
+                    return id?.text
+                }
+                // Direct IDENTIFIER
+                val id = child.findChildByType(CrystalTypes.IDENTIFIER)
+                return id?.text
+            }
+        }
+        return null
+    }
+
+    /**
+     * Resolve a variable name to its assignment literal in the same scope.
+     * Searches backwards from the usage site for `varName = <literal>`.
+     * Returns the RHS expression element (tuple/hash literal) or null.
+     */
+    private fun resolveVariableToLiteral(usageSite: PsiElement, varName: String): PsiElement? {
+        // Walk up to statement level
+        var current: PsiElement? = usageSite
+        while (current != null && current.node.elementType != CrystalTypes.STATEMENT
+            && current.parent?.node?.elementType != CrystalTypes.STATEMENT_LIST
+            && current.parent?.node?.elementType?.toString() != "FILE") {
+            current = current.parent
+        }
+        if (current == null) return null
+
+        // Search preceding siblings
+        var sibling = current.prevSibling
+        while (sibling != null) {
+            val result = findAssignmentRhsForVar(sibling, varName)
+            if (result != null) return result
+            sibling = sibling.prevSibling
+        }
+
+        return null
+    }
+
+    /**
+     * In an element subtree, find an assignment `varName = expr` and return the RHS expression.
+     */
+    private fun findAssignmentRhsForVar(element: PsiElement, varName: String): PsiElement? {
+        if (element is CrystalAssignment) {
+            // CrystalAssignment node children: IDENTIFIER, ASSIGN, expression
+            val idNode = element.node.findChildByType(CrystalTypes.IDENTIFIER)
+            if (idNode != null && idNode.text == varName) {
+                // Find the expression child (RHS)
+                val exprNode = element.node.findChildByType(CrystalTypes.EXPRESSION)
+                return exprNode?.psi
+            }
+        }
+
+        // Recurse into children
+        var child = element.firstChild
+        while (child != null) {
+            val result = findAssignmentRhsForVar(child, varName)
+            if (result != null) return result
+            child = child.nextSibling
+        }
+        return null
+    }
+
+    /**
+     * Count elements in a tuple literal: {a, b, c} -> 3
+     */
+    private fun countTupleElements(literal: PsiElement): Int? {
+        // Direct tuple literal
+        if (literal.node.elementType == CrystalTypes.TUPLE_LITERAL) {
+            // Count EXPRESSION nodes in the EXPRESSION_LIST child
+            val exprList = literal.node.findChildByType(CrystalTypes.EXPRESSION_LIST)
+            if (exprList != null) {
+                return exprList.getChildren(null).count { it.elementType == CrystalTypes.EXPRESSION }
+            }
+            // Or count top-level EXPRESSION children directly
+            return literal.node.getChildren(null).count { it.elementType == CrystalTypes.EXPRESSION }
+        }
+        // Hash literal used as named tuple {x: 1, y: 2}
+        if (literal is CrystalHashLiteral) {
+            val entryList = literal.hashEntryList ?: return null
+            return entryList.hashEntryList.size
+        }
+        // Expression wrapper — unwrap
+        if (literal.node.elementType == CrystalTypes.EXPRESSION) {
+            val child = literal.firstChild
+            if (child != null) return countTupleElements(child)
+        }
+        return null
+    }
+
+    /**
+     * Extract keys from a named tuple literal: {host: "x", port: 8080} -> {"host", "port"}
+     */
+    private fun extractNamedTupleKeys(literal: PsiElement): Set<String>? {
+        if (literal is CrystalHashLiteral) {
+            val entryList = literal.hashEntryList ?: return null
+            val keys = mutableSetOf<String>()
+            for (entry in entryList.hashEntryList) {
+                // Named tuple entry: EXPRESSION(VARIABLE_REFERENCE(IDENTIFIER)) COLON EXPRESSION
+                val firstExpr = entry.expressionList.firstOrNull() ?: continue
+                val varRef = firstExpr.firstChild
+                if (varRef is CrystalVariableReference) {
+                    val id = varRef.node.findChildByType(CrystalTypes.IDENTIFIER)
+                    if (id != null) keys.add(id.text)
+                }
+            }
+            return if (keys.isNotEmpty()) keys else null
+        }
+        // Expression wrapper — unwrap
+        if (literal.node.elementType == CrystalTypes.EXPRESSION) {
+            val child = literal.firstChild
+            if (child != null) return extractNamedTupleKeys(child)
+        }
+        return null
     }
 
     // ==================== Helpers ====================

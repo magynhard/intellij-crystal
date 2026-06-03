@@ -15,7 +15,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def greet(name : String, age : Int32)
             end
-            <warning descr="Missing required argument(s): 'age'">greet</warning>("Hans")
+            <error descr="Missing required argument(s): 'age'">greet</error>("Hans")
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -24,7 +24,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def greet(name : String, age : Int32)
             end
-            <warning descr="Missing required argument(s): 'name', 'age'">greet</warning>()
+            <error descr="Missing required argument(s): 'name', 'age'">greet</error>()
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -53,7 +53,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def greet(name : String)
             end
-            greet("Hans", <warning descr="Too many arguments: expected at most 1, got 2">"extra"</warning>)
+            greet("Hans", <error descr="Too many arguments: expected at most 1, got 2">"extra"</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -62,7 +62,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def greet(name : String)
             end
-            greet("Hans", <warning descr="Too many arguments: expected at most 1, got 3">"extra1"</warning>, <warning descr="Too many arguments: expected at most 1, got 3">"extra2"</warning>)
+            greet("Hans", <error descr="Too many arguments: expected at most 1, got 3">"extra1"</error>, <error descr="Too many arguments: expected at most 1, got 3">"extra2"</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -102,7 +102,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def greet(name : String)
             end
-            greet(<warning descr="Unknown named argument 'unknown'">unknown: "value"</warning>)
+            greet(<error descr="Unknown named argument 'unknown'">unknown: "value"</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -153,7 +153,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def greet(name : String, age : Int32)
             end
-            <warning descr="Missing required argument(s): 'age'">greet</warning> "Hans"
+            <error descr="Missing required argument(s): 'age'">greet</error> "Hans"
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -173,7 +173,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def self.create(name : String, age : Int32)
             end
-            Foo.<warning descr="Missing required argument(s): 'age'">create</warning>("Hans")
+            Foo.<error descr="Missing required argument(s): 'age'">create</error>("Hans")
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -206,7 +206,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             end
             def process(a : Int32, b : String, c : Float64)
             end
-            <warning descr="Missing required argument(s): 'b'">process</warning>(42)
+            <error descr="Missing required argument(s): 'b'">process</error>(42)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -227,6 +227,93 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
     fun testUnknownMethodNoError() {
         myFixture.configureByText("test.cr", """
             unknown_method(1, 2, 3, 4, 5)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    // ==================== Splat Expansion ====================
+
+    fun testSplatExpansionCorrectCount() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32, c : Int32) : Int32
+              a + b + c
+            end
+            args = {1, 2, 3}
+            add(*args)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    private fun debugPsiTree(element: com.intellij.psi.PsiElement, depth: Int): String {
+        val sb = StringBuilder()
+        sb.append("  ".repeat(depth))
+        sb.append(element.node.elementType.toString())
+        if (element.children.isEmpty()) sb.append(" '${element.text.take(30)}'")
+        sb.append("\n")
+        for (child in element.children) {
+            sb.append(debugPsiTree(child, depth + 1))
+        }
+        return sb.toString()
+    }
+
+    fun testSplatExpansionTooFew() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32, c : Int32) : Int32
+              a + b + c
+            end
+            args = {1, 2}
+            <error descr="Missing required argument(s): 'c'">add</error>(*args)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDoubleSplatExpansionCorrect() {
+        myFixture.configureByText("test.cr", """
+            def setup(host : String, port : Int32)
+            end
+            options = {host: "localhost", port: 8080}
+            setup(**options)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDoubleSplatExpansionMissingKey() {
+        myFixture.configureByText("test.cr", """
+            def setup(host : String, port : Int32)
+            end
+            options = {host: "localhost"}
+            <error descr="Missing required argument(s): 'port'">setup</error>(**options)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSplatUnresolvableNoWarning() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32, c : Int32) : Int32
+              a + b + c
+            end
+            add(*get_args())
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSplatExpansionTooMany() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32, c : Int32) : Int32
+              a + b + c
+            end
+            args = {1, 2, 3, 4}
+            <error descr="Too many arguments: expected at most 3, got 4">add</error>(*args)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDoubleSplatExpansionUnknownKey() {
+        myFixture.configureByText("test.cr", """
+            def setup(host : String, port : Int32)
+            end
+            options = {host: "localhost", ort: 8080}
+            <error descr="Unknown named argument(s): 'ort'">setup</error>(**options)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
