@@ -88,6 +88,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         // Expand resolved splats into effective argument counts
         val effectivePositionalCount = arguments.sumOf { arg ->
             when {
+                arg.isBlockPass -> 0 // block-pass (&block) is not a positional argument
                 arg.isSplat -> arg.resolvedSplatCount ?: 1
                 arg.isDoubleSplat -> 0 // double-splat contributes named args, not positional
                 arg.name != null -> 0 // named args aren't positional
@@ -289,6 +290,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val name: String? = null,
         val isSplat: Boolean = false,
         val isDoubleSplat: Boolean = false,
+        val isBlockPass: Boolean = false,
         /** For splat args resolved to tuple literals: the element count */
         val resolvedSplatCount: Int? = null,
         /** For double-splat args resolved to named tuple literals: the key names */
@@ -356,11 +358,13 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         var namedLabel: String? = null
         var isSplat = false
         var isDoubleSplat = false
+        var isBlockPass = false
 
         for (i in children.indices) {
             val type = children[i].elementType
             if (type == CrystalTypes.STAR) isSplat = true
             if (type == CrystalTypes.DOUBLE_STAR) isDoubleSplat = true
+            if (type == CrystalTypes.AMPERSAND) isBlockPass = true
             if (type == CrystalTypes.COLON && i > 0
                 && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
                 namedLabel = children[i - 1].text
@@ -371,7 +375,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val resolvedSplatCount = if (isSplat) resolveSplatCount(arg) else null
         val resolvedDoubleSplatKeys = if (isDoubleSplat) resolveDoubleSplatKeys(arg) else null
 
-        return ArgumentInfo(arg, namedLabel, isSplat, isDoubleSplat, resolvedSplatCount, resolvedDoubleSplatKeys)
+        return ArgumentInfo(arg, namedLabel, isSplat, isDoubleSplat, isBlockPass, resolvedSplatCount, resolvedDoubleSplatKeys)
     }
 
     private fun extractBareArgInfo(bareArg: CrystalBareArgument): ArgumentInfo {
@@ -379,11 +383,13 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         var namedLabel: String? = null
         var isSplat = false
         var isDoubleSplat = false
+        var isBlockPass = false
 
         for (i in children.indices) {
             val type = children[i].elementType
             if (type == CrystalTypes.STAR) isSplat = true
             if (type == CrystalTypes.DOUBLE_STAR) isDoubleSplat = true
+            if (type == CrystalTypes.AMPERSAND) isBlockPass = true
             if (type == CrystalTypes.COLON && i > 0
                 && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
                 namedLabel = children[i - 1].text
@@ -394,7 +400,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val resolvedSplatCount = if (isSplat) resolveSplatCount(bareArg) else null
         val resolvedDoubleSplatKeys = if (isDoubleSplat) resolveDoubleSplatKeys(bareArg) else null
 
-        return ArgumentInfo(bareArg, namedLabel, isSplat, isDoubleSplat, resolvedSplatCount, resolvedDoubleSplatKeys)
+        return ArgumentInfo(bareArg, namedLabel, isSplat, isDoubleSplat, isBlockPass, resolvedSplatCount, resolvedDoubleSplatKeys)
     }
 
     // ==================== Splat Resolution ====================

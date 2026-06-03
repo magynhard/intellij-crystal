@@ -552,6 +552,7 @@ argument_list ::= argument (NLS COMMA NLS argument)*
 
 argument ::= STAR expression
            | DOUBLE_STAR expression
+           | AMPERSAND expression
            | [IDENTIFIER COLON] expression
 
 // Bare (parenthesis-free) arguments — used for calls like: describe App5 do ... end

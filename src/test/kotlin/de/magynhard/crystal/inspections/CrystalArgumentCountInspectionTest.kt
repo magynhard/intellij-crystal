@@ -317,4 +317,15 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testBlockPassNotCountedAsArgument() {
+        myFixture.configureByText("test.cr", """
+            def get(path : String, &block : ->)
+            end
+            def forward(path : String, &block : ->)
+              get(path, &block)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
