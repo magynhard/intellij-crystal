@@ -4,30 +4,60 @@
 
 The current grammar covers the most common constructs. The following extensions are planned:
 
-- [ ] Full generics (`Array(T)`, `forall T`, constraints)
+- [x] Full generics (`Array(T)`, `forall T`, constraints) — basic support done
 - [x] Macro body parsing (`{% %}`, `{{ }}`, `{% for %}`)
 - [x] Union types as type annotations (`Int32 | String`)
-- [ ] Proc/Lambda types (`-> Int32`, `Proc(Int32, String)`)
+- [x] Proc/Lambda types (`-> Int32`, `Proc(Int32, String)`)
 - [x] Proc literals (`->{ }`, `->(x) { }`, `->method_name(Type)`)
-- [ ] Pattern matching (`case...in`, Crystal 1.x+)
-- [ ] Multi-assignment (`a, b = 1, 2`)
-- [ ] Splat parameters (`*args`, `**kwargs`)
+- [x] Pattern matching (`case...in`, Crystal 1.x+) — basic `in_clause` done
+- [x] Multi-assignment (`a, b = 1, 2`)
+- [x] Splat parameters (`*args`, `**kwargs`)
 - [x] Annotation usage parsing (`@[Deprecated]`, `@[JSON::Serializable]`, `@[Link("sqlite3")]`)
 - [x] `asm` blocks
-- [ ] Named tuples (`{name: "foo", age: 42}`)
-- [ ] `select` statement (concurrency)
+- [x] Named tuples (`{name: "foo", age: 42}`)
+- [x] `select` statement (concurrency)
 - [x] Heredocs as expressions in parser (lexer already supports them)
 - [ ] Better operator precedence (Pratt parsing or precedence climbing)
 - [x] Type restrictions on parameters (`def foo(x : Int32)`)
 - [x] Default parameter values (full expressions)
-- [ ] Visibility modifiers as modifier nodes on PSI elements
-- [ ] `with...yield` blocks
+- [x] Visibility modifiers (`private`/`protected` standalone and as prefix)
+- [x] `with...yield` blocks
 - [x] `pointerof`, `offsetof` as expressions
 - [x] String interpolation as nested expressions in parser
 - [x] Suffix if/unless/while (`expr if condition`)
-- [ ] Ternary operator (partially exists: `? :` in expression rule)
+- [x] Ternary operator (partially exists: `? :` in expression rule)
 - [x] Typed variable declarations (`x : String | Nil`) as statements
 - [x] Generic type arguments in type references (`Array(String)`, `Hash(String, Int32)`)
+- [x] Block-pass (`&block`) not counted as argument
+
+### Missing Syntax (not yet implemented)
+
+#### Completely missing
+
+- [ ] Wrapping operators (`&+`, `&-`, `&*`, `&**`) — overflow-safe arithmetic
+- [ ] `loop do ... end` — infinite loop construct
+- [ ] `previous_def` — call the previously defined method in redefinition
+- [ ] `out` parameter in arguments (C-Bindings: `LibC.foo(out result)`)
+- [ ] Lib `union` — union definitions inside `lib` blocks
+- [ ] Lib `enum` — enum definitions inside `lib` blocks
+- [ ] Lib `$external_var` — global variables in `lib` (`$errno : Int32`)
+- [ ] Lib varargs — `fun printf(format : UInt8*, ...) : Int32`
+- [ ] Top-level `fun` — exported C functions outside of `lib`
+- [ ] Macro hooks (`macro inherited`, `included`, `extended`, `finished`, `method_added`, `method_missing`)
+- [ ] Macro `%fresh_var` — fresh variables in macros
+- [ ] `verbatim do ... end` — macro construct
+- [ ] Variadic generics (`class Foo(*T)`, `Tuple(*T)`)
+- [ ] Generic default types (`T = Int32`) and bounded generics
+
+#### Partially implemented / gaps
+
+- [ ] `self` / `typeof` / `_` as type in type_reference position
+- [ ] Pattern matching: tuple destructuring (`in {x, y}`), pin operator (`^var`)
+- [ ] Percent literal contents (`%w[foo bar]`, `%i[a b]`) — only token shell, no inner parsing
+- [ ] Indexer assignment as expression (`obj[key] = value`)
+- [ ] `responds_to?(:method)` as postfix with symbol argument
+- [ ] Rescue with union types (`rescue ex : Foo | Bar`)
+- [ ] Annotations on parameters (`def foo(@[MyAnn] param : Int32)`)
 
 ## IDE Features (require parser improvements)
 
