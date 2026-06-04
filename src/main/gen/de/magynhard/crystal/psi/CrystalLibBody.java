@@ -8,10 +8,19 @@ import com.intellij.psi.PsiElement;
 public interface CrystalLibBody extends PsiElement {
 
   @NotNull
+  List<CrystalEnumDefinition> getEnumDefinitionList();
+
+  @NotNull
   List<CrystalFunDefinition> getFunDefinitionList();
 
   @NotNull
+  List<CrystalLibField> getLibFieldList();
+
+  @NotNull
   List<CrystalLibStructDefinition> getLibStructDefinitionList();
+
+  @NotNull
+  List<CrystalLibUnionDefinition> getLibUnionDefinitionList();
 
   @NotNull
   List<CrystalTypeAliasLib> getTypeAliasLibList();

@@ -281,13 +281,17 @@ enum_constant ::= CONSTANT [ASSIGN expression]
 
 lib_body ::= lib_member*
 
-private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition
+private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition | lib_union_definition | enum_definition | lib_field
+
+lib_field ::= IDENTIFIER COLON type_reference
 
 fun_definition ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 
 type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
 
 lib_struct_definition ::= STRUCT CONSTANT lib_body END
+
+lib_union_definition ::= UNION CONSTANT lib_body END
 
 // ==================== Methods ====================
 
@@ -710,7 +714,7 @@ type_reference ::= type_union [ARROW [type_union]]
 
 private type_union ::= type_single (PIPE type_single)*
 
-private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
+private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
                        | SELF [QUESTION]
                        | TYPEOF LPAREN expression RPAREN [QUESTION]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN

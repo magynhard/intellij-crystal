@@ -2969,7 +2969,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition
+  // IDENTIFIER COLON type_reference
+  public static boolean lib_field(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_field")) return false;
+    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokens(builder_, 0, IDENTIFIER, COLON);
+    result_ = result_ && type_reference(builder_, level_ + 1);
+    exit_section_(builder_, marker_, LIB_FIELD, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition | lib_union_definition | enum_definition | lib_field
   static boolean lib_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_member")) return false;
     boolean result_;
@@ -2978,6 +2991,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = fun_definition(builder_, level_ + 1);
     if (!result_) result_ = type_alias_lib(builder_, level_ + 1);
     if (!result_) result_ = lib_struct_definition(builder_, level_ + 1);
+    if (!result_) result_ = lib_union_definition(builder_, level_ + 1);
+    if (!result_) result_ = enum_definition(builder_, level_ + 1);
+    if (!result_) result_ = lib_field(builder_, level_ + 1);
     return result_;
   }
 
@@ -2992,6 +3008,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && lib_body(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, END);
     exit_section_(builder_, marker_, LIB_STRUCT_DEFINITION, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // UNION CONSTANT lib_body END
+  public static boolean lib_union_definition(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_union_definition")) return false;
+    if (!nextTokenIs(builder_, UNION)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokens(builder_, 0, UNION, CONSTANT);
+    result_ = result_ && lib_body(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, END);
+    exit_section_(builder_, marker_, LIB_UNION_DEFINITION, result_);
     return result_;
   }
 
@@ -5585,7 +5615,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
+  // type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
   //                        | SELF [QUESTION]
   //                        | TYPEOF LPAREN expression RPAREN [QUESTION]
   //                        | LPAREN type_reference (COMMA type_reference)* RPAREN
@@ -5605,7 +5635,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR]
+  // type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
   private static boolean type_single_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_single_0")) return false;
     boolean result_;
@@ -5615,6 +5645,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && type_single_0_2(builder_, level_ + 1);
     result_ = result_ && type_single_0_3(builder_, level_ + 1);
     result_ = result_ && type_single_0_4(builder_, level_ + 1);
+    result_ = result_ && type_single_0_5(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -5644,6 +5675,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean type_single_0_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_single_0_4")) return false;
     consumeToken(builder_, DOUBLE_STAR);
+    return true;
+  }
+
+  // [LBRACKET INTEGER_LITERAL RBRACKET]
+  private static boolean type_single_0_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_0_5")) return false;
+    parseTokens(builder_, 0, LBRACKET, INTEGER_LITERAL, RBRACKET);
     return true;
   }
 

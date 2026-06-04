@@ -191,7 +191,15 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitLibField(@NotNull CrystalLibField o) {
+    visitPsiElement(o);
+  }
+
   public void visitLibStructDefinition(@NotNull CrystalLibStructDefinition o) {
+    visitPsiElement(o);
+  }
+
+  public void visitLibUnionDefinition(@NotNull CrystalLibUnionDefinition o) {
     visitPsiElement(o);
   }
 
