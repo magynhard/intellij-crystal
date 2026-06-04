@@ -43,21 +43,21 @@ The current grammar covers the most common constructs. The following extensions 
 - [x] Lib `$external_var` — global variables in `lib` (`$errno : Int32`)
 - [x] Lib varargs — `fun printf(format : UInt8*, ...) : Int32`
 - [x] Top-level `fun` — exported C functions outside of `lib`
-- [ ] Macro hooks (`macro inherited`, `included`, `extended`, `finished`, `method_added`, `method_missing`)
-- [ ] Macro `%fresh_var` — fresh variables in macros
-- [ ] `verbatim do ... end` — macro construct
-- [ ] Variadic generics (`class Foo(*T)`, `Tuple(*T)`)
-- [ ] Generic default types (`T = Int32`) and bounded generics
+- [x] Macro hooks (`macro inherited`, `included`, `extended`, `finished`, `method_added`, `method_missing`)
+- [x] Macro `%fresh_var` — fresh variables in macros (highlighted as local variable)
+- [x] `verbatim do ... end` — macro construct (highlighted as keyword)
+- [x] Variadic generics (`class Foo(*T)`, `Tuple(*T)`)
+- [x] Generic default types (`T = Int32`) and bounded generics
 
 #### Partially implemented / gaps
 
 - [x] `self` / `typeof` / `_` as type in type_reference position
-- [ ] Pattern matching: tuple destructuring (`in {x, y}`), pin operator (`^var`)
-- [ ] Percent literal contents (`%w[foo bar]`, `%i[a b]`) — only token shell, no inner parsing
-- [ ] Indexer assignment as expression (`obj[key] = value`)
-- [ ] `responds_to?(:method)` as postfix with symbol argument
-- [ ] Rescue with union types (`rescue ex : Foo | Bar`)
-- [ ] Annotations on parameters (`def foo(@[MyAnn] param : Int32)`)
+- [x] Pattern matching: tuple destructuring (`in {x, y}`), pin operator (`^var`), guard clauses (`in pattern if cond`)
+- [x] Percent literal contents (`%w[foo bar]`, `%i[a b]`) — full parsing with inner tokens
+- [x] Indexer assignment as expression (`obj[key] = value`)
+- [x] `responds_to?(:method)` as implicit object call (`.responds_to?`, `.is_a?`, `.nil?`)
+- [x] Rescue with union types (`rescue ex : Foo | Bar`), inline rescue (`expr rescue default`), rescue in method body
+- [x] Annotations on parameters (`def foo(@[MyAnn] param : Int32)`) — multiple annotations supported
 
 ## IDE Features (require parser improvements)
 
