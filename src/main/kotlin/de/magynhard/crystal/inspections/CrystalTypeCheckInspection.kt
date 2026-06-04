@@ -176,7 +176,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 val argList = argsElement.argumentList
                 if (argList != null) {
                     for (arg in argList.argumentList) {
-                        arguments.add(extractArgumentInfo(arg))
+                        extractArgumentInfo(arg)?.let { arguments.add(it) }
                     }
                 }
             }
@@ -274,7 +274,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     val argList = callArgs.argumentList
                     if (argList != null) {
                         for (arg in argList.argumentList) {
-                            result.add(extractArgumentInfo(arg))
+                            extractArgumentInfo(arg)?.let { result.add(it) }
                         }
                     }
                     return result
@@ -293,7 +293,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     val argList = callArgs.argumentList
                     if (argList != null) {
                         for (arg in argList.argumentList) {
-                            result.add(extractArgumentInfo(arg))
+                            extractArgumentInfo(arg)?.let { result.add(it) }
                         }
                     }
                 }
@@ -303,7 +303,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         return result
     }
 
-    private fun extractArgumentInfo(arg: CrystalArgument): ArgumentInfo {
+    private fun extractArgumentInfo(arg: CrystalArgument): ArgumentInfo? {
         // Check for named argument: IDENTIFIER COLON expression
         val children = arg.node.getChildren(null)
         var namedLabel: String? = null
@@ -316,14 +316,16 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             }
         }
 
-        // Skip splat arguments (* or **)
+        // Skip splat arguments (* or **) and out arguments
         val firstChildType = children.firstOrNull()?.elementType
-        if (firstChildType == CrystalTypes.STAR || firstChildType == CrystalTypes.DOUBLE_STAR) {
-            // Return with expression but it won't be type-checked meaningfully
-            return ArgumentInfo(arg.expression, namedLabel)
+        if (firstChildType == CrystalTypes.STAR || firstChildType == CrystalTypes.DOUBLE_STAR
+            || firstChildType == CrystalTypes.OUT) {
+            val expr = arg.expression ?: return null
+            return ArgumentInfo(expr, namedLabel)
         }
 
-        return ArgumentInfo(arg.expression, namedLabel)
+        val expr = arg.expression ?: return null
+        return ArgumentInfo(expr, namedLabel)
     }
 
     private fun extractBareArgumentInfo(bareArg: CrystalBareArgument): ArgumentInfo {
