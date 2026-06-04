@@ -52,6 +52,7 @@
     OFFSETOF="OFFSETOF"
     OUT="OUT"
     POINTEROF="POINTEROF"
+    PREVIOUS_DEF="PREVIOUS_DEF"
     PRIVATE="PRIVATE"
     PROTECTED="PROTECTED"
     REQUIRE="REQUIRE"
@@ -515,7 +516,7 @@ private keyword_as_method ::= ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
                             | MACRO | MODULE
                             | NEXT | NIL | NIL_QUESTION
                             | OF | OFFSETOF | OUT
-                            | POINTEROF | PRIVATE | PROTECTED
+                            | POINTEROF | PREVIOUS_DEF | PRIVATE | PROTECTED
                             | REQUIRE | RESCUE | RESPONDS_TO | RETURN
                             | SELECT | SELF | SIZEOF | STRUCT | SUPER
                             | THEN | TRUE | TYPEOF
@@ -554,7 +555,9 @@ grouped_expression ::= LPAREN NLS expression NLS RPAREN
 
 method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
                          | (IDENTIFIER | CONSTANT | SELECT) bare_argument_list [block]
-                         | (IDENTIFIER | CONSTANT) block {
+                         | (IDENTIFIER | CONSTANT) block
+                         | (SUPER | PREVIOUS_DEF) call_args
+                         | (SUPER | PREVIOUS_DEF) bare_argument_list {
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
 
@@ -662,6 +665,7 @@ private literal ::= INTEGER_LITERAL
                   | FALSE
                   | SELF
                   | SUPER
+                  | PREVIOUS_DEF
                   | heredoc_literal
                   | percent_literal
 

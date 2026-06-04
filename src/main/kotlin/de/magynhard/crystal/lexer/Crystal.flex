@@ -155,6 +155,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "offsetof"           { return CrystalTypes.OFFSETOF; }
   "out"                { return CrystalTypes.OUT; }
   "pointerof"          { return CrystalTypes.POINTEROF; }
+  "previous_def"       { return CrystalTypes.PREVIOUS_DEF; }
   "private"            { return CrystalTypes.PRIVATE; }
   "protected"          { return CrystalTypes.PROTECTED; }
   "forall"             { return CrystalTypes.FORALL; }

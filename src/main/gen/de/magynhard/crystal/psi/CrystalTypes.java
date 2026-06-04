@@ -210,6 +210,7 @@ public interface CrystalTypes {
   IElementType PLUS = new CrystalTokenType("PLUS");
   IElementType PLUS_ASSIGN = new CrystalTokenType("PLUS_ASSIGN");
   IElementType POINTEROF = new CrystalTokenType("POINTEROF");
+  IElementType PREVIOUS_DEF = new CrystalTokenType("PREVIOUS_DEF");
   IElementType PRIVATE = new CrystalTokenType("PRIVATE");
   IElementType PROTECTED = new CrystalTokenType("PROTECTED");
   IElementType QUESTION = new CrystalTokenType("QUESTION");
