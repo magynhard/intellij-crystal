@@ -539,6 +539,10 @@ private keyword_as_method ::= ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
                             | VERBATIM
                             | WHEN | WHILE | WITH
                             | YIELD
+                            | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
+                            | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP
+                            | LSHIFT | RSHIFT | AMPERSAND | PIPE | CARET | TILDE
+                            | DOUBLE_SLASH
 
 // ==================== Primary Expressions ====================
 

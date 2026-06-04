@@ -178,4 +178,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testTrailingCommas() {
         doTest(true)
     }
+
+    fun testShortBlockSyntax() {
+        doTest(true)
+    }
 }

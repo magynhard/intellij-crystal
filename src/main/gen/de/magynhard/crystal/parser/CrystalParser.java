@@ -2983,6 +2983,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                             | VERBATIM
   //                             | WHEN | WHILE | WITH
   //                             | YIELD
+  //                             | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
+  //                             | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP
+  //                             | LSHIFT | RSHIFT | AMPERSAND | PIPE | CARET | TILDE
+  //                             | DOUBLE_SLASH
   static boolean keyword_as_method(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "keyword_as_method")) return false;
     boolean result_;
@@ -3046,6 +3050,26 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, WHILE);
     if (!result_) result_ = consumeToken(builder_, WITH);
     if (!result_) result_ = consumeToken(builder_, YIELD);
+    if (!result_) result_ = consumeToken(builder_, PLUS);
+    if (!result_) result_ = consumeToken(builder_, MINUS);
+    if (!result_) result_ = consumeToken(builder_, STAR);
+    if (!result_) result_ = consumeToken(builder_, SLASH);
+    if (!result_) result_ = consumeToken(builder_, PERCENT);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
+    if (!result_) result_ = consumeToken(builder_, EQ);
+    if (!result_) result_ = consumeToken(builder_, NEQ);
+    if (!result_) result_ = consumeToken(builder_, LT);
+    if (!result_) result_ = consumeToken(builder_, GT);
+    if (!result_) result_ = consumeToken(builder_, LTE);
+    if (!result_) result_ = consumeToken(builder_, GTE);
+    if (!result_) result_ = consumeToken(builder_, SPACESHIP);
+    if (!result_) result_ = consumeToken(builder_, LSHIFT);
+    if (!result_) result_ = consumeToken(builder_, RSHIFT);
+    if (!result_) result_ = consumeToken(builder_, AMPERSAND);
+    if (!result_) result_ = consumeToken(builder_, PIPE);
+    if (!result_) result_ = consumeToken(builder_, CARET);
+    if (!result_) result_ = consumeToken(builder_, TILDE);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
     return result_;
   }
 
