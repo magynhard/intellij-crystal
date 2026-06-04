@@ -8,6 +8,6 @@ import com.intellij.psi.PsiElement;
 public interface CrystalGroupedExpression extends PsiElement {
 
   @NotNull
-  CrystalExpression getExpression();
+  List<CrystalExpression> getExpressionList();
 
 }

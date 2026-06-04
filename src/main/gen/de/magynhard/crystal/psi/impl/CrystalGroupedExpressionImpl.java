@@ -29,8 +29,8 @@ public class CrystalGroupedExpressionImpl extends ASTWrapperPsiElement implement
 
   @Override
   @NotNull
-  public CrystalExpression getExpression() {
-    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpression.class));
+  public List<CrystalExpression> getExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }
 
 }

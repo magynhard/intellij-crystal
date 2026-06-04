@@ -2557,7 +2557,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // LPAREN NLS expression NLS RPAREN
+  // LPAREN NLS expression [assign_op NLS expression] NLS RPAREN
   public static boolean grouped_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "grouped_expression")) return false;
     if (!nextTokenIs(builder_, LPAREN)) return false;
@@ -2566,9 +2566,29 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, LPAREN);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && grouped_expression_3(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, GROUPED_EXPRESSION, result_);
+    return result_;
+  }
+
+  // [assign_op NLS expression]
+  private static boolean grouped_expression_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "grouped_expression_3")) return false;
+    grouped_expression_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // assign_op NLS expression
+  private static boolean grouped_expression_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "grouped_expression_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = assign_op(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
