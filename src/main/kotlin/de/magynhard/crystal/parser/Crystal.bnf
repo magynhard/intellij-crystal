@@ -460,8 +460,8 @@ with_yield_statement ::= WITH expression YIELD {pin=1}
 
 assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] {pin=2}
 
-multi_assignment ::= multi_assign_target COMMA multi_assign_target_list ASSIGN NLS multi_assign_values {pin=4}
-private multi_assign_target_list ::= multi_assign_target (COMMA multi_assign_target)*
+multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values {pin=4}
+private multi_assign_target_list ::= multi_assign_target (COMMA NLS multi_assign_target)*
 multi_assign_target ::= STAR variable
                        | STAR UNDERSCORE
                        | variable [COLON type_reference]

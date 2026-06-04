@@ -3881,7 +3881,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // multi_assign_target (COMMA multi_assign_target)*
+  // multi_assign_target (COMMA NLS multi_assign_target)*
   static boolean multi_assign_target_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assign_target_list")) return false;
     boolean result_;
@@ -3892,7 +3892,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (COMMA multi_assign_target)*
+  // (COMMA NLS multi_assign_target)*
   private static boolean multi_assign_target_list_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assign_target_list_1")) return false;
     while (true) {
@@ -3903,12 +3903,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // COMMA multi_assign_target
+  // COMMA NLS multi_assign_target
   private static boolean multi_assign_target_list_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assign_target_list_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && multi_assign_target(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -3949,17 +3950,18 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // multi_assign_target COMMA multi_assign_target_list ASSIGN NLS multi_assign_values
+  // multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values
   public static boolean multi_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assignment")) return false;
     boolean result_, pinned_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, MULTI_ASSIGNMENT, "<multi assignment>");
     result_ = multi_assign_target(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && multi_assign_target_list(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, ASSIGN);
     pinned_ = result_; // pin = 4
-    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = result_ && report_error_(builder_, consumeToken(builder_, ASSIGN));
+    result_ = pinned_ && report_error_(builder_, NLS(builder_, level_ + 1)) && result_;
     result_ = pinned_ && multi_assign_values(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
