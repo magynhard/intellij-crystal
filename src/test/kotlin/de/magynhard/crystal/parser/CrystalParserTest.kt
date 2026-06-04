@@ -190,4 +190,12 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testCommandLiterals() {
         doTest(true)
     }
+
+    fun testNamedArgs() {
+        doTest(true)
+    }
+
+    fun testEmptyCollectionsOf() {
+        doTest(true)
+    }
 }
