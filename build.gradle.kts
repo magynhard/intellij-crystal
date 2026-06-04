@@ -43,7 +43,6 @@ intellijPlatform {
         id = "de.magynhard.crystal"
         name = "Crystal Language"
         version = project.version.toString()
-        description = "Crystal language support for JetBrains IDEs"
         vendor {
             name = "magynhard"
             url = "https://github.com/magynhard"
