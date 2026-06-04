@@ -95,6 +95,7 @@
 
     // Macro body tokens
     MACRO_BODY_CONTENT="MACRO_BODY_CONTENT"
+    MACRO_FRESH_VAR="MACRO_FRESH_VAR"
     MACRO_INTERPOLATION_BEGIN="MACRO_INTERPOLATION_BEGIN"
     MACRO_INTERPOLATION_END="MACRO_INTERPOLATION_END"
     MACRO_CONTROL_BEGIN="MACRO_CONTROL_BEGIN"
@@ -323,6 +324,7 @@ method_body ::= statement_list
 
 macro_body ::= macro_body_element*
 private macro_body_element ::= MACRO_BODY_CONTENT
+                             | MACRO_FRESH_VAR
                              | macro_interpolation
                              | macro_control
                              | NEWLINE
@@ -331,7 +333,7 @@ macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | INTEGER_LITERAL | STRING_LITERAL | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
     | TRUE | FALSE | NIL
-    | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD
+    | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD | VERBATIM
     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
     | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT

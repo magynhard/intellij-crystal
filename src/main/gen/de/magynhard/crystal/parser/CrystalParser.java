@@ -3112,6 +3112,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // MACRO_BODY_CONTENT
+  //                              | MACRO_FRESH_VAR
   //                              | macro_interpolation
   //                              | macro_control
   //                              | NEWLINE
@@ -3119,6 +3120,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "macro_body_element")) return false;
     boolean result_;
     result_ = consumeToken(builder_, MACRO_BODY_CONTENT);
+    if (!result_) result_ = consumeToken(builder_, MACRO_FRESH_VAR);
     if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
     if (!result_) result_ = macro_control(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, NEWLINE);
@@ -3154,7 +3156,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
   //     | INTEGER_LITERAL | STRING_LITERAL | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
   //     | TRUE | FALSE | NIL
-  //     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD
+  //     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD | VERBATIM
   //     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
   //     | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
   //     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
@@ -3182,6 +3184,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, UNLESS);
     if (!result_) result_ = consumeToken(builder_, BEGIN);
     if (!result_) result_ = consumeToken(builder_, YIELD);
+    if (!result_) result_ = consumeToken(builder_, VERBATIM);
     if (!result_) result_ = consumeToken(builder_, LPAREN);
     if (!result_) result_ = consumeToken(builder_, RPAREN);
     if (!result_) result_ = consumeToken(builder_, LBRACKET);

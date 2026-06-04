@@ -38,6 +38,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         val CLASS_DECLARATION = createTextAttributesKey("CRYSTAL_CLASS_DECLARATION", DefaultLanguageHighlighterColors.CONSTANT)
         val PARAMETER = createTextAttributesKey("CRYSTAL_PARAMETER", DefaultLanguageHighlighterColors.IDENTIFIER)
         val BAD_CHARACTER = createTextAttributesKey("CRYSTAL_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER)
+        val MACRO_FRESH_VAR = createTextAttributesKey("CRYSTAL_MACRO_FRESH_VAR", DefaultLanguageHighlighterColors.LOCAL_VARIABLE)
 
         private val KEYWORD_KEYS = arrayOf(KEYWORD)
         private val NUMBER_KEYS = arrayOf(NUMBER)
@@ -81,6 +82,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
             tokenType == CrystalTypes.MACRO_INTERPOLATION_BEGIN || tokenType == CrystalTypes.MACRO_INTERPOLATION_END -> INTERPOLATION_KEYS
             tokenType == CrystalTypes.MACRO_CONTROL_BEGIN || tokenType == CrystalTypes.MACRO_CONTROL_END -> INTERPOLATION_KEYS
             tokenType == CrystalTypes.MACRO_BODY_CONTENT -> STRING_KEYS
+            tokenType == CrystalTypes.MACRO_FRESH_VAR -> arrayOf(MACRO_FRESH_VAR)
             tokenType == CrystalTypes.LINE_COMMENT -> COMMENT_KEYS
             // IDENTIFIER and CONSTANT are handled by the Annotator (context-sensitive)
             tokenType == CrystalTypes.IDENTIFIER -> EMPTY_KEYS

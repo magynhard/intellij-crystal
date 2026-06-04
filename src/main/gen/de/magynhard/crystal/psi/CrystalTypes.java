@@ -189,6 +189,7 @@ public interface CrystalTypes {
   IElementType MACRO_BODY_CONTENT = new CrystalTokenType("MACRO_BODY_CONTENT");
   IElementType MACRO_CONTROL_BEGIN = new CrystalTokenType("MACRO_CONTROL_BEGIN");
   IElementType MACRO_CONTROL_END = new CrystalTokenType("MACRO_CONTROL_END");
+  IElementType MACRO_FRESH_VAR = new CrystalTokenType("MACRO_FRESH_VAR");
   IElementType MACRO_INTERPOLATION_BEGIN = new CrystalTokenType("MACRO_INTERPOLATION_BEGIN");
   IElementType MACRO_INTERPOLATION_END = new CrystalTokenType("MACRO_INTERPOLATION_END");
   IElementType MATCH_OP = new CrystalTokenType("MATCH_OP");
