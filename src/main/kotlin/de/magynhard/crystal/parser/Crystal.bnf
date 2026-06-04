@@ -727,7 +727,7 @@ type_reference ::= type_union [ARROW [type_union]]
 private type_union ::= type_single (PIPE NLS type_single)*
 
 private type_single ::= STAR type_path [type_arguments] [QUESTION]
-                       | type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
+                       | type_path [type_arguments] [DOT CLASS] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
                        | SELF [QUESTION]
                        | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN [QUESTION]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
@@ -754,13 +754,13 @@ type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
 
 typeof_expression ::= TYPEOF LPAREN expression RPAREN {pin=1}
 
-sizeof_expression ::= SIZEOF LPAREN type_reference RPAREN {pin=1}
+sizeof_expression ::= SIZEOF LPAREN NLS type_reference NLS RPAREN {pin=1}
 
-instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN type_reference RPAREN {pin=1}
+instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN NLS type_reference NLS RPAREN {pin=1}
 
-pointerof_expression ::= POINTEROF LPAREN (instance_var_access | class_var_access | variable_reference) RPAREN {pin=1}
+pointerof_expression ::= POINTEROF LPAREN NLS (instance_var_access | class_var_access | variable_reference) NLS RPAREN {pin=1}
 
-offsetof_expression ::= OFFSETOF LPAREN type_reference COMMA instance_var_access RPAREN {pin=1}
+offsetof_expression ::= OFFSETOF LPAREN NLS type_reference COMMA NLS instance_var_access NLS RPAREN {pin=1}
 
 uninitialized_expression ::= UNINITIALIZED type_reference {pin=1}
 

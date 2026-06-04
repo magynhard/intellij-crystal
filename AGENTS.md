@@ -68,6 +68,8 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 
 **Rule: Every implementation must have unit tests.** Where testable, always create tests to catch regressions and provide fast feedback during refactoring. After each implementation, run `./gradlew test` and ensure all tests pass before committing.
 
+**Parser changes require parser tests.** Every BNF change (new rule, modified rule, added token) must be covered by a parser test in `CrystalParserTest`. Create a `.cr` test file exercising the new/changed syntax, run the test once to generate the `.txt` golden file, verify it contains no `PsiErrorElement`, then re-run to confirm it passes. This prevents regressions when future grammar changes affect existing rules.
+
 ## Documentation
 
 - **`TODO.md`** must be kept up to date after every change — mark completed items, add new ones, remove stale entries.
