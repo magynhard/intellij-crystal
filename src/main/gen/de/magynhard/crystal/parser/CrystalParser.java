@@ -4347,11 +4347,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_splat_separator | parameter
+  // bare_splat_separator | DOTDOTDOT | parameter
   static boolean parameter_item(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter_item")) return false;
     boolean result_;
     result_ = bare_splat_separator(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, DOTDOTDOT);
     if (!result_) result_ = parameter(builder_, level_ + 1);
     return result_;
   }

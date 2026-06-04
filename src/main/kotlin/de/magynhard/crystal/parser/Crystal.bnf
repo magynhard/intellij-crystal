@@ -344,7 +344,7 @@ macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] ma
 // ==================== Parameters ====================
 
 parameter_list ::= [parameter_item (COMMA NLS parameter_item)*]
-private parameter_item ::= bare_splat_separator | parameter
+private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 
 parameter ::= [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
             | [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
