@@ -59,6 +59,16 @@ The current grammar covers the most common constructs. The following extensions 
 - [x] Rescue with union types (`rescue ex : Foo | Bar`), inline rescue (`expr rescue default`), rescue in method body
 - [x] Annotations on parameters (`def foo(@[MyAnn] param : Int32)`) — multiple annotations supported
 
+#### Potential gaps (untested)
+
+- [ ] `with ... yield` blocks — scoped yield syntax
+- [ ] `select`/`spawn`/Fibers — concurrency constructs
+- [ ] Macro `for` with Tuple/NamedTuple iteration (`{% for key, value in ... %}`)
+- [ ] `uninitialized` keyword as expression (`x = uninitialized Int32`)
+- [ ] `pointerof`/`sizeof`/`instance_sizeof` — low-level expressions
+- [ ] Tuple destructuring in assignment (`a, b = tuple`)
+- [ ] Operator precedence edge cases (ternary, range, not)
+
 ## IDE Features (require parser improvements)
 
 - [x] Reference resolution — resolve variables/methods to their declarations (via StubIndex + FileTypeIndex fallback + local scope; works cross-file)
