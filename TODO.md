@@ -69,6 +69,17 @@ The current grammar covers the most common constructs. The following extensions 
 - [x] Tuple destructuring in assignment (`a, b = tuple`) — NLS in multi-assignment targets
 - [x] Operator precedence edge cases — backslash line continuation, method chaining across newlines, range NLS, condition assignments
 
+#### Syntax3 round (tested with real-world examples)
+
+- [x] Trailing commas in parameter/argument/type lists
+- [x] `&.method` shorthand — operator tokens in `keyword_as_method` (`.+`, `.>`, etc.)
+- [x] Proc/Lambda multiline params — NLS in proc_literal LPAREN/RPAREN
+- [x] `%x(...)` command literals — lexer support + COMMAND_LITERAL in percent_literal_content
+- [x] `$?` global variable — added `?` to GLOBAL_VAR lexer pattern
+- [x] External parameter names (`def move(to destination : String)`) — IDENTIFIER IDENTIFIER alternative in parameter rule
+- [x] Named arguments, double splat (`**kwargs`) — parser test verified
+- [x] Empty collections with `of` (`[] of Type`, `{} of K => V`) — parser test verified
+
 ## IDE Features (require parser improvements)
 
 - [x] Reference resolution — resolve variables/methods to their declarations (via StubIndex + FileTypeIndex fallback + local scope; works cross-file)
