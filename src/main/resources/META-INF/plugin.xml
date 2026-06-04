@@ -134,6 +134,15 @@
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.inspections.CrystalEmptyCollectionInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Missing type annotation in lib fun parameter"
+                shortName="CrystalLibFunParameterType"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalLibFunParameterTypeInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>
