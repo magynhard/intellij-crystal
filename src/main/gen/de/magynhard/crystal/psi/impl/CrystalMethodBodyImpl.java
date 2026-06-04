@@ -28,6 +28,24 @@ public class CrystalMethodBodyImpl extends ASTWrapperPsiElement implements Cryst
   }
 
   @Override
+  @Nullable
+  public CrystalElseClause getElseClause() {
+    return PsiTreeUtil.getChildOfType(this, CrystalElseClause.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalEnsureClause getEnsureClause() {
+    return PsiTreeUtil.getChildOfType(this, CrystalEnsureClause.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalRescueClause> getRescueClauseList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalRescueClause.class);
+  }
+
+  @Override
   @NotNull
   public CrystalStatementList getStatementList() {
     return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalStatementList.class));

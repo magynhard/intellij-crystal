@@ -320,7 +320,7 @@ private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSA
                                 | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
                                 | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET
 
-method_body ::= statement_list
+method_body ::= statement_list rescue_clause* [else_clause] [ensure_clause]
 
 macro_body ::= macro_body_element*
 private macro_body_element ::= MACRO_BODY_CONTENT
@@ -399,7 +399,7 @@ expression_statement ::= expression [expression_assign_suffix | postfix_modifier
 
 private expression_assign_suffix ::= assign_op NLS expression
 
-postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL) expression
+postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) expression
 
 // ==================== Control Flow ====================
 
@@ -720,7 +720,7 @@ variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT {
 type_reference ::= type_union [ARROW [type_union]]
                  | ARROW [type_union]
 
-private type_union ::= type_single (PIPE type_single)*
+private type_union ::= type_single (PIPE NLS type_single)*
 
 private type_single ::= STAR type_path [type_arguments] [QUESTION]
                        | type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]

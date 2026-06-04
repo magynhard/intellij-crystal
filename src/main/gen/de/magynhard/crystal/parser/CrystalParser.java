@@ -3317,14 +3317,42 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // statement_list
+  // statement_list rescue_clause* [else_clause] [ensure_clause]
   public static boolean method_body(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_body")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, METHOD_BODY, "<method body>");
     result_ = statement_list(builder_, level_ + 1);
+    result_ = result_ && method_body_1(builder_, level_ + 1);
+    result_ = result_ && method_body_2(builder_, level_ + 1);
+    result_ = result_ && method_body_3(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
+  }
+
+  // rescue_clause*
+  private static boolean method_body_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_body_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!rescue_clause(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "method_body_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // [else_clause]
+  private static boolean method_body_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_body_2")) return false;
+    else_clause(builder_, level_ + 1);
+    return true;
+  }
+
+  // [ensure_clause]
+  private static boolean method_body_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_body_3")) return false;
+    ensure_clause(builder_, level_ + 1);
+    return true;
   }
 
   /* ********************************************************** */
@@ -4532,7 +4560,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IF | UNLESS | WHILE | UNTIL) expression
+  // (IF | UNLESS | WHILE | UNTIL | RESCUE) expression
   public static boolean postfix_modifier(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_modifier")) return false;
     boolean result_;
@@ -4543,7 +4571,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // IF | UNLESS | WHILE | UNTIL
+  // IF | UNLESS | WHILE | UNTIL | RESCUE
   private static boolean postfix_modifier_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_modifier_0")) return false;
     boolean result_;
@@ -4551,6 +4579,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, UNLESS);
     if (!result_) result_ = consumeToken(builder_, WHILE);
     if (!result_) result_ = consumeToken(builder_, UNTIL);
+    if (!result_) result_ = consumeToken(builder_, RESCUE);
     return result_;
   }
 
@@ -6103,7 +6132,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // type_single (PIPE type_single)*
+  // type_single (PIPE NLS type_single)*
   static boolean type_union(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_union")) return false;
     boolean result_;
@@ -6114,7 +6143,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (PIPE type_single)*
+  // (PIPE NLS type_single)*
   private static boolean type_union_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_union_1")) return false;
     while (true) {
@@ -6125,12 +6154,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // PIPE type_single
+  // PIPE NLS type_single
   private static boolean type_union_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_union_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, PIPE);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && type_single(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
