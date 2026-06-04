@@ -180,7 +180,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // ANNOTATION type_name END
+  // ANNOTATION type_name NEWLINE* END
   public static boolean annotation_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "annotation_definition")) return false;
     if (!nextTokenIs(builder_, ANNOTATION)) return false;
@@ -189,13 +189,25 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, ANNOTATION);
     pinned_ = result_; // pin = 1
     result_ = result_ && report_error_(builder_, type_name(builder_, level_ + 1));
+    result_ = pinned_ && report_error_(builder_, annotation_definition_2(builder_, level_ + 1)) && result_;
     result_ = pinned_ && consumeToken(builder_, END) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
 
+  // NEWLINE*
+  private static boolean annotation_definition_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "annotation_definition_2")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!consumeToken(builder_, NEWLINE)) break;
+      if (!empty_element_parsed_guard_(builder_, "annotation_definition_2", pos_)) break;
+    }
+    return true;
+  }
+
   /* ********************************************************** */
-  // AT LBRACKET type_path [LPAREN argument_list RPAREN] RBRACKET
+  // AT LBRACKET type_path [LPAREN NLS argument_list NLS RPAREN] RBRACKET
   public static boolean annotation_usage(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "annotation_usage")) return false;
     if (!nextTokenIs(builder_, AT)) return false;
@@ -209,20 +221,22 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [LPAREN argument_list RPAREN]
+  // [LPAREN NLS argument_list NLS RPAREN]
   private static boolean annotation_usage_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "annotation_usage_3")) return false;
     annotation_usage_3_0(builder_, level_ + 1);
     return true;
   }
 
-  // LPAREN argument_list RPAREN
+  // LPAREN NLS argument_list NLS RPAREN
   private static boolean annotation_usage_3_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "annotation_usage_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LPAREN);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && argument_list(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -4164,8 +4178,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
-  //             | [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+  // annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
+  //             | annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
   //             | AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
   //             | AMPERSAND [COLON type_reference]
   //             | LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
@@ -4182,29 +4196,41 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
+  // annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
   private static boolean parameter_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = parameter_0_0(builder_, level_ + 1);
+    result_ = result_ && parameter_0_1(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, IDENTIFIER);
-    result_ = result_ && parameter_0_2(builder_, level_ + 1);
     result_ = result_ && parameter_0_3(builder_, level_ + 1);
+    result_ = result_ && parameter_0_4(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // [STAR | DOUBLE_STAR | AMPERSAND]
+  // annotation_usage*
   private static boolean parameter_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter_0_0")) return false;
-    parameter_0_0_0(builder_, level_ + 1);
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!annotation_usage(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "parameter_0_0", pos_)) break;
+    }
+    return true;
+  }
+
+  // [STAR | DOUBLE_STAR | AMPERSAND]
+  private static boolean parameter_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_0_1")) return false;
+    parameter_0_1_0(builder_, level_ + 1);
     return true;
   }
 
   // STAR | DOUBLE_STAR | AMPERSAND
-  private static boolean parameter_0_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_0_0_0")) return false;
+  private static boolean parameter_0_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_0_1_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, STAR);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
@@ -4213,15 +4239,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [COLON type_reference]
-  private static boolean parameter_0_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_0_2")) return false;
-    parameter_0_2_0(builder_, level_ + 1);
+  private static boolean parameter_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_0_3")) return false;
+    parameter_0_3_0(builder_, level_ + 1);
     return true;
   }
 
   // COLON type_reference
-  private static boolean parameter_0_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_0_2_0")) return false;
+  private static boolean parameter_0_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_0_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, COLON);
@@ -4231,15 +4257,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [ASSIGN expression]
-  private static boolean parameter_0_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_0_3")) return false;
-    parameter_0_3_0(builder_, level_ + 1);
+  private static boolean parameter_0_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_0_4")) return false;
+    parameter_0_4_0(builder_, level_ + 1);
     return true;
   }
 
   // ASSIGN expression
-  private static boolean parameter_0_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_0_3_0")) return false;
+  private static boolean parameter_0_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_0_4_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, ASSIGN);
@@ -4248,29 +4274,41 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+  // annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
   private static boolean parameter_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = parameter_1_0(builder_, level_ + 1);
+    result_ = result_ && parameter_1_1(builder_, level_ + 1);
     result_ = result_ && instance_var_access(builder_, level_ + 1);
-    result_ = result_ && parameter_1_2(builder_, level_ + 1);
     result_ = result_ && parameter_1_3(builder_, level_ + 1);
+    result_ = result_ && parameter_1_4(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // [STAR | DOUBLE_STAR | AMPERSAND]
+  // annotation_usage*
   private static boolean parameter_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter_1_0")) return false;
-    parameter_1_0_0(builder_, level_ + 1);
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!annotation_usage(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "parameter_1_0", pos_)) break;
+    }
+    return true;
+  }
+
+  // [STAR | DOUBLE_STAR | AMPERSAND]
+  private static boolean parameter_1_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_1_1")) return false;
+    parameter_1_1_0(builder_, level_ + 1);
     return true;
   }
 
   // STAR | DOUBLE_STAR | AMPERSAND
-  private static boolean parameter_1_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_1_0_0")) return false;
+  private static boolean parameter_1_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_1_1_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, STAR);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
@@ -4279,15 +4317,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [COLON type_reference]
-  private static boolean parameter_1_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_1_2")) return false;
-    parameter_1_2_0(builder_, level_ + 1);
+  private static boolean parameter_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_1_3")) return false;
+    parameter_1_3_0(builder_, level_ + 1);
     return true;
   }
 
   // COLON type_reference
-  private static boolean parameter_1_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_1_2_0")) return false;
+  private static boolean parameter_1_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_1_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, COLON);
@@ -4297,15 +4335,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [ASSIGN expression]
-  private static boolean parameter_1_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_1_3")) return false;
-    parameter_1_3_0(builder_, level_ + 1);
+  private static boolean parameter_1_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_1_4")) return false;
+    parameter_1_4_0(builder_, level_ + 1);
     return true;
   }
 
   // ASSIGN expression
-  private static boolean parameter_1_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "parameter_1_3_0")) return false;
+  private static boolean parameter_1_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_1_4_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, ASSIGN);

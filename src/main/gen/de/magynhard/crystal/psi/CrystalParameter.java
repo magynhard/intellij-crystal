@@ -7,6 +7,9 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalParameter extends PsiElement {
 
+  @NotNull
+  List<CrystalAnnotationUsage> getAnnotationUsageList();
+
   @Nullable
   CrystalExpression getExpression();
 

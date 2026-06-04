@@ -61,6 +61,11 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     private fun checkDotCall(argsElement: PsiElement, info: DotCallInfo, holder: ProblemsHolder) {
+        // Skip DOT-calls on local variables/parameters — we can't reliably determine
+        // the receiver's type, so we only check calls on Constants (class methods).
+        val firstChar = info.receiverName.firstOrNull() ?: return
+        if (!firstChar.isUpperCase()) return
+
         val arguments = extractArgumentsFromArgsElement(argsElement)
 
         val project = argsElement.project

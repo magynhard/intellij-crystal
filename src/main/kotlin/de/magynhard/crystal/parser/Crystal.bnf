@@ -249,9 +249,9 @@ enum_definition ::= ENUM type_name [COLON type_reference] enum_body END {
 
 lib_definition ::= LIB CONSTANT lib_body END {pin=1}
 
-annotation_definition ::= ANNOTATION type_name END {pin=1}
+annotation_definition ::= ANNOTATION type_name NEWLINE* END {pin=1}
 
-annotation_usage ::= AT LBRACKET type_path [LPAREN argument_list RPAREN] RBRACKET
+annotation_usage ::= AT LBRACKET type_path [LPAREN NLS argument_list NLS RPAREN] RBRACKET
 
 alias_definition ::= ALIAS type_name ASSIGN type_reference {pin=1}
 
@@ -351,8 +351,8 @@ macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] ma
 parameter_list ::= [parameter_item (COMMA NLS parameter_item)*]
 private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 
-parameter ::= [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
-            | [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+parameter ::= annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
+            | annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
             | AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | AMPERSAND [COLON type_reference]
             | LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN

@@ -28,6 +28,12 @@ public class CrystalParameterImpl extends ASTWrapperPsiElement implements Crysta
   }
 
   @Override
+  @NotNull
+  public List<CrystalAnnotationUsage> getAnnotationUsageList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAnnotationUsage.class);
+  }
+
+  @Override
   @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
