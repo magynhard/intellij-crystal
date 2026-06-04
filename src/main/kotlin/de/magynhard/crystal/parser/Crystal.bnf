@@ -423,11 +423,17 @@ rescue_clause ::= RESCUE [IDENTIFIER [COLON type_reference]] then_clause stateme
 
 ensure_clause ::= ENSURE statement_list
 
-return_statement ::= RETURN [expression] [postfix_modifier] {pin=1}
+return_statement ::= RETURN postfix_modifier
+                   | RETURN expression [postfix_modifier]
+                   | RETURN {pin=1}
 
-break_statement ::= BREAK [expression] [postfix_modifier] {pin=1}
+break_statement ::= BREAK postfix_modifier
+                  | BREAK expression [postfix_modifier]
+                  | BREAK {pin=1}
 
-next_statement ::= NEXT [expression] [postfix_modifier] {pin=1}
+next_statement ::= NEXT postfix_modifier
+                 | NEXT expression [postfix_modifier]
+                 | NEXT {pin=1}
 
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
 yield_expression ::= YIELD expression {pin=1}

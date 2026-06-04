@@ -158,4 +158,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testWrappingOperators() {
         doTest(true)
     }
+
+    fun testLoop() {
+        doTest(true)
+    }
 }
