@@ -170,4 +170,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testConditionAssignment() {
         doTest(true)
     }
+
+    fun testLineContinuation() {
+        doTest(true)
+    }
 }

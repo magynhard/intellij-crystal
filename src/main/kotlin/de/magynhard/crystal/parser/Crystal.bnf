@@ -491,7 +491,7 @@ private not_expression ::= BANG not_expression | comparison_expression
 
 private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
 
-private range_expression ::= or_bitwise_expression [(DOTDOT | DOTDOTDOT) [or_bitwise_expression]]
+private range_expression ::= or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]]
 
 private or_bitwise_expression ::= xor_expression (PIPE NLS xor_expression)*
 
@@ -512,12 +512,12 @@ private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET) u
 
 private postfix_expression ::= primary_expression postfix_op*
 
-private postfix_op ::= DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                     | DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args | bare_argument_list] [block]
+private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+                     | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args | bare_argument_list] [block]
                      | DOUBLE_COLON CONSTANT
                      | LBRACKET argument_list RBRACKET
                      | call_args [block]
-                     | DOT IDENTIFIER assign_op expression
+                     | NLS DOT IDENTIFIER assign_op expression
 
 // Keywords that Crystal allows as method names after DOT
 private keyword_as_method ::= ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
@@ -610,7 +610,7 @@ private bare_not_expression ::= BANG bare_not_expression | bare_comparison_expre
 
 private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
 
-private bare_range_expression ::= bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) [bare_or_bitwise_expression]]
+private bare_range_expression ::= bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]]
 
 private bare_or_bitwise_expression ::= bare_xor_expression (PIPE NLS bare_xor_expression)*
 
@@ -631,8 +631,8 @@ private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) bare
 
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
-private bare_postfix_op ::= DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                          | DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args]
+private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+                          | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args]
                           | DOUBLE_COLON CONSTANT
                           | LBRACKET argument_list RBRACKET
                           | call_args

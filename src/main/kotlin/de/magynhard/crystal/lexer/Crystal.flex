@@ -115,6 +115,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 <YYINITIAL> {
   // Whitespace and comments
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  "\\" (\r\n | \r | \n) { return TokenType.WHITE_SPACE; }
   {NEWLINE}            { if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; yybegin(MACRO_BODY); } return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
 
