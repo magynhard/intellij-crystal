@@ -3,47 +3,133 @@
     <name>Crystal Language</name>
     <vendor url="https://github.com/magynhard">magynhard</vendor>
     <description><![CDATA[
-<p>Full-featured Crystal language support for JetBrains IDEs.</p>
+<p>
+  Comprehensive Crystal language support for all JetBrains IDEs — IntelliJ IDEA, RubyMine, WebStorm, CLion, and others.
+  Provides a rich development experience with syntax highlighting, code intelligence, debugging, and an integrated test runner,
+  all powered by a native GrammarKit parser (no external language server required).
+</p>
 
-<h3>Features</h3>
+<h2>Debugging</h2>
+<p>
+  Full debugger integration via <b>LLDB DAP</b> (Debug Adapter Protocol). Set breakpoints, step through code,
+  inspect variables, and evaluate expressions — for both programs and specs.
+  Requires <code>lldb-dap</code> to be installed on your system.
+</p>
 <ul>
-  <li><b>Syntax Highlighting</b> — 60+ keywords, operators, strings with interpolation, regex, symbols, heredocs, percent literals</li>
-  <li><b>Code Formatting</b> — Reformat via <code>crystal tool format</code> (Ctrl+Alt+L)</li>
-  <li><b>Structure View</b> — PSI-based tree with classes, modules, methods, macros</li>
-  <li><b>Go to Symbol / Class</b> — project-wide navigation (Ctrl+N, Ctrl+Alt+Shift+N)</li>
-  <li><b>Find Usages</b> — word-based search with token type awareness (Alt+F7)</li>
-  <li><b>Parameter Info</b> — method signatures at call site, project-wide via StubIndex (Ctrl+P)</li>
-  <li><b>Code Completion</b> — context-aware dot-completion and free-text completion (Ctrl+Space)</li>
-  <li><b>Rename Refactoring</b> — in-place rename with preview and compiler verification (Shift+F6)</li>
-  <li><b>Run Configurations</b> — crystal run, build, and spec</li>
-  <li><b>Live Templates</b> — 21 code snippets for common patterns</li>
-  <li><b>Go to Definition</b> — Ctrl+Click / Ctrl+B to jump to class, module, struct, enum, and method definitions</li>
-  <li><b>Code Folding, Brace Matching, Auto-Insert, TODO Indexing</b></li>
+  <li>Breakpoints with hit counts and conditions</li>
+  <li>Step over / into / out</li>
+  <li>Variable inspection (locals, instance variables, globals)</li>
+  <li>Debug both <code>crystal run</code> and <code>crystal spec</code> targets</li>
+  <li>Crystal-specific LLDB type formatters bundled</li>
 </ul>
 
-<h3>Requirements</h3>
+<h2>Test Runner</h2>
+<p>
+  Integrated test runner connecting <code>crystal spec</code> to IntelliJ's Test UI (SMTRunner).
+  Run individual specs from gutter icons, see real-time results, and re-run failed tests instantly.
+</p>
 <ul>
-  <li>Crystal installed and available in PATH</li>
+  <li>Gutter run icons on <code>describe</code> and <code>it</code> blocks</li>
+  <li>Single-test execution via <code>file:line</code> targeting</li>
+  <li>Real-time output parsing with pass/fail/error/pending states</li>
+  <li>Re-run failed tests with one click</li>
+  <li>Spec file icons for visual distinction</li>
+</ul>
+
+<h2>Code Intelligence</h2>
+<ul>
+  <li><b>Go to Definition</b> (Ctrl+B / Ctrl+Click) — jump to classes, modules, structs, enums, and method definitions across the entire project</li>
+  <li><b>Code Completion</b> (Ctrl+Space) — context-aware dot-completion with type inference, free-text completion for classes/methods/locals, type completion in annotations and generics</li>
+  <li><b>Parameter Info</b> (Ctrl+P) — method signatures at call sites, supports parenthesized calls, bare calls, dot-calls, and overloads</li>
+  <li><b>Quick Documentation</b> (Ctrl+Q) — rendered doc comments with syntax-highlighted signature and Markdown support</li>
+  <li><b>Find Usages</b> (Alt+F7) — locate all references to a symbol across the project</li>
+  <li><b>Go to Symbol / Class</b> (Ctrl+N, Ctrl+Alt+Shift+N) — project-wide instant navigation via StubIndex</li>
+  <li><b>Structure View</b> — PSI-based tree showing classes, modules, methods, macros, and nested definitions</li>
+</ul>
+
+<h2>Code Quality</h2>
+<ul>
+  <li><b>Type Checking</b> — validates argument types against parameter annotations (supports numeric autocasting, union types, nilable types, overloads)</li>
+  <li><b>Argument Count Validation</b> — reports missing required arguments and excess arguments (supports named args, splat, double-splat, default values)</li>
+  <li><b>Unused Variable Detection</b> — warns on local variables that are assigned but never read</li>
+  <li><b>Lib Fun Type Annotation</b> — reports missing type annotations in lib function definitions</li>
+  <li><b>Empty Collection Inspection</b> — suggests using typed empty literals</li>
+</ul>
+
+<h2>Editor Features</h2>
+<ul>
+  <li><b>Syntax Highlighting</b> — 60+ keywords, operators, strings with interpolation, regex, symbols, heredocs, percent literals, annotations, macros</li>
+  <li><b>Semantic Highlighting</b> — PSI-based annotator distinguishes variables, methods, types, parameters, and macro fresh vars</li>
+  <li><b>Code Formatting</b> — reformat via <code>crystal tool format</code> (Ctrl+Alt+L)</li>
+  <li><b>Rename Refactoring</b> (Shift+F6) — in-place rename with preview dialog and automatic compiler verification</li>
+  <li><b>Live Templates</b> — 21 code snippets for common Crystal patterns (def, class, module, spec, etc.)</li>
+  <li><b>Smart Enter</b> — automatically inserts <code>end</code> after def/class/module/if/do and handles indentation</li>
+  <li><b>Code Folding</b> — collapse methods, classes, blocks, comments, and heredocs</li>
+  <li><b>Brace Matching</b> — highlights matching pairs for parentheses, brackets, braces, and do/end</li>
+  <li><b>TODO Indexing</b> — Crystal TODO/FIXME comments appear in the TODO tool window</li>
+</ul>
+
+<h2>Run Configurations</h2>
+<ul>
+  <li><b>Crystal Run</b> — run Crystal programs with configurable arguments and environment</li>
+  <li><b>Crystal Build</b> — compile with custom flags (release, static, target, etc.)</li>
+  <li><b>Crystal Spec</b> — run specs with file/line targeting and tag filters</li>
+</ul>
+
+<h2>Parser Coverage</h2>
+<p>
+  The plugin ships a full GrammarKit BNF parser covering classes, modules, structs, enums, methods, macros,
+  control flow, generics (variadic, defaults, bounds), union types, blocks, proc/lambda literals, pattern matching,
+  lib blocks (fun, union, struct, enum, external vars, varargs), annotations, heredocs, percent literals,
+  string interpolation, and more. The parser is error-tolerant and works with incomplete code while typing.
+</p>
+
+<h2>Requirements</h2>
+<ul>
+  <li><b>Crystal</b> installed and available in PATH (for formatting, compiler verification, and running programs)</li>
+  <li><b>lldb-dap</b> (optional) — required for debugging. Install via your system package manager.</li>
 </ul>
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.1.1</h3>
+<ul>
+  <li>Comprehensive plugin description with feature documentation</li>
+  <li>Declared incompatibility with legacy Crystal plugin (net.kenro.ji.jin.intellij.crystal-2)</li>
+  <li>Parser: <code>%x(...)</code> command literals</li>
+  <li>Parser: <code>$?</code> global variable</li>
+  <li>Parser: external parameter names (<code>def move(to destination : String)</code>)</li>
+  <li>Parser: trailing commas in parameter/argument/type lists</li>
+  <li>Parser: <code>&amp;.method</code> shorthand with operator tokens</li>
+  <li>Parser: multiline proc/lambda parameters</li>
+  <li>Parser: condition assignments in if/while/until/unless</li>
+  <li>Parser: backslash line continuation</li>
+  <li>Parser: method chaining across newlines</li>
+</ul>
+
 <h3>0.1.0</h3>
 <ul>
-  <li>Initial release</li>
-  <li>Syntax highlighting with 60+ keywords and full operator support</li>
-  <li>BNF parser (GrammarKit) with StubIndex for project-wide navigation</li>
-  <li>Code formatting via crystal tool format</li>
-  <li>Structure View, Go to Symbol/Class, Find Usages, Parameter Info</li>
-  <li>Rename refactoring with compiler verification</li>
-  <li>Run configurations for crystal run/build/spec</li>
-  <li>21 Live Templates for common Crystal patterns</li>
-  <li>Crystalline LSP removed — all features are now plugin-native</li>
-  <li>Code folding, brace matching, auto-insert, TODO indexing</li>
+  <li><b>Debugger</b> — LLDB/DAP integration with breakpoints, stepping, variable inspection for programs and specs</li>
+  <li><b>Test Runner</b> — SMTRunner integration with gutter icons, file:line targeting, real-time results, re-run failed</li>
+  <li><b>Go to Definition</b> — cross-file navigation via StubIndex for classes, modules, methods, structs, enums</li>
+  <li><b>Code Completion</b> — context-aware dot-completion with type inference, free-text, and type completion</li>
+  <li><b>Parameter Info</b> — method signatures at call sites (parenthesized, bare, dot-calls, overloads)</li>
+  <li><b>Quick Documentation</b> — rendered doc comments with Markdown and syntax-highlighted signatures</li>
+  <li><b>Inspections</b> — type checking, argument count validation, unused variables, lib fun types, empty collections</li>
+  <li><b>Semantic Highlighting</b> — PSI annotator for variables, methods, types, parameters, macro fresh vars</li>
+  <li><b>Run Configurations</b> — crystal run, build, and spec with environment and argument support</li>
+  <li><b>Smart Enter</b> — auto-insert <code>end</code> after def/class/if/do with correct indentation</li>
+  <li><b>Rename Refactoring</b> — in-place rename with preview and compiler verification</li>
+  <li><b>Full Parser</b> — GrammarKit BNF covering generics, macros, pattern matching, lib blocks, proc literals, annotations, and more</li>
+  <li><b>21 Live Templates</b> — code snippets for common Crystal patterns</li>
+  <li><b>Syntax Highlighting</b> — 60+ keywords, full operator support, interpolation, heredocs, percent literals</li>
+  <li>Structure View, Find Usages, Go to Symbol/Class, Code Folding, Brace Matching, TODO Indexing</li>
 </ul>
 ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
+
+    <incompatible-with>net.kenro.ji.jin.intellij.crystal-2</incompatible-with>
 
     <dependencies>
         <module name="intellij.platform.dap"/>

@@ -1,6 +1,6 @@
 # Crystal Language Plugin for JetBrains IDEs
 
-[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.0-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/de.magynhard.crystal)
+[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.1-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/de.magynhard.crystal)
 [![IntelliJ Platform](https://img.shields.io/badge/Platform-2025.1+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
 [![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=darkslategray&label=Crystal)](https://crystal-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg?style=plastic&logo=mit&labelColor=beige)](LICENSE)
@@ -86,7 +86,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 ```bash
 git clone https://github.com/magynhard/intellij-crystal.git
 cd intellij-crystal
-./gradlew build
+./gradlew buildPlugin
 ```
 
 The plugin ZIP will be at `build/distributions/`. Install via *Settings → Plugins → Install Plugin from Disk*.
@@ -141,7 +141,8 @@ src/test/               # Lexer tests + test data
 Requires JDK 21.
 
 ```bash
-./gradlew build          # Full build with tests
+./gradlew build          # Compile + tests (no distributable ZIP)
+./gradlew buildPlugin    # Build installable plugin ZIP (build/distributions/)
 ./gradlew generateLexer  # Regenerate lexer from Crystal.flex
 ./gradlew generateParser # Regenerate parser from Crystal.bnf
 ./gradlew runIde         # Launch development IDE
