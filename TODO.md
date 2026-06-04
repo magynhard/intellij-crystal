@@ -61,13 +61,13 @@ The current grammar covers the most common constructs. The following extensions 
 
 #### Potential gaps (untested)
 
-- [ ] `with ... yield` blocks — scoped yield syntax
-- [ ] `select`/`spawn`/Fibers — concurrency constructs
-- [ ] Macro `for` with Tuple/NamedTuple iteration (`{% for key, value in ... %}`)
-- [ ] `uninitialized` keyword as expression (`x = uninitialized Int32`)
-- [ ] `pointerof`/`sizeof`/`instance_sizeof` — low-level expressions
-- [ ] Tuple destructuring in assignment (`a, b = tuple`)
-- [ ] Operator precedence edge cases (ternary, range, not)
+- [x] `with ... yield` blocks — scoped yield syntax (was already implemented)
+- [x] `select`/`spawn`/Fibers — concurrency constructs (was already implemented)
+- [x] Macro `for` with Tuple/NamedTuple iteration (`{% for key, value in ... %}`) — added `DOUBLE_COLON`/`PERCENT` to macro_control_token
+- [x] `uninitialized` keyword as expression (`x = uninitialized Int32`) — was already implemented
+- [x] `pointerof`/`sizeof`/`instance_sizeof` — NLS in parens + `T.class` metaclass type
+- [x] Tuple destructuring in assignment (`a, b = tuple`) — NLS in multi-assignment targets
+- [x] Operator precedence edge cases — backslash line continuation, method chaining across newlines, range NLS, condition assignments
 
 ## IDE Features (require parser improvements)
 
