@@ -99,7 +99,7 @@ IDENTIFIER = [a-z_] {ID_CHAR}* [?!]?
 CONSTANT = [A-Z] {ID_CHAR}*
 INSTANCE_VAR = "@" {IDENTIFIER}
 CLASS_VAR = "@@" {IDENTIFIER}
-GLOBAL_VAR = "$" ({IDENTIFIER} | {DIGIT}+ | "~")
+GLOBAL_VAR = "$" ({IDENTIFIER} | {DIGIT}+ | "~" | "?")
 
 // Character literal escape sequences
 CHAR_ESCAPE = "\\" ( [abefnrtv\\'0] | "u" "{" {HEX_DIGIT}+ "}" | "u" {HEX_DIGIT}{4} | {OCT_DIGIT}{1,3} )
@@ -253,6 +253,15 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
                          percentTokenType = CrystalTypes.REGEX_LITERAL;
+                         yybegin(PERCENT_LITERAL);
+                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                       }
+  "%x" [\(\[\{<|]     {
+                         char c = yycharat(yylength() - 1);
+                         percentOpenChar = c;
+                         percentCloseChar = closingChar(c);
+                         percentDepth = 1;
+                         percentTokenType = CrystalTypes.COMMAND_LITERAL;
                          yybegin(PERCENT_LITERAL);
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }

@@ -695,7 +695,7 @@ string_expression ::= (STRING_LITERAL | STRING_INTERPOLATION_BEGIN expression ST
 heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END
 
 percent_literal ::= PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
-private percent_literal_content ::= STRING_LITERAL | SYMBOL_LITERAL | REGEX_LITERAL | NEWLINE
+private percent_literal_content ::= STRING_LITERAL | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
 
 array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference]
 

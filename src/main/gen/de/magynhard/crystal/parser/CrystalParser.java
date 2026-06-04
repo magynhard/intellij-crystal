@@ -4632,13 +4632,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // STRING_LITERAL | SYMBOL_LITERAL | REGEX_LITERAL | NEWLINE
+  // STRING_LITERAL | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
   static boolean percent_literal_content(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_literal_content")) return false;
     boolean result_;
     result_ = consumeToken(builder_, STRING_LITERAL);
     if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
     if (!result_) result_ = consumeToken(builder_, REGEX_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, COMMAND_LITERAL);
     if (!result_) result_ = consumeToken(builder_, NEWLINE);
     return result_;
   }
