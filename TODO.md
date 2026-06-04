@@ -34,15 +34,15 @@ The current grammar covers the most common constructs. The following extensions 
 
 #### Completely missing
 
-- [ ] Wrapping operators (`&+`, `&-`, `&*`, `&**`) — overflow-safe arithmetic
-- [ ] `loop do ... end` — infinite loop construct
-- [ ] `previous_def` — call the previously defined method in redefinition
-- [ ] `out` parameter in arguments (C-Bindings: `LibC.foo(out result)`)
-- [ ] Lib `union` — union definitions inside `lib` blocks
-- [ ] Lib `enum` — enum definitions inside `lib` blocks
-- [ ] Lib `$external_var` — global variables in `lib` (`$errno : Int32`)
-- [ ] Lib varargs — `fun printf(format : UInt8*, ...) : Int32`
-- [ ] Top-level `fun` — exported C functions outside of `lib`
+- [x] Wrapping operators (`&+`, `&-`, `&*`, `&**`) — overflow-safe arithmetic
+- [x] `loop do ... end` — infinite loop construct
+- [x] `previous_def` — call the previously defined method in redefinition
+- [x] `out` parameter in arguments (C-Bindings: `LibC.foo(out result)`)
+- [x] Lib `union` — union definitions inside `lib` blocks
+- [x] Lib `enum` — enum definitions inside `lib` blocks
+- [x] Lib `$external_var` — global variables in `lib` (`$errno : Int32`)
+- [x] Lib varargs — `fun printf(format : UInt8*, ...) : Int32`
+- [x] Top-level `fun` — exported C functions outside of `lib`
 - [ ] Macro hooks (`macro inherited`, `included`, `extended`, `finished`, `method_added`, `method_missing`)
 - [ ] Macro `%fresh_var` — fresh variables in macros
 - [ ] `verbatim do ... end` — macro construct
@@ -51,7 +51,7 @@ The current grammar covers the most common constructs. The following extensions 
 
 #### Partially implemented / gaps
 
-- [ ] `self` / `typeof` / `_` as type in type_reference position
+- [x] `self` / `typeof` / `_` as type in type_reference position
 - [ ] Pattern matching: tuple destructuring (`in {x, y}`), pin operator (`^var`)
 - [ ] Percent literal contents (`%w[foo bar]`, `%i[a b]`) — only token shell, no inner parsing
 - [ ] Indexer assignment as expression (`obj[key] = value`)
@@ -71,6 +71,7 @@ The current grammar covers the most common constructs. The following extensions 
 - [x] Type checking — validate argument types against method parameter type annotations (e.g. passing `String` to a parameter typed `Int32` shows an error). Supports numeric autocasting, union types, nilable types, overloads, named args, splat skip. Phase 2: inheritance hierarchy, generics, array/hash literals.
 - [x] Argument count checking — validate number of arguments against method parameters. Reports missing required arguments (warning on method name) and excess arguments (warning on each extra arg). Supports named args, splat/double-splat, block params, default values, overloads, DOT-calls, bare calls.
 - [x] Unused variable detection — reports local variables that are assigned but never read (WEAK_WARNING). Supports reassignment analysis (each overwritten-before-read assignment warned individually), compound assignments (treated as read), underscore-prefix convention. Ignores method parameters, instance/class vars.
+- [x] Missing type annotation in lib fun — reports parameters without type annotations in lib fun definitions (ERROR).
 - [x] Quick documentation — display doc comment above `def` (Ctrl+Q / F1 / hover; shows syntax-highlighted signature + Markdown-rendered doc comments with code blocks)
 - [ ] Implement members — generate stubs for abstract methods
 

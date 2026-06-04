@@ -51,9 +51,17 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 - **Live Templates** — 21 snippets for common Crystal patterns (class, module, struct, def, spec, etc.)
 
+### Inspections
+
+- **Type checking** — validates argument types against parameter annotations
+- **Argument count** — validates number of arguments against method signature
+- **Unused variables** — reports assigned-but-never-read local variables
+- **Empty collection literals** — reports `[] of T` / `{} of K => V` style issues
+- **Missing type in lib fun** — reports parameters without type annotations in lib fun definitions
+
 ### Parser
 
-- **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, postfix if/unless/while/until, typed declarations, expressions with operator precedence, type references with generics and union types, blocks, literals
+- **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, postfix if/unless/while/until, typed declarations, expressions with operator precedence, type references with generics and union types, blocks, literals, lib blocks (fun, union, struct, enum, external vars, varargs), top-level fun, wrapping operators, `previous_def`, `out` parameters
 - **StubIndex** — project-wide index for classes and methods (instant navigation even in large projects)
 - **Error-tolerant** — pin/recovery rules ensure the parser works with incomplete code while typing
 
