@@ -7,6 +7,9 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalInClause extends PsiElement {
 
+  @Nullable
+  CrystalExpression getExpression();
+
   @NotNull
   CrystalExpressionList getExpressionList();
 

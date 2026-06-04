@@ -429,7 +429,7 @@ else_clause ::= ELSE statement_list
 
 when_clause ::= WHEN expression_list then_clause statement_list
 
-in_clause ::= IN expression_list then_clause statement_list
+in_clause ::= IN expression_list [IF expression] then_clause statement_list
 
 rescue_clause ::= RESCUE [IDENTIFIER [COLON type_reference]] then_clause statement_list
 
@@ -503,7 +503,7 @@ private multiplicative_expression ::= power_expression ((STAR | SLASH | DOUBLE_S
 
 private power_expression ::= unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS unary_expression)*
 
-private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) unary_expression
+private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET) unary_expression
                             | postfix_expression
 
 private postfix_expression ::= primary_expression postfix_op*
