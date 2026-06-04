@@ -7,4 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalTypeParameters extends PsiElement {
 
+  @NotNull
+  List<CrystalTypeReference> getTypeReferenceList();
+
 }

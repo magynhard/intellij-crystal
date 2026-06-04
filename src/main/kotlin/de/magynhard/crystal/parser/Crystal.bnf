@@ -721,7 +721,8 @@ type_reference ::= type_union [ARROW [type_union]]
 
 private type_union ::= type_single (PIPE type_single)*
 
-private type_single ::= type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
+private type_single ::= STAR type_path [type_arguments] [QUESTION]
+                       | type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
                        | SELF [QUESTION]
                        | TYPEOF LPAREN expression RPAREN [QUESTION]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
@@ -736,7 +737,8 @@ type_arguments ::= LPAREN type_argument (COMMA type_argument)* RPAREN
 
 private type_argument ::= type_reference | INTEGER_LITERAL
 
-type_parameters ::= LPAREN CONSTANT (COMMA CONSTANT)* RPAREN
+type_parameters ::= LPAREN type_parameter_item (COMMA type_parameter_item)* RPAREN
+private type_parameter_item ::= [STAR] CONSTANT [ASSIGN type_reference]
 
 // ==================== Type Names ====================
 

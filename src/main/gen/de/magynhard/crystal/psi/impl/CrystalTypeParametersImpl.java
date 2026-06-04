@@ -27,4 +27,10 @@ public class CrystalTypeParametersImpl extends ASTWrapperPsiElement implements C
     else super.accept(visitor);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalTypeReference> getTypeReferenceList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeReference.class);
+  }
+
 }
