@@ -14,6 +14,9 @@ public interface CrystalLibBody extends PsiElement {
   List<CrystalFunDefinition> getFunDefinitionList();
 
   @NotNull
+  List<CrystalLibExternalVar> getLibExternalVarList();
+
+  @NotNull
   List<CrystalLibField> getLibFieldList();
 
   @NotNull

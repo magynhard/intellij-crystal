@@ -281,9 +281,11 @@ enum_constant ::= CONSTANT [ASSIGN expression]
 
 lib_body ::= lib_member*
 
-private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition | lib_union_definition | enum_definition | lib_field
+private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
 
 lib_field ::= IDENTIFIER COLON type_reference
+
+lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
 
 fun_definition ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 

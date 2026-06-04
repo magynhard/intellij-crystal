@@ -41,6 +41,12 @@ public class CrystalLibBodyImpl extends ASTWrapperPsiElement implements CrystalL
 
   @Override
   @NotNull
+  public List<CrystalLibExternalVar> getLibExternalVarList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalLibExternalVar.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalLibField> getLibFieldList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalLibField.class);
   }

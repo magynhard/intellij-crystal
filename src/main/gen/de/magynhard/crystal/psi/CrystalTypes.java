@@ -56,6 +56,7 @@ public interface CrystalTypes {
   IElementType IN_CLAUSE = new CrystalElementType("IN_CLAUSE");
   IElementType LIB_BODY = new CrystalElementType("LIB_BODY");
   IElementType LIB_DEFINITION = new CrystalElementType("LIB_DEFINITION");
+  IElementType LIB_EXTERNAL_VAR = new CrystalElementType("LIB_EXTERNAL_VAR");
   IElementType LIB_FIELD = new CrystalElementType("LIB_FIELD");
   IElementType LIB_STRUCT_DEFINITION = new CrystalElementType("LIB_STRUCT_DEFINITION");
   IElementType LIB_UNION_DEFINITION = new CrystalElementType("LIB_UNION_DEFINITION");
@@ -404,6 +405,9 @@ public interface CrystalTypes {
       }
       else if (type == LIB_DEFINITION) {
         return new CrystalLibDefinitionImpl(node);
+      }
+      else if (type == LIB_EXTERNAL_VAR) {
+        return new CrystalLibExternalVarImpl(node);
       }
       else if (type == LIB_FIELD) {
         return new CrystalLibFieldImpl(node);

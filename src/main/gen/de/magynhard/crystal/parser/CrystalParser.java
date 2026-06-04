@@ -2969,6 +2969,39 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
+  public static boolean lib_external_var(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_external_var")) return false;
+    if (!nextTokenIs(builder_, GLOBAL_VAR)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, GLOBAL_VAR);
+    result_ = result_ && lib_external_var_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && type_reference(builder_, level_ + 1);
+    exit_section_(builder_, marker_, LIB_EXTERNAL_VAR, result_);
+    return result_;
+  }
+
+  // [ASSIGN string_expression]
+  private static boolean lib_external_var_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_external_var_1")) return false;
+    lib_external_var_1_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // ASSIGN string_expression
+  private static boolean lib_external_var_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_external_var_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, ASSIGN);
+    result_ = result_ && string_expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // IDENTIFIER COLON type_reference
   public static boolean lib_field(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_field")) return false;
@@ -2982,7 +3015,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition | lib_union_definition | enum_definition | lib_field
+  // NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
   static boolean lib_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_member")) return false;
     boolean result_;
@@ -2993,6 +3026,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = lib_struct_definition(builder_, level_ + 1);
     if (!result_) result_ = lib_union_definition(builder_, level_ + 1);
     if (!result_) result_ = enum_definition(builder_, level_ + 1);
+    if (!result_) result_ = lib_external_var(builder_, level_ + 1);
     if (!result_) result_ = lib_field(builder_, level_ + 1);
     return result_;
   }
