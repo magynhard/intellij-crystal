@@ -3242,6 +3242,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
   //     | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
   //     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
+  //     | DOUBLE_COLON | PERCENT
   //     | NEWLINE | SEMICOLON | HASH | AT | ARROW | ANNOTATION
   static boolean macro_control_token(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_control_token")) return false;
@@ -3295,6 +3296,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, BANG);
     if (!result_) result_ = consumeToken(builder_, DOTDOT);
     if (!result_) result_ = consumeToken(builder_, DOTDOTDOT);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_COLON);
+    if (!result_) result_ = consumeToken(builder_, PERCENT);
     if (!result_) result_ = consumeToken(builder_, NEWLINE);
     if (!result_) result_ = consumeToken(builder_, SEMICOLON);
     if (!result_) result_ = consumeToken(builder_, HASH);

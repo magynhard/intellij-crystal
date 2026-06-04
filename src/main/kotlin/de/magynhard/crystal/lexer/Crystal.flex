@@ -572,6 +572,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   "!"                  { return CrystalTypes.BANG; }
   ".."                 { return CrystalTypes.DOTDOT; }
   "..."                { return CrystalTypes.DOTDOTDOT; }
+  "::"                 { return CrystalTypes.DOUBLE_COLON; }
+  "%"                  { return CrystalTypes.PERCENT; }
   [^]                  { return TokenType.BAD_CHARACTER; }
 }
 
