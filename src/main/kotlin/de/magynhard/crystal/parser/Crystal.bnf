@@ -724,10 +724,11 @@ private type_union ::= type_single (PIPE type_single)*
 private type_single ::= STAR type_path [type_arguments] [QUESTION]
                        | type_path [type_arguments] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
                        | SELF [QUESTION]
-                       | TYPEOF LPAREN expression RPAREN [QUESTION]
+                       | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN [QUESTION]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
                        | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
                        | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
+                       | IDENTIFIER
 
 type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"
