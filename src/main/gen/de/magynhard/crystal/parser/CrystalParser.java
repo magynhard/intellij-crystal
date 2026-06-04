@@ -2788,7 +2788,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // DOT (IDENTIFIER | operator_method_name) [call_args]
+  // DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]
   public static boolean implicit_object_call(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "implicit_object_call")) return false;
     if (!nextTokenIs(builder_, DOT)) return false;
@@ -2801,11 +2801,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // IDENTIFIER | operator_method_name
+  // IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name
   private static boolean implicit_object_call_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "implicit_object_call_1")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, RESPONDS_TO);
+    if (!result_) result_ = consumeToken(builder_, IS_A);
+    if (!result_) result_ = consumeToken(builder_, NIL_QUESTION);
     if (!result_) result_ = operator_method_name(builder_, level_ + 1);
     return result_;
   }

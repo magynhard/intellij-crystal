@@ -573,7 +573,7 @@ method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
 }
 
 // Implicit object call: .method? or .operator (used in &.foo shorthand and case/when patterns)
-implicit_object_call ::= DOT (IDENTIFIER | operator_method_name) [call_args]
+implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]
 
 call_args ::= LPAREN NLS argument_list NLS RPAREN
             | LPAREN RPAREN
