@@ -5606,37 +5606,40 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // LPAREN type_parameter_item (COMMA type_parameter_item)* RPAREN
+  // LPAREN NLS type_parameter_item (COMMA NLS type_parameter_item)* NLS RPAREN
   public static boolean type_parameters(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_parameters")) return false;
     if (!nextTokenIs(builder_, LPAREN)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LPAREN);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && type_parameter_item(builder_, level_ + 1);
-    result_ = result_ && type_parameters_2(builder_, level_ + 1);
+    result_ = result_ && type_parameters_3(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, TYPE_PARAMETERS, result_);
     return result_;
   }
 
-  // (COMMA type_parameter_item)*
-  private static boolean type_parameters_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_parameters_2")) return false;
+  // (COMMA NLS type_parameter_item)*
+  private static boolean type_parameters_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_parameters_3")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!type_parameters_2_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "type_parameters_2", pos_)) break;
+      if (!type_parameters_3_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "type_parameters_3", pos_)) break;
     }
     return true;
   }
 
-  // COMMA type_parameter_item
-  private static boolean type_parameters_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_parameters_2_0")) return false;
+  // COMMA NLS type_parameter_item
+  private static boolean type_parameters_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_parameters_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && type_parameter_item(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;

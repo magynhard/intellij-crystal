@@ -737,7 +737,7 @@ type_arguments ::= LPAREN type_argument (COMMA type_argument)* RPAREN
 
 private type_argument ::= type_reference | INTEGER_LITERAL
 
-type_parameters ::= LPAREN type_parameter_item (COMMA type_parameter_item)* RPAREN
+type_parameters ::= LPAREN NLS type_parameter_item (COMMA NLS type_parameter_item)* NLS RPAREN
 private type_parameter_item ::= [STAR] CONSTANT [ASSIGN type_reference]
 
 // ==================== Type Names ====================
