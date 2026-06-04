@@ -4424,14 +4424,39 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // PERCENT_LITERAL_BEGIN PERCENT_LITERAL_END
+  // PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
   public static boolean percent_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_literal")) return false;
     if (!nextTokenIs(builder_, PERCENT_LITERAL_BEGIN)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeTokens(builder_, 0, PERCENT_LITERAL_BEGIN, PERCENT_LITERAL_END);
+    result_ = consumeToken(builder_, PERCENT_LITERAL_BEGIN);
+    result_ = result_ && percent_literal_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, PERCENT_LITERAL_END);
     exit_section_(builder_, marker_, PERCENT_LITERAL, result_);
+    return result_;
+  }
+
+  // percent_literal_content*
+  private static boolean percent_literal_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!percent_literal_content(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "percent_literal_1", pos_)) break;
+    }
+    return true;
+  }
+
+  /* ********************************************************** */
+  // STRING_LITERAL | SYMBOL_LITERAL | REGEX_LITERAL | NEWLINE
+  static boolean percent_literal_content(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_content")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, REGEX_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, NEWLINE);
     return result_;
   }
 
