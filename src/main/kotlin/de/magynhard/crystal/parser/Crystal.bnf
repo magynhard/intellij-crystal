@@ -349,7 +349,7 @@ macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] ma
 
 // ==================== Parameters ====================
 
-parameter_list ::= [parameter_item (COMMA NLS parameter_item)*]
+parameter_list ::= [parameter_item (COMMA NLS parameter_item)* [COMMA]]
 private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 
 parameter ::= annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
@@ -582,7 +582,7 @@ implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | o
 call_args ::= LPAREN NLS argument_list NLS RPAREN
             | LPAREN RPAREN
 
-argument_list ::= argument (NLS COMMA NLS argument)*
+argument_list ::= argument (NLS COMMA NLS argument)* [NLS COMMA]
 
 argument ::= STAR expression
            | DOUBLE_STAR expression
@@ -660,8 +660,8 @@ bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 
-block ::= DO [PIPE parameter_list PIPE] statement_list rescue_clause* [else_clause] [ensure_clause] END
-        | LBRACE [PIPE parameter_list PIPE] statement_list RBRACE
+block ::= DO [PIPE NLS parameter_list NLS PIPE] statement_list rescue_clause* [else_clause] [ensure_clause] END
+        | LBRACE [PIPE NLS parameter_list NLS PIPE] statement_list RBRACE
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
 proc_literal ::= ARROW LPAREN parameter_list RPAREN LBRACE statement_list RBRACE
@@ -739,11 +739,11 @@ type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"
 }
 
-type_arguments ::= LPAREN type_argument (COMMA type_argument)* RPAREN
+type_arguments ::= LPAREN NLS type_argument (NLS COMMA NLS type_argument)* [NLS COMMA] NLS RPAREN
 
 private type_argument ::= type_reference | INTEGER_LITERAL
 
-type_parameters ::= LPAREN NLS type_parameter_item (COMMA NLS type_parameter_item)* NLS RPAREN
+type_parameters ::= LPAREN NLS type_parameter_item (COMMA NLS type_parameter_item)* [COMMA] NLS RPAREN
 private type_parameter_item ::= [STAR] CONSTANT [ASSIGN type_reference]
 
 // ==================== Type Names ====================
