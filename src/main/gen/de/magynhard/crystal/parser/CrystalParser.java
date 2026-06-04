@@ -4951,7 +4951,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // ARROW LPAREN parameter_list RPAREN LBRACE statement_list RBRACE
+  // ARROW LPAREN NLS parameter_list NLS RPAREN LBRACE statement_list RBRACE
   //                | ARROW LBRACE statement_list RBRACE
   //                | ARROW (IDENTIFIER | CONSTANT) [DOT (IDENTIFIER | CONSTANT)] [LPAREN type_reference (COMMA type_reference)* RPAREN]
   public static boolean proc_literal(PsiBuilder builder_, int level_) {
@@ -4966,13 +4966,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ARROW LPAREN parameter_list RPAREN LBRACE statement_list RBRACE
+  // ARROW LPAREN NLS parameter_list NLS RPAREN LBRACE statement_list RBRACE
   private static boolean proc_literal_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "proc_literal_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeTokens(builder_, 0, ARROW, LPAREN);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && parameter_list(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeTokens(builder_, 0, RPAREN, LBRACE);
     result_ = result_ && statement_list(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACE);

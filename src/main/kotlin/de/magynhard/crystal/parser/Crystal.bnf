@@ -668,7 +668,7 @@ block ::= DO [PIPE NLS parameter_list NLS PIPE] statement_list rescue_clause* [e
         | LBRACE [PIPE NLS parameter_list NLS PIPE] statement_list RBRACE
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
-proc_literal ::= ARROW LPAREN parameter_list RPAREN LBRACE statement_list RBRACE
+proc_literal ::= ARROW LPAREN NLS parameter_list NLS RPAREN LBRACE statement_list RBRACE
                | ARROW LBRACE statement_list RBRACE
                | ARROW (IDENTIFIER | CONSTANT) [DOT (IDENTIFIER | CONSTANT)] [LPAREN type_reference (COMMA type_reference)* RPAREN] {pin=1}
 

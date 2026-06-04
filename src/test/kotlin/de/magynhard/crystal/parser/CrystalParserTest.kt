@@ -182,4 +182,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testShortBlockSyntax() {
         doTest(true)
     }
+
+    fun testProcLiterals() {
+        doTest(true)
+    }
 }
