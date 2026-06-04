@@ -8,10 +8,10 @@ import com.intellij.psi.PsiElement;
 public interface CrystalUnlessStatement extends PsiElement {
 
   @Nullable
-  CrystalElseClause getElseClause();
+  CrystalCondition getCondition();
 
   @Nullable
-  CrystalExpression getExpression();
+  CrystalElseClause getElseClause();
 
   @Nullable
   CrystalStatementList getStatementList();

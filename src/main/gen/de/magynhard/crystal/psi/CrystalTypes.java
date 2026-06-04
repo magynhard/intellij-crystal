@@ -30,6 +30,7 @@ public interface CrystalTypes {
   IElementType CLASS_BODY = new CrystalElementType("CLASS_BODY");
   IElementType CLASS_DEFINITION = CrystalStubElementTypeFactory.create("CLASS_DEFINITION");
   IElementType CLASS_VAR_ACCESS = new CrystalElementType("CLASS_VAR_ACCESS");
+  IElementType CONDITION = new CrystalElementType("CONDITION");
   IElementType CONSTANT_ASSIGNMENT = new CrystalElementType("CONSTANT_ASSIGNMENT");
   IElementType ELSE_CLAUSE = new CrystalElementType("ELSE_CLAUSE");
   IElementType ELSIF_CLAUSE = new CrystalElementType("ELSIF_CLAUSE");
@@ -329,6 +330,9 @@ public interface CrystalTypes {
       }
       else if (type == CLASS_VAR_ACCESS) {
         return new CrystalClassVarAccessImpl(node);
+      }
+      else if (type == CONDITION) {
+        return new CrystalConditionImpl(node);
       }
       else if (type == CONSTANT_ASSIGNMENT) {
         return new CrystalConstantAssignmentImpl(node);

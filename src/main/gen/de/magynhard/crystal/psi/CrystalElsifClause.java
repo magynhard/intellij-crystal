@@ -8,7 +8,7 @@ import com.intellij.psi.PsiElement;
 public interface CrystalElsifClause extends PsiElement {
 
   @NotNull
-  CrystalExpression getExpression();
+  CrystalCondition getCondition();
 
   @NotNull
   CrystalStatementList getStatementList();

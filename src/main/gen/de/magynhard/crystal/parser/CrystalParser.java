@@ -2191,6 +2191,32 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // condition_assignment | expression
+  public static boolean condition(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "condition")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, CONDITION, "<condition>");
+    result_ = condition_assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // variable ASSIGN NLS expression
+  static boolean condition_assignment(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "condition_assignment")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = variable(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, ASSIGN);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // CONSTANT ASSIGN NLS expression [postfix_modifier]
   public static boolean constant_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "constant_assignment")) return false;
@@ -2239,14 +2265,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // ELSIF expression then_clause statement_list
+  // ELSIF condition then_clause statement_list
   public static boolean elsif_clause(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "elsif_clause")) return false;
     if (!nextTokenIs(builder_, ELSIF)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, ELSIF);
-    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && condition(builder_, level_ + 1);
     result_ = result_ && then_clause(builder_, level_ + 1);
     result_ = result_ && statement_list(builder_, level_ + 1);
     exit_section_(builder_, marker_, ELSIF_CLAUSE, result_);
@@ -2765,7 +2791,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // IF expression then_clause statement_list elsif_clause* [else_clause] END
+  // IF condition then_clause statement_list elsif_clause* [else_clause] END
   public static boolean if_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "if_statement")) return false;
     if (!nextTokenIs(builder_, IF)) return false;
@@ -2773,7 +2799,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _NONE_, IF_STATEMENT, null);
     result_ = consumeToken(builder_, IF);
     pinned_ = result_; // pin = 1
-    result_ = result_ && report_error_(builder_, expression(builder_, level_ + 1));
+    result_ = result_ && report_error_(builder_, condition(builder_, level_ + 1));
     result_ = pinned_ && report_error_(builder_, then_clause(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, statement_list(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, if_statement_4(builder_, level_ + 1)) && result_;
@@ -6271,7 +6297,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // UNLESS expression then_clause statement_list [else_clause] END
+  // UNLESS condition then_clause statement_list [else_clause] END
   public static boolean unless_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "unless_statement")) return false;
     if (!nextTokenIs(builder_, UNLESS)) return false;
@@ -6279,7 +6305,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _NONE_, UNLESS_STATEMENT, null);
     result_ = consumeToken(builder_, UNLESS);
     pinned_ = result_; // pin = 1
-    result_ = result_ && report_error_(builder_, expression(builder_, level_ + 1));
+    result_ = result_ && report_error_(builder_, condition(builder_, level_ + 1));
     result_ = pinned_ && report_error_(builder_, then_clause(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, statement_list(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, unless_statement_4(builder_, level_ + 1)) && result_;
@@ -6296,7 +6322,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // UNTIL expression then_clause statement_list END
+  // UNTIL condition then_clause statement_list END
   public static boolean until_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "until_statement")) return false;
     if (!nextTokenIs(builder_, UNTIL)) return false;
@@ -6304,7 +6330,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _NONE_, UNTIL_STATEMENT, null);
     result_ = consumeToken(builder_, UNTIL);
     pinned_ = result_; // pin = 1
-    result_ = result_ && report_error_(builder_, expression(builder_, level_ + 1));
+    result_ = result_ && report_error_(builder_, condition(builder_, level_ + 1));
     result_ = pinned_ && report_error_(builder_, then_clause(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, statement_list(builder_, level_ + 1)) && result_;
     result_ = pinned_ && consumeToken(builder_, END) && result_;
@@ -6477,7 +6503,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // WHILE expression then_clause statement_list END
+  // WHILE condition then_clause statement_list END
   public static boolean while_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "while_statement")) return false;
     if (!nextTokenIs(builder_, WHILE)) return false;
@@ -6485,7 +6511,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _NONE_, WHILE_STATEMENT, null);
     result_ = consumeToken(builder_, WHILE);
     pinned_ = result_; // pin = 1
-    result_ = result_ && report_error_(builder_, expression(builder_, level_ + 1));
+    result_ = result_ && report_error_(builder_, condition(builder_, level_ + 1));
     result_ = pinned_ && report_error_(builder_, then_clause(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, statement_list(builder_, level_ + 1)) && result_;
     result_ = pinned_ && consumeToken(builder_, END) && result_;

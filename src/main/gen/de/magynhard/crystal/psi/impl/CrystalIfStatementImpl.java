@@ -29,6 +29,12 @@ public class CrystalIfStatementImpl extends ASTWrapperPsiElement implements Crys
 
   @Override
   @Nullable
+  public CrystalCondition getCondition() {
+    return PsiTreeUtil.getChildOfType(this, CrystalCondition.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalElseClause getElseClause() {
     return PsiTreeUtil.getChildOfType(this, CrystalElseClause.class);
   }
@@ -37,12 +43,6 @@ public class CrystalIfStatementImpl extends ASTWrapperPsiElement implements Crys
   @NotNull
   public List<CrystalElsifClause> getElsifClauseList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalElsifClause.class);
-  }
-
-  @Override
-  @Nullable
-  public CrystalExpression getExpression() {
-    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override

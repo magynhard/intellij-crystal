@@ -87,6 +87,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitNamedElement(o);
   }
 
+  public void visitCondition(@NotNull CrystalCondition o) {
+    visitPsiElement(o);
+  }
+
   public void visitConstantAssignment(@NotNull CrystalConstantAssignment o) {
     visitPsiElement(o);
   }

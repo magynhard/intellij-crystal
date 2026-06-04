@@ -5,18 +5,15 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalIfStatement extends PsiElement {
+public interface CrystalCondition extends PsiElement {
 
   @Nullable
-  CrystalCondition getCondition();
-
-  @Nullable
-  CrystalElseClause getElseClause();
+  CrystalClassVarAccess getClassVarAccess();
 
   @NotNull
-  List<CrystalElsifClause> getElsifClauseList();
+  CrystalExpression getExpression();
 
   @Nullable
-  CrystalStatementList getStatementList();
+  CrystalInstanceVarAccess getInstanceVarAccess();
 
 }

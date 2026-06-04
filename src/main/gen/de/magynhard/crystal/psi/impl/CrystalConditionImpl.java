@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalWhileStatementImpl extends ASTWrapperPsiElement implements CrystalWhileStatement {
+public class CrystalConditionImpl extends ASTWrapperPsiElement implements CrystalCondition {
 
-  public CrystalWhileStatementImpl(@NotNull ASTNode node) {
+  public CrystalConditionImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitWhileStatement(this);
+    visitor.visitCondition(this);
   }
 
   @Override
@@ -29,14 +29,20 @@ public class CrystalWhileStatementImpl extends ASTWrapperPsiElement implements C
 
   @Override
   @Nullable
-  public CrystalCondition getCondition() {
-    return PsiTreeUtil.getChildOfType(this, CrystalCondition.class);
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
+  @NotNull
+  public CrystalExpression getExpression() {
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpression.class));
   }
 
   @Override
   @Nullable
-  public CrystalStatementList getStatementList() {
-    return PsiTreeUtil.getChildOfType(this, CrystalStatementList.class);
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
 }

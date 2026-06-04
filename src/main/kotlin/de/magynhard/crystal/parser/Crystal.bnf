@@ -403,13 +403,16 @@ postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) expression
 
 // ==================== Control Flow ====================
 
-if_statement ::= IF expression then_clause statement_list elsif_clause* [else_clause] END {pin=1}
+if_statement ::= IF condition then_clause statement_list elsif_clause* [else_clause] END {pin=1}
 
-unless_statement ::= UNLESS expression then_clause statement_list [else_clause] END {pin=1}
+unless_statement ::= UNLESS condition then_clause statement_list [else_clause] END {pin=1}
 
-while_statement ::= WHILE expression then_clause statement_list END {pin=1}
+while_statement ::= WHILE condition then_clause statement_list END {pin=1}
 
-until_statement ::= UNTIL expression then_clause statement_list END {pin=1}
+until_statement ::= UNTIL condition then_clause statement_list END {pin=1}
+
+condition ::= condition_assignment | expression
+private condition_assignment ::= variable ASSIGN NLS expression
 
 for_statement ::= FOR IDENTIFIER IN expression then_clause statement_list END {pin=1}
 
@@ -423,7 +426,7 @@ select_when_clause ::= WHEN statement then_clause statement_list
 
 private then_clause ::= THEN | NEWLINE | SEMICOLON
 
-elsif_clause ::= ELSIF expression then_clause statement_list
+elsif_clause ::= ELSIF condition then_clause statement_list
 
 else_clause ::= ELSE statement_list
 

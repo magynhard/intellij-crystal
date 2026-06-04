@@ -8,7 +8,7 @@ import com.intellij.psi.PsiElement;
 public interface CrystalUntilStatement extends PsiElement {
 
   @Nullable
-  CrystalExpression getExpression();
+  CrystalCondition getCondition();
 
   @Nullable
   CrystalStatementList getStatementList();
