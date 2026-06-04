@@ -198,6 +198,7 @@ private top_level_statement ::= NEWLINE
                               | struct_definition
                               | enum_definition
                               | lib_definition
+                              | top_level_fun
                               | annotation_definition
                               | method_definition
                               | macro_definition
@@ -288,6 +289,8 @@ lib_field ::= IDENTIFIER COLON type_reference
 lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
 
 fun_definition ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+
+top_level_fun ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
 
 type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
 

@@ -91,6 +91,7 @@ public interface CrystalTypes {
   IElementType STRING_EXPRESSION = new CrystalElementType("STRING_EXPRESSION");
   IElementType STRUCT_DEFINITION = CrystalStubElementTypeFactory.create("STRUCT_DEFINITION");
   IElementType SUPERCLASS_CLAUSE = new CrystalElementType("SUPERCLASS_CLAUSE");
+  IElementType TOP_LEVEL_FUN = new CrystalElementType("TOP_LEVEL_FUN");
   IElementType TUPLE_LITERAL = new CrystalElementType("TUPLE_LITERAL");
   IElementType TYPEOF_EXPRESSION = new CrystalElementType("TYPEOF_EXPRESSION");
   IElementType TYPE_ALIAS_LIB = new CrystalElementType("TYPE_ALIAS_LIB");
@@ -510,6 +511,9 @@ public interface CrystalTypes {
       }
       else if (type == SUPERCLASS_CLAUSE) {
         return new CrystalSuperclassClauseImpl(node);
+      }
+      else if (type == TOP_LEVEL_FUN) {
+        return new CrystalTopLevelFunImpl(node);
       }
       else if (type == TUPLE_LITERAL) {
         return new CrystalTupleLiteralImpl(node);
