@@ -246,10 +246,20 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
     }
 
     fun testNoEndInsertedWhenAlreadyPresent() {
+        // end is on the line directly below
         myFixture.configureByText("test.cr", "if 1 == 2\n<caret>\nend")
         myFixture.type("\n")
         val text = myFixture.editor.document.text
         val endCount = Regex("\\bend\\b").findAll(text).count()
         assertEquals("Should have exactly one 'end' (already present)", 1, endCount)
+    }
+
+    fun testNoEndInsertedWhenEndBelowWithBlankLines() {
+        // end exists below but with blank lines in between
+        myFixture.configureByText("test.cr", "if 1 == 2\n<caret>\n\nend")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val endCount = Regex("\\bend\\b").findAll(text).count()
+        assertEquals("Should have exactly one 'end' (already present below blanks)", 1, endCount)
     }
 }

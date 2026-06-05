@@ -194,12 +194,27 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
         document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
         editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
 
+        // Check if 'end' already exists below the cursor (skip blank lines)
+        val updatedCaretLine = document.getLineNumber(editor.caretModel.offset)
+        val totalLines = document.lineCount
+        var hasEndBelow = false
+        for (line in (updatedCaretLine + 1) until totalLines) {
+            val lineStart = document.getLineStartOffset(line)
+            val lineEnd = document.getLineEndOffset(line)
+            val lineText = document.getText(TextRange(lineStart, lineEnd)).trim()
+            if (lineText.isNotEmpty()) {
+                hasEndBelow = lineText.startsWith("end") && (lineText == "end" || !lineText[3].isLetterOrDigit())
+                break
+            }
+        }
+
+        if (hasEndBelow) return EnterHandlerDelegate.Result.Stop
+
         // Balance check: scan the entire document to decide if 'end' is needed
         val fullText = document.text
         if (isDocumentBalanced(fullText)) return EnterHandlerDelegate.Result.Stop
 
         // Insert 'end' on a new line below the cursor, aligned with the block keyword
-        val updatedCaretLine = document.getLineNumber(editor.caretModel.offset)
         val updatedLineEnd = document.getLineEndOffset(updatedCaretLine)
         document.insertString(updatedLineEnd, "\n${baseIndent}end")
 
