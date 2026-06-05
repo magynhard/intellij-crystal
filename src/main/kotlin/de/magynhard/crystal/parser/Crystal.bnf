@@ -209,6 +209,7 @@ private top_level_statement ::= NEWLINE
                               | macro_definition
                               | alias_definition
                               | visibility_modifier
+                              | macro_control
                               | statement
 
 // ==================== Require / Include / Extend ====================
@@ -277,6 +278,7 @@ private class_member ::= NEWLINE
                         | alias_definition
                         | visibility_modifier
                         | property_declaration
+                        | macro_control
                         | statement
 
 enum_body ::= enum_member*
@@ -287,7 +289,7 @@ enum_constant ::= CONSTANT [ASSIGN expression]
 
 lib_body ::= lib_member*
 
-private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
+private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
 
 lib_field ::= IDENTIFIER COLON type_reference
 
@@ -298,6 +300,8 @@ fun_definition ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON 
 top_level_fun ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
 
 type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
+
+lib_type_alias ::= IDENTIFIER CONSTANT ASSIGN type_reference
 
 lib_struct_definition ::= STRUCT CONSTANT lib_body END
 
@@ -314,9 +318,9 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
 }
 
 method_name ::= IDENTIFIER
-              | CONSTANT
               | operator_method_name
-              | SELF DOT (IDENTIFIER | CONSTANT | operator_method_name)
+              | SELF DOT (IDENTIFIER | CONSTANT | operator_method_name | macro_interpolation)
+              | macro_interpolation
               | SELECT
 
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
@@ -336,6 +340,7 @@ macro_interpolation ::= MACRO_INTERPOLATION_BEGIN expression MACRO_INTERPOLATION
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | INTEGER_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
+    | SYMBOL_LITERAL | SYMBOL_COLON
     | TRUE | FALSE | NIL
     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD | VERBATIM
     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
@@ -399,6 +404,7 @@ statement ::= if_statement
             | property_declaration
             | assignment
             | constant_assignment
+            | macro_control
             | expression_statement
 
 expression_statement ::= expression [expression_assign_suffix | postfix_modifier]
@@ -518,9 +524,9 @@ private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET) u
 private postfix_expression ::= primary_expression postfix_op*
 
 private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                     | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args | bare_argument_list] [block]
+                     | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args | bare_argument_list] [block]
                      | DOUBLE_COLON CONSTANT
-                     | LBRACKET argument_list RBRACKET
+                     | LBRACKET argument_list RBRACKET [QUESTION]
                      | call_args [block]
                      | NLS DOT IDENTIFIER assign_op expression
 
@@ -567,11 +573,13 @@ private primary_expression ::= grouped_expression
                              | instance_sizeof_expression
                               | pointerof_expression
                              | offsetof_expression
-                             | uninitialized_expression
-                             | asm_expression
-                             | yield_expression
-                             | if_statement
-                             | unless_statement
+                                   | uninitialized_expression
+                                   | asm_expression
+                                   | macro_interpolation
+                              | yield_expression
+                              | macro_interpolation
+                              | if_statement
+                              | unless_statement
                              | case_statement
                              | begin_statement
 
@@ -602,7 +610,8 @@ argument ::= STAR expression
 // Bare (parenthesis-free) arguments — used for calls like: describe App5 do ... end
 bare_argument_list ::= bare_argument (COMMA bare_argument)*
 
-bare_argument ::= [IDENTIFIER COLON] bare_expression
+bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_expression]
+                | [IDENTIFIER COLON] bare_expression
                 | STAR bare_expression
                 | DOUBLE_STAR bare_expression
                 | OUT IDENTIFIER
@@ -641,9 +650,9 @@ private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) bare
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
 private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                          | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method) [call_args]
+                           | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args]
                           | DOUBLE_COLON CONSTANT
-                          | LBRACKET argument_list RBRACKET
+                          | LBRACKET argument_list RBRACKET [QUESTION]
                           | call_args
 
 // Bare primary: like primary but no blocks or method calls with bare args (to prevent ambiguity)
@@ -662,8 +671,9 @@ private bare_primary_expression ::= grouped_expression
                                   | instance_sizeof_expression
                                   | pointerof_expression
                                   | offsetof_expression
-                                  | uninitialized_expression
-                                  | asm_expression
+                                   | uninitialized_expression
+                                   | asm_expression
+                                   | macro_interpolation
 
 bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"

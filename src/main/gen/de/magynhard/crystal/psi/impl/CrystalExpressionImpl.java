@@ -131,6 +131,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalMethodCallExpression> getMethodCallExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMethodCallExpression.class);
   }

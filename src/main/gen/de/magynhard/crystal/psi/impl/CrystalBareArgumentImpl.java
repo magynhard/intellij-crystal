@@ -101,6 +101,12 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
 
   @Override
   @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalOffsetofExpression> getOffsetofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalOffsetofExpression.class);
   }

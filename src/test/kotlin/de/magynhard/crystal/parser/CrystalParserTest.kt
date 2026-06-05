@@ -198,4 +198,28 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testEmptyCollectionsOf() {
         doTest(true)
     }
+
+    fun testRecordMacro() {
+        doTest(true)
+    }
+
+    fun testNilSafeIndex() {
+        doTest(true)
+    }
+
+    fun testMacroInterpolationWithSymbol() {
+        doTest(true)
+    }
+
+    fun testLibTypeAlias() {
+        doTest(true)
+    }
+
+    fun testTopLevelMacroControl() {
+        doTest(true)
+    }
+
+    fun testMacroForLoop() {
+        doTest(true)
+    }
 }

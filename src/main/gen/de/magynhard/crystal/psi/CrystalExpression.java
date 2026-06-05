@@ -59,6 +59,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalInstanceVarAccess> getInstanceVarAccessList();
 
   @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
+  @NotNull
   List<CrystalMethodCallExpression> getMethodCallExpressionList();
 
   @NotNull

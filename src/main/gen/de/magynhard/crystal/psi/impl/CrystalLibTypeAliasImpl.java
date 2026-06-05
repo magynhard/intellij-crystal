@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalMethodNameImpl extends ASTWrapperPsiElement implements CrystalMethodName {
+public class CrystalLibTypeAliasImpl extends ASTWrapperPsiElement implements CrystalLibTypeAlias {
 
-  public CrystalMethodNameImpl(@NotNull ASTNode node) {
+  public CrystalLibTypeAliasImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitMethodName(this);
+    visitor.visitLibTypeAlias(this);
   }
 
   @Override
@@ -28,9 +28,9 @@ public class CrystalMethodNameImpl extends ASTWrapperPsiElement implements Cryst
   }
 
   @Override
-  @Nullable
-  public CrystalMacroInterpolation getMacroInterpolation() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  @NotNull
+  public CrystalTypeReference getTypeReference() {
+    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class));
   }
 
 }

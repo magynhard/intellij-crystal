@@ -5,9 +5,9 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalMethodName extends PsiElement {
+public interface CrystalLibTypeAlias extends PsiElement {
 
-  @Nullable
-  CrystalMacroInterpolation getMacroInterpolation();
+  @NotNull
+  CrystalTypeReference getTypeReference();
 
 }

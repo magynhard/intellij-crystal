@@ -60,6 +60,7 @@ public interface CrystalTypes {
   IElementType LIB_EXTERNAL_VAR = new CrystalElementType("LIB_EXTERNAL_VAR");
   IElementType LIB_FIELD = new CrystalElementType("LIB_FIELD");
   IElementType LIB_STRUCT_DEFINITION = new CrystalElementType("LIB_STRUCT_DEFINITION");
+  IElementType LIB_TYPE_ALIAS = new CrystalElementType("LIB_TYPE_ALIAS");
   IElementType LIB_UNION_DEFINITION = new CrystalElementType("LIB_UNION_DEFINITION");
   IElementType MACRO_BODY = new CrystalElementType("MACRO_BODY");
   IElementType MACRO_CONTROL = new CrystalElementType("MACRO_CONTROL");
@@ -425,6 +426,9 @@ public interface CrystalTypes {
       }
       else if (type == LIB_STRUCT_DEFINITION) {
         return new CrystalLibStructDefinitionImpl(node);
+      }
+      else if (type == LIB_TYPE_ALIAS) {
+        return new CrystalLibTypeAliasImpl(node);
       }
       else if (type == LIB_UNION_DEFINITION) {
         return new CrystalLibUnionDefinitionImpl(node);

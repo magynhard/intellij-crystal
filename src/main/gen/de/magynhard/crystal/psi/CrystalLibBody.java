@@ -23,6 +23,9 @@ public interface CrystalLibBody extends PsiElement {
   List<CrystalLibStructDefinition> getLibStructDefinitionList();
 
   @NotNull
+  List<CrystalLibTypeAlias> getLibTypeAliasList();
+
+  @NotNull
   List<CrystalLibUnionDefinition> getLibUnionDefinitionList();
 
   @NotNull

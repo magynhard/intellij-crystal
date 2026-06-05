@@ -211,6 +211,11 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                          return CrystalTypes.HEREDOC_START;
                        }
 
+  // Macro control at top level: {% ... %}
+  "{%"                 { pushState(MACRO_CONTROL); return CrystalTypes.MACRO_CONTROL_BEGIN; }
+  // Macro interpolation at top level: {{ ... }}
+  "{{"                 { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN; }
+
   // Percent literals: %w(...), %i(...), %(...), %[...], %{...}, %<...>, %|...|
   "%w" [\(\[\{<|]     {
                          char c = yycharat(yylength() - 1);
@@ -522,6 +527,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 <MACRO_INTERPOLATION> {
   "}}"                 { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
+  ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
@@ -554,6 +561,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 <MACRO_CONTROL> {
   "%}"                 { popState(); return CrystalTypes.MACRO_CONTROL_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
+  ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   "verbatim"           { return CrystalTypes.VERBATIM; }
   "if"                 { return CrystalTypes.IF; }
   "else"               { return CrystalTypes.ELSE; }
