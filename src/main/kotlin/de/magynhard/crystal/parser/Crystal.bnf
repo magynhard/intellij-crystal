@@ -695,7 +695,7 @@ private literal ::= INTEGER_LITERAL
                   | string_expression
                   | symbol_string_expression
                   | SYMBOL_LITERAL
-                  | REGEX_LITERAL
+                  | regex_expression
                   | COMMAND_LITERAL
                   | NIL
                   | TRUE
@@ -707,6 +707,7 @@ private literal ::= INTEGER_LITERAL
                   | percent_literal
 
 string_expression ::= (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
+regex_expression ::= REGEX_LITERAL
 
 heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END
 

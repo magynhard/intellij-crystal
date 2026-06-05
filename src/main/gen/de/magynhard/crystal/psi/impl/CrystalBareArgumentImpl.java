@@ -131,6 +131,12 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
 
   @Override
   @NotNull
+  public List<CrystalRegexExpression> getRegexExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalRegexExpression.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalSizeofExpression> getSizeofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalSizeofExpression.class);
   }

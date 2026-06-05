@@ -82,6 +82,7 @@ public interface CrystalTypes {
   IElementType POSTFIX_MODIFIER = new CrystalElementType("POSTFIX_MODIFIER");
   IElementType PROC_LITERAL = new CrystalElementType("PROC_LITERAL");
   IElementType PROPERTY_DECLARATION = new CrystalElementType("PROPERTY_DECLARATION");
+  IElementType REGEX_EXPRESSION = new CrystalElementType("REGEX_EXPRESSION");
   IElementType REQUIRE_STATEMENT = new CrystalElementType("REQUIRE_STATEMENT");
   IElementType RESCUE_CLAUSE = new CrystalElementType("RESCUE_CLAUSE");
   IElementType RETURN_STATEMENT = new CrystalElementType("RETURN_STATEMENT");
@@ -492,6 +493,9 @@ public interface CrystalTypes {
       }
       else if (type == PROPERTY_DECLARATION) {
         return new CrystalPropertyDeclarationImpl(node);
+      }
+      else if (type == REGEX_EXPRESSION) {
+        return new CrystalRegexExpressionImpl(node);
       }
       else if (type == REQUIRE_STATEMENT) {
         return new CrystalRequireStatementImpl(node);

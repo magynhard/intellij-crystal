@@ -44,6 +44,12 @@ class CrystalAnnotator : Annotator {
             annotateTodoComment(element, holder)
             return
         }
+
+        // Highlight regex sub-patterns inside regex literals
+        if (elementType == CrystalTypes.REGEX_LITERAL) {
+            annotateRegexLiteral(element, holder)
+            return
+        }
     }
 
     /**
@@ -231,6 +237,54 @@ class CrystalAnnotator : Annotator {
         }
     }
 
+    /**
+     * Highlights regex sub-patterns inside regex literals using IntelliJ's built-in
+     * RegExp colors so they match RubyMine/IDEA exactly.
+     */
+    private fun annotateRegexLiteral(element: PsiElement, holder: AnnotationHolder) {
+        val text = element.text
+        val startOffset = element.textRange.startOffset
+
+        // Character classes: [...]
+        for (match in REGEX_CHAR_CLASS.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_CHAR_CLASS)
+        }
+        // Escapes: \d \w \s \n \t \xXX \uXXXX \p{...} \k<name> \K \N \R \X \Q etc.
+        for (match in REGEX_ESCAPE.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_ESC_CHARACTER)
+        }
+        // Quantifiers: ++ *+ ?+ + * ? {n} {n,} {n,m} (and lazy versions)
+        for (match in REGEX_QUANTIFIER.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_QUANTIFIER)
+        }
+        // Alternation: |
+        for (match in REGEX_ALTERNATION.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_UNION)
+        }
+        // Anchors: ^ $ \A \Z \z \G
+        for (match in REGEX_ANCHOR.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_META)
+        }
+        // Group punctuation: (?:...) (?=...) (?!...) (?<=...) (?<!...) (?<name>...)
+        for (match in REGEX_GROUP_PUNCTUATION.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_PARENTHS)
+        }
+        for (match in REGEX_NAMED_GROUP_PREFIX.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_PARENTHS)
+        }
+        // Simple group parentheses: ( and ) not part of a special group prefix
+        for (match in REGEX_SIMPLE_GROUP.findAll(text)) {
+            applyRange(holder, startOffset, match.range, CrystalSyntaxHighlighter.REGEXP_PARENTHS)
+        }
+    }
+
+    private fun applyRange(holder: AnnotationHolder, baseOffset: Int, range: IntRange, key: TextAttributesKey) {
+        holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+            .range(com.intellij.openapi.util.TextRange(baseOffset + range.first, baseOffset + range.last + 1))
+            .textAttributes(key)
+            .create()
+    }
+
     private fun apply(holder: AnnotationHolder, element: PsiElement, key: TextAttributesKey) {
         holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
             .range(element)
@@ -240,6 +294,16 @@ class CrystalAnnotator : Annotator {
 
     companion object {
         private val TODO_PATTERN = Regex("\\b(TODO|FIXME)\\b")
+
+        // Regex sub-pattern matching
+        private val REGEX_ESCAPE = Regex("""\\[dDwWsSbtnr0aAfv]|\\[xXu]\{[0-9a-fA-F]+\}|\\[xX][0-9a-fA-F]{1,2}|\\u[0-9a-fA-F]{4}|\\p\{[^}]+\}|\\P\{[^}]+\}|\\k<[^>]+>|\\k'[^']+'|\\[KNRX]|\\[QHhvV]""")
+        private val REGEX_QUANTIFIER = Regex("""[+\*?]\+[?+]?|[+\*?][?+]?|\{[0-9]+\}|\{[0-9]+,?\}|\{[0-9]+,[0-9]+\}|\{[0-9]+,\}|\{,?[0-9]+\}""")
+        private val REGEX_CHAR_CLASS = Regex("""\[(?:\\.|[^\[\]])*\]""")
+        private val REGEX_ALTERNATION = Regex("""\|""")
+        private val REGEX_ANCHOR = Regex("""[\^$]|\\[AZzG]""")
+        private val REGEX_GROUP_PUNCTUATION = Regex("""\(\?[:=!><]|\(\?<=\[!\]|\(\?[imsx]+\-?[imsx]*[:)]|\(\?[#)]|\(\?>""")
+        private val REGEX_NAMED_GROUP_PREFIX = Regex("""\(\?<[a-zA-Z_]\w*>""")
+        private val REGEX_SIMPLE_GROUP = Regex("""\((?!\?)|\)""")
 
         private val BUILTIN_MACROS = setOf(
             "getter", "setter", "property",

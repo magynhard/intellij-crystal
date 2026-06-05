@@ -331,6 +331,10 @@
 
         <programRunner
                 implementation="de.magynhard.crystal.debugger.CrystalDebugProgramRunner"/>
+
+        <regExpLanguageHost
+                psiElementClass="de.magynhard.crystal.psi.CrystalRegexExpression"
+                implementation="de.magynhard.crystal.highlighting.CrystalRegExpLanguageHost"/>
     </extensions>
 
     <projectListeners>

@@ -42,6 +42,14 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         val STRING_ESCAPE = createTextAttributesKey("CRYSTAL_STRING_ESCAPE", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
         val TODO_COMMENT = createTextAttributesKey("CRYSTAL_TODO_COMMENT", DefaultLanguageHighlighterColors.NUMBER)
 
+        // Re-use IntelliJ's built-in RegExp colors so regex sub-patterns match RubyMine exactly
+        val REGEXP_CHAR_CLASS = createTextAttributesKey("REGEXP.CHAR_CLASS", DefaultLanguageHighlighterColors.STRING)
+        val REGEXP_ESC_CHARACTER = createTextAttributesKey("REGEXP.ESC_CHARACTER", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
+        val REGEXP_QUANTIFIER = createTextAttributesKey("REGEXP.QUANTIFIER", DefaultLanguageHighlighterColors.NUMBER)
+        val REGEXP_UNION = createTextAttributesKey("REGEXP.UNION", DefaultLanguageHighlighterColors.OPERATION_SIGN)
+        val REGEXP_PARENTHS = createTextAttributesKey("REGEXP.PARENTHS", DefaultLanguageHighlighterColors.PARENTHESES)
+        val REGEXP_META = createTextAttributesKey("REGEXP.META", DefaultLanguageHighlighterColors.KEYWORD)
+
         private val KEYWORD_KEYS = arrayOf(KEYWORD)
         private val NUMBER_KEYS = arrayOf(NUMBER)
         private val STRING_KEYS = arrayOf(STRING)

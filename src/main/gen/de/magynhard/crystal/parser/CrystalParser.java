@@ -3256,7 +3256,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                   | string_expression
   //                   | symbol_string_expression
   //                   | SYMBOL_LITERAL
-  //                   | REGEX_LITERAL
+  //                   | regex_expression
   //                   | COMMAND_LITERAL
   //                   | NIL
   //                   | TRUE
@@ -3275,7 +3275,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = string_expression(builder_, level_ + 1);
     if (!result_) result_ = symbol_string_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
-    if (!result_) result_ = consumeToken(builder_, REGEX_LITERAL);
+    if (!result_) result_ = regex_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, COMMAND_LITERAL);
     if (!result_) result_ = consumeToken(builder_, NIL);
     if (!result_) result_ = consumeToken(builder_, TRUE);
@@ -5379,6 +5379,18 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "range_expression_1_0_2")) return false;
     or_bitwise_expression(builder_, level_ + 1);
     return true;
+  }
+
+  /* ********************************************************** */
+  // REGEX_LITERAL
+  public static boolean regex_expression(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "regex_expression")) return false;
+    if (!nextTokenIs(builder_, REGEX_LITERAL)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, REGEX_LITERAL);
+    exit_section_(builder_, marker_, REGEX_EXPRESSION, result_);
+    return result_;
   }
 
   /* ********************************************************** */

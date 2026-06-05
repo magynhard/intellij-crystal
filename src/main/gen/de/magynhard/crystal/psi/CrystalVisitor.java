@@ -295,6 +295,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitRegexExpression(@NotNull CrystalRegexExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitRequireStatement(@NotNull CrystalRequireStatement o) {
     visitPsiElement(o);
   }
