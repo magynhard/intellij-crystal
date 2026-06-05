@@ -149,4 +149,42 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val textBeforeCaret = text.substring(lineStart, offset)
         assertEquals("Cursor should have no indent after normal line", "", textBeforeCaret)
     }
+
+    fun testArrayNewlineIndent() {
+        myFixture.configureByText("test.cr", "a = [1, <caret>]")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should be indented 2 spaces inside array", "  ", textBeforeCaret)
+    }
+
+    fun testArrayClosingBracketAlignsWithOpener() {
+        myFixture.configureByText("test.cr", "a = [<caret>]\n")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        // The ] should be on its own line at indent 0 (aligned with 'a')
+        assertTrue("] should be on its own line", text.contains("a = [\n  \n]"))
+    }
+
+    fun testHashNewlineIndent() {
+        myFixture.configureByText("test.cr", "h = {a: 1, <caret>}")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should be indented 2 spaces inside hash", "  ", textBeforeCaret)
+    }
+
+    fun testNestedArrayNewlineIndent() {
+        myFixture.configureByText("test.cr", "  x = [1, <caret>]")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Cursor should be indented 4 spaces (2 base + 2 inside array)", "    ", textBeforeCaret)
+    }
 }

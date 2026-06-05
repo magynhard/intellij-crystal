@@ -114,14 +114,15 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
                 val nextTrimmed = nextLineText.trimStart()
                 if (nextTrimmed.startsWith("}") || nextTrimmed.startsWith("]")) {
                     // We're between matching braces — indent cursor and move close brace down
-                    val baseIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
+                    // Use opener line's indent (not the [ line) so ] aligns with a = [...]
+                    val baseIndent = findOpeningBracketIndent(document, prevLineNumber) ?: prevLineText.takeWhile { it == ' ' || it == '\t' }
                     val newIndent = "$baseIndent  "
                     val currentLineStart = document.getLineStartOffset(caretLine)
                     val currentLineEnd = document.getLineEndOffset(caretLine)
 
                     // Replace current line (which has the closing brace) with:
                     // - indented cursor line
-                    // - closing brace on its own line with base indent
+                    // - closing brace on its own line with opener indent
                     document.replaceString(currentLineStart, currentLineEnd, "$newIndent\n$baseIndent${nextTrimmed}")
                     editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
                     return EnterHandlerDelegate.Result.Stop
@@ -132,6 +133,19 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             // Just indent the cursor one level deeper
             val baseIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
             val newIndent = "$baseIndent  "
+            val currentLineStart = document.getLineStartOffset(caretLine)
+            val currentLineEnd = document.getLineEndOffset(caretLine)
+            val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
+            val currentLineContent = currentLineText.trimStart()
+            document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
+            editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
+            return EnterHandlerDelegate.Result.Stop
+        }
+
+        // Handle continuation inside collections (lines ending with ,)
+        if (trimmed.endsWith(",") && isInsideUnclosedBracket(document, prevLineNumber)) {
+            val openerIndent = findOpeningBracketIndent(document, prevLineNumber) ?: ""
+            val newIndent = "$openerIndent  "
             val currentLineStart = document.getLineStartOffset(caretLine)
             val currentLineEnd = document.getLineEndOffset(caretLine)
             val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
@@ -244,6 +258,56 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
                 }
                 if (firstWord in blockOpeners || endsWithBlockOpener(trimmed.trimEnd())) {
                     return text.substring(0, text.length - text.trimStart().length)
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Check if the caret is inside an unclosed `[` or `{` by scanning backwards.
+     */
+    private fun isInsideUnclosedBracket(document: com.intellij.openapi.editor.Document, currentLine: Int): Boolean {
+        var closeSquareCount = 0
+        var closeCurlyCount = 0
+        for (line in currentLine downTo 0) {
+            val lineStart = document.getLineStartOffset(line)
+            val lineEnd = document.getLineEndOffset(line)
+            val text = document.getText(TextRange(lineStart, lineEnd))
+            val trimmed = text.trimEnd()
+
+            for (i in (trimmed.length - 1) downTo 0) {
+                val c = trimmed[i]
+                when (c) {
+                    ']' -> closeSquareCount++
+                    '[' -> if (closeSquareCount > 0) closeSquareCount-- else return true
+                    '}' -> closeCurlyCount++
+                    '{' -> if (closeCurlyCount > 0) closeCurlyCount-- else return true
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * Scan backwards to find the unclosed `[` or `{` and return its line's indentation.
+     */
+    private fun findOpeningBracketIndent(document: com.intellij.openapi.editor.Document, currentLine: Int): String? {
+        var closeSquareCount = 0
+        var closeCurlyCount = 0
+        for (line in currentLine downTo 0) {
+            val lineStart = document.getLineStartOffset(line)
+            val lineEnd = document.getLineEndOffset(line)
+            val text = document.getText(TextRange(lineStart, lineEnd))
+            val trimmed = text.trimEnd()
+
+            for (i in (trimmed.length - 1) downTo 0) {
+                val c = trimmed[i]
+                when (c) {
+                    ']' -> closeSquareCount++
+                    '[' -> if (closeSquareCount > 0) closeSquareCount-- else return text.takeWhile { it == ' ' || it == '\t' }
+                    '}' -> closeCurlyCount++
+                    '{' -> if (closeCurlyCount > 0) closeCurlyCount-- else return text.takeWhile { it == ' ' || it == '\t' }
                 }
             }
         }
