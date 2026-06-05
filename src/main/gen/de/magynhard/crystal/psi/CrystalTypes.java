@@ -239,6 +239,7 @@ public interface CrystalTypes {
   IElementType SPACESHIP = new CrystalTokenType("SPACESHIP");
   IElementType STAR = new CrystalTokenType("STAR");
   IElementType STAR_ASSIGN = new CrystalTokenType("STAR_ASSIGN");
+  IElementType STRING_ESCAPE = new CrystalTokenType("STRING_ESCAPE");
   IElementType STRING_INTERPOLATION_BEGIN = new CrystalTokenType("STRING_INTERPOLATION_BEGIN");
   IElementType STRING_INTERPOLATION_END = new CrystalTokenType("STRING_INTERPOLATION_END");
   IElementType STRING_LITERAL = new CrystalTokenType("STRING_LITERAL");

@@ -368,7 +368,12 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 <STRING> {
   \"                   { popState(); return CrystalTypes.STRING_LITERAL; }
   "#{"                 { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
-  "\\" .               { return CrystalTypes.STRING_LITERAL; }
+  "\\" [abefnrtv\\\"\\'0]  { return CrystalTypes.STRING_ESCAPE; }
+  "\\" "u" "{" {HEX_DIGIT}+ "}"  { return CrystalTypes.STRING_ESCAPE; }
+  "\\" "u" {HEX_DIGIT}{4}        { return CrystalTypes.STRING_ESCAPE; }
+  "\\" "x" {HEX_DIGIT}{1,2}      { return CrystalTypes.STRING_ESCAPE; }
+  "\\" {OCT_DIGIT}{1,3}          { return CrystalTypes.STRING_ESCAPE; }
+  "\\" .               { return CrystalTypes.STRING_ESCAPE; }
   [^\"\#\\]+           { return CrystalTypes.STRING_LITERAL; }
   "#"                  { return CrystalTypes.STRING_LITERAL; }
 }
@@ -442,7 +447,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          }
                          return percentTokenType;
                        }
-  "\\" .               { return percentTokenType; }
+  "\\" .               { if (percentTokenType == CrystalTypes.STRING_LITERAL || percentTokenType == CrystalTypes.COMMAND_LITERAL) { return CrystalTypes.STRING_ESCAPE; } return percentTokenType; }
   {NEWLINE}            { return percentTokenType; }
 }
 
@@ -470,9 +475,16 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          }
                          return CrystalTypes.HEREDOC_CONTENT;
                        }
-  [^\r\n\#]+           { return CrystalTypes.HEREDOC_CONTENT; }
+  [^\r\n\#\\]+         { return CrystalTypes.HEREDOC_CONTENT; }
+  "\\" [abefnrtv\\\"\\'0]  { if (!heredocRaw) { return CrystalTypes.STRING_ESCAPE; } return CrystalTypes.HEREDOC_CONTENT; }
+  "\\" "u" "{" {HEX_DIGIT}+ "}"  { if (!heredocRaw) { return CrystalTypes.STRING_ESCAPE; } return CrystalTypes.HEREDOC_CONTENT; }
+  "\\" "u" {HEX_DIGIT}{4}        { if (!heredocRaw) { return CrystalTypes.STRING_ESCAPE; } return CrystalTypes.HEREDOC_CONTENT; }
+  "\\" "x" {HEX_DIGIT}{1,2}      { if (!heredocRaw) { return CrystalTypes.STRING_ESCAPE; } return CrystalTypes.HEREDOC_CONTENT; }
+  "\\" {OCT_DIGIT}{1,3}          { if (!heredocRaw) { return CrystalTypes.STRING_ESCAPE; } return CrystalTypes.HEREDOC_CONTENT; }
+  "\\" .               { if (!heredocRaw) { return CrystalTypes.STRING_ESCAPE; } return CrystalTypes.HEREDOC_CONTENT; }
   "#{"                 { if (!heredocRaw) { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT; }
   "#"                  { return CrystalTypes.HEREDOC_CONTENT; }
+  "\\"                 { return CrystalTypes.HEREDOC_CONTENT; }
   {NEWLINE}            { return CrystalTypes.HEREDOC_CONTENT; }
 }
 

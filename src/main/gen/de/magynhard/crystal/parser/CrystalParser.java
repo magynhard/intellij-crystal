@@ -413,7 +413,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // string_expression (NLS COMMA NLS string_expression)*
   static boolean asm_clobber_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "asm_clobber_list")) return false;
-    if (!nextTokenIs(builder_, "", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = string_expression(builder_, level_ + 1);
@@ -476,7 +475,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // string_expression LPAREN expression RPAREN
   public static boolean asm_operand(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "asm_operand")) return false;
-    if (!nextTokenIs(builder_, "<asm operand>", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, ASM_OPERAND, "<asm operand>");
     result_ = string_expression(builder_, level_ + 1);
@@ -491,7 +489,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // asm_operand (NLS COMMA NLS asm_operand)*
   static boolean asm_operand_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "asm_operand_list")) return false;
-    if (!nextTokenIs(builder_, "", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = asm_operand(builder_, level_ + 1);
@@ -528,7 +525,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // string_expression (NLS COMMA NLS string_expression)*
   static boolean asm_option_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "asm_option_list")) return false;
-    if (!nextTokenIs(builder_, "", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = string_expression(builder_, level_ + 1);
@@ -2769,7 +2765,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // HEREDOC_START (HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END
+  // HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END
   public static boolean heredoc_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "heredoc_literal")) return false;
     if (!nextTokenIs(builder_, HEREDOC_START)) return false;
@@ -2782,7 +2778,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)*
+  // (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)*
   private static boolean heredoc_literal_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "heredoc_literal_1")) return false;
     while (true) {
@@ -2793,20 +2789,21 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // HEREDOC_CONTENT | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  // HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
   private static boolean heredoc_literal_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "heredoc_literal_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, HEREDOC_CONTENT);
-    if (!result_) result_ = heredoc_literal_1_0_1(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
+    if (!result_) result_ = heredoc_literal_1_0_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
-  private static boolean heredoc_literal_1_0_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "heredoc_literal_1_0_1")) return false;
+  private static boolean heredoc_literal_1_0_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "heredoc_literal_1_0_2")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);
@@ -3288,7 +3285,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
-  //     | INTEGER_LITERAL | STRING_LITERAL | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
+  //     | INTEGER_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
   //     | TRUE | FALSE | NIL
   //     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD | VERBATIM
   //     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
@@ -3305,6 +3302,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, CLASS_VAR);
     if (!result_) result_ = consumeToken(builder_, INTEGER_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     if (!result_) result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);
     if (!result_) result_ = consumeToken(builder_, STRING_INTERPOLATION_END);
     if (!result_) result_ = consumeToken(builder_, TRUE);
@@ -5573,10 +5571,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (STRING_LITERAL | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
+  // (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
   public static boolean string_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "string_expression")) return false;
-    if (!nextTokenIs(builder_, "<string expression>", STRING_INTERPOLATION_BEGIN, STRING_LITERAL)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, STRING_EXPRESSION, "<string expression>");
     result_ = string_expression_0(builder_, level_ + 1);
@@ -5589,20 +5586,21 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // STRING_LITERAL | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  // STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
   private static boolean string_expression_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "string_expression_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, STRING_LITERAL);
-    if (!result_) result_ = string_expression_0_1(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
+    if (!result_) result_ = string_expression_0_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
-  private static boolean string_expression_0_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "string_expression_0_1")) return false;
+  private static boolean string_expression_0_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_expression_0_2")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);

@@ -39,6 +39,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         val PARAMETER = createTextAttributesKey("CRYSTAL_PARAMETER", DefaultLanguageHighlighterColors.IDENTIFIER)
         val BAD_CHARACTER = createTextAttributesKey("CRYSTAL_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER)
         val MACRO_FRESH_VAR = createTextAttributesKey("CRYSTAL_MACRO_FRESH_VAR", DefaultLanguageHighlighterColors.LOCAL_VARIABLE)
+        val STRING_ESCAPE = createTextAttributesKey("CRYSTAL_STRING_ESCAPE", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
 
         private val KEYWORD_KEYS = arrayOf(KEYWORD)
         private val NUMBER_KEYS = arrayOf(NUMBER)
@@ -60,6 +61,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         private val CHAR_KEYS = arrayOf(CHAR)
         private val REGEX_KEYS = arrayOf(REGEX)
         private val INTERPOLATION_KEYS = arrayOf(INTERPOLATION)
+        private val STRING_ESCAPE_KEYS = arrayOf(STRING_ESCAPE)
         private val BAD_CHARACTER_KEYS = arrayOf(BAD_CHARACTER)
         private val EMPTY_KEYS = emptyArray<TextAttributesKey>()
     }
@@ -72,6 +74,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
             CrystalTokenTypes.KEYWORDS.contains(tokenType) -> KEYWORD_KEYS
             CrystalTokenTypes.NUMBERS.contains(tokenType) -> NUMBER_KEYS
             tokenType == CrystalTypes.STRING_LITERAL -> STRING_KEYS
+            tokenType == CrystalTypes.STRING_ESCAPE -> STRING_ESCAPE_KEYS
             tokenType == CrystalTypes.CHAR_LITERAL -> CHAR_KEYS
             tokenType == CrystalTypes.COMMAND_LITERAL -> STRING_KEYS
             tokenType == CrystalTypes.HEREDOC_CONTENT || tokenType == CrystalTypes.HEREDOC_START || tokenType == CrystalTypes.HEREDOC_END -> STRING_KEYS
