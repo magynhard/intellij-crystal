@@ -5,3 +5,4 @@ build/
 .kotlin/
 *~
 /playground.rb
+/playground.cr
