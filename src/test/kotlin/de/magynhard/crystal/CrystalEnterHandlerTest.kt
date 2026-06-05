@@ -190,4 +190,20 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         // '  x = [1' — first element '1' is at column 7
         assertEquals("Cursor should align with first element of nested array", "       ", textBeforeCaret)
     }
+
+    fun testClosingBracketAlignsAfterMultiLineContent() {
+        // Scenario: a = [1,\n     2,3<caret>]
+        // After Enter after 3, ] should align with 'a' (indent 0), not with '2' (indent 5)
+        myFixture.configureByText("test.cr", "a = [1,\n     2,3<caret>]")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        assertTrue("] should be on its own line aligned with 'a'", text.contains("2,3\n]"))
+    }
+
+    fun testClosingBracketAlignsWithVariableInHash() {
+        myFixture.configureByText("test.cr", "h = {a: 1,\n     b: 2<caret>}")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        assertTrue("} should be on its own line aligned with 'h'", text.contains("b: 2\n}"))
+    }
 }

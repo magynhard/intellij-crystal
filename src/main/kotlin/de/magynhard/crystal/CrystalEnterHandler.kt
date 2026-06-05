@@ -154,6 +154,20 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             return EnterHandlerDelegate.Result.Stop
         }
 
+        // Handle closing bracket/brace on its own line inside a collection
+        // e.g. pressing Enter after 3 in: a = [1,\n     2,3<caret>]
+        // The ] should align with the opener (variable name), not the previous element
+        val caretLineText = document.getText(TextRange(document.getLineStartOffset(caretLine), document.getLineEndOffset(caretLine)))
+        val caretLineTrimmed = caretLineText.trimStart()
+        if ((caretLineTrimmed.startsWith("]") || caretLineTrimmed.startsWith("}")) && isInsideUnclosedBracket(document, prevLineNumber)) {
+            val baseIndent = findOpeningBracketIndent(document, prevLineNumber) ?: ""
+            val currentLineStart = document.getLineStartOffset(caretLine)
+            val currentLineEnd = document.getLineEndOffset(caretLine)
+            document.replaceString(currentLineStart, currentLineEnd, "$baseIndent$caretLineTrimmed")
+            editor.caretModel.moveToOffset(currentLineStart + baseIndent.length)
+            return EnterHandlerDelegate.Result.Stop
+        }
+
         if (!endsWithBlockOpener(trimmed)) return EnterHandlerDelegate.Result.Continue
 
         // Add indentation to the current (new) line
