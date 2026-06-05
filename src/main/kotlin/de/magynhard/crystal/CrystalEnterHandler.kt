@@ -217,6 +217,13 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             return true
         }
 
+        // "var = if expr", "result = case x", "var = begin"
+        // Assignment to a block keyword — NOT suffix-if (which has no = before the keyword)
+        val assignKwPattern = Regex("""=\s+(if|unless|while|until|case|begin)\b""")
+        if (assignKwPattern.containsMatchIn(trimmed)) {
+            return true
+        }
+
         return false
     }
 

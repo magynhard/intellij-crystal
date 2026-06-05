@@ -206,4 +206,34 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val text = myFixture.editor.document.text
         assertTrue("} should be on its own line aligned with 'h'", text.contains("b: 2\n}"))
     }
+
+    fun testEndInsertedAfterVariableAssignedIf() {
+        myFixture.configureByText("test.cr", "b = if 1 == 2<caret>")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        assertTrue("Should contain 'end' after 'b = if'", text.contains("end"))
+        assertTrue("end should be at indent 0 (aligned with 'b')", text.contains("\nend"))
+    }
+
+    fun testIndentAfterVariableAssignedIf() {
+        // Analogous to standalone 'if 1 == 2': body at +2 from line start, end at line start
+        myFixture.configureByText("test.cr", "b = if 1 == 2<caret>")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Body should be indented 2 spaces from line start", "  ", textBeforeCaret)
+    }
+
+    fun testElseAlignmentWithVariableAssignedIf() {
+        // else should align with the if keyword (same indent as the line with 'b = if')
+        myFixture.configureByText("test.cr", "b = if 1 == 2\n  x\nelse<caret>")
+        myFixture.type("\n")
+        val offset = myFixture.editor.caretModel.offset
+        val text = myFixture.editor.document.text
+        val lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        val textBeforeCaret = text.substring(lineStart, offset)
+        assertEquals("Body after else should be indented 2 spaces", "  ", textBeforeCaret)
+    }
 }
