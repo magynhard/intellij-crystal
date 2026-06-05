@@ -192,8 +192,8 @@ class CrystalLexerTest {
 
         // %i[...]
         val tokens2 = nonWhitespaceTokens("%i[one two]")
-        assertEquals(CrystalTypes.PERCENT_LITERAL_BEGIN, tokens2[0].first)
-        assertEquals(CrystalTypes.PERCENT_LITERAL_END, tokens2.last().first)
+        assertEquals(CrystalTypes.PERCENT_SYMBOL_BEGIN, tokens2[0].first)
+        assertEquals(CrystalTypes.PERCENT_SYMBOL_END, tokens2.last().first)
 
         // %(...)
         val tokens3 = nonWhitespaceTokens("%(hello world)")

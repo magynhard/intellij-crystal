@@ -173,6 +173,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalSymbolStringExpression> getSymbolStringExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalSymbolStringExpression.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalTupleLiteral> getTupleLiteralList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTupleLiteral.class);
   }

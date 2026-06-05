@@ -23,7 +23,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         val INSTANCE_VAR = createTextAttributesKey("CRYSTAL_INSTANCE_VAR", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
         val CLASS_VAR = createTextAttributesKey("CRYSTAL_CLASS_VAR", DefaultLanguageHighlighterColors.STATIC_FIELD)
         val GLOBAL_VAR = createTextAttributesKey("CRYSTAL_GLOBAL_VAR", DefaultLanguageHighlighterColors.GLOBAL_VARIABLE)
-        val SYMBOL = createTextAttributesKey("CRYSTAL_SYMBOL", DefaultLanguageHighlighterColors.METADATA)
+        val SYMBOL = createTextAttributesKey("CRYSTAL_SYMBOL", DefaultLanguageHighlighterColors.NUMBER)
         val OPERATOR = createTextAttributesKey("CRYSTAL_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN)
         val COMMA = createTextAttributesKey("CRYSTAL_COMMA", DefaultLanguageHighlighterColors.COMMA)
         val SEMICOLON = createTextAttributesKey("CRYSTAL_SEMICOLON", DefaultLanguageHighlighterColors.SEMICOLON)
@@ -79,8 +79,10 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
             tokenType == CrystalTypes.COMMAND_LITERAL -> STRING_KEYS
             tokenType == CrystalTypes.HEREDOC_CONTENT || tokenType == CrystalTypes.HEREDOC_START || tokenType == CrystalTypes.HEREDOC_END -> STRING_KEYS
             tokenType == CrystalTypes.PERCENT_LITERAL_BEGIN || tokenType == CrystalTypes.PERCENT_LITERAL_END -> STRING_KEYS
+            tokenType == CrystalTypes.PERCENT_SYMBOL_BEGIN || tokenType == CrystalTypes.PERCENT_SYMBOL_END -> SYMBOL_KEYS
             tokenType == CrystalTypes.REGEX_LITERAL -> REGEX_KEYS
             tokenType == CrystalTypes.SYMBOL_LITERAL -> SYMBOL_KEYS
+            tokenType == CrystalTypes.SYMBOL_COLON -> SYMBOL_KEYS
             tokenType == CrystalTypes.STRING_INTERPOLATION_BEGIN || tokenType == CrystalTypes.STRING_INTERPOLATION_END -> INTERPOLATION_KEYS
             tokenType == CrystalTypes.MACRO_INTERPOLATION_BEGIN || tokenType == CrystalTypes.MACRO_INTERPOLATION_END -> INTERPOLATION_KEYS
             tokenType == CrystalTypes.MACRO_CONTROL_BEGIN || tokenType == CrystalTypes.MACRO_CONTROL_END -> INTERPOLATION_KEYS

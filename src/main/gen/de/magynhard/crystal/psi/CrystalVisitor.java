@@ -335,6 +335,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitSymbolStringExpression(@NotNull CrystalSymbolStringExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitTopLevelFun(@NotNull CrystalTopLevelFun o) {
     visitPsiElement(o);
   }

@@ -80,6 +80,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalStringExpression> getStringExpressionList();
 
   @NotNull
+  List<CrystalSymbolStringExpression> getSymbolStringExpressionList();
+
+  @NotNull
   List<CrystalTupleLiteral> getTupleLiteralList();
 
   @NotNull

@@ -137,6 +137,12 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
 
   @Override
   @NotNull
+  public List<CrystalSymbolStringExpression> getSymbolStringExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalSymbolStringExpression.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalTupleLiteral> getTupleLiteralList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTupleLiteral.class);
   }

@@ -83,6 +83,12 @@ class CrystalAnnotator : Annotator {
             return
         }
 
+        // Hash key in shorthand syntax (name: value) or named argument (key: value) → Symbol color (like Ruby)
+        if (isHashShorthandKey(element) || isNamedArgumentKey(element)) {
+            apply(holder, element, CrystalSyntaxHighlighter.SYMBOL)
+            return
+        }
+
         // Parameter usage inside method/macro body
         if (isParameterUsage(element)) {
             apply(holder, element, CrystalSyntaxHighlighter.PARAMETER)
@@ -91,6 +97,42 @@ class CrystalAnnotator : Annotator {
 
         // Default: normal identifier
         apply(holder, element, CrystalSyntaxHighlighter.IDENTIFIER)
+    }
+
+    /**
+     * Check if an IDENTIFIER token is a hash key in shorthand syntax (name: value).
+     * In this form, the key acts like a symbol and should be colored accordingly.
+     */
+    private fun isHashShorthandKey(element: PsiElement): Boolean {
+        // Structure: IDENTIFIER → CrystalVariableReference → CrystalExpression → CrystalHashEntry
+        val varRef = element.parent ?: return false
+        if (varRef !is CrystalVariableReference) return false
+        val expr = varRef.parent ?: return false
+        if (expr !is CrystalExpression) return false
+        val hashEntry = expr.parent ?: return false
+        if (hashEntry !is CrystalHashEntry) return false
+
+        // Must be the first expression (the key, not the value)
+        val expressions = hashEntry.expressionList
+        if (expressions.isEmpty() || expressions[0] != expr) return false
+
+        // Must use COLON separator (shorthand), not DOUBLE_ARROW (rocket =>)
+        val colonNode = hashEntry.node.findChildByType(CrystalTypes.COLON)
+        return colonNode != null
+    }
+
+    /**
+     * Check if an IDENTIFIER token is a named argument key (key: value).
+     * Named arguments act like symbols and should be colored accordingly.
+     */
+    private fun isNamedArgumentKey(element: PsiElement): Boolean {
+        val parent = element.parent ?: return false
+        // In argument or bare_argument, the IDENTIFIER is a direct child followed by COLON
+        if (parent !is CrystalArgument && parent !is CrystalBareArgument) return false
+
+        // Check that this IDENTIFIER is followed by a COLON sibling
+        val nextSibling = element.nextSibling ?: return false
+        return nextSibling.node.elementType == CrystalTypes.COLON
     }
 
     /**

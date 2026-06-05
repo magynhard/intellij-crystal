@@ -93,6 +93,9 @@
     STRING_ESCAPE="STRING_ESCAPE"
     PERCENT_LITERAL_BEGIN="PERCENT_LITERAL_BEGIN"
     PERCENT_LITERAL_END="PERCENT_LITERAL_END"
+    PERCENT_SYMBOL_BEGIN="PERCENT_SYMBOL_BEGIN"
+    PERCENT_SYMBOL_END="PERCENT_SYMBOL_END"
+    SYMBOL_COLON="SYMBOL_COLON"
 
     // Macro body tokens
     MACRO_BODY_CONTENT="MACRO_BODY_CONTENT"
@@ -680,6 +683,7 @@ private literal ::= INTEGER_LITERAL
                   | FLOAT_LITERAL
                   | CHAR_LITERAL
                   | string_expression
+                  | symbol_string_expression
                   | SYMBOL_LITERAL
                   | REGEX_LITERAL
                   | COMMAND_LITERAL
@@ -697,7 +701,11 @@ string_expression ::= (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEG
 heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END
 
 percent_literal ::= PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
-private percent_literal_content ::= STRING_LITERAL | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
+                  | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
+private percent_literal_content ::= STRING_LITERAL | STRING_ESCAPE | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
+private percent_symbol_content ::= SYMBOL_LITERAL | NEWLINE
+
+symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
 
 array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference]
 

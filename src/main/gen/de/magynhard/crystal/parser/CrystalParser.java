@@ -3195,6 +3195,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                   | FLOAT_LITERAL
   //                   | CHAR_LITERAL
   //                   | string_expression
+  //                   | symbol_string_expression
   //                   | SYMBOL_LITERAL
   //                   | REGEX_LITERAL
   //                   | COMMAND_LITERAL
@@ -3213,6 +3214,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, FLOAT_LITERAL);
     if (!result_) result_ = consumeToken(builder_, CHAR_LITERAL);
     if (!result_) result_ = string_expression(builder_, level_ + 1);
+    if (!result_) result_ = symbol_string_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
     if (!result_) result_ = consumeToken(builder_, REGEX_LITERAL);
     if (!result_) result_ = consumeToken(builder_, COMMAND_LITERAL);
@@ -4686,38 +4688,85 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
+  //                   | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
   public static boolean percent_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_literal")) return false;
-    if (!nextTokenIs(builder_, PERCENT_LITERAL_BEGIN)) return false;
+    if (!nextTokenIs(builder_, "<percent literal>", PERCENT_LITERAL_BEGIN, PERCENT_SYMBOL_BEGIN)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, PERCENT_LITERAL, "<percent literal>");
+    result_ = percent_literal_0(builder_, level_ + 1);
+    if (!result_) result_ = percent_literal_1(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
+  private static boolean percent_literal_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, PERCENT_LITERAL_BEGIN);
-    result_ = result_ && percent_literal_1(builder_, level_ + 1);
+    result_ = result_ && percent_literal_0_1(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, PERCENT_LITERAL_END);
-    exit_section_(builder_, marker_, PERCENT_LITERAL, result_);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // percent_literal_content*
-  private static boolean percent_literal_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "percent_literal_1")) return false;
+  private static boolean percent_literal_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_0_1")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
       if (!percent_literal_content(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "percent_literal_1", pos_)) break;
+      if (!empty_element_parsed_guard_(builder_, "percent_literal_0_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
+  private static boolean percent_literal_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, PERCENT_SYMBOL_BEGIN);
+    result_ = result_ && percent_literal_1_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, PERCENT_SYMBOL_END);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // percent_symbol_content*
+  private static boolean percent_literal_1_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_1_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!percent_symbol_content(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "percent_literal_1_1", pos_)) break;
     }
     return true;
   }
 
   /* ********************************************************** */
-  // STRING_LITERAL | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
+  // STRING_LITERAL | STRING_ESCAPE | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
   static boolean percent_literal_content(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_literal_content")) return false;
     boolean result_;
     result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
     if (!result_) result_ = consumeToken(builder_, REGEX_LITERAL);
     if (!result_) result_ = consumeToken(builder_, COMMAND_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, NEWLINE);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // SYMBOL_LITERAL | NEWLINE
+  static boolean percent_symbol_content(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_symbol_content")) return false;
+    if (!nextTokenIs(builder_, "", NEWLINE, SYMBOL_LITERAL)) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, SYMBOL_LITERAL);
     if (!result_) result_ = consumeToken(builder_, NEWLINE);
     return result_;
   }
@@ -5660,6 +5709,58 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, LT);
     result_ = result_ && type_reference(builder_, level_ + 1);
     exit_section_(builder_, marker_, SUPERCLASS_CLAUSE, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
+  public static boolean symbol_string_expression(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression")) return false;
+    if (!nextTokenIs(builder_, SYMBOL_COLON)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, SYMBOL_COLON);
+    result_ = result_ && symbol_string_expression_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, SYMBOL_STRING_EXPRESSION, result_);
+    return result_;
+  }
+
+  // (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
+  private static boolean symbol_string_expression_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = symbol_string_expression_1_0(builder_, level_ + 1);
+    while (result_) {
+      int pos_ = current_position_(builder_);
+      if (!symbol_string_expression_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "symbol_string_expression_1", pos_)) break;
+    }
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  private static boolean symbol_string_expression_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
+    if (!result_) result_ = symbol_string_expression_1_0_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  private static boolean symbol_string_expression_1_0_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_1_0_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, STRING_INTERPOLATION_END);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 

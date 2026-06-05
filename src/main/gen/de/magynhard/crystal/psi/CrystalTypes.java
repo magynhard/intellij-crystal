@@ -92,6 +92,7 @@ public interface CrystalTypes {
   IElementType STRING_EXPRESSION = new CrystalElementType("STRING_EXPRESSION");
   IElementType STRUCT_DEFINITION = CrystalStubElementTypeFactory.create("STRUCT_DEFINITION");
   IElementType SUPERCLASS_CLAUSE = new CrystalElementType("SUPERCLASS_CLAUSE");
+  IElementType SYMBOL_STRING_EXPRESSION = new CrystalElementType("SYMBOL_STRING_EXPRESSION");
   IElementType TOP_LEVEL_FUN = new CrystalElementType("TOP_LEVEL_FUN");
   IElementType TUPLE_LITERAL = new CrystalElementType("TUPLE_LITERAL");
   IElementType TYPEOF_EXPRESSION = new CrystalElementType("TYPEOF_EXPRESSION");
@@ -211,6 +212,8 @@ public interface CrystalTypes {
   IElementType PERCENT_ASSIGN = new CrystalTokenType("PERCENT_ASSIGN");
   IElementType PERCENT_LITERAL_BEGIN = new CrystalTokenType("PERCENT_LITERAL_BEGIN");
   IElementType PERCENT_LITERAL_END = new CrystalTokenType("PERCENT_LITERAL_END");
+  IElementType PERCENT_SYMBOL_BEGIN = new CrystalTokenType("PERCENT_SYMBOL_BEGIN");
+  IElementType PERCENT_SYMBOL_END = new CrystalTokenType("PERCENT_SYMBOL_END");
   IElementType PIPE = new CrystalTokenType("PIPE");
   IElementType PIPE_ASSIGN = new CrystalTokenType("PIPE_ASSIGN");
   IElementType PLUS = new CrystalTokenType("PLUS");
@@ -245,6 +248,7 @@ public interface CrystalTypes {
   IElementType STRING_LITERAL = new CrystalTokenType("STRING_LITERAL");
   IElementType STRUCT = new CrystalTokenType("STRUCT");
   IElementType SUPER = new CrystalTokenType("SUPER");
+  IElementType SYMBOL_COLON = new CrystalTokenType("SYMBOL_COLON");
   IElementType SYMBOL_LITERAL = new CrystalTokenType("SYMBOL_LITERAL");
   IElementType THEN = new CrystalTokenType("THEN");
   IElementType TILDE = new CrystalTokenType("TILDE");
@@ -517,6 +521,9 @@ public interface CrystalTypes {
       }
       else if (type == SUPERCLASS_CLAUSE) {
         return new CrystalSuperclassClauseImpl(node);
+      }
+      else if (type == SYMBOL_STRING_EXPRESSION) {
+        return new CrystalSymbolStringExpressionImpl(node);
       }
       else if (type == TOP_LEVEL_FUN) {
         return new CrystalTopLevelFunImpl(node);

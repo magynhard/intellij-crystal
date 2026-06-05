@@ -105,8 +105,8 @@ GLOBAL_VAR = "$" ({IDENTIFIER} | {DIGIT}+ | "~" | "?")
 CHAR_ESCAPE = "\\" ( [abefnrtv\\'0] | "u" "{" {HEX_DIGIT}+ "}" | "u" {HEX_DIGIT}{4} | {OCT_DIGIT}{1,3} )
 CHAR_LITERAL = "'" ( [^'\\] | {CHAR_ESCAPE} ) "'"
 
-// Symbol
-SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
+// Symbol (simple forms only — :"string" handled separately for interpolation support)
+SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 
 %state STRING INTERPOLATION PERCENT_LITERAL HEREDOC_BODY HEREDOC_START_LINE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
 
@@ -184,6 +184,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 
   // Literals
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
+  ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
 
   // Numbers (float before int since float is more specific with dot)
@@ -221,14 +222,14 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%i" [\(\[\{<|]     {
-                         char c = yycharat(yylength() - 1);
-                         percentOpenChar = c;
-                         percentCloseChar = closingChar(c);
-                         percentDepth = 1;
-                         percentTokenType = CrystalTypes.SYMBOL_LITERAL;
-                         yybegin(PERCENT_LITERAL);
-                         return CrystalTypes.PERCENT_LITERAL_BEGIN;
-                       }
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.SYMBOL_LITERAL;
+                          yybegin(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_SYMBOL_BEGIN;
+                        }
   "%q" [\(\[\{<|]     {
                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
@@ -392,6 +393,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {NEWLINE}            { return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
+  ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
@@ -433,20 +435,23 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} | "\"" [^\"]* "\"" )
 <PERCENT_LITERAL> {
   // Handle nested opening delimiters (except | which doesn't nest)
   .                    {
-                         char c = yycharat(0);
-                         if (c == percentCloseChar) {
-                           percentDepth--;
-                           if (percentDepth == 0) {
-                             yybegin(YYINITIAL);
-                             return CrystalTypes.PERCENT_LITERAL_END;
-                           }
-                           return percentTokenType;
-                         } else if (c == percentOpenChar && percentOpenChar != '|') {
-                           percentDepth++;
-                           return percentTokenType;
-                         }
-                         return percentTokenType;
-                       }
+                          char c = yycharat(0);
+                          if (c == percentCloseChar) {
+                            percentDepth--;
+                            if (percentDepth == 0) {
+                              yybegin(YYINITIAL);
+                              if (percentTokenType == CrystalTypes.SYMBOL_LITERAL) {
+                                return CrystalTypes.PERCENT_SYMBOL_END;
+                              }
+                              return CrystalTypes.PERCENT_LITERAL_END;
+                            }
+                            return percentTokenType;
+                          } else if (c == percentOpenChar && percentOpenChar != '|') {
+                            percentDepth++;
+                            return percentTokenType;
+                          }
+                          return percentTokenType;
+                        }
   "\\" .               { if (percentTokenType == CrystalTypes.STRING_LITERAL || percentTokenType == CrystalTypes.COMMAND_LITERAL) { return CrystalTypes.STRING_ESCAPE; } return percentTokenType; }
   {NEWLINE}            { return percentTokenType; }
 }
