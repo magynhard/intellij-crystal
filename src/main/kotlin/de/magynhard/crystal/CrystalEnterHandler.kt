@@ -194,16 +194,19 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
         document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
         editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
 
-        // Check if 'end' already exists below the cursor (skip blank lines)
+        // Check if 'end' already exists below the cursor at the same indent level (skip blank lines)
         val updatedCaretLine = document.getLineNumber(editor.caretModel.offset)
         val totalLines = document.lineCount
         var hasEndBelow = false
         for (line in (updatedCaretLine + 1) until totalLines) {
             val lineStart = document.getLineStartOffset(line)
             val lineEnd = document.getLineEndOffset(line)
-            val lineText = document.getText(TextRange(lineStart, lineEnd)).trim()
-            if (lineText.isNotEmpty()) {
-                hasEndBelow = lineText.startsWith("end") && (lineText == "end" || !lineText[3].isLetterOrDigit())
+            val lineText = document.getText(TextRange(lineStart, lineEnd))
+            val trimmed = lineText.trim()
+            if (trimmed.isNotEmpty()) {
+                // Only match 'end' at the same indent level as the block keyword
+                val lineIndent = lineText.takeWhile { it == ' ' || it == '\t' }
+                hasEndBelow = trimmed == "end" && lineIndent == baseIndent
                 break
             }
         }

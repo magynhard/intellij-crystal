@@ -262,4 +262,14 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val endCount = Regex("\\bend\\b").findAll(text).count()
         assertEquals("Should have exactly one 'end' (already present below blanks)", 1, endCount)
     }
+
+    fun testEndInsertedWhenEndBelongsToOuterBlock() {
+        // The 'end' below belongs to 'def', not to 'if' — so a new 'end' for 'if' is needed
+        myFixture.configureByText("test.cr", "def sample\n  if true<caret>\nend")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val endCount = Regex("\\bend\\b").findAll(text).count()
+        assertEquals("Should have two 'end's (one for def, one for if)", 2, endCount)
+        assertTrue("if's end should be at indent 2", text.contains("  end"))
+    }
 }
