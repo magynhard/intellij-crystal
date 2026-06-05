@@ -19,7 +19,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         val STRING = createTextAttributesKey("CRYSTAL_STRING", DefaultLanguageHighlighterColors.STRING)
         val COMMENT = createTextAttributesKey("CRYSTAL_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT)
         val IDENTIFIER = createTextAttributesKey("CRYSTAL_IDENTIFIER", DefaultLanguageHighlighterColors.IDENTIFIER)
-        val CONSTANT = createTextAttributesKey("CRYSTAL_CONSTANT", DefaultLanguageHighlighterColors.CONSTANT)
+        val CONSTANT = createTextAttributesKey("CRYSTAL_CONSTANT", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION)
         val INSTANCE_VAR = createTextAttributesKey("CRYSTAL_INSTANCE_VAR", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
         val CLASS_VAR = createTextAttributesKey("CRYSTAL_CLASS_VAR", DefaultLanguageHighlighterColors.STATIC_FIELD)
         val GLOBAL_VAR = createTextAttributesKey("CRYSTAL_GLOBAL_VAR", DefaultLanguageHighlighterColors.GLOBAL_VARIABLE)
