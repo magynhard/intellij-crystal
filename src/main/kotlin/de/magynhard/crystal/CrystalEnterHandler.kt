@@ -144,14 +144,13 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
 
         // Handle continuation inside collections (lines ending with ,)
         if (trimmed.endsWith(",") && isInsideUnclosedBracket(document, prevLineNumber)) {
-            val openerIndent = findOpeningBracketIndent(document, prevLineNumber) ?: ""
-            val newIndent = "$openerIndent  "
+            val elemIndent = findFirstElementIndent(document, prevLineNumber) ?: ""
             val currentLineStart = document.getLineStartOffset(caretLine)
             val currentLineEnd = document.getLineEndOffset(caretLine)
             val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
             val currentLineContent = currentLineText.trimStart()
-            document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
-            editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
+            document.replaceString(currentLineStart, currentLineEnd, "$elemIndent$currentLineContent")
+            editor.caretModel.moveToOffset(currentLineStart + elemIndent.length)
             return EnterHandlerDelegate.Result.Stop
         }
 
@@ -308,6 +307,70 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
                     '[' -> if (closeSquareCount > 0) closeSquareCount-- else return text.takeWhile { it == ' ' || it == '\t' }
                     '}' -> closeCurlyCount++
                     '{' -> if (closeCurlyCount > 0) closeCurlyCount-- else return text.takeWhile { it == ' ' || it == '\t' }
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Find the unclosed `[` or `{` and return the indentation string that aligns
+     * with the first element after the bracket.
+     * For `a = [1, 2, 3]` returns "     " (5 spaces, column of `1`).
+     * For `a = [\n  1,` returns "  " (2 spaces, column of `1` on next line).
+     */
+    private fun findFirstElementIndent(document: com.intellij.openapi.editor.Document, currentLine: Int): String? {
+        var closeSquareCount = 0
+        var closeCurlyCount = 0
+        for (line in currentLine downTo 0) {
+            val lineStart = document.getLineStartOffset(line)
+            val lineEnd = document.getLineEndOffset(line)
+            val text = document.getText(TextRange(lineStart, lineEnd))
+            val trimmed = text.trimEnd()
+
+            for (i in (trimmed.length - 1) downTo 0) {
+                val c = trimmed[i]
+                when (c) {
+                    ']' -> closeSquareCount++
+                    '[' -> {
+                        if (closeSquareCount > 0) { closeSquareCount--; continue }
+                        // Found the unclosed bracket. Now scan forward for first element.
+                        val bracketOffset = lineStart + i
+                        // Check same line: content after [
+                        val restOfLine = trimmed.substring(i + 1).trimStart()
+                        if (restOfLine.isNotEmpty() && !restOfLine.startsWith("\n")) {
+                            // First element is on the same line as [
+                            val firstElemCol = i + 1 + (trimmed.substring(i + 1).length - trimmed.substring(i + 1).trimStart().length)
+                            return " ".repeat(firstElemCol)
+                        }
+                        // First element is on the next line — use that line's indentation
+                        if (line + 1 <= currentLine) {
+                            val nextLineStart = document.getLineStartOffset(line + 1)
+                            val nextLineEnd = document.getLineEndOffset(line + 1)
+                            val nextText = document.getText(TextRange(nextLineStart, nextLineEnd))
+                            val nextIndentLen = nextText.length - nextText.trimStart().length
+                            return nextText.substring(0, nextIndentLen)
+                        }
+                        // Fallback: opener + 2
+                        return text.takeWhile { it == ' ' || it == '\t' } + "  "
+                    }
+                    '}' -> closeCurlyCount++
+                    '{' -> {
+                        if (closeCurlyCount > 0) { closeCurlyCount--; continue }
+                        val restOfLine = trimmed.substring(i + 1).trimStart()
+                        if (restOfLine.isNotEmpty() && !restOfLine.startsWith("\n")) {
+                            val firstElemCol = i + 1 + (trimmed.substring(i + 1).length - trimmed.substring(i + 1).trimStart().length)
+                            return " ".repeat(firstElemCol)
+                        }
+                        if (line + 1 <= currentLine) {
+                            val nextLineStart = document.getLineStartOffset(line + 1)
+                            val nextLineEnd = document.getLineEndOffset(line + 1)
+                            val nextText = document.getText(TextRange(nextLineStart, nextLineEnd))
+                            val nextIndentLen = nextText.length - nextText.trimStart().length
+                            return nextText.substring(0, nextIndentLen)
+                        }
+                        return text.takeWhile { it == ' ' || it == '\t' } + "  "
+                    }
                 }
             }
         }

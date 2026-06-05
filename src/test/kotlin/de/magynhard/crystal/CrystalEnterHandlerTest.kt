@@ -157,7 +157,8 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val text = myFixture.editor.document.text
         val lineStart = text.lastIndexOf('\n', offset - 1) + 1
         val textBeforeCaret = text.substring(lineStart, offset)
-        assertEquals("Cursor should be indented 2 spaces inside array", "  ", textBeforeCaret)
+        // 'a = [1' — first element '1' is at column 5
+        assertEquals("Cursor should align with first array element", "     ", textBeforeCaret)
     }
 
     fun testArrayClosingBracketAlignsWithOpener() {
@@ -175,7 +176,8 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val text = myFixture.editor.document.text
         val lineStart = text.lastIndexOf('\n', offset - 1) + 1
         val textBeforeCaret = text.substring(lineStart, offset)
-        assertEquals("Cursor should be indented 2 spaces inside hash", "  ", textBeforeCaret)
+        // 'h = {a:' — first element 'a:' is at column 5
+        assertEquals("Cursor should align with first hash element", "     ", textBeforeCaret)
     }
 
     fun testNestedArrayNewlineIndent() {
@@ -185,6 +187,7 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val text = myFixture.editor.document.text
         val lineStart = text.lastIndexOf('\n', offset - 1) + 1
         val textBeforeCaret = text.substring(lineStart, offset)
-        assertEquals("Cursor should be indented 4 spaces (2 base + 2 inside array)", "    ", textBeforeCaret)
+        // '  x = [1' — first element '1' is at column 7
+        assertEquals("Cursor should align with first element of nested array", "       ", textBeforeCaret)
     }
 }
