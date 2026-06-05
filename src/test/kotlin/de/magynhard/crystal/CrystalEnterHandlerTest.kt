@@ -40,6 +40,14 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         assertTrue("Should contain 'end'", text.contains("end"))
     }
 
+    fun testEndIndentationAfterIf() {
+        myFixture.configureByText("test.cr", "if 1 == 2<caret>")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        // end should be at indent 0, aligned with 'if'
+        assertEquals("end should be at indent 0", "end", text.trim().lines().last().trim())
+    }
+
     fun testEndInsertedAfterWhile() {
         myFixture.configureByText("test.cr", "while running<caret>")
         myFixture.type("\n")
@@ -212,28 +220,36 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         myFixture.type("\n")
         val text = myFixture.editor.document.text
         assertTrue("Should contain 'end' after 'b = if'", text.contains("end"))
-        assertTrue("end should be at indent 0 (aligned with 'b')", text.contains("\nend"))
+        // end should align with 'if' keyword (column 4)
+        assertTrue("end should be at indent 4", text.contains("    end"))
     }
 
     fun testIndentAfterVariableAssignedIf() {
-        // Analogous to standalone 'if 1 == 2': body at +2 from line start, end at line start
         myFixture.configureByText("test.cr", "b = if 1 == 2<caret>")
         myFixture.type("\n")
         val offset = myFixture.editor.caretModel.offset
         val text = myFixture.editor.document.text
         val lineStart = text.lastIndexOf('\n', offset - 1) + 1
         val textBeforeCaret = text.substring(lineStart, offset)
-        assertEquals("Body should be indented 2 spaces from line start", "  ", textBeforeCaret)
+        // 'b = if' — if at column 4, body = 4 + 2 = 6 spaces
+        assertEquals("Body should align with content after 'if'", "      ", textBeforeCaret)
     }
 
     fun testElseAlignmentWithVariableAssignedIf() {
-        // else should align with the if keyword (same indent as the line with 'b = if')
-        myFixture.configureByText("test.cr", "b = if 1 == 2\n  x\nelse<caret>")
+        myFixture.configureByText("test.cr", "b = if 1 == 2\n      x\nelse<caret>")
         myFixture.type("\n")
         val offset = myFixture.editor.caretModel.offset
         val text = myFixture.editor.document.text
         val lineStart = text.lastIndexOf('\n', offset - 1) + 1
         val textBeforeCaret = text.substring(lineStart, offset)
-        assertEquals("Body after else should be indented 2 spaces", "  ", textBeforeCaret)
+        assertEquals("Body after else should be indented 2 from 'if' position", "      ", textBeforeCaret)
+    }
+
+    fun testNoEndInsertedWhenAlreadyPresent() {
+        myFixture.configureByText("test.cr", "if 1 == 2\n<caret>\nend")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val endCount = Regex("\\bend\\b").findAll(text).count()
+        assertEquals("Should have exactly one 'end' (already present)", 1, endCount)
     }
 }

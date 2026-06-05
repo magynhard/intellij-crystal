@@ -170,9 +170,21 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
 
         if (!endsWithBlockOpener(trimmed)) return EnterHandlerDelegate.Result.Continue
 
-        // Add indentation to the current (new) line
-        val baseIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
-        val newIndent = "$baseIndent  "
+        // For "a = if expr" patterns, align body/end with the keyword, not the line start
+        val assignKwPattern = Regex("""=\s+(if|unless|while|until|case|begin)\b""")
+        val assignMatch = assignKwPattern.find(trimmed)
+
+        val (baseIndent, newIndent) = if (assignMatch != null) {
+            // Find the keyword column in the trimmed line
+            val kw = assignMatch.groupValues[1]
+            val kwCol = trimmed.indexOf(kw, assignMatch.range.first)
+            // end aligns with keyword; body = keyword + 2
+            Pair(" ".repeat(kwCol), " ".repeat(kwCol + 2))
+        } else {
+            val lineIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
+            Pair(lineIndent, "$lineIndent  ")
+        }
+
         val currentLineStart = document.getLineStartOffset(caretLine)
         val currentLineEnd = document.getLineEndOffset(caretLine)
         val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
@@ -186,7 +198,7 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
         val fullText = document.text
         if (isDocumentBalanced(fullText)) return EnterHandlerDelegate.Result.Stop
 
-        // Insert 'end' on a new line below the cursor, with same indentation as the opener line
+        // Insert 'end' on a new line below the cursor, aligned with the block keyword
         val updatedCaretLine = document.getLineNumber(editor.caretModel.offset)
         val updatedLineEnd = document.getLineEndOffset(updatedCaretLine)
         document.insertString(updatedLineEnd, "\n${baseIndent}end")
@@ -277,7 +289,15 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
                     continue
                 }
                 if (firstWord in blockOpeners || endsWithBlockOpener(trimmed.trimEnd())) {
-                    return text.substring(0, text.length - text.trimStart().length)
+                    val lineIndent = text.substring(0, text.length - text.trimStart().length)
+                    // For "var = if expr" patterns, return indent at keyword position
+                    val assignMatch = Regex("""=\s+(if|unless|while|until|case|begin)\b""").find(trimmed)
+                    if (assignMatch != null) {
+                        val kw = assignMatch.groupValues[1]
+                        val kwCol = trimmed.indexOf(kw, assignMatch.range.first)
+                        return " ".repeat(lineIndent.length + kwCol)
+                    }
+                    return lineIndent
                 }
             }
         }
