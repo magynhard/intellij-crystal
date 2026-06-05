@@ -5,6 +5,7 @@
 - **Always implement the "correct" solution** — proper architecture, full functionality, future-proof. Only consider a "nice-to-have" or simplified approach when the correct solution is technically nearly impossible.
 - Never cut corners for convenience. If a feature requires deeper refactoring (e.g., lexer state stack for nested interpolation), do the refactoring.
 - **Never commit immediately after implementation.** Always let the user test manually first and wait for their explicit "go" / "commit" before committing. This avoids commits with broken code.
+- **Clean up temporary artifacts.** Any files created during research or debugging (extracted JARs, test outputs, build artifacts in the project root like `META-INF/`, `com/`, etc.) must be deleted immediately after use. Don't leave garbage behind.
 - **When assumptions are unclear, add diagnostic logging first.** Don't guess why something fails at runtime — add `LOG.warn("CRYSTAL DEBUG: ...")` statements to trace the actual behavior, then iterate based on evidence. Remove debug logging before committing.
 
 ## Build & Test
