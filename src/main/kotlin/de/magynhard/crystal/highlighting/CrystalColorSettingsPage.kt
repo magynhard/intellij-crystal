@@ -18,6 +18,7 @@ class CrystalColorSettingsPage : ColorSettingsPage {
             AttributesDescriptor("String escape", CrystalSyntaxHighlighter.STRING_ESCAPE),
             AttributesDescriptor("Character", CrystalSyntaxHighlighter.CHAR),
             AttributesDescriptor("Comment", CrystalSyntaxHighlighter.COMMENT),
+            AttributesDescriptor("TODO/FIXME/NOTE comment", CrystalSyntaxHighlighter.TODO_COMMENT),
             AttributesDescriptor("Identifier", CrystalSyntaxHighlighter.IDENTIFIER),
             AttributesDescriptor("Constant", CrystalSyntaxHighlighter.CONSTANT),
             AttributesDescriptor("Instance variable", CrystalSyntaxHighlighter.INSTANCE_VAR),

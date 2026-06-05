@@ -3,6 +3,8 @@ package de.magynhard.crystal.highlighting
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
+import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
@@ -34,6 +36,12 @@ class CrystalAnnotator : Annotator {
         // Highlight $0, $1, etc. inside asm template strings
         if (elementType == CrystalTypes.STRING_LITERAL) {
             annotateAsmOperandReferences(element, holder)
+            return
+        }
+
+        // Highlight TODO/FIXME/NOTE in comments
+        if (elementType == CrystalTypes.LINE_COMMENT) {
+            annotateTodoComment(element, holder)
             return
         }
     }
@@ -203,6 +211,26 @@ class CrystalAnnotator : Annotator {
         }
     }
 
+    /**
+     * Highlights TODO, FIXME keywords (and the rest of the line) inside comments
+     * with a distinct color matching Ruby's style (same as numbers/symbols).
+     * Uses enforcedTextAttributes to override IntelliJ's built-in TODO highlighting.
+     */
+    private fun annotateTodoComment(element: PsiElement, holder: AnnotationHolder) {
+        val text = element.text
+        val startOffset = element.textRange.startOffset
+        val match = TODO_PATTERN.find(text) ?: return
+        val range = TextRange(startOffset + match.range.first, startOffset + text.length)
+        val scheme = EditorColorsManager.getInstance().globalScheme
+        val attrs = scheme.getAttributes(DefaultLanguageHighlighterColors.NUMBER)
+        if (attrs != null && attrs.foregroundColor != null) {
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                .range(range)
+                .enforcedTextAttributes(attrs)
+                .create()
+        }
+    }
+
     private fun apply(holder: AnnotationHolder, element: PsiElement, key: TextAttributesKey) {
         holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
             .range(element)
@@ -211,6 +239,8 @@ class CrystalAnnotator : Annotator {
     }
 
     companion object {
+        private val TODO_PATTERN = Regex("\\b(TODO|FIXME)\\b")
+
         private val BUILTIN_MACROS = setOf(
             "getter", "setter", "property",
             "class_getter", "class_setter", "class_property",
