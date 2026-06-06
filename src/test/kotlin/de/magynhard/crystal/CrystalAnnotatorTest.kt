@@ -141,6 +141,40 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBlockParameterUsageHighlighted() {
+        myFixture.configureByText("test.cr", """
+            3.times do |i|
+              puts i
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        val iParamUsages = highlights.filter {
+            it.text == "i" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        }
+        assertTrue(
+            "Block parameter 'i' should be highlighted in both definition and usage, found ${iParamUsages.size}",
+            iParamUsages.size >= 2
+        )
+    }
+
+    fun testBlockParameterMultipleParams() {
+        myFixture.configureByText("test.cr", """
+            [1, 2].each_with_index do |elem, idx|
+              puts elem
+              puts idx
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        val elemHighlights = highlights.filter {
+            it.text == "elem" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        }
+        val idxHighlights = highlights.filter {
+            it.text == "idx" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        }
+        assertTrue("Block parameter 'elem' should be highlighted (def + usage)", elemHighlights.size >= 2)
+        assertTrue("Block parameter 'idx' should be highlighted (def + usage)", idxHighlights.size >= 2)
+    }
+
     // ==================== Method declaration highlighting ====================
 
     fun testMethodNameHighlighted() {

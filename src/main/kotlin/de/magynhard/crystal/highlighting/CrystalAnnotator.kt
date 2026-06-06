@@ -192,20 +192,32 @@ class CrystalAnnotator : Annotator {
             element,
             CrystalMethodDefinition::class.java,
             CrystalMacroDefinition::class.java
-        ) ?: return false
+        )
+        if (methodDef != null) {
+            val paramList = when (methodDef) {
+                is CrystalMethodDefinition -> methodDef.parameterList
+                is CrystalMacroDefinition -> methodDef.parameterList
+                else -> null
+            }
+            if (paramList != null) {
+                val paramNames = paramList.parameterList.mapNotNull { param ->
+                    param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
+                }.toSet()
+                if (name in paramNames) return true
+            }
+        }
 
-        // Get parameter names
-        val paramList = when (methodDef) {
-            is CrystalMethodDefinition -> methodDef.parameterList
-            is CrystalMacroDefinition -> methodDef.parameterList
-            else -> null
-        } ?: return false
+        // Find enclosing block (e.g. 3.times do |i|)
+        val block = PsiTreeUtil.getParentOfType(element, CrystalBlock::class.java)
+        if (block != null) {
+            val paramList = block.parameterList ?: return false
+            val paramNames = paramList.parameterList.mapNotNull { param ->
+                param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
+            }.toSet()
+            return name in paramNames
+        }
 
-        val paramNames = paramList.parameterList.mapNotNull { param ->
-            param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
-        }.toSet()
-
-        return name in paramNames
+        return false
     }
 
     /**
