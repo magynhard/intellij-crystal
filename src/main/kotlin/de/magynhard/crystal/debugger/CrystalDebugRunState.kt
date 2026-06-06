@@ -124,11 +124,12 @@ class CrystalDebugRunState(
         }
         val targetFile = File(targetDir, "crystal_formatters.py")
 
-        if (!targetFile.exists()) {
-            val resource = javaClass.getResourceAsStream("/debugger/crystal_formatters.py")
-                ?: throw ExecutionException("Crystal debug formatters not found in plugin resources")
-            targetFile.writeBytes(resource.readBytes())
-        }
+        // Always overwrite with the latest version from plugin resources.
+        // The file is small (~700 lines) so the write cost is negligible,
+        // and it ensures updates to formatters take effect immediately.
+        val resource = javaClass.getResourceAsStream("/debugger/crystal_formatters.py")
+            ?: throw ExecutionException("Crystal debug formatters not found in plugin resources")
+        targetFile.writeBytes(resource.readBytes())
 
         return targetFile.absolutePath
     }
