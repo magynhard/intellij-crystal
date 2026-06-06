@@ -30,34 +30,24 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
     }
 
     private fun analyzeScope(scope: PsiElement, holder: ProblemsHolder, skipNestedMethods: Boolean) {
-        // Collect all assignments to local variables (IDENTIFIER targets only)
         val assignments = mutableListOf<AssignmentInfo>()
         val references = mutableListOf<ReferenceInfo>()
 
         collectElements(scope, assignments, references, skipNestedMethods)
 
-        // For each assignment, check if its value is ever read
         for ((index, assignment) in assignments.withIndex()) {
-            // Skip _-prefixed variables
             if (assignment.name.startsWith("_")) continue
-
-            // Compound assignments (+=, ||=, etc.) are implicit reads — skip
             if (assignment.isCompound) continue
 
             val assignOffset = assignment.offset
-
-            // Find the next non-compound assignment to the same variable (if any)
             val nextAssignOffset = assignments
                 .filter { it.name == assignment.name && it.offset > assignOffset && !it.isCompound }
                 .minByOrNull { it.offset }?.offset ?: Int.MAX_VALUE
 
-            // Check if there's any read of this variable between this assignment and the next one
-            // (or to the end of scope if no next assignment)
             val hasRead = references.any { ref ->
                 ref.name == assignment.name && ref.offset > assignOffset && ref.offset < nextAssignOffset
             }
 
-            // Also check if there's any read AFTER the last assignment (for the last assignment in chain)
             val hasLaterRead = if (nextAssignOffset == Int.MAX_VALUE) {
                 references.any { ref ->
                     ref.name == assignment.name && ref.offset > assignOffset
@@ -67,7 +57,6 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
             }
 
             if (!hasLaterRead) {
-                // Determine message based on whether there are other assignments to same variable
                 val otherAssignments = assignments.count { it.name == assignment.name }
                 val message = if (otherAssignments > 1) {
                     "Value assigned to '${assignment.name}' is never used"
@@ -122,7 +111,6 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
     ) {
         var child = element.firstChild
         while (child != null) {
-            // When analyzing file-level, don't descend into method bodies
             if (skipNestedMethods && child is CrystalMethodDefinition) {
                 child = child.nextSibling
                 continue
@@ -136,13 +124,26 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
                             references.add(ReferenceInfo(info.name, info.offset))
                         }
                     }
-                    // Also collect references inside the assignment's expression
                     collectElements(child, assignments, references, skipNestedMethods)
                 }
                 is CrystalVariableReference -> {
                     val name = extractVariableReferenceName(child)
                     if (name != null) {
                         references.add(ReferenceInfo(name, child.textOffset))
+                    }
+                }
+                is CrystalMethodCallExpression -> {
+                    val methodNameNode = child.node.findChildByType(CrystalTypes.IDENTIFIER)
+                    if (methodNameNode != null) {
+                        references.add(ReferenceInfo(methodNameNode.text, methodNameNode.psi.textOffset))
+                    }
+                    collectElements(child, assignments, references, skipNestedMethods)
+                }
+                is CrystalStringExpression -> {
+                    val astChildren = child.node.getChildren(null)
+                    for (astChild in astChildren) {
+                        val psi = astChild.psi
+                        collectElements(psi, assignments, references, skipNestedMethods)
                     }
                 }
                 else -> collectElements(child, assignments, references, skipNestedMethods)

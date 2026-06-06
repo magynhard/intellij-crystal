@@ -163,4 +163,58 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Variable Used in Expression ====================
+
+    fun testVariableUsedInArithmeticExpression() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              local_var = "local"
+              p = local_var + "sdf"
+              puts "a:#{p}"
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testVariableUsedInArithmeticExpressionTopLevel() {
+        myFixture.configureByText("test.cr", """
+            local_var = "local"
+            p = local_var + "sdf"
+            puts "a:#{p}"
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testVariableUsedInAddition() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = 1
+              y = x + 2
+              puts y
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testVariableUsedInStringConcat() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              name = "world"
+              greeting = "hello " + name
+              puts greeting
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testVariableUsedInStringInterpolation() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              name = "world"
+              puts "hello #{name}"
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
