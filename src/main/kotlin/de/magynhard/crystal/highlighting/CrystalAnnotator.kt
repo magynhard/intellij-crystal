@@ -240,10 +240,14 @@ class CrystalAnnotator : Annotator {
     /**
      * Highlights regex sub-patterns inside regex literals using IntelliJ's built-in
      * RegExp colors so they match RubyMine/IDEA exactly.
+     * Also validates regex escapes and marks invalid PCRE2 escapes as errors.
      */
     private fun annotateRegexLiteral(element: PsiElement, holder: AnnotationHolder) {
         val text = element.text
         val startOffset = element.textRange.startOffset
+
+        // Validate invalid PCRE2 escapes before highlighting
+        annotateInvalidRegexEscapes(text, startOffset, holder)
 
         // Character classes: [...]
         for (match in REGEX_CHAR_CLASS.findAll(text)) {
@@ -278,6 +282,29 @@ class CrystalAnnotator : Annotator {
         }
     }
 
+    /**
+     * Marks invalid PCRE2 escape sequences inside regex literals as errors.
+     * PCRE2 does not support: \u, \F, \L, \l, \N{name}, \U
+     */
+    private fun annotateInvalidRegexEscapes(text: String, startOffset: Int, holder: AnnotationHolder) {
+        for (match in REGEX_INVALID_ESCAPE.findAll(text)) {
+            val escapeText = match.value
+            val range = TextRange(startOffset + match.range.first, startOffset + match.range.last + 1)
+            val message = when {
+                escapeText.startsWith("\\u") -> "Invalid regex escape: PCRE2 does not support \\u"
+                escapeText == "\\F" -> "Invalid regex escape: PCRE2 does not support \\F"
+                escapeText == "\\L" -> "Invalid regex escape: PCRE2 does not support \\L"
+                escapeText == "\\l" -> "Invalid regex escape: PCRE2 does not support \\l"
+                escapeText.startsWith("\\N{") -> "Invalid regex escape: PCRE2 does not support \\N{name}"
+                escapeText == "\\U" -> "Invalid regex escape: PCRE2 does not support \\U"
+                else -> "Invalid regex escape: PCRE2 does not support $escapeText"
+            }
+            holder.newAnnotation(HighlightSeverity.ERROR, message)
+                .range(range)
+                .create()
+        }
+    }
+
     private fun applyRange(holder: AnnotationHolder, baseOffset: Int, range: IntRange, key: TextAttributesKey) {
         holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
             .range(com.intellij.openapi.util.TextRange(baseOffset + range.first, baseOffset + range.last + 1))
@@ -297,6 +324,8 @@ class CrystalAnnotator : Annotator {
 
         // Regex sub-pattern matching
         private val REGEX_ESCAPE = Regex("""\\[dDwWsSbtnr0aAfv]|\\[xXu]\{[0-9a-fA-F]+\}|\\[xX][0-9a-fA-F]{1,2}|\\u[0-9a-fA-F]{4}|\\p\{[^}]+\}|\\P\{[^}]+\}|\\k<[^>]+>|\\k'[^']+'|\\[KNRX]|\\[QHhvV]""")
+        // Invalid PCRE2 escapes that Crystal's regex engine does not support
+        private val REGEX_INVALID_ESCAPE = Regex("""\\u[0-9a-fA-F]{4}|\\u\{[0-9a-fA-F]+\}|\\F(?!\w)|\\L(?!\w)|\\l(?!\w)|\\N\{[^}]*\}|\\U(?!\w)""")
         private val REGEX_QUANTIFIER = Regex("""[+\*?]\+[?+]?|[+\*?][?+]?|\{[0-9]+\}|\{[0-9]+,?\}|\{[0-9]+,[0-9]+\}|\{[0-9]+,\}|\{,?[0-9]+\}""")
         private val REGEX_CHAR_CLASS = Regex("""\[(?:\\.|[^\[\]])*\]""")
         private val REGEX_ALTERNATION = Regex("""\|""")

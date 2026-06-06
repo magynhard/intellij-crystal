@@ -162,4 +162,58 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         }
         assertNotNull("Local variable 'x' should be highlighted as IDENTIFIER", h)
     }
+
+    // ==================== Regex escape validation ====================
+
+    fun testInvalidRegexEscapeU() {
+        myFixture.configureByText("test.cr", "r = /\\u0041/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        assertTrue("Should report error for \\u escape", errors.isNotEmpty())
+        val error = errors.find { it.description?.contains("Invalid regex escape") == true }
+        assertNotNull("Should have 'Invalid regex escape' message", error)
+    }
+
+    fun testInvalidRegexEscapeF() {
+        myFixture.configureByText("test.cr", "r = /\\F/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        assertTrue("Should report error for \\F escape", errors.isNotEmpty())
+    }
+
+    fun testInvalidRegexEscapeL() {
+        myFixture.configureByText("test.cr", "r = /\\L/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        assertTrue("Should report error for \\L escape", errors.isNotEmpty())
+    }
+
+    fun testInvalidRegexEscapeLowerL() {
+        myFixture.configureByText("test.cr", "r = /\\l/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        assertTrue("Should report error for \\l escape", errors.isNotEmpty())
+    }
+
+    fun testInvalidRegexEscapeN() {
+        myFixture.configureByText("test.cr", "r = /\\N{U+0041}/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        assertTrue("Should report error for \\N{name} escape", errors.isNotEmpty())
+    }
+
+    fun testInvalidRegexEscapeUpperU() {
+        myFixture.configureByText("test.cr", "r = /\\U/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        assertTrue("Should report error for \\U escape", errors.isNotEmpty())
+    }
+
+    fun testValidRegexEscapeNotReported() {
+        myFixture.configureByText("test.cr", "r = /\\t \\n \\d \\w \\x41/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val regexErrors = errors.filter { it.description?.contains("Invalid regex escape") == true }
+        assertTrue("Valid escapes should not produce errors", regexErrors.isEmpty())
+    }
 }
