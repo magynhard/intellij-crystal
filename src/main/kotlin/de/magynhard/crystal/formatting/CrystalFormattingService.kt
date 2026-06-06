@@ -37,22 +37,31 @@ class CrystalFormattingService : AsyncDocumentFormattingService() {
                 try {
                     val project = request.context.project
                     val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
-                    val commandLine = GeneralCommandLine(crystalPath, "tool", "format", "-")
+
+                    // Write document text to a temp file so the formatter sees the real filename.
+                    // This gives accurate error messages and avoids stdin quirks.
+                    val tempFile = File.createTempFile("crystal_format_", ".cr", ioFile.parentFile)
+                    tempFile.writeText(request.documentText, StandardCharsets.UTF_8)
+
+                    val commandLine = GeneralCommandLine(crystalPath, "tool", "format", tempFile.absolutePath)
                         .withCharset(StandardCharsets.UTF_8)
                         .withWorkDirectory(ioFile.parent)
 
                     val handler = CapturingProcessHandler(commandLine)
                     processHandler = handler
 
-                    val input = request.documentText
-                    handler.processInput.use { stream ->
-                        stream.write(input.toByteArray(StandardCharsets.UTF_8))
-                    }
-
                     val output = handler.runProcess(5000)
 
-                    if (output.exitCode == 0) {
-                        request.onTextReady(output.stdout)
+                    val formatted = if (output.exitCode == 0) {
+                        tempFile.readText(StandardCharsets.UTF_8)
+                    } else {
+                        null
+                    }
+
+                    tempFile.delete()
+
+                    if (formatted != null) {
+                        request.onTextReady(formatted)
                     } else {
                         val errorMessage = parseFormatError(output.stderr, ioFile.name)
                         request.onError("Crystal Format Error", errorMessage)
