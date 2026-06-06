@@ -77,7 +77,7 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
                 holder.registerProblem(
                     assignment.identifierElement,
                     message,
-                    ProblemHighlightType.WEAK_WARNING
+                    ProblemHighlightType.LIKE_UNUSED_SYMBOL
                 )
             }
         }
