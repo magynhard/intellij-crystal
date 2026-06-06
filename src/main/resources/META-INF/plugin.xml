@@ -184,6 +184,9 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.highlighting.CrystalAnnotator"/>
 
+        <highlightErrorFilter
+                implementation="de.magynhard.crystal.highlighting.CrystalHighlightErrorFilter"/>
+
         <localInspection
                 language="Crystal"
                 groupName="Crystal"
