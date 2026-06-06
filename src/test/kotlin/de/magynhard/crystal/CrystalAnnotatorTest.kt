@@ -268,8 +268,18 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", "a = <<-TEST\n  line1\n   line2\n  TEST")
         val highlights = myFixture.doHighlighting()
         val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
-        val indentErrors = errors.filter { it.description?.contains("indented too deeply") == true }
-        assertTrue("End delimiter at min content indent should be valid", indentErrors.isEmpty())
+        val indentError = errors.find { it.description?.contains("indented too deeply") == true }
+        assertNull("End delimiter at same indent as minimum content line should be valid. Got: ${errors.map { it.description }}", indentError)
+    }
+
+    fun testHeredocWithInterpolationIndent() {
+        // Interpolation splits content into multiple HEREDOC_CONTENT tokens.
+        // The indent calculation must concatenate them before measuring indent.
+        myFixture.configureByText("test.cr", "a = <<-TEST\n  hello #{name} world\n  TEST")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val indentError = errors.find { it.description?.contains("indented too deeply") == true }
+        assertNull("Heredoc with interpolation should not report indent error. Got: ${errors.map { it.description }}", indentError)
     }
 
     // ==================== Single-quote string validation ====================

@@ -417,29 +417,33 @@ class CrystalAnnotator : Annotator {
      * Find the minimum indentation among content lines in the heredoc literal.
      * Uses the parent heredoc AST node and scans its children for HEREDOC_CONTENT tokens.
      * Returns the number of leading spaces/tabs, or null if no content found.
+     *
+     * All HEREDOC_CONTENT tokens are concatenated first before splitting into lines,
+     * because interpolation splits a single logical line across multiple tokens.
      */
     private fun findMinContentIndent(parent: PsiElement, delimiter: String): Int? {
-        var minIndent: Int? = null
         val nodeChildren = parent.node.getChildren(null) ?: return null
+        val contentBuilder = StringBuilder()
 
         for (node in nodeChildren) {
             if (node.elementType == CrystalTypes.HEREDOC_CONTENT) {
-                val text = node.text
-                // Split into lines and check each non-empty line
-                for (line in text.lines()) {
-                    if (line.isNotBlank()) {
-                        val indent = line.takeWhile { it == ' ' || it == '\t' }.length
-                        if (minIndent == null || indent < minIndent) {
-                            minIndent = indent
-                        }
-                    }
-                }
+                contentBuilder.append(node.text)
             } else if (node.elementType == CrystalTypes.HEREDOC_END && node.text.trim() == delimiter) {
-                // Stop when we hit the matching end delimiter
                 break
             }
         }
 
+        if (contentBuilder.isEmpty()) return null
+
+        var minIndent: Int? = null
+        for (line in contentBuilder.toString().lines()) {
+            if (line.isNotBlank()) {
+                val indent = line.takeWhile { it == ' ' || it == '\t' }.length
+                if (minIndent == null || indent < minIndent) {
+                    minIndent = indent
+                }
+            }
+        }
         return minIndent
     }
 
