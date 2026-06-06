@@ -42,6 +42,23 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         assertTrue("Should contain 'end'", text.contains("end"))
     }
 
+    fun testEndInsertedAfterDoWithBlockArgs() {
+        myFixture.configureByText("test.cr", "3.times do |i|<caret>")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        assertTrue("Should contain 'end' after '3.times do |i|'", text.contains("end"))
+    }
+
+    fun testEndInsertedForDefBeforeExistingDoBlock() {
+        // The 'end' at indent 0 belongs to the do-block below, not to 'def funny'
+        val content = "def funny<caret>\n\n3.times do |i|\n  puts i\nend"
+        myFixture.configureByText("test.cr", content)
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val endCount = Regex("\\bend\\b").findAll(text).count()
+        assertEquals("Should have 2 'end's (one for def, one for do-block)", 2, endCount)
+    }
+
     fun testEndInsertedAfterIf() {
         myFixture.configureByText("test.cr", "if x > 0<caret>")
         myFixture.type("\n")

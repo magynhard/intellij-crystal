@@ -327,6 +327,13 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             return true
         }
 
+        // "do" appearing as a standalone word in the middle of a line:
+        // 3.times do |i|, .each do, loop do, etc.
+        // This must NOT match "do" inside identifiers like "undo" or "method_do"
+        if (Regex("""\bdo\b""").containsMatchIn(trimmed)) {
+            return true
+        }
+
         return false
     }
 
