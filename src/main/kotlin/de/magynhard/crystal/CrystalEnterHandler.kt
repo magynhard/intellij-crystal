@@ -4,6 +4,7 @@ import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegate
 import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegateAdapter
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 
@@ -50,6 +51,18 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
         // Check if previous line ends with a block-opening keyword
         val trimmed = prevLineText.trimEnd()
         if (trimmed.isEmpty()) return EnterHandlerDelegate.Result.Continue
+
+        // Handle heredoc end delimiter: dedent next line to match heredoc start indent
+        val heredocStartIndent = findHeredocStartIndent(document, prevLineNumber, trimmed)
+        if (heredocStartIndent != null) {
+            val currentLineStart = document.getLineStartOffset(caretLine)
+            val currentLineEnd = document.getLineEndOffset(caretLine)
+            val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
+            val currentLineContent = currentLineText.trimStart()
+            document.replaceString(currentLineStart, currentLineEnd, "$heredocStartIndent$currentLineContent")
+            editor.caretModel.moveToOffset(currentLineStart + heredocStartIndent.length)
+            return EnterHandlerDelegate.Result.Stop
+        }
 
         // Electric dedent: if the previous line is a dedent keyword (else, end, etc.),
         // adjust its indentation to match the opening block keyword
@@ -192,7 +205,8 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             }
 
             if (!hasDelimiterBelow) {
-                document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent\n${lineIndent}${heredocDelimiter}")
+                // End delimiter indented +2 spaces (like 'end' in 'def')
+                document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent\n${lineIndent}  ${heredocDelimiter}")
             } else {
                 document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
             }
@@ -537,5 +551,38 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             }
         }
         return words
+    }
+
+    /**
+     * Check if the given line is a heredoc end delimiter, and if so,
+     * find the indentation of the matching heredoc start line.
+     * Returns null if the line is not a heredoc end delimiter.
+     */
+    private fun findHeredocStartIndent(document: Document, endLine: Int, endText: String): String? {
+        val endTrimmed = endText.trim()
+        // Must be a single identifier (heredoc end delimiter)
+        if (!Regex("""^[A-Za-z_][A-Za-z0-9_]*$""").matches(endTrimmed)) return null
+        // Must be indented (not at column 0) — otherwise it's just a normal identifier
+        val endIndent = endText.takeWhile { it == ' ' || it == '\t' }
+        if (endIndent.isEmpty()) return null
+
+        // Scan backwards to find <<-IDENTIFIER or <<-'IDENTIFIER'
+        for (line in (endLine - 1) downTo 0) {
+            val lineStart = document.getLineStartOffset(line)
+            val lineEnd = document.getLineEndOffset(line)
+            val text = document.getText(TextRange(lineStart, lineEnd))
+            val trimmed = text.trimEnd()
+
+            val quotedMatch = Regex("""<<-'([A-Za-z_][A-Za-z0-9_]*)'""").find(trimmed)
+            if (quotedMatch != null && quotedMatch.groupValues[1] == endTrimmed) {
+                return text.takeWhile { it == ' ' || it == '\t' }
+            }
+
+            val unquotedMatch = Regex("""<<-([A-Za-z_][A-Za-z0-9_]*)""").find(trimmed)
+            if (unquotedMatch != null && unquotedMatch.groupValues[1] == endTrimmed) {
+                return text.takeWhile { it == ' ' || it == '\t' }
+            }
+        }
+        return null
     }
 }

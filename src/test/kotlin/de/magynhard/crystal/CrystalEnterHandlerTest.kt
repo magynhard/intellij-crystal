@@ -315,28 +315,38 @@ end
 
     // ==================== Heredoc handling ====================
 
-    fun testHeredocStartInsertsDelimiter() {
+    fun testHeredocStartInsertsIndentedDelimiter() {
         myFixture.configureByText("test.cr", "heredoc = <<-END<caret>")
         myFixture.type("\n")
         val text = myFixture.editor.document.text
         assertTrue("Should contain heredoc body indent", text.contains("\n  "))
-        assertTrue("Should contain END delimiter", text.contains("\nEND"))
+        assertTrue("Should contain indented END delimiter", text.contains("\n  END"))
     }
 
-    fun testQuotedHeredocStartInsertsUnquotedDelimiter() {
+    fun testQuotedHeredocStartInsertsIndentedUnquotedDelimiter() {
         myFixture.configureByText("test.cr", "heredoc = <<-'TEXT'<caret>")
         myFixture.type("\n")
         val text = myFixture.editor.document.text
         assertTrue("Should contain heredoc body indent", text.contains("\n  "))
-        assertTrue("Should contain unquoted TEXT delimiter", text.contains("\nTEXT"))
-        assertFalse("Delimiter should NOT have quotes", text.contains("\n'TEXT'"))
+        assertTrue("Should contain indented TEXT delimiter", text.contains("\n  TEXT"))
+        assertFalse("Delimiter should NOT have quotes", text.contains("\n'tTEXT'"))
     }
 
-    fun testHeredocWithExistingDelimiterNotDuplicated() {
-        myFixture.configureByText("test.cr", "heredoc = <<-END<caret>\n  content\nEND")
+    fun testHeredocWithExistingIndentedDelimiterNotDuplicated() {
+        myFixture.configureByText("test.cr", "heredoc = <<-END<caret>\n  content\n  END")
         myFixture.type("\n")
         val text = myFixture.editor.document.text
-        val endCount = Regex("^END$", RegexOption.MULTILINE).findAll(text).count()
-        assertEquals("Should have exactly one END delimiter", 1, endCount)
+        // END in <<-END doesn't count; the closing END should exist exactly once
+        val endCount = Regex("^  END$", RegexOption.MULTILINE).findAll(text).count()
+        assertEquals("Should have exactly one indented END delimiter", 1, endCount)
+    }
+
+    fun testHeredocEndDelimiterDedentsNextLine() {
+        myFixture.configureByText("test.cr", "heredoc = <<-END\n  hello\n  END<caret>")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val lines = text.lines()
+        val lastLine = lines.last()
+        assertTrue("Line after heredoc end should be dedented", lastLine.isEmpty() || !lastLine.startsWith("  "))
     }
 }
