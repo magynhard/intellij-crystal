@@ -38,6 +38,7 @@ class CrystalColorSettingsPage : ColorSettingsPage {
             AttributesDescriptor("Function declaration", CrystalSyntaxHighlighter.FUNCTION_DECLARATION),
             AttributesDescriptor("Class/Module declaration", CrystalSyntaxHighlighter.CLASS_DECLARATION),
             AttributesDescriptor("Parameter", CrystalSyntaxHighlighter.PARAMETER),
+            AttributesDescriptor("Heredoc delimiter", CrystalSyntaxHighlighter.HEREDOC_DELIMITER),
         )
     }
 

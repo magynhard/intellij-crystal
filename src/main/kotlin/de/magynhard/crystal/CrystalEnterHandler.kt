@@ -168,6 +168,38 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
             return EnterHandlerDelegate.Result.Stop
         }
 
+        // Handle heredoc start: <<-IDENTIFIER or <<-'IDENTIFIER'
+        val heredocDelimiter = extractHeredocDelimiter(trimmed)
+        if (heredocDelimiter != null) {
+            val lineIndent = prevLineText.takeWhile { it == ' ' || it == '\t' }
+            val newIndent = "$lineIndent  "
+            val currentLineStart = document.getLineStartOffset(caretLine)
+            val currentLineEnd = document.getLineEndOffset(caretLine)
+            val currentLineText = document.getText(TextRange(currentLineStart, currentLineEnd))
+            val currentLineContent = currentLineText.trimStart()
+
+            // Check if the closing delimiter already exists below
+            val totalLines = document.lineCount
+            var hasDelimiterBelow = false
+            for (line in (caretLine + 1) until totalLines) {
+                val lineStart = document.getLineStartOffset(line)
+                val lineEnd = document.getLineEndOffset(line)
+                val lineText = document.getText(TextRange(lineStart, lineEnd))
+                if (lineText.trim() == heredocDelimiter) {
+                    hasDelimiterBelow = true
+                    break
+                }
+            }
+
+            if (!hasDelimiterBelow) {
+                document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent\n${lineIndent}${heredocDelimiter}")
+            } else {
+                document.replaceString(currentLineStart, currentLineEnd, "$newIndent$currentLineContent")
+            }
+            editor.caretModel.moveToOffset(currentLineStart + newIndent.length)
+            return EnterHandlerDelegate.Result.Stop
+        }
+
         if (!endsWithBlockOpener(trimmed)) return EnterHandlerDelegate.Result.Continue
 
         // For "a = if expr" patterns, align body/end with the keyword, not the line start
@@ -230,6 +262,25 @@ class CrystalEnterHandler : EnterHandlerDelegateAdapter() {
         document.insertString(updatedLineEnd, "\n${baseIndent}end")
 
         return EnterHandlerDelegate.Result.Stop
+    }
+
+    /**
+     * Extract the heredoc delimiter name if the line contains a heredoc start.
+     * Supports <<-IDENTIFIER and <<-'IDENTIFIER'.
+     * The returned delimiter is always unquoted (e.g., "TEXT" for <<-'TEXT').
+     */
+    private fun extractHeredocDelimiter(trimmed: String): String? {
+        // Pattern for <<-'IDENTIFIER' (quoted)
+        val quotedMatch = Regex("""<<-'([A-Za-z_][A-Za-z0-9_]*)'""").find(trimmed)
+        if (quotedMatch != null) {
+            return quotedMatch.groupValues[1]
+        }
+        // Pattern for <<-IDENTIFIER (unquoted)
+        val unquotedMatch = Regex("""<<-([A-Za-z_][A-Za-z0-9_]*)""").find(trimmed)
+        if (unquotedMatch != null) {
+            return unquotedMatch.groupValues[1]
+        }
+        return null
     }
 
     /**

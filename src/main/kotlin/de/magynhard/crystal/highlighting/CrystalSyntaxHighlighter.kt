@@ -41,6 +41,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         val MACRO_FRESH_VAR = createTextAttributesKey("CRYSTAL_MACRO_FRESH_VAR", DefaultLanguageHighlighterColors.LOCAL_VARIABLE)
         val STRING_ESCAPE = createTextAttributesKey("CRYSTAL_STRING_ESCAPE", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
         val TODO_COMMENT = createTextAttributesKey("CRYSTAL_TODO_COMMENT", DefaultLanguageHighlighterColors.NUMBER)
+        val HEREDOC_DELIMITER = createTextAttributesKey("CRYSTAL_HEREDOC_DELIMITER", DefaultLanguageHighlighterColors.PARAMETER)
 
         // Re-use IntelliJ's built-in RegExp colors so regex sub-patterns match RubyMine exactly
         val REGEXP_CHAR_CLASS = createTextAttributesKey("REGEXP.CHAR_CLASS", DefaultLanguageHighlighterColors.STRING)
@@ -72,6 +73,7 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
         private val INTERPOLATION_KEYS = arrayOf(INTERPOLATION)
         private val STRING_ESCAPE_KEYS = arrayOf(STRING_ESCAPE)
         private val BAD_CHARACTER_KEYS = arrayOf(BAD_CHARACTER)
+        private val HEREDOC_DELIMITER_KEYS = arrayOf(HEREDOC_DELIMITER)
         private val EMPTY_KEYS = emptyArray<TextAttributesKey>()
     }
 
@@ -86,7 +88,8 @@ class CrystalSyntaxHighlighter : SyntaxHighlighterBase() {
             tokenType == CrystalTypes.STRING_ESCAPE -> STRING_ESCAPE_KEYS
             tokenType == CrystalTypes.CHAR_LITERAL -> CHAR_KEYS
             tokenType == CrystalTypes.COMMAND_LITERAL -> STRING_KEYS
-            tokenType == CrystalTypes.HEREDOC_CONTENT || tokenType == CrystalTypes.HEREDOC_START || tokenType == CrystalTypes.HEREDOC_END -> STRING_KEYS
+            tokenType == CrystalTypes.HEREDOC_CONTENT -> STRING_KEYS
+            tokenType == CrystalTypes.HEREDOC_START || tokenType == CrystalTypes.HEREDOC_END -> HEREDOC_DELIMITER_KEYS
             tokenType == CrystalTypes.PERCENT_LITERAL_BEGIN || tokenType == CrystalTypes.PERCENT_LITERAL_END -> STRING_KEYS
             tokenType == CrystalTypes.PERCENT_SYMBOL_BEGIN || tokenType == CrystalTypes.PERCENT_SYMBOL_END -> SYMBOL_KEYS
             tokenType == CrystalTypes.REGEX_LITERAL -> REGEX_KEYS

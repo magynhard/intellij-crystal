@@ -312,4 +312,31 @@ end
         val endCount = Regex("\\bend\\b").findAll(text).count()
         assertEquals("Should have 3 'end's (one for each def)", 3, endCount)
     }
+
+    // ==================== Heredoc handling ====================
+
+    fun testHeredocStartInsertsDelimiter() {
+        myFixture.configureByText("test.cr", "heredoc = <<-END<caret>")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        assertTrue("Should contain heredoc body indent", text.contains("\n  "))
+        assertTrue("Should contain END delimiter", text.contains("\nEND"))
+    }
+
+    fun testQuotedHeredocStartInsertsUnquotedDelimiter() {
+        myFixture.configureByText("test.cr", "heredoc = <<-'TEXT'<caret>")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        assertTrue("Should contain heredoc body indent", text.contains("\n  "))
+        assertTrue("Should contain unquoted TEXT delimiter", text.contains("\nTEXT"))
+        assertFalse("Delimiter should NOT have quotes", text.contains("\n'TEXT'"))
+    }
+
+    fun testHeredocWithExistingDelimiterNotDuplicated() {
+        myFixture.configureByText("test.cr", "heredoc = <<-END<caret>\n  content\nEND")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val endCount = Regex("^END$", RegexOption.MULTILINE).findAll(text).count()
+        assertEquals("Should have exactly one END delimiter", 1, endCount)
+    }
 }
