@@ -12,6 +12,15 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         assertTrue("end should be after def foo", text.indexOf("end") > text.indexOf("def foo"))
     }
 
+    fun testDefSampleInsertsEnd() {
+        myFixture.configureByText("test.cr", "def sample<caret>")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        assertTrue("Should contain 'end' after 'def sample'", text.contains("\nend"))
+        val endCount = Regex("\\bend\\b").findAll(text).count()
+        assertEquals("Should have exactly one 'end'", 1, endCount)
+    }
+
     fun testEndInsertedAfterClass() {
         myFixture.configureByText("test.cr", "class Foo<caret>")
         myFixture.type("\n")
@@ -271,5 +280,14 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val endCount = Regex("\\bend\\b").findAll(text).count()
         assertEquals("Should have two 'end's (one for def, one for if)", 2, endCount)
         assertTrue("if's end should be at indent 2", text.contains("  end"))
+    }
+
+    fun testNoEndInsertedWhenEndExistsBelowContent() {
+        // if block already has content and end — pressing ENTER should not insert another end
+        myFixture.configureByText("test.cr", "if 1 == 2\n  puts x<caret>\nend")
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val endCount = Regex("\\bend\\b").findAll(text).count()
+        assertEquals("Should have exactly one 'end' (already present)", 1, endCount)
     }
 }
