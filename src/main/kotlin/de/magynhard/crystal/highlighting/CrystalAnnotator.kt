@@ -8,6 +8,7 @@ import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
 
@@ -48,6 +49,18 @@ class CrystalAnnotator : Annotator {
         // Highlight regex sub-patterns inside regex literals
         if (elementType == CrystalTypes.REGEX_LITERAL) {
             annotateRegexLiteral(element, holder)
+            return
+        }
+
+        // Validate heredoc pairs: start must have matching end delimiter
+        if (elementType == CrystalTypes.HEREDOC_START) {
+            validateHeredocStart(element, holder)
+            return
+        }
+
+        // Validate heredoc end delimiter indent
+        if (elementType == CrystalTypes.HEREDOC_END) {
+            validateHeredocEnd(element, holder)
             return
         }
     }
@@ -322,6 +335,102 @@ class CrystalAnnotator : Annotator {
                 .range(range)
                 .create()
         }
+    }
+
+    /**
+     * Validate that a heredoc start has a matching end delimiter.
+     * If the end delimiter is missing, mark the start with a clear error.
+     */
+    private fun validateHeredocStart(element: PsiElement, holder: AnnotationHolder) {
+        val startText = element.text
+        val delimiter = extractHeredocDelimiter(startText) ?: return
+
+        val file = element.containingFile ?: return
+
+        // Find the matching end delimiter
+        val endElement = findHeredocEndElement(file, delimiter)
+
+        if (endElement == null) {
+            holder.newAnnotation(HighlightSeverity.ERROR, "Missing heredoc end delimiter '$delimiter'")
+                .range(element)
+                .create()
+        }
+    }
+
+    /**
+     * Validate that a heredoc end delimiter is not indented more than
+     * the least-indented content line.
+     */
+    private fun validateHeredocEnd(element: PsiElement, holder: AnnotationHolder) {
+        val endText = element.text
+        val delimiter = endText.trim()
+
+        val parent = element.parent
+        val minContentIndent = findMinContentIndent(parent, delimiter)
+
+        if (minContentIndent != null) {
+            val endIndent = endText.takeWhile { it == ' ' || it == '\t' }.length
+            if (endIndent > minContentIndent) {
+                holder.newAnnotation(
+                    HighlightSeverity.ERROR,
+                    "Heredoc end delimiter '$delimiter' is indented too deeply ($endIndent spaces). " +
+                    "It must not exceed the minimum content line indent ($minContentIndent spaces)."
+                )
+                    .range(element)
+                    .create()
+            }
+        }
+    }
+
+    /**
+     * Find the HEREDOC_END element matching the given delimiter name.
+     */
+    private fun findHeredocEndElement(file: PsiFile, delimiter: String): PsiElement? {
+        return PsiTreeUtil.findChildrenOfType(file, PsiElement::class.java).find {
+            it.node.elementType == CrystalTypes.HEREDOC_END && it.text.trim() == delimiter
+        }
+    }
+
+    /**
+     * Find the minimum indentation among content lines in the heredoc literal.
+     * Uses the parent heredoc AST node and scans its children for HEREDOC_CONTENT tokens.
+     * Returns the number of leading spaces/tabs, or null if no content found.
+     */
+    private fun findMinContentIndent(parent: PsiElement, delimiter: String): Int? {
+        var minIndent: Int? = null
+        val nodeChildren = parent.node.getChildren(null) ?: return null
+
+        for (node in nodeChildren) {
+            if (node.elementType == CrystalTypes.HEREDOC_CONTENT) {
+                val text = node.text
+                // Split into lines and check each non-empty line
+                for (line in text.lines()) {
+                    if (line.isNotBlank()) {
+                        val indent = line.takeWhile { it == ' ' || it == '\t' }.length
+                        if (minIndent == null || indent < minIndent) {
+                            minIndent = indent
+                        }
+                    }
+                }
+            } else if (node.elementType == CrystalTypes.HEREDOC_END && node.text.trim() == delimiter) {
+                // Stop when we hit the matching end delimiter
+                break
+            }
+        }
+
+        return minIndent
+    }
+
+    /**
+     * Extract the heredoc delimiter name from the start token text.
+     * Supports <<-IDENTIFIER and <<-'IDENTIFIER'.
+     */
+    private fun extractHeredocDelimiter(text: String): String? {
+        val quotedMatch = Regex("""<<-'([A-Za-z_][A-Za-z0-9_]*)'""").find(text)
+        if (quotedMatch != null) return quotedMatch.groupValues[1]
+        val unquotedMatch = Regex("""<<-([A-Za-z_][A-Za-z0-9_]*)""").find(text)
+        if (unquotedMatch != null) return unquotedMatch.groupValues[1]
+        return null
     }
 
     private fun applyRange(holder: AnnotationHolder, baseOffset: Int, range: IntRange, key: TextAttributesKey) {

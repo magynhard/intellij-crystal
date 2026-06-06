@@ -230,4 +230,45 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         val regexErrors = errors.filter { it.description?.contains("Invalid regex escape") == true }
         assertTrue("Valid escapes should not produce errors", regexErrors.isEmpty())
     }
+
+    // ==================== Heredoc validation ====================
+
+    fun testMissingHeredocEndDelimiter() {
+        myFixture.configureByText("test.cr", "a = <<-TEST\n  content")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val heredocError = errors.find { it.description?.contains("Missing heredoc end delimiter") == true }
+        assertNotNull("Should report missing heredoc end delimiter", heredocError)
+    }
+
+    fun testHeredocWithEndDelimiterNoError() {
+        myFixture.configureByText("test.cr", "a = <<-TEST\n  content\nTEST")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val heredocErrors = errors.filter { it.description?.contains("Missing heredoc end delimiter") == true }
+        assertTrue("Complete heredoc should not report missing delimiter", heredocErrors.isEmpty())
+    }
+
+    fun testHeredocEndDelimiterIndentExceedsContent() {
+        // Content has minimum indent of 2, but end delimiter is indented to 3
+        myFixture.configureByText("test.cr", "a = <<-TEST\n  line1\n   line2\n   TEST")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+
+        // First check: is end delimiter found at all?
+        val missingEnd = errors.find { it.description?.contains("Missing heredoc end") == true }
+        assertNull("End delimiter should be found", missingEnd)
+
+        val indentError = errors.find { it.description?.contains("indented too deeply") == true }
+        assertNotNull("Should report end delimiter indent too deep. Got: ${errors.map { it.description }}", indentError)
+    }
+
+    fun testHeredocEndDelimiterIndentMatchesMinimumContent() {
+        // Content has minimum indent of 2, end delimiter is also at 2 — valid
+        myFixture.configureByText("test.cr", "a = <<-TEST\n  line1\n   line2\n  TEST")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val indentErrors = errors.filter { it.description?.contains("indented too deeply") == true }
+        assertTrue("End delimiter at min content indent should be valid", indentErrors.isEmpty())
+    }
 }

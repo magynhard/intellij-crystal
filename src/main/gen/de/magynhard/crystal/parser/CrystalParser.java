@@ -2810,7 +2810,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END
+  // HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END?
   public static boolean heredoc_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "heredoc_literal")) return false;
     if (!nextTokenIs(builder_, HEREDOC_START)) return false;
@@ -2818,7 +2818,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, HEREDOC_START);
     result_ = result_ && heredoc_literal_1(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, HEREDOC_END);
+    result_ = result_ && heredoc_literal_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, HEREDOC_LITERAL, result_);
     return result_;
   }
@@ -2856,6 +2856,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && consumeToken(builder_, STRING_INTERPOLATION_END);
     exit_section_(builder_, marker_, null, result_);
     return result_;
+  }
+
+  // HEREDOC_END?
+  private static boolean heredoc_literal_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "heredoc_literal_2")) return false;
+    consumeToken(builder_, HEREDOC_END);
+    return true;
   }
 
   /* ********************************************************** */
