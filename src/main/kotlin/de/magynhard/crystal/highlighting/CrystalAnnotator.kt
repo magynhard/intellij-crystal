@@ -10,6 +10,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 
 /**
@@ -63,6 +64,8 @@ class CrystalAnnotator : Annotator {
             validateHeredocEnd(element, holder)
             return
         }
+
+
     }
 
     /**
@@ -385,6 +388,25 @@ class CrystalAnnotator : Annotator {
     /**
      * Find the HEREDOC_END element matching the given delimiter name.
      */
+    /**
+     * Handle PsiErrorElement that contains invalid single-quote strings.
+     * When the parser encounters 'hello world', it creates an error element.
+     * We replace the generic parser error with a user-friendly message.
+     */
+    private fun validateErrorElement(element: PsiElement, holder: AnnotationHolder) {
+        val errorText = element.text
+        // Check if the error text is a single-quoted string with more than one character
+        if (errorText.startsWith("'") && errorText.endsWith("'") && errorText.length > 3) {
+            holder.newAnnotation(
+                HighlightSeverity.ERROR,
+                "Unterminated char literal — single quotes can only contain one character. " +
+                "Use double quotes for strings."
+            )
+                .range(element)
+                .create()
+        }
+    }
+
     private fun findHeredocEndElement(file: PsiFile, delimiter: String): PsiElement? {
         return PsiTreeUtil.findChildrenOfType(file, PsiElement::class.java).find {
             it.node.elementType == CrystalTypes.HEREDOC_END && it.text.trim() == delimiter

@@ -271,4 +271,24 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         val indentErrors = errors.filter { it.description?.contains("indented too deeply") == true }
         assertTrue("End delimiter at min content indent should be valid", indentErrors.isEmpty())
     }
+
+    // ==================== Single-quote string validation ====================
+
+    fun testInvalidSingleQuoteString() {
+        myFixture.enableInspections(de.magynhard.crystal.highlighting.CrystalSingleQuoteStringInspection())
+        myFixture.configureByText("test.cr", "e = 'hello world'")
+        val highlights = myFixture.doHighlighting()
+        
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val singleQuoteError = errors.find { it.description?.contains("single quotes can only contain one character") == true }
+        assertNotNull("Should report invalid single-quote string. Got: ${errors.map { it.description }}", singleQuoteError)
+    }
+
+    fun testValidSingleQuoteChar() {
+        myFixture.configureByText("test.cr", "c = 'a'")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val singleQuoteErrors = errors.filter { it.description?.contains("single quotes can only contain one character") == true }
+        assertTrue("Valid char literal should not produce error", singleQuoteErrors.isEmpty())
+    }
 }

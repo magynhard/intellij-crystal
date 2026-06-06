@@ -229,6 +229,15 @@
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.inspections.CrystalLibFunParameterTypeInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Invalid single-quote string"
+                shortName="CrystalSingleQuoteString"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.highlighting.CrystalSingleQuoteStringInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>

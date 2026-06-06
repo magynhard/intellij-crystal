@@ -182,6 +182,11 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "with"               { return CrystalTypes.WITH; }
   "yield"              { return CrystalTypes.YIELD; }
 
+  // Invalid single-quote string (more than one character between quotes)
+  // This rule must come before CHAR_LITERAL because JFlex longest-match wins.
+  // It matches 'xx...x' with 2+ characters inside, producing a single BAD_CHARACTER token.
+  "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
+
   // Literals
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
