@@ -290,4 +290,26 @@ class CrystalEnterHandlerTest : BasePlatformTestCase() {
         val endCount = Regex("\\bend\\b").findAll(text).count()
         assertEquals("Should have exactly one 'end' (already present)", 1, endCount)
     }
+
+    fun testEndInsertedForNewDefInLargeFile() {
+        // Simulate a large file with existing def/end pairs.
+        // Adding a new top-level def should still insert its own end,
+        // even though another def/end pair exists below.
+        val content = """
+def existing_method
+  "hello"
+end
+
+def sample<caret>
+
+def another_method
+  42
+end
+""".trimIndent()
+        myFixture.configureByText("test.cr", content)
+        myFixture.type("\n")
+        val text = myFixture.editor.document.text
+        val endCount = Regex("\\bend\\b").findAll(text).count()
+        assertEquals("Should have 3 'end's (one for each def)", 3, endCount)
+    }
 }
