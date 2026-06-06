@@ -285,17 +285,36 @@ class CrystalAnnotator : Annotator {
     /**
      * Marks invalid PCRE2 escape sequences inside regex literals as errors.
      * PCRE2 does not support: \u, \F, \L, \l, \N{name}, \U
+     * For \u and \N{U+...}, suggests the equivalent \x{CODEPOINT} alternative.
      */
     private fun annotateInvalidRegexEscapes(text: String, startOffset: Int, holder: AnnotationHolder) {
         for (match in REGEX_INVALID_ESCAPE.findAll(text)) {
             val escapeText = match.value
             val range = TextRange(startOffset + match.range.first, startOffset + match.range.last + 1)
             val message = when {
-                escapeText.startsWith("\\u") -> "Invalid regex escape: PCRE2 does not support \\u"
+                escapeText.startsWith("\\u") -> {
+                    val hexValue = if (escapeText.startsWith("\\u{")) {
+                        escapeText.removeSurrounding("\\u{", "}")
+                    } else {
+                        escapeText.removePrefix("\\u")
+                    }
+                    val codepoint = hexValue.toIntOrNull(16)
+                    val suggestion = if (codepoint != null) "\\x{${codepoint.toString(16).uppercase()}}" else "\\x{CODEPOINT}"
+                    "Invalid regex escape: PCRE2 does not support \\u. Use $suggestion instead."
+                }
+                escapeText.startsWith("\\N{") -> {
+                    if (escapeText.startsWith("\\N{U+")) {
+                        val hexValue = escapeText.removeSurrounding("\\N{U+", "}")
+                        val codepoint = hexValue.toIntOrNull(16)
+                        val suggestion = if (codepoint != null) "\\x{${codepoint.toString(16).uppercase()}}" else "\\x{CODEPOINT}"
+                        "Invalid regex escape: PCRE2 does not support \\N{name}. Use $suggestion instead."
+                    } else {
+                        "Invalid regex escape: PCRE2 does not support \\N{name}. Use \\x{CODEPOINT} instead."
+                    }
+                }
                 escapeText == "\\F" -> "Invalid regex escape: PCRE2 does not support \\F"
                 escapeText == "\\L" -> "Invalid regex escape: PCRE2 does not support \\L"
                 escapeText == "\\l" -> "Invalid regex escape: PCRE2 does not support \\l"
-                escapeText.startsWith("\\N{") -> "Invalid regex escape: PCRE2 does not support \\N{name}"
                 escapeText == "\\U" -> "Invalid regex escape: PCRE2 does not support \\U"
                 else -> "Invalid regex escape: PCRE2 does not support $escapeText"
             }

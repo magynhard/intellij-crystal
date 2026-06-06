@@ -172,6 +172,17 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         assertTrue("Should report error for \\u escape", errors.isNotEmpty())
         val error = errors.find { it.description?.contains("Invalid regex escape") == true }
         assertNotNull("Should have 'Invalid regex escape' message", error)
+        assertTrue("Should suggest \\x{41} for \\u0041", error!!.description!!.contains("\\x{41}"))
+    }
+
+    fun testInvalidRegexEscapeUWithBraces() {
+        myFixture.configureByText("test.cr", "r = /\\u{41}/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        assertTrue("Should report error for \\u{...} escape", errors.isNotEmpty())
+        val error = errors.find { it.description?.contains("Invalid regex escape") == true }
+        assertNotNull("Should have 'Invalid regex escape' message", error)
+        assertTrue("Should suggest \\x{41} for \\u{41}", error!!.description!!.contains("\\x{41}"))
     }
 
     fun testInvalidRegexEscapeF() {
@@ -200,6 +211,9 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         val highlights = myFixture.doHighlighting()
         val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
         assertTrue("Should report error for \\N{name} escape", errors.isNotEmpty())
+        val error = errors.find { it.description?.contains("Invalid regex escape") == true }
+        assertNotNull("Should have 'Invalid regex escape' message", error)
+        assertTrue("Should suggest \\x{41} for \\N{U+0041}", error!!.description!!.contains("\\x{41}"))
     }
 
     fun testInvalidRegexEscapeUpperU() {
