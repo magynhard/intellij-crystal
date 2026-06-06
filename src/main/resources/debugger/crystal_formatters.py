@@ -240,6 +240,73 @@ def live_hash_entries(value, limit=None):
     return hash_raw, result
 
 
+def _address_child(valobj, name='[address]'):
+    """Create a synthetic child showing the pointer address of valobj."""
+    try:
+        address = valobj.GetValueAsUnsigned(0)
+        if address and address != 0:
+            return valobj.CreateValueFromExpression(name, '0x%x' % address)
+    except Exception:
+        pass
+    return None
+
+
+class CrystalStringSyntheticProvider:
+    def __init__(self, valobj, internal_dict):
+        self.valobj = valobj
+        self._updated = False
+        self._children = []
+
+    def update(self):
+        value = self.valobj
+        self._children = []
+
+        addr = _address_child(self.valobj)
+        if addr is not None:
+            self._children.append(addr)
+
+        if value.TypeIsPointerType():
+            if value.GetValueAsUnsigned(0) == 0:
+                self._updated = True
+                return
+            value = value.Dereference()
+
+        value = value.GetNonSyntheticValue()
+
+        bytes_child = value.GetChildAtIndex(0)
+        length_child = value.GetChildAtIndex(1)
+        if bytes_child.IsValid():
+            self._children.append(bytes_child.Clone('bytes'))
+        if length_child.IsValid():
+            self._children.append(length_child.Clone('length'))
+
+        self._updated = True
+
+    def _ensure_updated(self):
+        if not self._updated:
+            self.update()
+
+    def num_children(self):
+        self._ensure_updated()
+        return len(self._children)
+
+    def has_children(self):
+        return self.num_children() > 0
+
+    def get_child_index(self, name):
+        self._ensure_updated()
+        for index, child in enumerate(self._children):
+            if child.GetName() == name:
+                return index
+        return -1
+
+    def get_child_at_index(self, index):
+        self._ensure_updated()
+        if index >= len(self._children):
+            return None
+        return self._children[index]
+
+
 class CrystalArraySyntheticProvider:
     def __init__(self, valobj, internal_dict):
         self.valobj = valobj
@@ -270,20 +337,27 @@ class CrystalArraySyntheticProvider:
     def num_children(self):
         self._ensure_updated()
         size = 0 if self.size is None else self.size
-        return min(size, MAX_SYNTHETIC_CHILDREN)
+        return min(size, MAX_SYNTHETIC_CHILDREN) + 1  # +1 for [address]
 
     def has_children(self):
         return self.num_children() > 0
 
     def get_child_index(self, name):
+        if name == '[address]':
+            return 0
         try:
-            return int(name.lstrip('[').rstrip(']'))
+            return int(name.lstrip('[').rstrip(']')) + 1  # +1 for [address]
         except:
             return -1
 
     def get_child_at_index(self, index):
         self._ensure_updated()
-        if index >= self.size or index >= MAX_SYNTHETIC_CHILDREN:
+        # First child is the address
+        if index == 0:
+            return _address_child(self.valobj)
+        # Remaining children are array elements
+        elem_index = index - 1
+        if elem_index >= self.size or elem_index >= MAX_SYNTHETIC_CHILDREN:
             return None
         try:
             if self.buffer is None:
@@ -291,8 +365,8 @@ class CrystalArraySyntheticProvider:
             elementType = self.buffer.GetType().GetPointeeType()
             if not _valid_element_storage(self.buffer, elementType, self.size):
                 return None
-            offset = elementType.GetByteSize() * index
-            return self.buffer.CreateChildAtOffset('[' + str(index) + ']', offset, elementType)
+            offset = elementType.GetByteSize() * elem_index
+            return self.buffer.CreateChildAtOffset('[' + str(elem_index) + ']', offset, elementType)
         except Exception as e:
             print('Got exception %s' % (str(e)))
             return None
@@ -398,29 +472,32 @@ class CrystalHashSyntheticProvider:
 
     def num_children(self):
         self._ensure_updated()
-        return len(self.entries)
+        return len(self.entries) + 1  # +1 for [address]
 
     def has_children(self):
         return self.num_children() > 0
 
     def get_child_index(self, name):
         self._ensure_updated()
-
+        if name == '[address]':
+            return 0
         for index, child in enumerate(self.entries):
             if child.GetName() == name:
-                return index
-
+                return index + 1  # +1 for [address]
         try:
-            return int(name.lstrip('[').rstrip(']'))
+            return int(name.lstrip('[').rstrip(']')) + 1
         except:
             return -1
 
     def get_child_at_index(self, index):
         self._ensure_updated()
-        if index >= len(self.entries):
+        if index == 0:
+            return _address_child(self.valobj)
+        elem_index = index - 1
+        if elem_index >= len(self.entries):
             return None
         try:
-            return self.entries[index]
+            return self.entries[elem_index]
         except Exception as e:
             print('Hash formatter error: %s' % (str(e)))
             return None
@@ -557,23 +634,28 @@ class CrystalUnionSyntheticProvider:
 
     def num_children(self):
         self._ensure_updated()
-        return len(self.children)
+        return len(self.children) + 1  # +1 for [address]
 
     def has_children(self):
         return self.num_children() > 0
 
     def get_child_index(self, name):
         self._ensure_updated()
+        if name == '[address]':
+            return 0
         for index, child in enumerate(self.children):
             if child.GetName() == name:
-                return index
+                return index + 1  # +1 for [address]
         return -1
 
     def get_child_at_index(self, index):
         self._ensure_updated()
-        if index >= len(self.children):
+        if index == 0:
+            return _address_child(self.valobj)
+        elem_index = index - 1
+        if elem_index >= len(self.children):
             return None
-        return self.children[index]
+        return self.children[elem_index]
 
 
 def CrystalUnion_SummaryProvider(value, dict):
@@ -612,7 +694,8 @@ def __lldb_init_module(debugger, dict):
     debugger.HandleCommand(r'type summary add -e -F crystal_formatters.CrystalArray_SummaryProvider -x "^Array\(.+\)(\s*\**)?" -w Crystal')
     debugger.HandleCommand(r'type synthetic add -l crystal_formatters.CrystalUnionSyntheticProvider -x "^\(.+ \| .+\)(\s*\**)?" -w Crystal')
     debugger.HandleCommand(r'type summary add -F crystal_formatters.CrystalUnion_SummaryProvider -x "^\(.+ \| .+\)(\s*\**)?" -w Crystal')
-    debugger.HandleCommand(r'type summary add -F crystal_formatters.CrystalString_SummaryProvider -x "^(String|\(String \| Nil\))(\s*\**)?$" -w Crystal')
+    debugger.HandleCommand(r'type synthetic add -l crystal_formatters.CrystalStringSyntheticProvider -x "^(String|\(String \| Nil\))(\s*\**)?$" -w Crystal')
+    debugger.HandleCommand(r'type summary add -e -F crystal_formatters.CrystalString_SummaryProvider -x "^(String|\(String \| Nil\))(\s*\**)?$" -w Crystal')
     debugger.HandleCommand(r'type synthetic add -l crystal_formatters.CrystalHashSyntheticProvider -x "^Hash\(.+,.+\)(\s*\**)?" -w Crystal')
     debugger.HandleCommand(r'type summary add -e -F crystal_formatters.CrystalHash_SummaryProvider -x "^Hash\(.+,.+\)(\s*\**)?" -w Crystal')
     debugger.HandleCommand(r'type summary add -F crystal_formatters.CrystalSet_SummaryProvider -x "^Set\(.+\)(\s*\**)?" -w Crystal')
