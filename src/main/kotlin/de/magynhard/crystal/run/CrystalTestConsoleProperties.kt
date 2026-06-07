@@ -6,11 +6,13 @@ import com.intellij.execution.testframework.sm.SMCustomMessagesParsing
 import com.intellij.execution.testframework.sm.runner.OutputToGeneralTestEventsConverter
 import com.intellij.execution.testframework.sm.runner.SMTestLocator
 import com.intellij.execution.testframework.sm.runner.SMTRunnerConsoleProperties
+import java.io.File
 
 class CrystalTestConsoleProperties(
     configuration: CrystalRunConfiguration,
     executor: Executor,
-    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap()
+    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap(),
+    private val junitOutputFile: File? = null
 ) : SMTRunnerConsoleProperties(configuration, "CrystalSpec", executor), SMCustomMessagesParsing {
 
     override fun getTestLocator(): SMTestLocator = CrystalTestLocator.INSTANCE
@@ -27,6 +29,6 @@ class CrystalTestConsoleProperties(
         testFrameworkName: String,
         consoleProperties: TestConsoleProperties
     ): OutputToGeneralTestEventsConverter {
-        return CrystalTestEventsConverter(testFrameworkName, consoleProperties, testLocations)
+        return CrystalTestEventsConverter(testFrameworkName, consoleProperties, testLocations, junitOutputFile)
     }
 }

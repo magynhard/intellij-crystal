@@ -7,41 +7,37 @@ import com.intellij.execution.testframework.sm.runner.events.*
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.Key
 import jetbrains.buildServer.messages.serviceMessages.ServiceMessageVisitor
+import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Parses Crystal spec verbose output (-v --no-color) into SMTRunner test events.
  *
- * Crystal's verbose output format:
- *   <SuiteName>
- *     <testName>  <testName>
- *   Failures:
- *     1) SuiteName testName
- *        Failure/Error: <code>
- *        # file:line
- *   Finished in <time>
- *   <N> examples, <M> failures, ...
- *
- * If testLocations are provided, each test event includes a crystal_spec:// URL
- * for navigation to the source location.
- *
  * Two-pass architecture:
- * Pass 1: Parse output into an in-memory tree (suites + tests + failures)
- * Pass 2: Walk tree and emit framework events in correct order
+ * Pass 1: Parse verbose output into an in-memory tree (suites + tests + failures)
+ * Pass 2: Parse JUnit XML (from --junit_output) for per-test timing, then emit events
  *
  * This ensures suites know about child failures before they're closed,
- * so the framework correctly marks parent suites as failed.
+ * and each test has accurate execution time from Crystal's own measurement.
  */
 class CrystalTestEventsConverter(
     testFrameworkName: String,
     consoleProperties: TestConsoleProperties,
-    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap()
+    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap(),
+    private val junitOutputFile: File? = null
 ) : OutputToGeneralTestEventsConverter(testFrameworkName, consoleProperties) {
 
     private val LOG = Logger.getInstance(CrystalTestEventsConverter::class.java)
 
-    private val parser = Parser(testLocations) {
-        emitEvents()
-    }
+    private val parser = Parser(testLocations, onParsingComplete = {
+        parsingComplete = true
+    })
+
+    @Volatile
+    private var parsingComplete = false
+
+    @Volatile
+    private var eventsEmitted = false
 
     override fun processServiceMessages(text: String, outputType: Key<*>, visitor: ServiceMessageVisitor): Boolean {
         if (outputType != ProcessOutputTypes.STDOUT) {
@@ -51,9 +47,79 @@ class CrystalTestEventsConverter(
         return true
     }
 
-    override fun dispose() {
+    override fun flushBufferOnProcessTermination(exitCode: Int) {
+        super.flushBufferOnProcessTermination(exitCode)
         parser.finish()
+        if (!eventsEmitted && parsingComplete) {
+            applyJUnitTiming()
+            emitEvents()
+            eventsEmitted = true
+        }
+    }
+
+    override fun dispose() {
+        cleanupJUnitFile()
         super.dispose()
+    }
+
+    // ==================== JUnit XML Timing ====================
+
+    private fun applyJUnitTiming() {
+        val xmlFile = junitOutputFile ?: return
+        if (!xmlFile.exists() || xmlFile.length() == 0L) return
+
+        try {
+            parseJUnitXml(xmlFile)
+        } catch (e: Exception) {
+            LOG.warn("Failed to parse JUnit XML: ${xmlFile.path}", e)
+        }
+    }
+
+    private fun parseJUnitXml(xmlFile: File) {
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xmlFile)
+        val testcases = doc.getElementsByTagName("testcase")
+
+        for (i in 0 until testcases.length) {
+            val tc = testcases.item(i)
+            val name = tc.attributes.getNamedItem("name")?.nodeValue ?: continue
+            val timeStr = tc.attributes.getNamedItem("time")?.nodeValue ?: continue
+            val timeSeconds = timeStr.toDoubleOrNull() ?: continue
+            val durationMs = (timeSeconds * 1000).toLong()
+
+            findTestInTree(name)?.let { test ->
+                test.durationMs = durationMs
+            }
+        }
+    }
+
+    private fun findTestInTree(fullName: String): TestNode.Test? {
+        for (root in parser.rootChildren) {
+            val found = findTestInNode(root, fullName)
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun findTestInNode(node: TestNode, fullName: String): TestNode.Test? {
+        return when (node) {
+            is TestNode.Test -> if (node.fullName == fullName) node else null
+            is TestNode.Suite -> {
+                for (child in node.children) {
+                    val found = findTestInNode(child, fullName)
+                    if (found != null) return found
+                }
+                null
+            }
+        }
+    }
+
+    private fun cleanupJUnitFile() {
+        val file = junitOutputFile ?: return
+        try {
+            file.delete()
+        } catch (e: Exception) {
+            LOG.warn("Failed to clean up JUnit output file: ${file.path}", e)
+        }
     }
 
     // ==================== Pass 2: Emitting ====================
@@ -106,7 +172,7 @@ class CrystalTestEventsConverter(
             var failed: Boolean = false,
             var failureMessage: String = "",
             var failureDetails: String = "",
-            var durationMs: Long = 0
+            var durationMs: Long = -1
         ) : TestNode()
     }
 
@@ -131,8 +197,6 @@ class CrystalTestEventsConverter(
         private var failureFileLocation: String? = null
         private var collectingFailureMessage = false
         private var lineBuffer = StringBuilder()
-        private var lastTestNode: TestNode.Test? = null
-        private var lastTestStartTime: Long = 0
 
         fun feedText(text: String) {
             lineBuffer.append(text)
@@ -168,7 +232,6 @@ class CrystalTestEventsConverter(
             }
 
             if (line.trimStart().startsWith("Finished in")) {
-                finalizeLastTestDuration()
                 finishCurrentTest()
                 finalizeParsing()
                 parseState = ParseState.SUMMARY
@@ -186,13 +249,6 @@ class CrystalTestEventsConverter(
                 val testName = stripped.substring(0, stripped.length / 2).trimEnd()
                 finishCurrentTest()
 
-                val now = System.currentTimeMillis()
-                lastTestNode?.let { prev ->
-                    if (lastTestStartTime > 0) {
-                        prev.durationMs = now - lastTestStartTime
-                    }
-                }
-
                 val fullName = (suiteStack.map { it.name } + testName).joinToString(" ")
                 val location = testLocations[fullName]
                 val url = if (location != null) "${CrystalTestLocator.PROTOCOL}://${location.file}:${location.line}" else null
@@ -201,8 +257,6 @@ class CrystalTestEventsConverter(
                 currentTestName = testName
                 currentTestFullName = fullName
                 hasSeenTests = true
-                lastTestNode = testNode
-                lastTestStartTime = now
 
                 getCurrentContainer().add(testNode)
             } else {
@@ -252,18 +306,10 @@ class CrystalTestEventsConverter(
             currentTestFullName = null
         }
 
-        private fun finalizeLastTestDuration() {
-            val test = lastTestNode ?: return
-            if (lastTestStartTime > 0 && test.durationMs == 0L) {
-                test.durationMs = System.currentTimeMillis() - lastTestStartTime
-            }
-        }
-
         private fun parseFailureLine(line: String) {
             val trimmed = line.trimStart()
 
             if (trimmed.startsWith("Finished in")) {
-                finalizeLastTestDuration()
                 flushCurrentFailure()
                 finalizeParsing()
                 parseState = ParseState.SUMMARY
@@ -360,6 +406,44 @@ class CrystalTestEventsConverter(
             parser.feedText(output)
             parser.finish()
             return parser.rootChildren
+        }
+
+        /**
+         * Apply per-test timing from a JUnit XML file to an existing test tree.
+         * Used for testing JUnit XML parsing independently of the full converter.
+         */
+        fun applyJUnitTimingFromXml(xmlFile: File, tree: List<TestNode>) {
+            val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xmlFile)
+            val testcases = doc.getElementsByTagName("testcase")
+
+            for (i in 0 until testcases.length) {
+                val tc = testcases.item(i)
+                val name = tc.attributes.getNamedItem("name")?.nodeValue ?: continue
+                val timeStr = tc.attributes.getNamedItem("time")?.nodeValue ?: continue
+                val timeSeconds = timeStr.toDoubleOrNull() ?: continue
+                val durationMs = (timeSeconds * 1000).toLong()
+
+                for (root in tree) {
+                    val found = findTestInNode(root, name)
+                    if (found != null) {
+                        found.durationMs = durationMs
+                        break
+                    }
+                }
+            }
+        }
+
+        private fun findTestInNode(node: TestNode, fullName: String): TestNode.Test? {
+            return when (node) {
+                is TestNode.Test -> if (node.fullName == fullName) node else null
+                is TestNode.Suite -> {
+                    for (child in node.children) {
+                        val found = findTestInNode(child, fullName)
+                        if (found != null) return found
+                    }
+                    null
+                }
+            }
         }
     }
 }

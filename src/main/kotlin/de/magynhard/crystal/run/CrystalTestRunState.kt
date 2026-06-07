@@ -12,16 +12,20 @@ import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.execution.runners.ProgramRunner
 import com.intellij.execution.testframework.sm.SMTestRunnerConnectionUtil
 import java.io.File
+import java.nio.file.Files
 
 /**
  * Run state for Crystal spec that integrates with IntelliJ's test runner UI.
- * Launches "crystal spec -v --no-color [file[:line]]" and parses output in real-time
- * via CrystalTestEventsConverter (registered through CrystalTestConsoleProperties).
+ * Launches "crystal spec -v --no-color --junit_output <file> [file[:line]]"
+ * and parses output in real-time via CrystalTestEventsConverter.
+ * After tests complete, JUnit XML is parsed for accurate per-test timing.
  */
 class CrystalTestRunState(
     environment: ExecutionEnvironment,
     private val configuration: CrystalRunConfiguration
 ) : CommandLineState(environment) {
+
+    private var junitOutputFile: File? = null
 
     override fun startProcess(): ProcessHandler {
         val commandLine = buildCommandLine()
@@ -31,9 +35,9 @@ class CrystalTestRunState(
     }
 
     override fun execute(executor: Executor, runner: ProgramRunner<*>): ExecutionResult {
+        junitOutputFile = Files.createTempFile("crystal_junit", ".xml").toFile()
         val processHandler = startProcess()
 
-        // Build test location index for navigation
         val testLocations = if (configuration.filePath.isNotBlank()) {
             val file = java.io.File(configuration.filePath)
             if (file.isDirectory) {
@@ -45,7 +49,7 @@ class CrystalTestRunState(
             emptyMap()
         }
 
-        val properties = CrystalTestConsoleProperties(configuration, executor, testLocations)
+        val properties = CrystalTestConsoleProperties(configuration, executor, testLocations, junitOutputFile!!)
         val console = SMTestRunnerConnectionUtil.createAndAttachConsole(
             "CrystalSpec",
             processHandler,
@@ -62,7 +66,6 @@ class CrystalTestRunState(
             if (configuration.filePath.isNotBlank()) {
                 val file = java.io.File(configuration.filePath)
                 if (file.isDirectory) {
-                    // Pass directory path — crystal spec runs all *_spec.cr files recursively
                     addParameter(configuration.filePath)
                 } else if (configuration.specLine > 0) {
                     addParameter("${configuration.filePath}:${configuration.specLine}")
@@ -73,6 +76,12 @@ class CrystalTestRunState(
 
             addParameter("-v")
             addParameter("--no-color")
+
+            val junitFile = junitOutputFile
+            if (junitFile != null) {
+                addParameter("--junit_output")
+                addParameter(junitFile.absolutePath)
+            }
 
             if (configuration.arguments.isNotBlank()) {
                 addParameters(configuration.arguments.split(" ").filter { it.isNotBlank() })

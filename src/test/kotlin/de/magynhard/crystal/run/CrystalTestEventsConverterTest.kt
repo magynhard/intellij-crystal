@@ -422,4 +422,82 @@ class CrystalTestEventsConverterTest {
         val tree = CrystalTestEventsConverter.parseForTest("")
         assertEquals(0, tree.size)
     }
+
+    // ==================== JUnit XML Timing Tests ====================
+
+    @Test
+    fun testJUnitTiming_appliesPerTestDuration() {
+        val output = """
+            |Calculator
+            |  adds correctly  adds correctly
+            |  subtracts correctly  subtracts correctly
+            |  multiplies correctly  multiplies correctly
+            |Finished in 150.0 ms
+            |3 examples, 0 failures
+        """.trimMargin()
+
+        val tree = CrystalTestEventsConverter.parseForTest(output)
+
+        val junitXml = File.createTempFile("junit_timing", ".xml")
+        try {
+            junitXml.writeText("""
+                <?xml version="1.0"?>
+                <testsuite tests="3" time="0.150">
+                  <testcase name="Calculator adds correctly" time="0.001"/>
+                  <testcase name="Calculator subtracts correctly" time="0.048"/>
+                  <testcase name="Calculator multiplies correctly" time="0.101"/>
+                </testsuite>
+            """.trimIndent())
+
+            CrystalTestEventsConverter.applyJUnitTimingFromXml(junitXml, tree)
+
+            val suite = tree[0] as CrystalTestEventsConverter.TestNode.Suite
+            assertEquals(3, suite.children.size)
+
+            val adds = suite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            val subtracts = suite.children[1] as CrystalTestEventsConverter.TestNode.Test
+            val multiplies = suite.children[2] as CrystalTestEventsConverter.TestNode.Test
+
+            assertEquals(1L, adds.durationMs)
+            assertEquals(48L, subtracts.durationMs)
+            assertEquals(101L, multiplies.durationMs)
+        } finally {
+            junitXml.delete()
+        }
+    }
+
+    @Test
+    fun testJUnitTiming_handlesMissingTimeAttribute() {
+        val output = """
+            |Math
+            |  test_a  test_a
+            |  test_b  test_b
+            |Finished in 50.0 ms
+            |2 examples, 0 failures
+        """.trimMargin()
+
+        val tree = CrystalTestEventsConverter.parseForTest(output)
+
+        val junitXml = File.createTempFile("junit_timing", ".xml")
+        try {
+            junitXml.writeText("""
+                <?xml version="1.0"?>
+                <testsuite tests="2" time="0.050">
+                  <testcase name="Math test_a" time="0.020"/>
+                  <testcase name="Math test_b"/>
+                </testsuite>
+            """.trimIndent())
+
+            CrystalTestEventsConverter.applyJUnitTimingFromXml(junitXml, tree)
+
+            val suite = tree[0] as CrystalTestEventsConverter.TestNode.Suite
+            val testA = suite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            val testB = suite.children[1] as CrystalTestEventsConverter.TestNode.Test
+
+            assertEquals(20L, testA.durationMs)
+            assertEquals(-1L, testB.durationMs) // unchanged default
+        } finally {
+            junitXml.delete()
+        }
+    }
 }
