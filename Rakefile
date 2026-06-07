@@ -8,10 +8,10 @@ require 'dotenv/load'
 #
 desc "Run plugin in uncached, sandboxed IntelliJ environment"
 task :run do |t|
-  `./gradlew cleanSandbox runIde --args="#{ENV['TEST_APP_PATH']}"`
+  system %Q(./gradlew cleanSandbox runIde --args="#{ENV['TEST_APP_PATH']}")
 end
 
 desc "Build plugin and store it in build/distributions"
 task :build do |t|
-  `./gradlew buildPlugin`
+  system "./gradlew buildPlugin"
 end
