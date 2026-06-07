@@ -86,7 +86,7 @@ class CrystalTestEventsConverter(
                 TestFailedEvent(test.name, test.failureMessage, test.failureDetails, false, null, null)
             )
         }
-        getProcessor().onTestFinished(TestFinishedEvent(test.name, null))
+        getProcessor().onTestFinished(TestFinishedEvent(test.name, test.durationMs))
     }
 
     // ==================== Tree Node Types ====================
@@ -105,7 +105,8 @@ class CrystalTestEventsConverter(
             val url: String?,
             var failed: Boolean = false,
             var failureMessage: String = "",
-            var failureDetails: String = ""
+            var failureDetails: String = "",
+            var durationMs: Long = 0
         ) : TestNode()
     }
 
@@ -130,6 +131,8 @@ class CrystalTestEventsConverter(
         private var failureFileLocation: String? = null
         private var collectingFailureMessage = false
         private var lineBuffer = StringBuilder()
+        private var lastTestNode: TestNode.Test? = null
+        private var lastTestStartTime: Long = 0
 
         fun feedText(text: String) {
             lineBuffer.append(text)
@@ -165,6 +168,7 @@ class CrystalTestEventsConverter(
             }
 
             if (line.trimStart().startsWith("Finished in")) {
+                finalizeLastTestDuration()
                 finishCurrentTest()
                 finalizeParsing()
                 parseState = ParseState.SUMMARY
@@ -182,6 +186,13 @@ class CrystalTestEventsConverter(
                 val testName = stripped.substring(0, stripped.length / 2).trimEnd()
                 finishCurrentTest()
 
+                val now = System.currentTimeMillis()
+                lastTestNode?.let { prev ->
+                    if (lastTestStartTime > 0) {
+                        prev.durationMs = now - lastTestStartTime
+                    }
+                }
+
                 val fullName = (suiteStack.map { it.name } + testName).joinToString(" ")
                 val location = testLocations[fullName]
                 val url = if (location != null) "${CrystalTestLocator.PROTOCOL}://${location.file}:${location.line}" else null
@@ -190,6 +201,8 @@ class CrystalTestEventsConverter(
                 currentTestName = testName
                 currentTestFullName = fullName
                 hasSeenTests = true
+                lastTestNode = testNode
+                lastTestStartTime = now
 
                 getCurrentContainer().add(testNode)
             } else {
@@ -239,10 +252,18 @@ class CrystalTestEventsConverter(
             currentTestFullName = null
         }
 
+        private fun finalizeLastTestDuration() {
+            val test = lastTestNode ?: return
+            if (lastTestStartTime > 0 && test.durationMs == 0L) {
+                test.durationMs = System.currentTimeMillis() - lastTestStartTime
+            }
+        }
+
         private fun parseFailureLine(line: String) {
             val trimmed = line.trimStart()
 
             if (trimmed.startsWith("Finished in")) {
+                finalizeLastTestDuration()
                 flushCurrentFailure()
                 finalizeParsing()
                 parseState = ParseState.SUMMARY
