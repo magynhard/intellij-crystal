@@ -4,12 +4,16 @@ import com.intellij.execution.Executor
 import com.intellij.execution.testframework.TestConsoleProperties
 import com.intellij.execution.testframework.sm.SMCustomMessagesParsing
 import com.intellij.execution.testframework.sm.runner.OutputToGeneralTestEventsConverter
+import com.intellij.execution.testframework.sm.runner.SMTestLocator
 import com.intellij.execution.testframework.sm.runner.SMTRunnerConsoleProperties
 
 class CrystalTestConsoleProperties(
     configuration: CrystalRunConfiguration,
-    executor: Executor
+    executor: Executor,
+    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap()
 ) : SMTRunnerConsoleProperties(configuration, "CrystalSpec", executor), SMCustomMessagesParsing {
+
+    override fun getTestLocator(): SMTestLocator = CrystalTestLocator.INSTANCE
 
     init {
         isUsePredefinedMessageFilter = true
@@ -23,6 +27,6 @@ class CrystalTestConsoleProperties(
         testFrameworkName: String,
         consoleProperties: TestConsoleProperties
     ): OutputToGeneralTestEventsConverter {
-        return CrystalTestEventsConverter(testFrameworkName, consoleProperties)
+        return CrystalTestEventsConverter(testFrameworkName, consoleProperties, testLocations)
     }
 }

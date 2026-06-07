@@ -19,10 +19,14 @@ import jetbrains.buildServer.messages.serviceMessages.ServiceMessageVisitor
  *        # file:line
  *   Finished in <time>
  *   <N> examples, <M> failures, ...
+ *
+ * If testLocations are provided, each test event includes a crystal_spec:// URL
+ * for navigation to the source location.
  */
 class CrystalTestEventsConverter(
     testFrameworkName: String,
-    consoleProperties: TestConsoleProperties
+    consoleProperties: TestConsoleProperties,
+    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap()
 ) : OutputToGeneralTestEventsConverter(testFrameworkName, consoleProperties) {
 
     private enum class State { RUNNING, FAILURES, SUMMARY }
@@ -101,7 +105,11 @@ class CrystalTestEventsConverter(
             currentTestName = testName
             val fullName = (suiteStack + testName).joinToString(" ")
             startedTests.add(fullName)
-            getProcessor().onTestStarted(TestStartedEvent(testName, null))
+
+            // Look up source location for navigation
+            val location = testLocations[fullName]
+            val url = if (location != null) "${CrystalTestLocator.PROTOCOL}://${location.file}:${location.line}" else null
+            getProcessor().onTestStarted(TestStartedEvent(testName, url))
         } else {
             // Suite — adjust stack based on indentation
             val level = indent / 2
@@ -164,7 +172,7 @@ class CrystalTestEventsConverter(
 
         val testName = findTestNameFromFullName(name)
         val message = currentFailureMessage.toString().trim()
-        val details = failureFileLocation ?: ""
+        val details = if (failureFileLocation != null) "${CrystalTestLocator.PROTOCOL}://$failureFileLocation" else ""
 
         getProcessor().onTestFailure(TestFailedEvent(testName, message, details, false, null, null))
         getProcessor().onTestFinished(TestFinishedEvent(testName, null))

@@ -32,7 +32,15 @@ class CrystalTestRunState(
 
     override fun execute(executor: Executor, runner: ProgramRunner<*>): ExecutionResult {
         val processHandler = startProcess()
-        val properties = CrystalTestConsoleProperties(configuration, executor)
+
+        // Build test location index for navigation
+        val testLocations = if (configuration.filePath.isNotBlank()) {
+            CrystalSpecFileIndexer.getTestLocations(configuration.filePath)
+        } else {
+            emptyMap()
+        }
+
+        val properties = CrystalTestConsoleProperties(configuration, executor, testLocations)
         val console = SMTestRunnerConnectionUtil.createAndAttachConsole(
             "CrystalSpec",
             processHandler,
