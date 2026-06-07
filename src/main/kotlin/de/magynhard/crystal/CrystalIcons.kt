@@ -8,8 +8,9 @@ object CrystalIcons {
     @JvmField
     val FILE = IconLoader.getIcon("/icons/crystal.svg", CrystalIcons::class.java)
     @JvmField
+    val SPEC_FILE_BASE = IconLoader.getIcon("/icons/crystal_spec.svg", CrystalIcons::class.java)
+    @JvmField
     val SPEC_FILE: javax.swing.Icon = LayeredIcon(2).apply {
-        setIcon(FILE, 0)
-        setIcon(AllIcons.Nodes.JunitTestMark, 1, 0, FILE.iconHeight / 2)
+        setIcon(SPEC_FILE_BASE, 0)
     }
 }
