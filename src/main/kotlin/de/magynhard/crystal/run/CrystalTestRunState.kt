@@ -35,7 +35,12 @@ class CrystalTestRunState(
 
         // Build test location index for navigation
         val testLocations = if (configuration.filePath.isNotBlank()) {
-            CrystalSpecFileIndexer.getTestLocations(configuration.filePath)
+            val file = java.io.File(configuration.filePath)
+            if (file.isDirectory) {
+                CrystalSpecFileIndexer.getTestLocationsForDirectory(configuration.filePath)
+            } else {
+                CrystalSpecFileIndexer.getTestLocations(configuration.filePath)
+            }
         } else {
             emptyMap()
         }
@@ -55,7 +60,11 @@ class CrystalTestRunState(
             addParameter("spec")
 
             if (configuration.filePath.isNotBlank()) {
-                if (configuration.specLine > 0) {
+                val file = java.io.File(configuration.filePath)
+                if (file.isDirectory) {
+                    // Pass directory path — crystal spec runs all *_spec.cr files recursively
+                    addParameter(configuration.filePath)
+                } else if (configuration.specLine > 0) {
                     addParameter("${configuration.filePath}:${configuration.specLine}")
                 } else {
                     addParameter(configuration.filePath)

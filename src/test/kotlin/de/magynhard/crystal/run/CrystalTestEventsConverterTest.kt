@@ -3,6 +3,7 @@ package de.magynhard.crystal.run
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
+import java.nio.file.Files
 
 class CrystalTestEventsConverterTest {
 
@@ -156,5 +157,77 @@ class CrystalTestEventsConverterTest {
         val locations = indexer.buildIndex()
 
         assertEquals(0, locations.size)
+    }
+
+    @Test
+    fun testIndexer_directoryWithMultipleFiles() {
+        val tempDir = Files.createTempDirectory("spec_dir").toFile()
+        try {
+            val spec1 = File(tempDir, "math_spec.cr")
+            spec1.writeText("""
+                describe "Math" do
+                  it "adds" do
+                    expect(1 + 1).to eq(2)
+                  end
+                end
+            """.trimIndent())
+
+            val spec2 = File(tempDir, "string_spec.cr")
+            spec2.writeText("""
+                describe "String" do
+                  it "concatenates" do
+                    expect("hello" + " world").to eq("hello world")
+                  end
+                end
+            """.trimIndent())
+
+            // Also create a non-spec file that should be ignored
+            val helper = File(tempDir, "helper.cr")
+            helper.writeText("require \"spec\"")
+
+            CrystalSpecFileIndexer.clearCache()
+            val locations = CrystalSpecFileIndexer.getTestLocationsForDirectory(tempDir.absolutePath)
+
+            assertEquals(2, locations.size)
+            assertNotNull(locations["Math adds"])
+            assertNotNull(locations["String concatenates"])
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testIndexer_directoryWithSubdirectories() {
+        val tempDir = Files.createTempDirectory("spec_dir").toFile()
+        val subDir = File(tempDir, "models")
+        subDir.mkdirs()
+        try {
+            val spec1 = File(tempDir, "app_spec.cr")
+            spec1.writeText("""
+                describe "App" do
+                  it "works" do
+                    expect(true).to be_true
+                  end
+                end
+            """.trimIndent())
+
+            val spec2 = File(subDir, "user_spec.cr")
+            spec2.writeText("""
+                describe "User" do
+                  it "validates" do
+                    expect(true).to be_true
+                  end
+                end
+            """.trimIndent())
+
+            CrystalSpecFileIndexer.clearCache()
+            val locations = CrystalSpecFileIndexer.getTestLocationsForDirectory(tempDir.absolutePath)
+
+            assertEquals(2, locations.size)
+            assertNotNull(locations["App works"])
+            assertNotNull(locations["User validates"])
+        } finally {
+            tempDir.deleteRecursively()
+        }
     }
 }

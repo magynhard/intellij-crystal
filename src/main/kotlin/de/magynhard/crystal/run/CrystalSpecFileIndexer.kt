@@ -78,6 +78,30 @@ class CrystalSpecFileIndexer(private val filePath: String) {
             return cache[filePath] ?: emptyMap()
         }
 
+        /**
+         * Index all *_spec.cr files in a directory (recursively).
+         * Returns a merged map of test names to their source locations.
+         */
+        fun getTestLocationsForDirectory(dirPath: String): Map<String, TestLocation> {
+            val cacheKey = "dir:$dirPath"
+            if (!indexedFiles.contains(cacheKey)) {
+                val result = mutableMapOf<String, TestLocation>()
+                val dir = File(dirPath)
+                if (dir.exists() && dir.isDirectory) {
+                    dir.walkTopDown()
+                        .filter { it.isFile && it.name.endsWith("_spec.cr") }
+                        .forEach { specFile ->
+                            val indexer = CrystalSpecFileIndexer(specFile.absolutePath)
+                            val locations = indexer.buildIndex()
+                            result.putAll(locations)
+                        }
+                }
+                cache[cacheKey] = result
+                indexedFiles.add(cacheKey)
+            }
+            return cache[cacheKey] ?: emptyMap()
+        }
+
         fun clearCache() {
             cache.clear()
             indexedFiles.clear()

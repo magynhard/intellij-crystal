@@ -4,9 +4,11 @@ import com.intellij.execution.actions.ConfigurationContext
 import com.intellij.execution.actions.LazyRunConfigurationProducer
 import com.intellij.execution.configurations.ConfigurationFactory
 import com.intellij.openapi.util.Ref
+import com.intellij.psi.PsiDirectory
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.CrystalTypes
+import java.io.File
 
 class CrystalRunConfigurationProducer : LazyRunConfigurationProducer<CrystalRunConfiguration>() {
 
@@ -19,6 +21,16 @@ class CrystalRunConfigurationProducer : LazyRunConfigurationProducer<CrystalRunC
         configuration: CrystalRunConfiguration,
         context: ConfigurationContext
     ): Boolean {
+        val element = context.psiLocation ?: return false
+
+        // Directory context
+        if (element is PsiDirectory) {
+            val dir = element.virtualFile
+            if (configuration.filePath != dir.path) return false
+            return configuration.command == CrystalCommand.SPEC
+        }
+
+        // File context
         val file = context.location?.virtualFile ?: return false
         if (file.extension != "cr") return false
         if (configuration.filePath != file.path) return false
@@ -36,6 +48,20 @@ class CrystalRunConfigurationProducer : LazyRunConfigurationProducer<CrystalRunC
         context: ConfigurationContext,
         sourceElement: Ref<PsiElement>
     ): Boolean {
+        val element = context.psiLocation ?: return false
+
+        // Directory context — run all specs in directory
+        if (element is PsiDirectory) {
+            val dir = element.virtualFile
+            configuration.filePath = dir.path
+            configuration.workingDirectory = context.project.basePath ?: ""
+            configuration.command = CrystalCommand.SPEC
+            configuration.specLine = 0
+            configuration.name = "spec: ${dir.name}"
+            return true
+        }
+
+        // File context
         val file = context.location?.virtualFile ?: return false
         if (file.extension != "cr") return false
 
