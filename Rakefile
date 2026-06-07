@@ -8,6 +8,11 @@ require 'dotenv/load'
 #
 desc "Run plugin in uncached, sandboxed IntelliJ environment"
 task :run do |t|
+  unless File.exist? ".env"
+    path = Dir.pwd
+    ENV['TEST_APP_PATH'] = path
+    File.write ".env", "TEST_APP_PATH=#{path}"
+  end
   system %Q(./gradlew cleanSandbox runIde --args="#{ENV['TEST_APP_PATH']}")
 end
 
