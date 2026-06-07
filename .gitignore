@@ -9,5 +9,4 @@ build/
 /sample.cr
 /sample.rb
 bin/
-Rakefile
 /.env
