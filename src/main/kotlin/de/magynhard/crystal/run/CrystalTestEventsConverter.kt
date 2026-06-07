@@ -22,6 +22,10 @@ import jetbrains.buildServer.messages.serviceMessages.ServiceMessageVisitor
  *
  * If testLocations are provided, each test event includes a crystal_spec:// URL
  * for navigation to the source location.
+ *
+ * Important: Crystal reports ALL failures at the end (after all tests ran).
+ * We must defer onTestFinished until after the FAILURES block is parsed,
+ * so we can correctly mark failed tests as FAILED (not PASSED).
  */
 class CrystalTestEventsConverter(
     testFrameworkName: String,
@@ -39,18 +43,17 @@ class CrystalTestEventsConverter(
     private var failureFileLocation: String? = null
     private val failedTests = mutableSetOf<String>()
     private val fullNameToTestName = mutableMapOf<String, String>()
+    private val pendingFinishes = mutableListOf<Pair<String, String>>() // (testName, fullName)
     private var collectingFailureMessage = false
     private var lineBuffer = StringBuilder()
     private var hasSeenTests = false
     private var pendingSuite: String? = null
 
     override fun processServiceMessages(text: String, outputType: Key<*>, visitor: ServiceMessageVisitor): Boolean {
-        // Only parse stdout from Crystal spec
         if (outputType != ProcessOutputTypes.STDOUT) {
             return false
         }
 
-        // Buffer text and process complete lines
         lineBuffer.append(text)
         while (true) {
             val newlineIdx = lineBuffer.indexOf('\n')
@@ -64,7 +67,6 @@ class CrystalTestEventsConverter(
     }
 
     override fun dispose() {
-        // Flush remaining buffer
         if (lineBuffer.isNotEmpty()) {
             processLine(lineBuffer.toString().trimEnd('\r', '\n'))
             lineBuffer.clear()
@@ -77,7 +79,7 @@ class CrystalTestEventsConverter(
         when (state) {
             State.RUNNING -> processRunningLine(line)
             State.FAILURES -> processFailureLine(line)
-            State.SUMMARY -> {} // nothing
+            State.SUMMARY -> {}
         }
     }
 
@@ -88,8 +90,7 @@ class CrystalTestEventsConverter(
         }
 
         if (line.trimStart().startsWith("Finished in")) {
-            finishCurrentTest()
-            closeAllSuites()
+            deferFinishCurrentTest()
             state = State.SUMMARY
             return
         }
@@ -100,40 +101,33 @@ class CrystalTestEventsConverter(
         val indent = line.length - stripped.length
 
         if (isDuplicatedName(stripped)) {
-            // Test case — confirm pending suite if any
             confirmPendingSuite(indent)
             val testName = stripped.substring(0, stripped.length / 2).trimEnd()
-            finishCurrentTest()
+            deferFinishCurrentTest()
             currentTestName = testName
             hasSeenTests = true
             val fullName = (suiteStack + testName).joinToString(" ")
             fullNameToTestName[fullName] = testName
 
-            // Look up source location for navigation
             val location = testLocations[fullName]
             val url = if (location != null) "${CrystalTestLocator.PROTOCOL}://${location.file}:${location.line}" else null
             getProcessor().onTestStarted(TestStartedEvent(testName, url))
         } else {
-            // Suite or non-test output (e.g. puts from main program)
             val level = indent / 2
 
             if (!hasSeenTests && indent == 0) {
-                // Indent-0 line before first test: could be puts output or real suite
-                // Save as pending — will be confirmed when a test or sub-suite follows
                 pendingSuite = stripped
                 return
             }
 
-            // Confirm pending suite if we're entering a deeper indent
             confirmPendingSuite(indent)
 
-            // Suite — adjust stack based on indentation
             while (suiteStack.size > level) {
-                finishCurrentTest()
+                deferFinishCurrentTest()
                 val closed = suiteStack.removeAt(suiteStack.size - 1)
                 getProcessor().onSuiteFinished(TestSuiteFinishedEvent(closed))
             }
-            finishCurrentTest()
+            deferFinishCurrentTest()
             suiteStack.add(stripped)
             getProcessor().onSuiteStarted(TestSuiteStartedEvent(stripped, null))
         }
@@ -142,10 +136,9 @@ class CrystalTestEventsConverter(
     private fun confirmPendingSuite(indent: Int) {
         val pending = pendingSuite ?: return
         pendingSuite = null
-        // Add the pending suite at its level (indent 0 → level 0)
         val pendingLevel = 0
         while (suiteStack.size > pendingLevel) {
-            finishCurrentTest()
+            deferFinishCurrentTest()
             val closed = suiteStack.removeAt(suiteStack.size - 1)
             getProcessor().onSuiteFinished(TestSuiteFinishedEvent(closed))
         }
@@ -158,6 +151,8 @@ class CrystalTestEventsConverter(
 
         if (trimmed.startsWith("Finished in")) {
             flushCurrentFailure()
+            deferFinishCurrentTest()
+            firePendingFinishes()
             closeAllSuites()
             state = State.SUMMARY
             return
@@ -203,23 +198,36 @@ class CrystalTestEventsConverter(
         val message = currentFailureMessage.toString().trim()
         val details = if (failureFileLocation != null) "${CrystalTestLocator.PROTOCOL}://$failureFileLocation" else ""
 
-        // If this failure matches the current (un-finished) test, clear it so finishCurrentTest won't double-fire
-        val currentFullName = if (currentTestName != null) (suiteStack + currentTestName).joinToString(" ") else null
-        if (currentFullName == name) {
-            currentTestName = null
-        }
+        // Remove from pending finishes — it will be finished as FAILED here
+        pendingFinishes.removeAll { it.second == name }
 
         getProcessor().onTestFailure(TestFailedEvent(testName, message, details, false, null, null))
         getProcessor().onTestFinished(TestFinishedEvent(testName, null))
     }
 
-    private fun finishCurrentTest() {
+    /**
+     * Defer finishing the current test: save (testName, fullName) for later.
+     * onTestFinished is NOT called here — it will be called in firePendingFinishes
+     * after we know which tests failed.
+     */
+    private fun deferFinishCurrentTest() {
         val testName = currentTestName ?: return
         currentTestName = null
         val fullName = (suiteStack + testName).joinToString(" ")
-        if (fullName !in failedTests) {
-            getProcessor().onTestFinished(TestFinishedEvent(testName, null))
+        pendingFinishes.add(testName to fullName)
+    }
+
+    /**
+     * Fire onTestFinished for all deferred tests that were NOT in the failures list.
+     * Called after the FAILURES block is fully parsed.
+     */
+    private fun firePendingFinishes() {
+        for ((testName, fullName) in pendingFinishes) {
+            if (fullName !in failedTests) {
+                getProcessor().onTestFinished(TestFinishedEvent(testName, null))
+            }
         }
+        pendingFinishes.clear()
     }
 
     private fun closeAllSuites() {
@@ -230,8 +238,8 @@ class CrystalTestEventsConverter(
     }
 
     private fun finalizeTests() {
-        finishCurrentTest()
         flushCurrentFailure()
+        firePendingFinishes()
         closeAllSuites()
     }
 
