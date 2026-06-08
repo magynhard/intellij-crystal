@@ -7,12 +7,12 @@
 
 Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBrains IDEs.
 
-<img src="doc/img/screenshots/001_new_project.png" width="480">
-<hr/>
-<img src="doc/img/screenshots/002_testrunner.png" width="480">
-<hr/>
-<img src="doc/img/screenshots/003_debugger.png" width="480">
-<hr/>
+![New Project Wizard](doc/img/screenshots/001_new_project.png)
+
+![Test Runner](doc/img/screenshots/002_testrunner.png)
+
+![Debugger](doc/img/screenshots/003_debugger.png)
+
 
 ## Features
 
