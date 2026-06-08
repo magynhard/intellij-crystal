@@ -322,6 +322,9 @@
         <newProjectWizard.languageGenerator
                 implementation="de.magynhard.crystal.project.CrystalNewProjectWizard"/>
 
+        <directoryProjectGenerator
+                implementation="de.magynhard.crystal.project.CrystalDirectoryProjectGenerator"/>
+
         <projectConfigurable
                 parentId="language"
                 instance="de.magynhard.crystal.sdk.CrystalSettingsConfigurable"
