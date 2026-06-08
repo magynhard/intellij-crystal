@@ -1,6 +1,6 @@
 # Crystal Language Plugin for JetBrains IDEs
 
-[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.2-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/de.magynhard.crystal)
+[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.3-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/de.magynhard.crystal)
 [![IntelliJ Platform](https://img.shields.io/badge/Platform-2025.1+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
 [![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=darkslategray&label=Crystal)](https://crystal-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg?style=plastic&logo=mit&labelColor=beige)](LICENSE)
