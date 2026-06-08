@@ -48,7 +48,45 @@ task :build do |t|
   system "./gradlew buildPlugin"
 end
 
-desc "Build plugin release by bumping version and store it in build/distributions"
+desc "Full release: bump version, build, tag, push, and create GitHub release"
 task :release => :bump_version do |t|
-  system "./gradlew buildPlugin"
+  # Read new version
+  props = File.read("gradle.properties")
+  version = props.match(/^version\s*=\s*(\S+)/)[1]
+  tag = "v#{version}"
+  puts "Releasing #{tag}..."
+
+  # Build plugin
+  system "./gradlew buildPlugin" or abort "Build failed"
+
+  # Extract changelog from plugin.xml <changeNotes> if present
+  plugin_xml = File.read("src/main/resources/META-INF/plugin.xml")
+  changelog_match = plugin_xml.match(/<changeNotes><!\[CDATA\[(.*?)\]\]><\/changeNotes>/m)
+  changelog = changelog_match ? changelog_match[1].strip : nil
+
+  # Find built plugin ZIP
+  zip = Dir["build/distributions/intellij-crystal-#{version}.zip"].first
+  abort "Plugin ZIP not found for version #{version}" unless zip
+
+  # Git: commit, tag, push
+  system "git add gradle.properties README.md"
+  system "git commit -m 'chore(release): #{tag}'"
+  system "git tag #{tag}"
+  system "git push origin main --tags" or abort "Push failed"
+
+  # GitHub release
+  if changelog && !changelog.empty?
+    puts "Using changelog from plugin.xml as release notes"
+    # Write changelog to temp file for gh release create
+    release_notes = "/tmp/release_notes_#{version}.md"
+    File.write(release_notes, changelog)
+    system "gh release create #{tag} #{zip} --title #{tag} --notes-file #{release_notes}"
+    File.delete(release_notes)
+  else
+    puts "No changelog in plugin.xml, using auto-generated notes"
+    system "gh release create #{tag} #{zip} --title #{tag} --generate-notes"
+  end
+
+  abort "GitHub release failed" unless $?.success?
+  puts "Release #{tag} published: https://github.com/magynhard/intellij-crystal/releases/tag/#{tag}"
 end

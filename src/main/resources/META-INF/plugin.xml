@@ -92,38 +92,23 @@
 ]]></description>
 
     <change-notes><![CDATA[
-<h3>0.1.1</h3>
+<h3>0.1.4</h3>
 <ul>
-  <li>Comprehensive plugin description with feature documentation</li>
-  <li>Declared incompatibility with legacy Crystal plugin (net.kenro.ji.jin.intellij.crystal-2)</li>
-  <li>Parser: <code>%x(...)</code> command literals</li>
-  <li>Parser: <code>$?</code> global variable</li>
-  <li>Parser: external parameter names (<code>def move(to destination : String)</code>)</li>
-  <li>Parser: trailing commas in parameter/argument/type lists</li>
-  <li>Parser: <code>&amp;.method</code> shorthand with operator tokens</li>
-  <li>Parser: multiline proc/lambda parameters</li>
-  <li>Parser: condition assignments in if/while/until/unless</li>
-  <li>Parser: backslash line continuation</li>
-  <li>Parser: method chaining across newlines</li>
-</ul>
-
-<h3>0.1.0</h3>
-<ul>
-  <li><b>Debugger</b> — LLDB/DAP integration with breakpoints, stepping, variable inspection for programs and specs</li>
-  <li><b>Test Runner</b> — SMTRunner integration with gutter icons, file:line targeting, real-time results, re-run failed</li>
-  <li><b>Go to Definition</b> — cross-file navigation via StubIndex for classes, modules, methods, structs, enums</li>
-  <li><b>Code Completion</b> — context-aware dot-completion with type inference, free-text, and type completion</li>
-  <li><b>Parameter Info</b> — method signatures at call sites (parenthesized, bare, dot-calls, overloads)</li>
-  <li><b>Quick Documentation</b> — rendered doc comments with Markdown and syntax-highlighted signatures</li>
-  <li><b>Inspections</b> — type checking, argument count validation, unused variables, lib fun types, empty collections</li>
-  <li><b>Semantic Highlighting</b> — PSI annotator for variables, methods, types, parameters, macro fresh vars</li>
+  <li>Initial early-beta release (Proof of Concept)</li>
+  <li><b>Parser</b> — GrammarKit BNF covering classes, modules, methods, macros, generics, control flow, pattern matching, lib bindings, proc literals, annotations, and more</li>
+  <li><b>Syntax Highlighting</b> — 60+ keywords, operators, strings, interpolation, heredocs, percent and command literals, symbols, regex</li>
+  <li><b>Debugger</b> — LLDB/DAP integration with breakpoints, stepping, variable inspection; works for programs and specs</li>
+  <li><b>Test Runner</b> — integrated Crystal spec runner (SMTRunner) with real-time output, gutter icon single-test execution, folder-level running, re-run failed</li>
+  <li><b>Navigation</b> — Go to Definition, Go to Symbol/Class, Find Usages, Parameter Info, Structure View</li>
+  <li><b>Code Completion</b> — context-aware dot-completion with type inference, free-text, type annotation completion</li>
+  <li><b>Inspections</b> — type checking, argument count validation, unused variable detection, lib fun type annotations</li>
   <li><b>Run Configurations</b> — crystal run, build, and spec with environment and argument support</li>
-  <li><b>Smart Enter</b> — auto-insert <code>end</code> after def/class/if/do with correct indentation</li>
-  <li><b>Rename Refactoring</b> — in-place rename with preview and compiler verification</li>
-  <li><b>Full Parser</b> — GrammarKit BNF covering generics, macros, pattern matching, lib blocks, proc literals, annotations, and more</li>
+  <li><b>Refactoring</b> — rename with preview dialog and compiler verification</li>
+  <li><b>Quick Documentation</b> — rendered doc comments with Markdown</li>
+  <li><b>Smart Enter</b> — auto-insert <code>end</code> with correct indentation</li>
+  <li><b>Code Formatting</b> — delegates to <code>crystal tool format</code></li>
   <li><b>21 Live Templates</b> — code snippets for common Crystal patterns</li>
-  <li><b>Syntax Highlighting</b> — 60+ keywords, full operator support, interpolation, heredocs, percent literals</li>
-  <li>Structure View, Find Usages, Go to Symbol/Class, Code Folding, Brace Matching, TODO Indexing</li>
+  <li><b>Semantic Highlighting</b> — PSI annotator distinguishing variables, methods, types, parameters</li>
 </ul>
 ]]></change-notes>
 
