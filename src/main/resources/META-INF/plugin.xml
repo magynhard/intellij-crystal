@@ -92,7 +92,7 @@
 ]]></description>
 
     <change-notes><![CDATA[
-<h3>0.1.6</h3>
+<h3>0.1.7</h3>
 <ul>
   <li>Initial early-beta release (Proof of Concept)</li>
   <li><b>Parser</b> — GrammarKit BNF covering classes, modules, methods, macros, generics, control flow, pattern matching, lib bindings, proc literals, annotations, and more</li>
