@@ -154,4 +154,8 @@ See [TODO.md](TODO.md) for the roadmap of planned features and parser extensions
 
 ## License
 
-[MIT](LICENSE)
+MIT — see [LICENSE](LICENSE)
+
+This project includes **Crystal LLDB Formatters** (`src/main/resources/debugger/crystal_formatters.py`)
+from the [Crystal Programming Language](https://github.com/crystal-lang/crystal),
+licensed under the [Apache License 2.0](https://github.com/crystal-lang/crystal/blob/master/etc/lldb/crystal_formatters.py).
