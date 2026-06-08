@@ -1,9 +1,9 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.1.21"
+    id("org.jetbrains.kotlin.jvm") version "2.3.20"
     id("org.jetbrains.intellij.platform")
-    id("org.jetbrains.grammarkit") version "2022.3.2.2"
+    id("org.jetbrains.grammarkit") version "2023.3.0.3"
 }
 
 sourceSets {
@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdea("2025.1.3")
+        intellijIdea("2026.1.3")
 
         testFramework(TestFrameworkType.Platform)
     }
@@ -31,7 +31,7 @@ dependencies {
     // DAP debugger support (Platform module, present in all JetBrains IDEs 2025.1+)
     compileOnly(
         fileTree("${gradle.gradleUserHomeDir}/caches") {
-            include("**/transformed/ideaIU-2025.1.3/lib/modules/intellij.platform.dap.jar")
+            include("**/transformed/idea*-2026.1.3/lib/**/intellij.platform.dap.jar")
         }
     )
 
@@ -48,7 +48,7 @@ intellijPlatform {
             url = "https://github.com/magynhard"
         }
         ideaVersion {
-            sinceBuild = "251"
+            sinceBuild = "261"
         }
     }
 
@@ -81,7 +81,9 @@ tasks {
     }
 
     compileKotlin {
-        dependsOn(generateLexer, generateParser)
+        // Generated sources are committed; lexer/parser tasks are run manually
+        // when .flex or .bnf changes. See AGENTS.md for regeneration instructions.
+        // dependsOn(generateLexer, generateParser)
     }
 }
 

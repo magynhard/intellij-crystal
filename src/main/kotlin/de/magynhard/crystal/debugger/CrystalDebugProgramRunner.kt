@@ -33,18 +33,17 @@ class CrystalDebugProgramRunner : GenericProgramRunner<RunnerSettings>() {
     override fun doExecute(state: RunProfileState, environment: ExecutionEnvironment): RunContentDescriptor? {
         val dapState = state as CrystalDebugRunState
 
-        // Ensure our DebugAdapterSupportProvider is registered in the EP system.
-        // XML-based registration doesn't work for module-scoped EPs (intellij.platform.dap),
-        // so we register programmatically before each debug session.
         ensureProviderRegistered(environment)
+
+        val launchArgs = dapState.getLaunchArguments(environment.project, environment.runProfile)
 
         val starter = DapProcessStarter(
             environment,
             environment.executor,
             state,
-            dapState.adapterId,
-            dapState.request,
-            dapState.arguments()
+            launchArgs.adapterId,
+            launchArgs.request,
+            launchArgs.arguments
         )
 
         val session = XDebuggerManager.getInstance(environment.project)
