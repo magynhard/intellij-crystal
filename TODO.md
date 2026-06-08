@@ -105,7 +105,7 @@ The current grammar covers the most common constructs. The following extensions 
 
 - [ ] Ameba integration (Crystal linter) — show inspections from `ameba`
 - [ ] Crystal Shards support — `shard.yml` parsing, dependency completion
-- [x] Test runner — connect `crystal spec` to IntelliJ's test UI (SMTRunner with real-time output parsing, gutter run icons, single-test execution via file:line, re-run failed tests, navigate to source on double-click via CrystalSpecFileIndexer + CrystalTestLocator with crystal_spec:// protocol, folder-level spec running, failure propagation to parent suites via two-pass architecture)
+- [x] Test runner — connect `crystal spec` to IntelliJ's test UI (SMTRunner with real-time output parsing, gutter run icons, single-test execution via file:line, re-run failed tests, navigate to source on double-click via CrystalSpecFileIndexer + CrystalTestLocator with crystal_spec:// protocol, folder-level spec running, failure propagation to parent suites via two-pass architecture, cache invalidation on file changes, comment-safe indexing, `it(...)` support, duplicate test name handling)
 - [x] Debugger integration — LLDB via DAP (Debug Adapter Protocol) with lldb-dap, Crystal formatters bundled, supports debugging both programs and specs
 - [x] Project SDK — detect and configure Crystal version
 - [ ] New file templates — create class, module, spec files

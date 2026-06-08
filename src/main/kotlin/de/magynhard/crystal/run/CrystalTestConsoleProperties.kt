@@ -11,7 +11,7 @@ import java.io.File
 class CrystalTestConsoleProperties(
     configuration: CrystalRunConfiguration,
     executor: Executor,
-    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap(),
+    private val testLocations: Map<String, List<CrystalSpecFileIndexer.TestLocation>> = emptyMap(),
     private val junitOutputFile: File? = null
 ) : SMTRunnerConsoleProperties(configuration, "CrystalSpec", executor), SMCustomMessagesParsing {
 

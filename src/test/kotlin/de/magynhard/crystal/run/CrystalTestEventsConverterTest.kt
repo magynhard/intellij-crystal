@@ -70,9 +70,9 @@ class CrystalTestEventsConverterTest {
             assertEquals(2, locations.size)
             assertNotNull(locations["Calculator adds numbers"])
             assertNotNull(locations["Calculator subtracts numbers"])
-            assertEquals(tempFile.absolutePath, locations["Calculator adds numbers"]?.file)
-            assertEquals(4, locations["Calculator adds numbers"]?.line) // 1-based
-            assertEquals(8, locations["Calculator subtracts numbers"]?.line)
+            assertEquals(tempFile.absolutePath, locations["Calculator adds numbers"]?.first()?.file)
+            assertEquals(4, locations["Calculator adds numbers"]?.first()?.line) // 1-based
+            assertEquals(8, locations["Calculator subtracts numbers"]?.first()?.line)
         } finally {
             tempFile.delete()
         }
@@ -229,6 +229,231 @@ class CrystalTestEventsConverterTest {
         } finally {
             tempDir.deleteRecursively()
         }
+    }
+
+    // ==================== Bug Fix Tests ====================
+
+    @Test
+    fun testIndexer_multipleTestsInSingleDescribe() {
+        val specContent = """
+            describe Asdf do
+              it "works" do
+                false.should eq(true)
+              end
+
+              it "works2" do
+                true.should eq(true)
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            assertEquals(2, locations.size)
+            assertNotNull(locations["Asdf works"])
+            assertNotNull(locations["Asdf works2"])
+            assertEquals(2, locations["Asdf works"]?.first()?.line) // 1-based
+            assertEquals(6, locations["Asdf works2"]?.first()?.line)
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testIndexer_multipleDescribeBlocks() {
+        val specContent = """
+            describe Asdf do
+              it "works" do
+                false.should eq(true)
+              end
+
+              it "sorks" do
+                true.should eq(true)
+              end
+            end
+
+            describe Cba do
+              it "xorks" do
+                false.should eq(true)
+              end
+
+              it "grks" do
+                true.should eq(true)
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            assertEquals(4, locations.size)
+            assertNotNull(locations["Asdf works"])
+            assertNotNull(locations["Asdf sorks"])
+            assertNotNull(locations["Cba xorks"])
+            assertNotNull(locations["Cba grks"])
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testIndexer_skipsComments() {
+        val specContent = """
+            describe "Real" do
+              # describe "Fake" do
+              #   it "fake test" do
+              #   end
+              # end
+              it "works" do
+                expect(true).to be_true
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            assertEquals(1, locations.size)
+            assertNotNull(locations["Real works"])
+            // Should NOT have "Real Fake fake test"
+            assertNull(locations["Real Fake fake test"])
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testIndexer_parenthesizedItBlock() {
+        val specContent = """
+            describe "Math" do
+              it("adds numbers") do
+                expect(1 + 1).to eq(2)
+              end
+
+              it 'works' do
+                expect(true).to be_true
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            assertEquals(2, locations.size)
+            assertNotNull(locations["Math adds numbers"])
+            assertNotNull(locations["Math works"])
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testIndexer_duplicateTestNames() {
+        val specContent = """
+            describe "Foo" do
+              it "works" do
+                expect(true).to be_true
+              end
+            end
+
+            describe "Bar" do
+              it "works" do
+                expect(false).to be_false
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            assertEquals(2, locations.size)
+            // Both "Foo works" and "Bar works" should exist
+            assertNotNull(locations["Foo works"])
+            assertNotNull(locations["Bar works"])
+            assertEquals(2, locations["Foo works"]?.first()?.line)
+            assertEquals(8, locations["Bar works"]?.first()?.line)
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testIndexer_cacheInvalidation() {
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            // First version: only "works"
+            tempFile.writeText("""
+                describe "Test" do
+                  it "works" do
+                    expect(true).to be_true
+                  end
+                end
+            """.trimIndent())
+
+            CrystalSpecFileIndexer.clearCache()
+            val locations1 = CrystalSpecFileIndexer.getTestLocations(tempFile.absolutePath)
+            assertEquals(1, locations1.size)
+            assertNotNull(locations1["Test works"])
+
+            // Second version: add "works2"
+            // Ensure filesystem timestamp differs (1-second resolution)
+            Thread.sleep(1100)
+            tempFile.writeText("""
+                describe "Test" do
+                  it "works" do
+                    expect(true).to be_true
+                  end
+                  it "works2" do
+                    expect(true).to be_true
+                  end
+                end
+            """.trimIndent())
+
+            val locations2 = CrystalSpecFileIndexer.getTestLocations(tempFile.absolutePath)
+            assertEquals(2, locations2.size)
+            assertNotNull(locations2["Test works"])
+            assertNotNull(locations2["Test works2"])
+        } finally {
+            CrystalSpecFileIndexer.clearCache()
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testLocator_urlParsing() {
+        // Test the URL format that CrystalTestLocator expects
+        val protocol = CrystalTestLocator.PROTOCOL
+        val filePath = "/path/to/spec.cr"
+        val line = 42
+        val url = "$protocol://$filePath:$line"
+
+        // Verify URL format
+        assertEquals("crystal_spec:///path/to/spec.cr:42", url)
+
+        // Verify parsing logic (same as CrystalTestLocator.getLocation)
+        val path = url.removePrefix("$protocol://")
+        val lastColon = path.lastIndexOf(':')
+        val parsedFilePath = path.substring(0, lastColon)
+        val parsedLine = path.substring(lastColon + 1).toIntOrNull() ?: 0
+
+        assertEquals(filePath, parsedFilePath)
+        assertEquals(line, parsedLine)
     }
 
     // ==================== Tree Parsing Tests (Two-Pass Architecture) ====================
@@ -421,6 +646,198 @@ class CrystalTestEventsConverterTest {
     fun testParse_emptyOutput() {
         val tree = CrystalTestEventsConverter.parseForTest("")
         assertEquals(0, tree.size)
+    }
+
+    // ==================== Round-Trip Tests (Indexer + Parser) ====================
+
+    @Test
+    fun testRoundTrip_singleDescribeMultipleTests() {
+        // Simulate the user's first example: one describe with "works" and "works2"
+        val specContent = """
+            describe Asdf do
+              it "works" do
+                false.should eq(true)
+              end
+
+              it "works2" do
+                true.should eq(true)
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            // Simulate Crystal verbose output
+            val output = """
+                |Asdf
+                |  works  works
+                |  works2  works2
+                |Finished in 0.01s
+                |2 examples, 0 failures
+            """.trimMargin()
+
+            val tree = CrystalTestEventsConverter.parseForTest(output, locations)
+
+            assertEquals(1, tree.size)
+            val suite = tree[0] as CrystalTestEventsConverter.TestNode.Suite
+            assertEquals("Asdf", suite.name)
+            assertEquals(2, suite.children.size)
+
+            val test1 = suite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("works", test1.name)
+            assertEquals("Asdf works", test1.fullName)
+            assertNotNull("Test 'works' should have a URL for navigation", test1.url)
+            assertTrue("URL should contain protocol", test1.url!!.startsWith(CrystalTestLocator.PROTOCOL))
+
+            val test2 = suite.children[1] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("works2", test2.name)
+            assertEquals("Asdf works2", test2.fullName)
+            assertNotNull("Test 'works2' should have a URL for navigation", test2.url)
+            assertTrue("URL should contain protocol", test2.url!!.startsWith(CrystalTestLocator.PROTOCOL))
+
+            // Verify URLs point to different lines
+            val url1 = test1.url!!.substringAfterLast(":")
+            val url2 = test2.url!!.substringAfterLast(":")
+            assertNotEquals("Tests should navigate to different lines", url1, url2)
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testRoundTrip_multipleDescribeBlocks() {
+        // Simulate the user's second example: two describes with multiple tests each
+        val specContent = """
+            describe Asdf do
+              it "works" do
+                false.should eq(true)
+              end
+
+              it "sorks" do
+                true.should eq(true)
+              end
+            end
+
+            describe Cba do
+              it "xorks" do
+                false.should eq(true)
+              end
+
+              it "grks" do
+                true.should eq(true)
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            // Simulate Crystal verbose output
+            val output = """
+                |Asdf
+                |  works  works
+                |  sorks  sorks
+                |Cba
+                |  xorks  xorks
+                |  grks  grks
+                |Finished in 0.01s
+                |4 examples, 0 failures
+            """.trimMargin()
+
+            val tree = CrystalTestEventsConverter.parseForTest(output, locations)
+
+            assertEquals(2, tree.size)
+
+            // First describe block
+            val asdfSuite = tree[0] as CrystalTestEventsConverter.TestNode.Suite
+            assertEquals("Asdf", asdfSuite.name)
+            assertEquals(2, asdfSuite.children.size)
+
+            val works = asdfSuite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("works", works.name)
+            assertNotNull("Test 'works' should have a URL", works.url)
+
+            val sorks = asdfSuite.children[1] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("sorks", sorks.name)
+            assertNotNull("Test 'sorks' should have a URL", sorks.url)
+
+            // Second describe block
+            val cbaSuite = tree[1] as CrystalTestEventsConverter.TestNode.Suite
+            assertEquals("Cba", cbaSuite.name)
+            assertEquals(2, cbaSuite.children.size)
+
+            val xorks = cbaSuite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("xorks", xorks.name)
+            assertNotNull("Test 'xorks' should have a URL", xorks.url)
+
+            val grks = cbaSuite.children[1] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("grks", grks.name)
+            assertNotNull("Test 'grks' should have a URL", grks.url)
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    fun testRoundTrip_identicalTestNamesInDifferentDescribes() {
+        // Both describes have "it works" — both should get URLs
+        val specContent = """
+            describe "Foo" do
+              it "works" do
+                expect(true).to be_true
+              end
+            end
+
+            describe "Bar" do
+              it "works" do
+                expect(false).to be_false
+              end
+            end
+        """.trimIndent()
+
+        val tempFile = File.createTempFile("test_spec", ".cr")
+        try {
+            tempFile.writeText(specContent)
+            val indexer = CrystalSpecFileIndexer(tempFile.absolutePath)
+            val locations = indexer.buildIndex()
+
+            val output = """
+                |Foo
+                |  works  works
+                |Bar
+                |  works  works
+                |Finished in 0.01s
+                |2 examples, 0 failures
+            """.trimMargin()
+
+            val tree = CrystalTestEventsConverter.parseForTest(output, locations)
+
+            assertEquals(2, tree.size)
+
+            val fooSuite = tree[0] as CrystalTestEventsConverter.TestNode.Suite
+            val fooWorks = fooSuite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("Foo works", fooWorks.fullName)
+            assertNotNull("Foo works should have a URL", fooWorks.url)
+
+            val barSuite = tree[1] as CrystalTestEventsConverter.TestNode.Suite
+            val barWorks = barSuite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            assertEquals("Bar works", barWorks.fullName)
+            assertNotNull("Bar works should have a URL", barWorks.url)
+
+            // Verify they point to different lines
+            val fooLine = fooWorks.url!!.substringAfterLast(":")
+            val barLine = barWorks.url!!.substringAfterLast(":")
+            assertNotEquals("Identical test names in different describes should navigate to different lines", fooLine, barLine)
+        } finally {
+            tempFile.delete()
+        }
     }
 
     // ==================== JUnit XML Timing Tests ====================

@@ -23,7 +23,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 class CrystalTestEventsConverter(
     testFrameworkName: String,
     consoleProperties: TestConsoleProperties,
-    private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap(),
+    private val testLocations: Map<String, List<CrystalSpecFileIndexer.TestLocation>> = emptyMap(),
     private val junitOutputFile: File? = null
 ) : OutputToGeneralTestEventsConverter(testFrameworkName, consoleProperties) {
 
@@ -179,7 +179,7 @@ class CrystalTestEventsConverter(
     // ==================== Parsing (self-contained, testable) ====================
 
     class Parser(
-        private val testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap(),
+        private val testLocations: Map<String, List<CrystalSpecFileIndexer.TestLocation>> = emptyMap(),
         private val onParsingComplete: (() -> Unit)? = null
     ) {
 
@@ -196,7 +196,10 @@ class CrystalTestEventsConverter(
         private var currentFailureMessage = StringBuilder()
         private var failureFileLocation: String? = null
         private var collectingFailureMessage = false
-        private var lineBuffer = StringBuilder()
+        private val lineBuffer = StringBuilder()
+
+        // Mutable queues for consuming test locations in order (handles duplicate test names)
+        private val locationQueues = mutableMapOf<String, MutableList<CrystalSpecFileIndexer.TestLocation>>()
 
         fun feedText(text: String) {
             lineBuffer.append(text)
@@ -250,7 +253,7 @@ class CrystalTestEventsConverter(
                 finishCurrentTest()
 
                 val fullName = (suiteStack.map { it.name } + testName).joinToString(" ")
-                val location = testLocations[fullName]
+                val location = consumeNextLocation(fullName)
                 val url = if (location != null) "${CrystalTestLocator.PROTOCOL}://${location.file}:${location.line}" else null
 
                 val testNode = TestNode.Test(testName, fullName, url)
@@ -304,6 +307,13 @@ class CrystalTestEventsConverter(
         private fun finishCurrentTest() {
             currentTestName = null
             currentTestFullName = null
+        }
+
+        private fun consumeNextLocation(fullName: String): CrystalSpecFileIndexer.TestLocation? {
+            val queue = locationQueues.getOrPut(fullName) {
+                (testLocations[fullName] ?: emptyList()).toMutableList()
+            }
+            return if (queue.isNotEmpty()) queue.removeFirst() else null
         }
 
         private fun parseFailureLine(line: String) {
@@ -400,7 +410,7 @@ class CrystalTestEventsConverter(
          */
         fun parseForTest(
             output: String,
-            testLocations: Map<String, CrystalSpecFileIndexer.TestLocation> = emptyMap()
+            testLocations: Map<String, List<CrystalSpecFileIndexer.TestLocation>> = emptyMap()
         ): List<TestNode> {
             val parser = Parser(testLocations)
             parser.feedText(output)

@@ -38,6 +38,9 @@ class CrystalTestRunState(
         junitOutputFile = Files.createTempFile("crystal_junit", ".xml").toFile()
         val processHandler = startProcess()
 
+        // Clear cache to ensure fresh indexing after file modifications
+        CrystalSpecFileIndexer.clearCache()
+
         val testLocations = if (configuration.filePath.isNotBlank()) {
             val file = java.io.File(configuration.filePath)
             if (file.isDirectory) {
