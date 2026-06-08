@@ -66,7 +66,7 @@ class CrystalTestEventsConverter(
 
     private fun applyJUnitTiming() {
         val xmlFile = junitOutputFile ?: return
-        if (!xmlFile.exists() || xmlFile.length() == 0L) return
+        if (!xmlFile.exists() || xmlFile.length() ==0L) return
 
         try {
             parseJUnitXml(xmlFile)
@@ -79,6 +79,12 @@ class CrystalTestEventsConverter(
         val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xmlFile)
         val testcases = doc.getElementsByTagName("testcase")
 
+        // Build a queue of test nodes per fullName to handle duplicate names
+        val queues = mutableMapOf<String, MutableList<TestNode.Test>>()
+        for (root in parser.rootChildren) {
+            collectTestNodes(root, queues)
+        }
+
         for (i in 0 until testcases.length) {
             val tc = testcases.item(i)
             val name = tc.attributes.getNamedItem("name")?.nodeValue ?: continue
@@ -86,9 +92,17 @@ class CrystalTestEventsConverter(
             val timeSeconds = timeStr.toDoubleOrNull() ?: continue
             val durationMs = (timeSeconds * 1000).toLong()
 
-            findTestInTree(name)?.let { test ->
-                test.durationMs = durationMs
+            val queue = queues[name]
+            if (queue != null && queue.isNotEmpty()) {
+                queue.removeFirst().durationMs = durationMs
             }
+        }
+    }
+
+    private fun collectTestNodes(node: TestNode, queues: MutableMap<String, MutableList<TestNode.Test>>) {
+        when (node) {
+            is TestNode.Test -> queues.getOrPut(node.fullName) { mutableListOf() }.add(node)
+            is TestNode.Suite -> { for (child in node.children) collectTestNodes(child, queues) }
         }
     }
 
@@ -426,6 +440,12 @@ class CrystalTestEventsConverter(
             val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xmlFile)
             val testcases = doc.getElementsByTagName("testcase")
 
+            // Build a queue of test nodes per fullName to handle duplicate names
+            val queues = mutableMapOf<String, MutableList<TestNode.Test>>()
+            for (root in tree) {
+                collectTestNodes(root, queues)
+            }
+
             for (i in 0 until testcases.length) {
                 val tc = testcases.item(i)
                 val name = tc.attributes.getNamedItem("name")?.nodeValue ?: continue
@@ -433,13 +453,17 @@ class CrystalTestEventsConverter(
                 val timeSeconds = timeStr.toDoubleOrNull() ?: continue
                 val durationMs = (timeSeconds * 1000).toLong()
 
-                for (root in tree) {
-                    val found = findTestInNode(root, name)
-                    if (found != null) {
-                        found.durationMs = durationMs
-                        break
-                    }
+                val queue = queues[name]
+                if (queue != null && queue.isNotEmpty()) {
+                    queue.removeFirst().durationMs = durationMs
                 }
+            }
+        }
+
+        private fun collectTestNodes(node: TestNode, queues: MutableMap<String, MutableList<TestNode.Test>>) {
+            when (node) {
+                is TestNode.Test -> queues.getOrPut(node.fullName) { mutableListOf() }.add(node)
+                is TestNode.Suite -> { for (child in node.children) collectTestNodes(child, queues) }
             }
         }
 

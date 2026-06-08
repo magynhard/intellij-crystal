@@ -917,4 +917,81 @@ class CrystalTestEventsConverterTest {
             junitXml.delete()
         }
     }
+
+    @Test
+    fun testJUnitTiming_duplicateTestNames() {
+        // Two tests with the same name in different describe blocks
+        val output = """
+            |Foo
+            |  works  works
+            |Bar
+            |  works  works
+            |Finished in 0.01s
+            |2 examples, 0 failures
+        """.trimMargin()
+
+        val tree = CrystalTestEventsConverter.parseForTest(output)
+
+        val junitXml = File.createTempFile("junit_timing", ".xml")
+        try {
+            junitXml.writeText("""
+                <?xml version="1.0"?>
+                <testsuite tests="2" time="0.030">
+                  <testcase name="Foo works" time="0.010"/>
+                  <testcase name="Bar works" time="0.020"/>
+                </testsuite>
+            """.trimIndent())
+
+            CrystalTestEventsConverter.applyJUnitTimingFromXml(junitXml, tree)
+
+            val fooSuite = tree[0] as CrystalTestEventsConverter.TestNode.Suite
+            val barSuite = tree[1] as CrystalTestEventsConverter.TestNode.Suite
+
+            val fooWorks = fooSuite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            val barWorks = barSuite.children[0] as CrystalTestEventsConverter.TestNode.Test
+
+            assertEquals(10L, fooWorks.durationMs)
+            assertEquals(20L, barWorks.durationMs)
+        } finally {
+            junitXml.delete()
+        }
+    }
+
+    @Test
+    fun testJUnitTiming_duplicateTestNamesInSameDescribe() {
+        // Two tests with the same name in the SAME describe block
+        val output = """
+            |Foo
+            |  works  works
+            |  works  works
+            |Finished in 0.01s
+            |2 examples, 0 failures
+        """.trimMargin()
+
+        val tree = CrystalTestEventsConverter.parseForTest(output)
+
+        val junitXml = File.createTempFile("junit_timing", ".xml")
+        try {
+            junitXml.writeText("""
+                <?xml version="1.0"?>
+                <testsuite tests="2" time="0.030">
+                  <testcase name="Foo works" time="0.005"/>
+                  <testcase name="Foo works" time="0.025"/>
+                </testsuite>
+            """.trimIndent())
+
+            CrystalTestEventsConverter.applyJUnitTimingFromXml(junitXml, tree)
+
+            val suite = tree[0] as CrystalTestEventsConverter.TestNode.Suite
+            assertEquals(2, suite.children.size)
+
+            val first = suite.children[0] as CrystalTestEventsConverter.TestNode.Test
+            val second = suite.children[1] as CrystalTestEventsConverter.TestNode.Test
+
+            assertEquals("First test should get first timing", 5L, first.durationMs)
+            assertEquals("Second test should get second timing", 25L, second.durationMs)
+        } finally {
+            junitXml.delete()
+        }
+    }
 }
