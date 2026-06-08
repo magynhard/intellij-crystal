@@ -7,6 +7,11 @@
 
 Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBrains IDEs.
 
+> [!WARNING]
+> Early Beta / Proof of Concept — This plugin is in early development.
+> Bugs and issues are to be expected. Please avoid opening issues for minor problems.
+> Instead, discuss constructively at a higher level or share feature ideas in the [TODO list](TODO.md).
+
 ![New Project Wizard](doc/img/screenshots/001_new_project.png)
 
 ![Test Runner](doc/img/screenshots/002_testrunner.png)
@@ -157,7 +162,7 @@ Requires JDK 21.
 
 ## Contributing
 
-See [TODO.md](TODO.md) for the roadmap of planned features and parser extensions.
+See [TODO.md](TODO.md) for ideas about features or create an issue.
 
 ## License
 
