@@ -72,7 +72,7 @@ task :release => :bump_version do |t|
   system "git add gradle.properties README.md"
   system "git commit -m 'chore(release): #{tag}'"
   system "git tag #{tag}"
-  system "git push origin main --tags" or abort "Push failed"
+  system "git push origin master --tags" or abort "Push failed"
 
   # GitHub release
   if changelog && !changelog.empty?
