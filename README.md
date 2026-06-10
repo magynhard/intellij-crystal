@@ -1,7 +1,7 @@
 # Crystal Language Plugin for JetBrains IDEs
 
-[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.7-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/de.magynhard.crystal)
-[![IntelliJ Platform](https://img.shields.io/badge/Platform-2025.1+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
+[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.7-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/32180-crystal-language)
+[![IntelliJ Platform](https://img.shields.io/badge/Platform-2026.1+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
 [![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=darkslategray&label=Crystal)](https://crystal-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg?style=plastic&logo=mit&labelColor=beige)](LICENSE)
 
@@ -79,19 +79,117 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ## Requirements
 
-- **IntelliJ Platform** 2025.1 or later
-- **Crystal** installed and available in PATH (for formatting and compiler verification)
-- **LLDB DAP** (optional, for debugging) — the `lldb-dap` binary must be installed:
-  - **Linux (Arch/Manjaro):** `sudo pacman -S lldb`
-  - **Linux (Debian/Ubuntu):** `sudo apt install lldb`
-  - **macOS:** Included with Xcode Command Line Tools (`xcode-select --install`), or `brew install llvm`
-  - **Windows:** Install LLVM from [releases.llvm.org](https://releases.llvm.org/) (includes `lldb-dap.exe`)
+- **IntelliJ Platform** 2026.1 or later
+- **Crystal** compiler (for formatting and compiler verification)
+- **LLDB DAP** (optional, for debugging) — the `lldb-dap` binary must be installed
+
+See [Installing Dependencies](#installing-dependencies) below for OS-specific instructions.
 
 ## Installation
 
+### Installing Dependencies
+
+This plugin depends on the **Crystal compiler** and (optionally) the **LLDB DAP** debugger.
+Both binaries must be available in your `PATH`. The plugin additionally checks
+`/usr/bin/lldb-dap` and `/usr/local/bin/lldb-dap` for auto-detection.
+
+> Planned: automatic detection of versioned binaries (e.g. `lldb-dap-22`) and a
+> custom install path setting will be added in a future release.
+
+#### Linux — Arch / Manjaro / EndeavourOS / CachyOS
+
+```bash
+sudo pacman -S crystal shards lldb
+```
+
+The `lldb` package already ships `lldb-dap`.
+
+#### Linux — Debian / Ubuntu / Mint / Pop!_OS
+
+Crystal (official install script):
+
+```bash
+curl -fsSL https://crystal-lang.org/install.sh | sudo bash
+```
+
+LLDB DAP — the default `lldb` package in Debian/Ubuntu repos is often too old or
+does not ship `lldb-dap`. Use the official LLVM apt script for a current release:
+
+```bash
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 22
+sudo apt install lldb-22   # ensures lldb-dap-22 is included
+```
+
+The binary is installed as `/usr/bin/lldb-dap-22`. Either add it to your `PATH` as
+`lldb-dap`, or symlink it so the plugin finds it automatically:
+
+```bash
+sudo ln -s /usr/bin/lldb-dap-22 /usr/bin/lldb-dap
+```
+
+#### Linux — Fedora / RHEL / Rocky
+
+```bash
+sudo dnf install crystal lldb
+```
+
+#### Linux — openSUSE
+
+```bash
+sudo zypper install crystal lldb
+```
+
+#### macOS
+
+Crystal and LLVM via Homebrew (recommended):
+
+```bash
+brew install crystal llvm
+```
+
+Homebrew does not install into `/usr/local/bin/` on Apple Silicon. Either add
+the LLVM `bin/` directory to your `PATH`, or create a symlink:
+
+```bash
+sudo ln -s "$(brew --prefix llvm)/bin/lldb-dap" /usr/local/bin/lldb-dap
+```
+
+The system `lldb` provided by Xcode Command Line Tools
+(`xcode-select --install`) does not always include `lldb-dap`. Homebrew LLVM is
+the more reliable option.
+
+#### Windows
+
+> Native Windows support is a work in progress. WSL2 is currently the most
+> reliable option — follow the Debian/Ubuntu instructions above inside WSL.
+
+For native installs:
+
+- **Crystal:** see the [official Crystal Windows guide](https://crystal-lang.org/install/on_windows/)
+- **LLDB DAP:** install LLVM from [releases.llvm.org](https://releases.llvm.org/) —
+  `lldb-dap.exe` is included. Make sure the LLVM `bin/` directory is on your `PATH`.
+
+#### Verifying the installation
+
+```bash
+crystal --version
+lldb-dap --help
+```
+
+If both commands work from a fresh shell, the plugin will pick up the toolchain
+automatically.
+
 ### From JetBrains Marketplace
 
-> Coming soon
+The recommended way to install:
+
+1. In your IDE, open *Settings → Plugins → Marketplace*
+2. Search for **Crystal Language**
+3. Click **Install** and restart the IDE
+
+Direct link: [Crystal Language on JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32180-crystal-language)
 
 ### From Source
 

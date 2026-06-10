@@ -28,7 +28,7 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
     }
 
-    // DAP debugger support (Platform module, present in all JetBrains IDEs 2025.1+)
+    // DAP debugger support (Platform module, present in all JetBrains IDEs 2026.1+)
     compileOnly(
         fileTree("${gradle.gradleUserHomeDir}/caches") {
             include("**/transformed/idea*-2026.1.3/lib/**/intellij.platform.dap.jar")

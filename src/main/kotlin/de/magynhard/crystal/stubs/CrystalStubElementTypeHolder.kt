@@ -3,7 +3,7 @@ package de.magynhard.crystal.stubs
 /**
  * Holds all stub element type constants for the Crystal plugin.
  *
- * Required by IntelliJ 2025.1+ via the "stubElementTypeHolder" extension.
+ * Required by IntelliJ 2026.1+ via the "stubElementTypeHolder" extension.
  * All IStubElementType instances must be created as static fields in this class
  * before index initialization completes.
  */

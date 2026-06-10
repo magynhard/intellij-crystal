@@ -120,7 +120,7 @@ First official release of the Crystal Language Plugin. This is an early beta (Pr
 
 ### Requirements
 
-- **IntelliJ Platform** 2025.1 or later
+- **IntelliJ Platform** 2026.1 or later
 - **Crystal** installed and available in PATH (for formatting, compiler verification, and running programs)
 - **lldb-dap** (optional) — required for debugging; install via your system package manager
 
