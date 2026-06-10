@@ -165,11 +165,38 @@ the more reliable option.
 > Native Windows support is a work in progress. WSL2 is currently the most
 > reliable option — follow the Debian/Ubuntu instructions above inside WSL.
 
-For native installs:
+For native installs (MSVC toolchain):
 
-- **Crystal:** see the [official Crystal Windows guide](https://crystal-lang.org/install/on_windows/)
-- **LLDB DAP:** install LLVM from [releases.llvm.org](https://releases.llvm.org/) —
-  `lldb-dap.exe` is included. Make sure the LLVM `bin/` directory is on your `PATH`.
+**1. Microsoft Visual C++ Build Tools**
+
+Crystal on Windows requires the MSVC toolchain. Download the
+[Visual Studio Build Tools installer](https://aka.ms/vs/17/release/vs_BuildTools.exe)
+and select either:
+
+- Workload: *Desktop development with C++*, or
+- Individual component: *MSVC v143 - VS 2022 C++ x64/x86 build tools* plus
+  *Windows 10 SDK* (or newer)
+
+**2. Crystal**
+
+Download the latest `*-msvc-*` build from the
+[Crystal releases page](https://github.com/crystal-lang/crystal/releases/latest):
+
+- `crystal-<version>-msvc-unsupported.exe` — GUI installer, adds Crystal to `PATH` automatically (recommended)
+- `crystal-<version>-msvc-unsupported.zip` — portable archive
+
+For a MinGW-w64-based alternative, see the
+[official Crystal Windows guide](https://crystal-lang.org/install/on_windows/).
+
+**3. LLDB DAP (for debugging)**
+
+Download the latest LLVM Windows installer from the
+[LLVM releases page](https://github.com/llvm/llvm-project/releases/latest):
+
+- `LLVM-<VERSION>-win64.exe`
+
+During installation, enable **"Add LLVM to the system PATH for all users"** so
+`lldb-dap.exe` is discoverable by the plugin.
 
 #### Verifying the installation
 
