@@ -7,7 +7,6 @@ import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessHandlerFactory
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
-import com.intellij.openapi.application.PathManager
 import com.intellij.platform.dap.DapLaunchArgumentsProvider
 import com.intellij.platform.dap.DapStartRequest
 import com.intellij.platform.dap.DebugAdapterId
@@ -27,7 +26,12 @@ class CrystalDebugRunState(
 
     private val outputBinary: File by lazy {
         val baseName = File(configuration.filePath).nameWithoutExtension
-        File(configuration.workingDirectory, "bin/$baseName")
+        val binaryName = if (System.getProperty("os.name")?.lowercase()?.contains("win") == true) {
+            "$baseName.exe"
+        } else {
+            baseName
+        }
+        File(configuration.workingDirectory, "bin/$binaryName")
     }
 
     override fun startProcess(): ProcessHandler {
@@ -48,8 +52,6 @@ class CrystalDebugRunState(
     override val request: DapStartRequest get() = DapStartRequest.Launch
 
     override fun arguments(): Map<String, Any> {
-        buildWithDebugInfo()
-
         val args = mutableMapOf<String, Any>(
             "program" to outputBinary.absolutePath,
             "cwd" to configuration.workingDirectory
@@ -74,10 +76,14 @@ class CrystalDebugRunState(
             }
         }
 
-        // Load Crystal formatters for readable variable display
+        // Load Crystal formatters for readable variable display.
+        // Formatters register themselves via __lldb_init_module using the
+        // LLDB Python API directly (no HandleCommand), which avoids a crash
+        // in lldb-dap on Windows.
         val formattersPath = extractFormattersScript()
+        val unixPath = formattersPath.replace("\\", "/")
         args["initCommands"] = listOf(
-            "command script import $formattersPath"
+            "command script import \"$unixPath\""
         )
 
         return args
@@ -118,7 +124,7 @@ class CrystalDebugRunState(
     }
 
     private fun extractFormattersScript(): String {
-        val targetDir = File(PathManager.getTempPath(), "crystal-debugger")
+        val targetDir = File(System.getProperty("java.io.tmpdir"), "crystal-debugger")
         if (!targetDir.exists()) {
             targetDir.mkdirs()
         }
