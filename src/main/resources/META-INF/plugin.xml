@@ -92,6 +92,11 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.1.9</h3>
+<ul>
+  <li>Patched <code>crystal_formatters.py</code> to run on Windows — debugger now works on Windows as well</li>
+</ul>
+
 <h3>0.1.7</h3>
 <ul>
   <li>Initial early-beta release (Proof of Concept)</li>
