@@ -8,7 +8,6 @@ import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessHandlerFactory
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
-import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.project.Project
 import com.intellij.platform.dap.DapLaunchArgumentsProvider
 import com.intellij.platform.dap.DapStartRequest
@@ -36,24 +35,13 @@ class CrystalDebugRunState(
         File(configuration.workingDirectory, "bin/$binaryName")
     }
 
-    override fun startProcess(): ProcessHandler {
-        // Build the Crystal program with debug info first
-        buildWithDebugInfo()
-
-        // The DAP framework needs a process handler, but lldb-dap will launch the actual program.
-        // We create a handler for the built binary that won't actually be started by us.
-        val commandLine = GeneralCommandLine(outputBinary.absolutePath)
-        commandLine.workDirectory = File(configuration.workingDirectory)
-        val handler = ProcessHandlerFactory.getInstance().createColoredProcessHandler(commandLine)
-        ProcessTerminatedListener.attach(handler)
-        return handler
+    override fun isApplicable(executorId: String, profile: RunProfile): Boolean {
+        return profile is CrystalRunConfiguration
     }
 
-    override val adapterId: DebugAdapterId get() = CrystalDebugAdapterId
+    override fun getLaunchArguments(project: Project, profile: RunProfile): LaunchRequestArguments {
+        buildWithDebugInfo()
 
-    override val request: DapStartRequest get() = DapStartRequest.Launch
-
-    override fun arguments(): Map<String, Any> {
         val args = mutableMapOf<String, Any>(
             "program" to outputBinary.absolutePath,
             "cwd" to configuration.workingDirectory
@@ -82,7 +70,21 @@ class CrystalDebugRunState(
             "command script import \"$unixPath\""
         )
 
-        return args
+        return LaunchRequestArguments(
+            CrystalDebugAdapterId,
+            DapStartRequest.Launch,
+            args
+        )
+    }
+
+    override fun startProcess(): ProcessHandler {
+        buildWithDebugInfo()
+
+        val commandLine = GeneralCommandLine(outputBinary.absolutePath)
+        commandLine.workDirectory = File(configuration.workingDirectory)
+        val handler = ProcessHandlerFactory.getInstance().createColoredProcessHandler(commandLine)
+        ProcessTerminatedListener.attach(handler)
+        return handler
     }
 
     private var built = false
