@@ -1,5 +1,6 @@
 
 require 'dotenv/load'
+require 'tmpdir'
 
 #
 # Create a crystal test project and create a .env file in this project
@@ -13,7 +14,7 @@ task :run do |t|
     ENV['TEST_APP_PATH'] = path
     File.write ".env", "TEST_APP_PATH=#{path}"
   end
-  system %Q(./gradlew cleanSandbox runIde --args="#{ENV['TEST_APP_PATH']}")
+  system("./gradlew", "cleanSandbox", "runIde", "--args=#{ENV['TEST_APP_PATH']}")
 end
 
 desc "Bump patch version in gradle.properties and README.md"
@@ -45,7 +46,7 @@ end
 
 desc "Build plugin and store it in build/distributions"
 task :build do |t|
-  system "./gradlew buildPlugin"
+  system("./gradlew", "buildPlugin")
 end
 
 desc "Full release: bump version, build, tag, push, and create GitHub release"
@@ -57,7 +58,7 @@ task :release => :bump_version do |t|
   puts "Releasing #{tag}..."
 
   # Build plugin
-  system "./gradlew buildPlugin" or abort "Build failed"
+  system("./gradlew", "buildPlugin") or abort "Build failed"
 
   # Extract changelog from plugin.xml <changeNotes> if present
   plugin_xml = File.read("src/main/resources/META-INF/plugin.xml")
@@ -69,22 +70,22 @@ task :release => :bump_version do |t|
   abort "Plugin ZIP not found for version #{version}" unless zip
 
   # Git: commit, tag, push
-  system "git add gradle.properties README.md"
-  system "git commit -m 'chore(release): #{tag}'"
-  system "git tag #{tag}"
-  system "git push origin master --tags" or abort "Push failed"
+  system("git", "add", "gradle.properties", "README.md")
+  system("git", "commit", "-m", "chore(release): #{tag}")
+  system("git", "tag", tag)
+  system("git", "push", "origin", "master", "--tags") or abort "Push failed"
 
   # GitHub release
   if changelog && !changelog.empty?
     puts "Using changelog from plugin.xml as release notes"
     # Write changelog to temp file for gh release create
-    release_notes = "/tmp/release_notes_#{version}.md"
+    release_notes = File.join(Dir.tmpdir, "release_notes_#{version}.md")
     File.write(release_notes, changelog)
-    system "gh release create #{tag} #{zip} --title #{tag} --notes-file #{release_notes}"
+    system("gh", "release", "create", tag, zip, "--title", tag, "--notes-file", release_notes)
     File.delete(release_notes)
   else
     puts "No changelog in plugin.xml, using auto-generated notes"
-    system "gh release create #{tag} #{zip} --title #{tag} --generate-notes"
+    system("gh", "release", "create", tag, zip, "--title", tag, "--generate-notes")
   end
 
   abort "GitHub release failed" unless $?.success?
