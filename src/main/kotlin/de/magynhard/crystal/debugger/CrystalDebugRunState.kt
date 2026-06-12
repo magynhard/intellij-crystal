@@ -28,16 +28,32 @@ class CrystalDebugRunState(
 
     private val outputBinary: File by lazy {
         val baseName = File(configuration.filePath).nameWithoutExtension
-        File(configuration.workingDirectory, "bin/$baseName")
+        val binaryName = if (System.getProperty("os.name")?.lowercase()?.contains("win") == true) {
+            "$baseName.exe"
+        } else {
+            baseName
+        }
+        File(configuration.workingDirectory, "bin/$binaryName")
     }
 
-    override fun isApplicable(executorId: String, profile: RunProfile): Boolean {
-        return profile is CrystalRunConfiguration
-    }
-
-    override fun getLaunchArguments(project: Project, profile: RunProfile): LaunchRequestArguments {
+    override fun startProcess(): ProcessHandler {
+        // Build the Crystal program with debug info first
         buildWithDebugInfo()
 
+        // The DAP framework needs a process handler, but lldb-dap will launch the actual program.
+        // We create a handler for the built binary that won't actually be started by us.
+        val commandLine = GeneralCommandLine(outputBinary.absolutePath)
+        commandLine.workDirectory = File(configuration.workingDirectory)
+        val handler = ProcessHandlerFactory.getInstance().createColoredProcessHandler(commandLine)
+        ProcessTerminatedListener.attach(handler)
+        return handler
+    }
+
+    override val adapterId: DebugAdapterId get() = CrystalDebugAdapterId
+
+    override val request: DapStartRequest get() = DapStartRequest.Launch
+
+    override fun arguments(): Map<String, Any> {
         val args = mutableMapOf<String, Any>(
             "program" to outputBinary.absolutePath,
             "cwd" to configuration.workingDirectory
@@ -61,25 +77,12 @@ class CrystalDebugRunState(
         }
 
         val formattersPath = extractFormattersScript()
+        val unixPath = formattersPath.replace("\\", "/")
         args["initCommands"] = listOf(
-            "command script import $formattersPath"
+            "command script import \"$unixPath\""
         )
 
-        return LaunchRequestArguments(
-            CrystalDebugAdapterId,
-            DapStartRequest.Launch,
-            args
-        )
-    }
-
-    override fun startProcess(): ProcessHandler {
-        buildWithDebugInfo()
-
-        val commandLine = GeneralCommandLine(outputBinary.absolutePath)
-        commandLine.workDirectory = File(configuration.workingDirectory)
-        val handler = ProcessHandlerFactory.getInstance().createColoredProcessHandler(commandLine)
-        ProcessTerminatedListener.attach(handler)
-        return handler
+        return args
     }
 
     private var built = false
@@ -117,7 +120,7 @@ class CrystalDebugRunState(
     }
 
     private fun extractFormattersScript(): String {
-        val targetDir = File(PathManager.getTempPath(), "crystal-debugger")
+        val targetDir = File(System.getProperty("java.io.tmpdir"), "crystal-debugger")
         if (!targetDir.exists()) {
             targetDir.mkdirs()
         }
