@@ -563,4 +563,27 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertTrue("Should NOT offer completions inside string", lookups == null || lookups.isEmpty())
     }
+
+    // ==================== Suppression after numeric literals ====================
+
+    fun testNoCompletionAfterIntegerLiteral() {
+        myFixture.configureByText("main.cr", "a = 1<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertTrue("Should NOT offer completions after integer literal", lookups == null || lookups.isEmpty())
+    }
+
+    fun testNoCompletionAfterFloatLiteral() {
+        myFixture.configureByText("main.cr", "a = 1.5<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertTrue("Should NOT offer completions after float literal", lookups == null || lookups.isEmpty())
+    }
+
+    fun testCompletionStillWorksAfterNewline() {
+        myFixture.configureByText("main.cr", """
+            a = 1
+            b<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer completions after newline", lookups)
+    }
 }

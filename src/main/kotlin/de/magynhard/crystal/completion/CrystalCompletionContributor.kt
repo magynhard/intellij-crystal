@@ -44,6 +44,9 @@ class CrystalCompletionContributor : CompletionContributor() {
             // Suppress completion inside string literals (but not inside interpolation)
             if (isInsideStringLiteral(position)) return
 
+            // Suppress completion after numeric literals (user is typing a number, not a name)
+            if (isAfterNumericLiteral(position)) return
+
             // Case 4: After `def ` inside a class/struct body — offer override methods
             if (isAfterDefKeywordInClassBody(position)) {
                 for (lookup in CrystalOverrideMethodProvider.getOverrideLookups()) {
@@ -264,6 +267,16 @@ class CrystalCompletionContributor : CompletionContributor() {
 
             val beforeBracket = getPreviousNonWhitespaceLeaf(prev) ?: return false
             return beforeBracket.node.elementType == CrystalTypes.AT
+        }
+
+        /**
+         * Checks if the caret is right after a numeric literal (integer or float).
+         * Returns true if completion should be suppressed.
+         */
+        private fun isAfterNumericLiteral(position: PsiElement): Boolean {
+            val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
+            val tokenType = prev.node?.elementType
+            return tokenType == CrystalTypes.INTEGER_LITERAL || tokenType == CrystalTypes.FLOAT_LITERAL
         }
 
         /**
