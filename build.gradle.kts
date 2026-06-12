@@ -41,7 +41,7 @@ intellijPlatform {
             url = "https://github.com/magynhard"
         }
         ideaVersion {
-            sinceBuild = "251"
+            sinceBuild = "261"
         }
     }
 

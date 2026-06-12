@@ -2,6 +2,12 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.1.12] — 2026-06-12
+
+### Changed
+
+- **Minimum IDE version** — raised `sinceBuild` from 251 to 261 (IntelliJ 2026.1+) to match the target platform
+
 ## [0.1.11] — 2026-06-12
 
 ### Bug Fixes
