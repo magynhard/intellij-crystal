@@ -2,6 +2,12 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.1.10] — 2026-06-12
+
+### Bug Fixes
+
+- **Improved debugger compatibility on Windows** — added Windows-specific lldb-dap binary discovery, `.exe` suffix for compiled binaries, and fixed formatter path handling for Windows
+
 ## [0.1.9] — 2026-06-12
 
 ### Bug Fixes
