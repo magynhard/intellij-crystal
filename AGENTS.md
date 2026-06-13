@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Project Language
+
+**English is the project language.** All code comments, commit messages, documentation, and agent responses MUST be in English. This rule is mandatory and must be followed at all times.
+
 ## Design Philosophy
 
 - **Always implement the "correct" solution** — proper architecture, full functionality, future-proof. Only consider a "nice-to-have" or simplified approach when the correct solution is technically nearly impossible.
