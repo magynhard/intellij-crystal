@@ -586,7 +586,7 @@ private primary_expression ::= grouped_expression
 grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAREN
 
 method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-                         | (IDENTIFIER | CONSTANT | SELECT) bare_argument_list [block]
+                         | (IDENTIFIER | CONSTANT | SELECT) !LBRACKET bare_argument_list [block]
                          | (IDENTIFIER | CONSTANT) block
                          | (SUPER | PREVIOUS_DEF) call_args
                          | (SUPER | PREVIOUS_DEF) bare_argument_list {

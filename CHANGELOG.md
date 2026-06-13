@@ -2,6 +2,16 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [1.1.x] — 2026-06-12
+
+### Changed
+
+- **Suppress completion after numeric literals** — typing a number (e.g. `a = 1`) no longer triggers variable/method suggestions, matching RubyMine behavior
+
+### Bug Fixes
+
+- **Fix nil-safe index (`?`) breaking parser** — `item["states"]?` inside `each do`/`if` blocks no longer causes false parse errors; the bracket access was incorrectly parsed as a method call with array literal
+
 ## [0.1.12] — 2026-06-12
 
 ### Changed
