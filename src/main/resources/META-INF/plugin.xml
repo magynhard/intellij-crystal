@@ -92,6 +92,15 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>1.1.13</h3>
+<ul>
+  <li><b>Code folding</b> — multi-line arrays (<code>[...]</code>) and hashes (<code>{...}</code>) can now be collapsed, matching RubyMine behavior</li>
+  <li><b>Code folding</b> — all block constructs keep keyword and signature visible when collapsed; placeholder shows <code> ... end</code> (or <code>[ ... ]</code> / <code>{ ... }</code> for arrays/hashes), matching RubyMine behavior</li>
+  <li>Supported keywords: <code>if</code>/<code>unless</code>/<code>while</code>/<code>until</code> (with condition), <code>def</code> (with name + params), <code>class</code>/<code>module</code>/<code>struct</code>/<code>enum</code> (with name), <code>begin</code>, <code>do</code>, <code>case</code>/<code>for</code>, <code>macro</code>, <code>lib</code>, <code>annotation</code>, <code>verbatim do</code></li>
+  <li>Suppress code completion after numeric literals — typing a number (e.g. <code>a = 1</code>) no longer triggers variable/method suggestions, matching RubyMine behavior</li>
+  <li><b>Bug fix</b> — nil-safe index (<code>?</code>) no longer breaks parser in block contexts; <code>item["states"]?</code> inside <code>each do</code>/<code>if</code> blocks no longer causes false parse errors</li>
+</ul>
+
 <h3>0.1.12</h3>
 <ul>
   <li>Raised minimum IDE version from 2025.1 to 2026.1 (<code>sinceBuild</code> 251 → 261) to match the target platform</li>
