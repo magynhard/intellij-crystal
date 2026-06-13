@@ -2,6 +2,17 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [1.1.14] — 2026-06-14
+
+### Changed
+
+- **Parameter info (Ctrl+P) for `ClassName.new`** — now shows `initialize` method parameters when calling `new` on a class
+- **Type check for `ClassName.new`** — argument type validation now works for `new` calls, resolving to `initialize` parameters
+
+### Bug Fixes
+
+- **Fix `new` resolution using wrong class** — `findTypeByName` now prefers the class from the current file when multiple classes with the same name exist in the project
+
 ## [1.1.13] — 2026-06-14
 
 ### Added
@@ -13,13 +24,10 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ### Changed
 
 - **Suppress completion after numeric literals** — typing a number (e.g. `a = 1`) no longer triggers variable/method suggestions, matching RubyMine behavior
-- **Parameter info (Ctrl+P) for `ClassName.new`** — now shows `initialize` method parameters when calling `new` on a class
-- **Type check for `ClassName.new`** — argument type validation now works for `new` calls, resolving to `initialize` parameters
 
 ### Bug Fixes
 
 - **Fix nil-safe index (`?`) breaking parser** — `item["states"]?` inside `each do`/`if` blocks no longer causes false parse errors; the bracket access was incorrectly parsed as a method call with array literal
-- **Fix `new` resolution using wrong class** — `findTypeByName` now prefers the class from the current file when multiple classes with the same name exist in the project
 
 ## [0.1.12] — 2026-06-12
 
