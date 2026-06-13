@@ -13,6 +13,7 @@ import com.intellij.psi.tree.TokenSet
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.lexer.CrystalTokenTypes
+import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalMethodIndex
 
@@ -136,13 +137,24 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
         val project = context.project
         val scope = GlobalSearchScope.allScope(project)
 
-        val methods = StubIndex.getElements(
+        var methods = StubIndex.getElements(
             CrystalMethodIndex.KEY,
             methodName,
             project,
             scope,
             CrystalMethodDefinition::class.java
         ).toTypedArray()
+
+        // Special case: "new" on a class → resolve to "initialize" parameters
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNew(argsHolder)
+            if (className != null) {
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsHolder.containingFile)
+                if (initMethod != null) {
+                    methods = arrayOf(initMethod)
+                }
+            }
+        }
 
         if (methods.isEmpty()) return null
         context.itemsToShow = methods
@@ -667,6 +679,47 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
         val type = leaf.node?.elementType
         if (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT) {
             return leaf
+        }
+        return null
+    }
+
+    /**
+     * For "ClassName.new(...)" — finds the class name (CONSTANT) before ".new".
+     * Returns the class name string, or null if not a class constructor call.
+     */
+    private fun findClassNameBeforeNew(argsHolder: PsiElement): String? {
+        // Find the "new" token — look backwards from the args holder
+        val newToken = when {
+            argsHolder is CrystalParameterInfoAnchor -> argsHolder.nameToken
+            argsHolder is CrystalCallArgs || argsHolder is CrystalBareArgumentList -> {
+                // Find IDENTIFIER("new") before the args
+                var sibling: PsiElement? = argsHolder.prevSibling
+                while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+                if (sibling?.node?.elementType == CrystalTypes.IDENTIFIER && sibling.text == "new") {
+                    sibling
+                } else null
+            }
+            else -> null
+        } ?: return null
+
+        // Look backwards: newToken -> DOT -> CONSTANT
+        var prev = PsiTreeUtil.prevLeaf(newToken)
+        while (prev is PsiWhiteSpace || prev?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
+            prev = PsiTreeUtil.prevLeaf(prev!!)
+        }
+        if (prev?.node?.elementType != CrystalTypes.DOT) return null
+
+        prev = PsiTreeUtil.prevLeaf(prev!!)
+        while (prev is PsiWhiteSpace || prev?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
+            prev = PsiTreeUtil.prevLeaf(prev!!)
+        }
+        // Handle both raw CONSTANT tokens and wrapped elements (e.g. CrystalVariableReferenceImpl)
+        if (prev?.node?.elementType == CrystalTypes.CONSTANT) {
+            return prev.text
+        }
+        val constantChild = prev?.node?.findChildByType(CrystalTypes.CONSTANT)
+        if (constantChild != null) {
+            return constantChild.text
         }
         return null
     }

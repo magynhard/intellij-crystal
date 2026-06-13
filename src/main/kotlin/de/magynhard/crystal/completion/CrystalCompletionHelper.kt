@@ -4,6 +4,7 @@ import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.project.Project
 import com.intellij.icons.AllIcons
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
@@ -29,13 +30,20 @@ object CrystalCompletionHelper {
     /**
      * Finds a class/module/struct/enum definition by name.
      * Returns the element and its kind, or null if not found.
+     * If currentFile is provided, prefers the definition from that file.
      */
-    fun findTypeByName(name: String, project: Project): TypeLookupResult? {
+    fun findTypeByName(name: String, project: Project, currentFile: PsiFile? = null): TypeLookupResult? {
         val scope = GlobalSearchScope.projectScope(project)
         val elements = StubIndex.getElements(
             CrystalClassIndex.KEY, name, project, scope, CrystalNamedElement::class.java
         )
-        val element = elements.firstOrNull() ?: return null
+        // Prefer the definition from the current file
+        val element = if (currentFile != null) {
+            elements.firstOrNull { it.containingFile?.virtualFile == currentFile.virtualFile }
+                ?: elements.firstOrNull()
+        } else {
+            elements.firstOrNull()
+        } ?: return null
         val kind = when (element) {
             is CrystalClassDefinition -> TypeKind.CLASS
             is CrystalModuleDefinition -> TypeKind.MODULE
@@ -105,16 +113,16 @@ object CrystalCompletionHelper {
     /**
      * Finds the `initialize` method of a class/struct (the Crystal constructor).
      */
-    fun getInitializeMethod(typeName: String, project: Project): CrystalMethodDefinition? {
-        val result = findTypeByName(typeName, project) ?: return null
+    fun getInitializeMethod(typeName: String, project: Project, currentFile: PsiFile? = null): CrystalMethodDefinition? {
+        val result = findTypeByName(typeName, project, currentFile) ?: return null
         return getMethodsFromType(result).firstOrNull { it.name == "initialize" }
     }
 
     /**
      * Builds a LookupElement for `new` with initialize parameters.
      */
-    fun buildNewLookup(className: String, project: Project): LookupElementBuilder {
-        val initMethod = getInitializeMethod(className, project)
+    fun buildNewLookup(className: String, project: Project, currentFile: PsiFile? = null): LookupElementBuilder {
+        val initMethod = getInitializeMethod(className, project, currentFile)
         val signature = if (initMethod != null) getParameterSignature(initMethod) else "()"
         val tailText = if (signature == "()") "" else signature
 

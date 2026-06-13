@@ -95,7 +95,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                         }
                         // Offer "new" with initialize parameters only for classes/structs (not modules/enums)
                         if (staticMethods.none { it.name == "new" } && CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
-                            result.addElement(CrystalCompletionHelper.buildNewLookup(beforeDotText, project))
+                            result.addElement(CrystalCompletionHelper.buildNewLookup(beforeDotText, project, parameters.originalFile))
                         }
                         return
                     }

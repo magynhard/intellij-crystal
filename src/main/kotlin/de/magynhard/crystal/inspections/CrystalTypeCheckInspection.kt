@@ -6,6 +6,7 @@ import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalMethodIndex
 
@@ -37,7 +38,6 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                         checkMethodCall(element, holder)
                     }
                     is CrystalCallArgs, is CrystalBareArgumentList -> {
-                        // Handle DOT-calls: postfix_op is private in BNF so no dedicated PSI type exists
                         val dotCallInfo = detectDotCall(element)
                         if (dotCallInfo != null) {
                             checkDotCall(element, dotCallInfo.second, holder)
@@ -68,9 +68,20 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // Find all overloads of this method
         val project = callExpr.project
         val scope = GlobalSearchScope.allScope(project)
-        val methods = StubIndex.getElements(
+        var methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
+
+        // Special case: "new" on a class → resolve to "initialize" parameters
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNew(callExpr)
+            if (className != null) {
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
+                if (initMethod != null) {
+                    methods = listOf(initMethod)
+                }
+            }
+        }
 
         if (methods.isEmpty()) {
             return
@@ -191,9 +202,20 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
         val project = argsElement.project
         val scope = GlobalSearchScope.allScope(project)
-        val methods = StubIndex.getElements(
+        var methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
+
+        // Special case: "new" on a class → resolve to "initialize" parameters
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNewFromArgs(argsElement)
+            if (className != null) {
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsElement.containingFile)
+                if (initMethod != null) {
+                    methods = listOf(initMethod)
+                }
+            }
+        }
 
         if (methods.isEmpty()) {
             return
@@ -440,5 +462,64 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             child = child.nextSibling
         }
         return lastNameBeforeDot
+    }
+
+    /**
+     * For "ClassName.new(...)" — finds the class name (CONSTANT) before ".new".
+     * Works for CrystalMethodCallExpression / CrystalBareMethodCallExpression.
+     */
+    private fun findClassNameBeforeNew(callExpr: PsiElement): String? {
+        var child = callExpr.firstChild
+        var foundDot = false
+        while (child != null) {
+            val type = child.node?.elementType
+            if (type == CrystalTypes.DOT) {
+                foundDot = true
+            } else if (foundDot && type == CrystalTypes.IDENTIFIER && child.text == "new") {
+                // Found ".new", now look before the DOT for CONSTANT
+                var beforeDot = child.prevSibling
+                while (beforeDot is PsiWhiteSpace) beforeDot = beforeDot.prevSibling
+                return extractClassNameFromElement(beforeDot)
+            }
+            child = child.nextSibling
+        }
+        return null
+    }
+
+    /**
+     * For DOT-calls via args element (e.g. Foo.new(...)) — finds the class name.
+     */
+    private fun findClassNameBeforeNewFromArgs(argsElement: PsiElement): String? {
+        var sibling = argsElement.prevSibling
+        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+
+        val methodNameNode = sibling ?: return null
+        if (methodNameNode.text != "new") return null
+
+        sibling = methodNameNode.prevSibling
+        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+        if (sibling?.node?.elementType != CrystalTypes.DOT) return null
+
+        sibling = sibling.prevSibling
+        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+        return extractClassNameFromElement(sibling)
+    }
+
+    /**
+     * Extracts a class name (CONSTANT text) from a PSI element.
+     * Handles both raw CONSTANT tokens and CrystalVariableReferenceImpl/TypePathImpl wrappers.
+     */
+    private fun extractClassNameFromElement(element: PsiElement?): String? {
+        if (element == null) return null
+        // Direct CONSTANT token
+        if (element.node?.elementType == CrystalTypes.CONSTANT) {
+            return element.text
+        }
+        // Wrapper (e.g. CrystalVariableReferenceImpl, CrystalTypePathImpl) containing a CONSTANT child
+        val constantChild = element.node?.findChildByType(CrystalTypes.CONSTANT)
+        if (constantChild != null) {
+            return constantChild.text
+        }
+        return null
     }
 }
