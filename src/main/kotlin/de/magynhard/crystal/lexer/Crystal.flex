@@ -42,6 +42,7 @@ import com.intellij.psi.TokenType;
   // Macro body state tracking
   private boolean macroHeaderSeen = false;
   private int macroBodyDepth = 0;
+  private boolean macroBodyAtLineStart = false;
   private int macroNestingLevel = 0;
   private StringBuilder macroBodyBuffer = new StringBuilder();
 
@@ -116,7 +117,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   // Whitespace and comments
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   "\\" (\r\n | \r | \n) { return TokenType.WHITE_SPACE; }
-  {NEWLINE}            { if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; yybegin(MACRO_BODY); } return CrystalTypes.NEWLINE; }
+  {NEWLINE}            { if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); } return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
 
   // Keywords (longest match first for keywords with ? suffix)
@@ -509,24 +510,27 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "#{"                 { return CrystalTypes.MACRO_BODY_CONTENT; }
   // Track block openers to count depth for END detection
   // We need to detect 'end' at depth 0 as the macro's closing END
-  "end"  / [ \t\r\n]  { if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
+  "end"  / [ \t\r\n]  { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
-  "end"  / [\)\]\},;]  { if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
+  "end"  / [\)\]\},;]  { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
   // end at EOF
-  "end"               { if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
+  "end"               { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
-  // Block openers increase depth
-  ("def" | "class" | "module" | "struct" | "enum" | "lib" | "fun" | "macro" | "if" | "unless" | "while" | "until" | "case" | "begin" | "do" | "select" | "annotation") / [ \t\r\n(]
-                       { macroBodyDepth++; return CrystalTypes.MACRO_BODY_CONTENT; }
-  {NEWLINE}            { return CrystalTypes.NEWLINE; }
+  // Block openers that always start blocks (never postfix)
+  ("def" | "class" | "module" | "struct" | "enum" | "lib" | "fun" | "macro" | "case" | "begin" | "do" | "select" | "annotation") / [ \t\r\n(]
+                       { macroBodyDepth++; macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
+  // Keywords that can be postfix modifiers — only count as block openers at line start
+  ("if" | "unless" | "while" | "until") / [ \t\r\n(]
+                       { if (macroBodyAtLineStart) { macroBodyDepth++; } macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
+  {NEWLINE}            { macroBodyAtLineStart = true; return CrystalTypes.NEWLINE; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
-  "#" [^\r\n{]*        { return CrystalTypes.MACRO_BODY_CONTENT; }
-  "%" {IDENTIFIER}     { return CrystalTypes.MACRO_FRESH_VAR; }
-  [^ \t\r\n\{\}#]+    { return CrystalTypes.MACRO_BODY_CONTENT; }
-  "{"                  { return CrystalTypes.MACRO_BODY_CONTENT; }
-  "}"                  { return CrystalTypes.MACRO_BODY_CONTENT; }
-  [^]                  { return CrystalTypes.MACRO_BODY_CONTENT; }
+  "#" [^\r\n{]*        { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
+  "%" {IDENTIFIER}     { macroBodyAtLineStart = false; return CrystalTypes.MACRO_FRESH_VAR; }
+  [^ \t\r\n\{\}#]+    { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
+  "{"                  { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
+  "}"                  { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
+  [^]                  { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
 }
 
 <MACRO_INTERPOLATION> {

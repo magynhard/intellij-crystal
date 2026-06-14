@@ -222,4 +222,12 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testMacroForLoop() {
         doTest(true)
     }
+
+    fun testKeywordAsMethodName() {
+        doTest(true)
+    }
+
+    fun testSampleModule() {
+        doTest(true)
+    }
 }

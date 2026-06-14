@@ -11,6 +11,9 @@ public interface CrystalClassBody extends PsiElement {
   List<CrystalAliasDefinition> getAliasDefinitionList();
 
   @NotNull
+  List<CrystalAnnotationDefinition> getAnnotationDefinitionList();
+
+  @NotNull
   List<CrystalAnnotationUsage> getAnnotationUsageList();
 
   @NotNull

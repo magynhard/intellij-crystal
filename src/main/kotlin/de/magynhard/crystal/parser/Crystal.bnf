@@ -267,6 +267,7 @@ class_body ::= class_member*
 private class_member ::= NEWLINE
                         | SEMICOLON
                         | annotation_usage
+                        | annotation_definition
                         | method_definition
                         | macro_definition
                         | class_definition
@@ -318,10 +319,10 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
 }
 
 method_name ::= IDENTIFIER
+              | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
+              | keyword_as_method
               | operator_method_name
-              | SELF DOT (IDENTIFIER | CONSTANT | operator_method_name | macro_interpolation)
               | macro_interpolation
-              | SELECT
 
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
@@ -562,6 +563,7 @@ private primary_expression ::= grouped_expression
                              | hash_literal
                              | tuple_literal
                              | proc_literal
+                             | DOUBLE_COLON CONSTANT
                              | method_call_expression
                              | implicit_object_call
                              | literal
