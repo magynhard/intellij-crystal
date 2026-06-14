@@ -390,7 +390,6 @@ statement ::= if_statement
             | unless_statement
             | while_statement
             | until_statement
-            | case_statement
             | begin_statement
             | for_statement
             | select_statement

@@ -47,12 +47,6 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
-  public CrystalCaseStatement getCaseStatement() {
-    return PsiTreeUtil.getChildOfType(this, CrystalCaseStatement.class);
-  }
-
-  @Override
-  @Nullable
   public CrystalConstantAssignment getConstantAssignment() {
     return PsiTreeUtil.getChildOfType(this, CrystalConstantAssignment.class);
   }

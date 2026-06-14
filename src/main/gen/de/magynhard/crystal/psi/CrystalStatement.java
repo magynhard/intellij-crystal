@@ -17,9 +17,6 @@ public interface CrystalStatement extends PsiElement {
   CrystalBreakStatement getBreakStatement();
 
   @Nullable
-  CrystalCaseStatement getCaseStatement();
-
-  @Nullable
   CrystalConstantAssignment getConstantAssignment();
 
   @Nullable

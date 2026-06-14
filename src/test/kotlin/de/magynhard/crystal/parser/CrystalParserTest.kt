@@ -230,4 +230,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testSampleModule() {
         doTest(true)
     }
+
+    fun testCaseWithTapBlock() {
+        doTest(true)
+    }
 }

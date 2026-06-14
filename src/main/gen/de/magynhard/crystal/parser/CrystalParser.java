@@ -5663,7 +5663,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //             | unless_statement
   //             | while_statement
   //             | until_statement
-  //             | case_statement
   //             | begin_statement
   //             | for_statement
   //             | select_statement
@@ -5688,7 +5687,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = unless_statement(builder_, level_ + 1);
     if (!result_) result_ = while_statement(builder_, level_ + 1);
     if (!result_) result_ = until_statement(builder_, level_ + 1);
-    if (!result_) result_ = case_statement(builder_, level_ + 1);
     if (!result_) result_ = begin_statement(builder_, level_ + 1);
     if (!result_) result_ = for_statement(builder_, level_ + 1);
     if (!result_) result_ = select_statement(builder_, level_ + 1);
