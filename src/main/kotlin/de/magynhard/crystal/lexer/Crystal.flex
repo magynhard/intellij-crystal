@@ -534,6 +534,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 }
 
 <MACRO_INTERPOLATION> {
+  "}}?"                { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
+  "}}!"                { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   "}}"                 { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }

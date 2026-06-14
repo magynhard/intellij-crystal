@@ -16,6 +16,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Fix false positive type check on DOT-calls** — `ENV.fetch("PER_PAGE", "25").to_i` no longer falsely reports `String` as type mismatch; type check now filters methods by the receiver's class/module, preventing stdlib calls from matching unrelated user-defined overloads
 - **Fix false positive "Unknown named argument" on class constructor DOT-calls** — `::Bytes.new(ptr, length, read_only: true)` no longer falsely reports `read_only` as unknown; both argument count and type check inspections now filter by receiver class/module for DOT-calls
 - **Fix `case ... end.tap do` parse error** — `case`/`when`/`end` followed by a method call with block (e.g. `.tap do`) now parses correctly; `case_statement` is now processed through `expression_statement` to support postfix method calls with blocks
+- **Fix `?`/`!` suffix after macro interpolation** — `{{ expr }}?` and `{{ expr }}!` (Crystal method name suffixes) now parse correctly; the lexer consumes `?`/`!` immediately following `}}` as part of the interpolation end token
 
 ## [1.1.15] — 2026-06-14
 
