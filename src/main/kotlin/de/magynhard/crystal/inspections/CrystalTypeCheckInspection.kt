@@ -40,7 +40,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     is CrystalCallArgs, is CrystalBareArgumentList -> {
                         val dotCallInfo = detectDotCall(element)
                         if (dotCallInfo != null) {
-                            checkDotCall(element, dotCallInfo.second, holder)
+                            checkDotCall(element, dotCallInfo.first, dotCallInfo.second, holder)
                         }
                     }
                 }
@@ -180,7 +180,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     /**
      * Type-checks a DOT-call (e.g. Apfel.kurz "lol") by extracting args from the args element.
      */
-    private fun checkDotCall(argsElement: PsiElement, methodName: String, holder: ProblemsHolder) {
+    private fun checkDotCall(argsElement: PsiElement, receiverName: String, methodName: String, holder: ProblemsHolder) {
         val arguments = mutableListOf<ArgumentInfo>()
         when (argsElement) {
             is CrystalCallArgs -> {
@@ -205,6 +205,15 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         var methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
+
+        // Filter to methods defined inside a class/module matching the receiver name.
+        // This prevents false positives like ENV.fetch(...) matching Hash#fetch.
+        // Only apply for CONSTANT receivers (class/module names start with uppercase in Crystal).
+        if (receiverName.isNotEmpty() && receiverName[0].isUpperCase()) {
+            methods = methods.filter { method ->
+                findEnclosingTypeName(method) == receiverName
+            }
+        }
 
         // Special case: "new" on a class → resolve to "initialize" parameters
         if (methods.isEmpty() && methodName == "new") {
@@ -519,6 +528,34 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         val constantChild = element.node?.findChildByType(CrystalTypes.CONSTANT)
         if (constantChild != null) {
             return constantChild.text
+        }
+        return null
+    }
+
+    /**
+     * Finds the name of the enclosing class, module, or struct for a method definition.
+     * Walks up the PSI tree to find the first class/module/struct definition parent.
+     */
+    private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
+        var parent = method.parent
+        while (parent != null) {
+            val typeName = when (parent) {
+                is CrystalClassDefinition -> parent.typeName
+                is CrystalModuleDefinition -> parent.typeName
+                is CrystalStructDefinition -> parent.typeName
+                else -> null
+            }
+            if (typeName != null) {
+                // The first CONSTANT child is the type name
+                var child = typeName.firstChild
+                while (child != null) {
+                    if (child.node?.elementType == CrystalTypes.CONSTANT) {
+                        return child.text
+                    }
+                    child = child.nextSibling
+                }
+            }
+            parent = parent.parent
         }
         return null
     }
