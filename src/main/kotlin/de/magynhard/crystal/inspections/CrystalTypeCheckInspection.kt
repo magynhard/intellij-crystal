@@ -211,7 +211,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // Only apply for CONSTANT receivers (class/module names start with uppercase in Crystal).
         if (receiverName.isNotEmpty() && receiverName[0].isUpperCase()) {
             methods = methods.filter { method ->
-                findEnclosingTypeName(method) == receiverName
+                val enclosing = findEnclosingTypeName(method)
+                enclosing == null || enclosing == receiverName
             }
         }
 

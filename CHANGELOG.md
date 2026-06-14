@@ -14,6 +14,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 - **Fix macro body depth tracking for postfix control flow** — `if`/`unless`/`while`/`until` used as postfix modifiers (e.g. `return x if condition`) no longer cause the macro body `end` detection to be off-by-one, which broke parsing of code after macros containing postfix control flow
 - **Fix false positive type check on DOT-calls** — `ENV.fetch("PER_PAGE", "25").to_i` no longer falsely reports `String` as type mismatch; type check now filters methods by the receiver's class/module, preventing stdlib calls from matching unrelated user-defined overloads
+- **Fix false positive "Unknown named argument" on class constructor DOT-calls** — `::Bytes.new(ptr, length, read_only: true)` no longer falsely reports `read_only` as unknown; both argument count and type check inspections now filter by receiver class/module for DOT-calls
 
 ## [1.1.15] — 2026-06-14
 

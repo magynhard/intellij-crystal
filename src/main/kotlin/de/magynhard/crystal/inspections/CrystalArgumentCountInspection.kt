@@ -70,9 +70,17 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
         val project = argsElement.project
         val scope = GlobalSearchScope.allScope(project)
-        val methods = StubIndex.getElements(
+        var methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, info.methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
+
+        // Filter to methods defined inside a class/module matching the receiver name.
+        // This prevents false positives like ::Bytes.new(...) matching unrelated new overloads.
+        // Only filter when methods actually have an enclosing type; top-level defs stay.
+        methods = methods.filter { method ->
+            val enclosing = findEnclosingTypeName(method)
+            enclosing == null || enclosing == info.receiverName
+        }
 
         if (methods.isEmpty()) return
 
@@ -612,5 +620,31 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
         }
         return element
+    }
+
+    /**
+     * Finds the name of the enclosing class, module, or struct for a method definition.
+     */
+    private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
+        var parent = method.parent
+        while (parent != null) {
+            val typeName = when (parent) {
+                is CrystalClassDefinition -> parent.typeName
+                is CrystalModuleDefinition -> parent.typeName
+                is CrystalStructDefinition -> parent.typeName
+                else -> null
+            }
+            if (typeName != null) {
+                var child = typeName.firstChild
+                while (child != null) {
+                    if (child.node?.elementType == CrystalTypes.CONSTANT) {
+                        return child.text
+                    }
+                    child = child.nextSibling
+                }
+            }
+            parent = parent.parent
+        }
+        return null
     }
 }
