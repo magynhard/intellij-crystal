@@ -407,7 +407,7 @@ statement ::= if_statement
             | macro_control
             | expression_statement
 
-expression_statement ::= expression [expression_assign_suffix | postfix_modifier]
+expression_statement ::= expression [expression_assign_suffix [postfix_modifier] | postfix_modifier]
 
 private expression_assign_suffix ::= assign_op NLS expression
 
@@ -753,7 +753,7 @@ type_reference ::= type_union [ARROW [type_union]]
 private type_union ::= type_single (PIPE NLS type_single)*
 
 private type_single ::= STAR type_path [type_arguments] [QUESTION]
-                       | type_path [type_arguments] [DOT CLASS] [QUESTION] [STAR] [DOUBLE_STAR] [LBRACKET INTEGER_LITERAL RBRACKET]
+                       | type_path [type_arguments] [DOT CLASS] [QUESTION] (STAR | DOUBLE_STAR)* [LBRACKET INTEGER_LITERAL RBRACKET]
                        | SELF [QUESTION]
                        | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN [QUESTION]
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
