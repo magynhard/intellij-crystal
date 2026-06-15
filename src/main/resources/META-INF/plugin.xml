@@ -157,7 +157,8 @@
                 implementationClass="de.magynhard.crystal.CrystalFileType"
                 fieldName="INSTANCE"
                 language="Crystal"
-                extensions="cr"/>
+                extensions="cr"
+                patterns="*.cr"/>
 
         <lang.parserDefinition
                 language="Crystal"
