@@ -145,6 +145,16 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
             CrystalMethodDefinition::class.java
         ).toTypedArray()
 
+        // Filter by receiver type for DOT-calls on CONSTANT receivers.
+        // This prevents stdlib methods like ENV.fetch from showing params of Hash#fetch etc.
+        val receiverName = findReceiverNameFromSiblings(argsHolder)
+        if (receiverName != null && receiverName.isNotEmpty() && receiverName[0].isUpperCase()) {
+            methods = methods.filter { method ->
+                findEnclosingTypeName(method) == receiverName
+            }.toTypedArray()
+            if (methods.isEmpty()) return null
+        }
+
         // Special case: "new" on a class → resolve to "initialize" parameters
         if (methods.isEmpty() && methodName == "new") {
             val className = findClassNameBeforeNew(argsHolder)
@@ -584,6 +594,52 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
                 return sibling.text
             }
             return sibling.text
+        }
+        return null
+    }
+
+    /**
+     * For dot-calls: find the receiver name (e.g., "ENV" in ENV.fetch(...)).
+     */
+    private fun findReceiverNameFromSiblings(argsHolder: PsiElement): String? {
+        var sibling = argsHolder.prevSibling
+        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+        if (sibling == null) return null
+
+        val methodNameType = sibling.node?.elementType
+        if (methodNameType != CrystalTypes.IDENTIFIER && methodNameType != CrystalTypes.CONSTANT) return null
+
+        var beforeName = sibling.prevSibling
+        while (beforeName is PsiWhiteSpace) beforeName = beforeName.prevSibling
+        if (beforeName?.node?.elementType != CrystalTypes.DOT) return null
+
+        var receiver = beforeName.prevSibling
+        while (receiver is PsiWhiteSpace) receiver = receiver.prevSibling
+        if (receiver == null) return null
+
+        if (receiver.node?.elementType == CrystalTypes.CONSTANT) return receiver.text
+        return null
+    }
+
+    private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
+        var parent = method.parent
+        while (parent != null) {
+            val typeName = when (parent) {
+                is CrystalClassDefinition -> parent.typeName
+                is CrystalModuleDefinition -> parent.typeName
+                is CrystalStructDefinition -> parent.typeName
+                else -> null
+            }
+            if (typeName != null) {
+                var child = typeName.firstChild
+                while (child != null) {
+                    if (child.node?.elementType == CrystalTypes.CONSTANT) {
+                        return child.text
+                    }
+                    child = child.nextSibling
+                }
+            }
+            parent = parent.parent
         }
         return null
     }
