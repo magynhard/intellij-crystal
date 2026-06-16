@@ -8,6 +8,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodIndex
 
 class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
@@ -174,6 +175,80 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
                 println("  ${method.name} | enclosingClass=$enclosingClass | file=$file")
             }
         }
+    }
+
+    /**
+     * Verifies that the new CrystalMethodByClassIndex works correctly with stdlib.
+     * Tests that methods are properly indexed by their enclosing class name.
+     */
+    fun testMethodByClassIndexWorks() {
+        setupStdlib()
+        val scope = GlobalSearchScope.allScope(project)
+
+        println("=== CrystalMethodByClassIndex verification ===")
+
+        // Check that methods are indexed by class name
+        val classMethods = StubIndex.getElements(
+            CrystalMethodByClassIndex.KEY, "Array", project, scope, CrystalMethodDefinition::class.java
+        )
+        println("  Methods in 'Array' via new index: ${classMethods.size}")
+        assertTrue("Array should have methods in new index", classMethods.size > 0)
+
+        // Check that 'new' methods are found by class name
+        val arrayNewMethods = classMethods.filter { it.name == "new" }
+        println("  Array.new overloads: ${arrayNewMethods.size}")
+        assertTrue("Array should have 'new' method", arrayNewMethods.isNotEmpty())
+
+        // Check File class
+        val fileMethods = StubIndex.getElements(
+            CrystalMethodByClassIndex.KEY, "File", project, scope, CrystalMethodDefinition::class.java
+        )
+        println("  Methods in 'File' via new index: ${fileMethods.size}")
+        assertTrue("File should have methods in new index", fileMethods.size > 0)
+
+        // Check that getInitializeMethod works fast for stdlib classes
+        val startTime = System.currentTimeMillis()
+        val pathInit = CrystalCompletionHelper.getInitializeMethod("Path", project)
+        val elapsed = System.currentTimeMillis() - startTime
+        println("  getInitializeMethod('Path') took ${elapsed}ms, found: ${pathInit != null}")
+        assertTrue("getInitializeMethod should be fast (<100ms)", elapsed < 100)
+    }
+
+    /**
+     * Reproduces the user's scenario: with stdlib loaded, define a class with initialize,
+     * then call Class.new with 2 args. Should NOT report "Too many arguments".
+     */
+    fun testNewWithStdlibLoaded() {
+        setupStdlib()
+
+        myFixture.enableInspections(de.magynhard.crystal.inspections.CrystalArgumentCountInspection::class.java)
+
+        myFixture.configureByText("test.cr", """
+            class Apfelsaft
+              def initialize(cool : String, other : Int32)
+              end
+            end
+            a = Apfelsaft.new "lol", 123
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    /**
+     * With stdlib loaded, type check should work for .new calls.
+     */
+    fun testNewTypeCheckWithStdlibLoaded() {
+        setupStdlib()
+
+        myFixture.enableInspections(de.magynhard.crystal.inspections.CrystalTypeCheckInspection::class.java)
+
+        myFixture.configureByText("test.cr", """
+            class Apfelsaft
+              def initialize(cool : String, other : Int32)
+              end
+            end
+            a = Apfelsaft.new "lol", 123
+        """.trimIndent())
+        myFixture.checkHighlighting()
     }
 
     private fun runBlocking(block: suspend () -> Unit) {

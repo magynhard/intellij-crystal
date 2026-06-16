@@ -10,6 +10,7 @@ import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodIndex
 
 /**
@@ -72,9 +73,8 @@ object CrystalCompletionHelper {
 
     /**
      * Returns all methods belonging to a type, using the stub index.
-     * For stdlib types, methods may be spread across multiple required files
-     * and inherited via include — PSI tree traversal won't find them.
-     * Instead, we search all indexed methods and filter by enclosing class name.
+     * Uses the CrystalMethodByClassIndex for O(1) class→methods lookups
+     * instead of scanning the entire method index.
      */
     private fun getMethodsFromType(typeResult: TypeLookupResult): List<CrystalMethodDefinition> {
         val project = typeResult.element.project
@@ -82,19 +82,18 @@ object CrystalCompletionHelper {
         // 1. Collect the full type hierarchy (self + parents via inheritance/include)
         val hierarchyNames = collectFullHierarchy(typeResult)
 
-        // 2. Search all indexed methods and filter by enclosing class
+        // 2. For each class in the hierarchy, look up its methods directly via the index
         val scope = GlobalSearchScope.allScope(project)
         val result = mutableListOf<CrystalMethodDefinition>()
         val seen = mutableSetOf<String>()
 
-        for (key in StubIndex.getInstance().getAllKeys(CrystalMethodIndex.KEY, project)) {
-            val elements = StubIndex.getElements(CrystalMethodIndex.KEY, key, project, scope, CrystalMethodDefinition::class.java)
+        for (className in hierarchyNames) {
+            val elements = StubIndex.getElements(
+                CrystalMethodByClassIndex.KEY, className, project, scope, CrystalMethodDefinition::class.java
+            )
             for (method in elements) {
-                val enclosingClass = getEnclosingClassName(method) ?: continue
-                if (enclosingClass in hierarchyNames) {
-                    val name = method.name ?: continue
-                    if (seen.add(name)) result.add(method)
-                }
+                val name = method.name ?: continue
+                if (seen.add(name)) result.add(method)
             }
         }
         return result
@@ -222,6 +221,14 @@ object CrystalCompletionHelper {
      * Finds the `initialize` method of a class/struct (the Crystal constructor).
      */
     fun getInitializeMethod(typeName: String, project: Project, currentFile: PsiFile? = null): CrystalMethodDefinition? {
+        // Fast path: direct lookup by class name — avoids full hierarchy traversal
+        val scope = GlobalSearchScope.allScope(project)
+        val directMatch = StubIndex.getElements(
+            CrystalMethodByClassIndex.KEY, typeName, project, scope, CrystalMethodDefinition::class.java
+        ).firstOrNull { it.name == "initialize" }
+        if (directMatch != null) return directMatch
+
+        // Slow path: resolve type hierarchy (for inherited initialize from parent classes)
         val result = findTypeByName(typeName, project, currentFile) ?: return null
         return getMethodsFromType(result).firstOrNull { it.name == "initialize" }
     }

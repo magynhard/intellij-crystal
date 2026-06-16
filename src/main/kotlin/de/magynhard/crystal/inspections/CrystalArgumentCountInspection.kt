@@ -668,29 +668,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         return null
     }
 
-    /**
-     * Finds the name of the enclosing class, module, or struct for a method definition.
-     */
     private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
-        var parent = method.parent
-        while (parent != null) {
-            val typeName = when (parent) {
-                is CrystalClassDefinition -> parent.typeName
-                is CrystalModuleDefinition -> parent.typeName
-                is CrystalStructDefinition -> parent.typeName
-                else -> null
-            }
-            if (typeName != null) {
-                var child = typeName.firstChild
-                while (child != null) {
-                    if (child.node?.elementType == CrystalTypes.CONSTANT) {
-                        return child.text
-                    }
-                    child = child.nextSibling
-                }
-            }
-            parent = parent.parent
-        }
-        return null
+        return CrystalCompletionHelper.getEnclosingClassName(method)
     }
 }

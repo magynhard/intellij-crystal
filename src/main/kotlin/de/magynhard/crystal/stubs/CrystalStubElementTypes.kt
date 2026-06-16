@@ -147,6 +147,23 @@ class CrystalMethodDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalMethodDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalMethodIndex.KEY, it) }
+
+        // Also index by enclosing class/module/struct/enum name for O(1) class→methods lookups
+        val className = findEnclosingTypeName(stub)
+        className?.let { sink.occurrence(CrystalMethodByClassIndex.KEY, it) }
+    }
+
+    private fun findEnclosingTypeName(stub: CrystalMethodDefinitionStub): String? {
+        var parent = stub.parentStub
+        while (parent != null) {
+            val name = (parent as? CrystalNamedStub)?.name
+            if (name != null && parent is CrystalClassDefinitionStub) return name
+            if (name != null && parent is CrystalModuleDefinitionStub) return name
+            if (name != null && parent is CrystalStructDefinitionStub) return name
+            if (name != null && parent is CrystalEnumDefinitionStub) return name
+            parent = parent.parentStub
+        }
+        return null
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true

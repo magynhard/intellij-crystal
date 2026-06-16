@@ -152,7 +152,6 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
             methods = methods.filter { method ->
                 findEnclosingTypeName(method) == receiverName
             }.toTypedArray()
-            if (methods.isEmpty()) return null
         }
 
         // Special case: "new" on a class → resolve to "initialize" parameters
@@ -602,6 +601,25 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
      * For dot-calls: find the receiver name (e.g., "ENV" in ENV.fetch(...)).
      */
     internal fun findReceiverNameFromSiblings(argsHolder: PsiElement): String? {
+        // For synthetic anchors, the nameToken IS the method name token,
+        // so skip directly to: nameToken → DOT → receiver
+        val anchor = argsHolder as? CrystalParameterInfoAnchor
+        if (anchor != null) {
+            var beforeDot = anchor.nameToken.prevSibling
+            while (beforeDot is PsiWhiteSpace) beforeDot = beforeDot.prevSibling
+            if (beforeDot?.node?.elementType != CrystalTypes.DOT) return null
+
+            var receiver = beforeDot.prevSibling
+            while (receiver is PsiWhiteSpace) receiver = receiver.prevSibling
+            if (receiver == null) return null
+
+            if (receiver.node?.elementType == CrystalTypes.CONSTANT) return receiver.text
+            val constantChild = receiver.node?.findChildByType(CrystalTypes.CONSTANT)
+            if (constantChild != null) return constantChild.text
+            return null
+        }
+
+        // Standard case: argsHolder is a real PSI element (CrystalCallArgs / CrystalBareArgumentList)
         var sibling = argsHolder.prevSibling
         while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
         if (sibling == null) return null
@@ -624,26 +642,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
     }
 
     private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
-        var parent = method.parent
-        while (parent != null) {
-            val typeName = when (parent) {
-                is CrystalClassDefinition -> parent.typeName
-                is CrystalModuleDefinition -> parent.typeName
-                is CrystalStructDefinition -> parent.typeName
-                else -> null
-            }
-            if (typeName != null) {
-                var child = typeName.firstChild
-                while (child != null) {
-                    if (child.node?.elementType == CrystalTypes.CONSTANT) {
-                        return child.text
-                    }
-                    child = child.nextSibling
-                }
-            }
-            parent = parent.parent
-        }
-        return null
+        return CrystalCompletionHelper.getEnclosingClassName(method)
     }
 
     // ==================== Parameter Index Computation ====================

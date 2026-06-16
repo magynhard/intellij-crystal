@@ -213,9 +213,6 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             methods = methods.filter { method ->
                 findEnclosingTypeName(method) == receiverName
             }
-            // If no methods match the receiver exactly, don't check — we can't resolve
-            // the receiver's type, so skip to avoid false positives.
-            if (methods.isEmpty()) return
         }
 
         // Special case: "new" on a class → resolve to "initialize" parameters
@@ -535,31 +532,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         return null
     }
 
-    /**
-     * Finds the name of the enclosing class, module, or struct for a method definition.
-     * Walks up the PSI tree to find the first class/module/struct definition parent.
-     */
     private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
-        var parent = method.parent
-        while (parent != null) {
-            val typeName = when (parent) {
-                is CrystalClassDefinition -> parent.typeName
-                is CrystalModuleDefinition -> parent.typeName
-                is CrystalStructDefinition -> parent.typeName
-                else -> null
-            }
-            if (typeName != null) {
-                // The first CONSTANT child is the type name
-                var child = typeName.firstChild
-                while (child != null) {
-                    if (child.node?.elementType == CrystalTypes.CONSTANT) {
-                        return child.text
-                    }
-                    child = child.nextSibling
-                }
-            }
-            parent = parent.parent
-        }
-        return null
+        return CrystalCompletionHelper.getEnclosingClassName(method)
     }
 }

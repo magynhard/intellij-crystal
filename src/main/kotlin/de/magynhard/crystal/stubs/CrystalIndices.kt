@@ -24,6 +24,20 @@ class CrystalMethodIndex : StringStubIndexExtension<CrystalMethodDefinition>() {
     }
 }
 
+/**
+ * Index that maps class/module/struct/enum names to their method definitions.
+ * This allows O(1) lookup of "all methods in class X" instead of scanning
+ * the entire method index and filtering by enclosing class.
+ */
+class CrystalMethodByClassIndex : StringStubIndexExtension<CrystalMethodDefinition>() {
+    override fun getKey(): StubIndexKey<String, CrystalMethodDefinition> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalMethodDefinition> =
+            StubIndexKey.createIndexKey("crystal.method.by.class.index")
+    }
+}
+
 class CrystalMacroIndex : StringStubIndexExtension<CrystalMacroDefinition>() {
     override fun getKey(): StubIndexKey<String, CrystalMacroDefinition> = KEY
 
