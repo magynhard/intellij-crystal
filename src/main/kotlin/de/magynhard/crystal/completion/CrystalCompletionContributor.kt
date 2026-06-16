@@ -90,8 +90,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                     if (beforeDotText.isNotEmpty() && beforeDotText[0].isUpperCase()) {
                         val staticMethods = CrystalCompletionHelper.getStaticMethods(beforeDotText, project)
                         for (method in staticMethods) {
-                            val lookup = CrystalCompletionHelper.buildMethodLookup(method)
-                            if (lookup != null) result.addElement(lookup)
+                            result.addElement(CrystalCompletionHelper.buildMethodLookup(method))
                         }
                         // Offer "new" with initialize parameters only for classes/structs (not modules/enums)
                         if (staticMethods.none { it.name == "new" } && CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
@@ -105,10 +104,8 @@ class CrystalCompletionContributor : CompletionContributor() {
                     if (cleanedText.isNotEmpty() && cleanedText[0].isLowerCase()) {
                         val inferredType = CrystalTypeInference.inferType(cleanedText, beforeDot, project)
                         if (inferredType != null) {
-                            val instanceMethods = CrystalCompletionHelper.getInstanceMethods(inferredType, project)
-                            for (method in instanceMethods) {
-                                val lookup = CrystalCompletionHelper.buildMethodLookup(method)
-                                if (lookup != null) result.addElement(lookup)
+                            for (lookup in CrystalCompletionHelper.getMethodsAsLookups(inferredType, project)) {
+                                result.addElement(lookup)
                             }
                         }
                         // Even without type inference, show all project methods as fallback
@@ -137,8 +134,7 @@ class CrystalCompletionContributor : CompletionContributor() {
 
         private fun addAllMethods(project: com.intellij.openapi.project.Project, result: CompletionResultSet) {
             for (method in CrystalCompletionHelper.getAllMethods(project)) {
-                val lookup = CrystalCompletionHelper.buildMethodLookup(method)
-                if (lookup != null) result.addElement(lookup)
+                result.addElement(CrystalCompletionHelper.buildMethodLookup(method))
             }
         }
 

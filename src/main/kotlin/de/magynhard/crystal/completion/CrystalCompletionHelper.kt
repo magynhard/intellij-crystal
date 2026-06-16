@@ -1,5 +1,7 @@
 package de.magynhard.crystal.completion
 
+import com.intellij.codeInsight.completion.PrioritizedLookupElement
+import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.project.Project
 import com.intellij.icons.AllIcons
@@ -69,6 +71,40 @@ object CrystalCompletionHelper {
     fun getInstanceMethods(typeName: String, project: Project): List<CrystalMethodDefinition> {
         val result = findTypeByName(typeName, project) ?: return emptyList()
         return getMethodsFromType(result).filter { !isStaticMethod(it) }
+    }
+
+    /**
+     * Returns instance methods as LookupElements with hierarchy-based priority.
+     * Own class methods get highest priority, inherited methods get progressively lower.
+     */
+    fun getMethodsAsLookups(typeName: String, project: Project): List<LookupElement> {
+        val typeResult = findTypeByName(typeName, project) ?: return emptyList()
+        val hierarchyNames = collectFullHierarchy(typeResult)
+        val scope = GlobalSearchScope.allScope(project)
+        val result = mutableListOf<LookupElement>()
+        val seen = mutableSetOf<String>()
+        var depth = 0
+
+        for (className in hierarchyNames) {
+            val priority = when (depth) {
+                0 -> 10.0
+                1 -> 5.0
+                2 -> 2.0
+                else -> 1.0
+            }
+            val elements = StubIndex.getElements(
+                CrystalMethodByClassIndex.KEY, className, project, scope, CrystalMethodDefinition::class.java
+            )
+            for (method in elements) {
+                if (isStaticMethod(method)) continue
+                val name = method.name ?: continue
+                if (seen.add(name)) {
+                    result.add(buildMethodLookup(method, priority))
+                }
+            }
+            depth++
+        }
+        return result
     }
 
     /**
@@ -297,8 +333,8 @@ object CrystalCompletionHelper {
     /**
      * Builds a LookupElement for a method.
      */
-    fun buildMethodLookup(method: CrystalMethodDefinition): LookupElementBuilder? {
-        val name = method.name ?: return null
+    fun buildMethodLookup(method: CrystalMethodDefinition, priority: Double = 0.0): LookupElement {
+        val name = method.name ?: return LookupElementBuilder.create("")
         val signature = getParameterSignature(method)
         val className = getEnclosingClassName(method)
         val returnType = getReturnType(method)
@@ -314,7 +350,7 @@ object CrystalCompletionHelper {
             builder = builder.withTypeText(returnType, true)
         }
 
-        return builder
+        return if (priority != 0.0) PrioritizedLookupElement.withPriority(builder, priority) else builder
     }
 
     /**
