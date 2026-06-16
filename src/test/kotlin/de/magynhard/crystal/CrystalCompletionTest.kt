@@ -209,6 +209,30 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertFalse("Should NOT contain waschen from Birne (inference should narrow)", names.contains("waschen"))
     }
 
+    fun testDotCompletionWithBareArguments() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def essen
+              end
+            end
+        """.trimIndent())
+        myFixture.addFileToProject("birne.cr", """
+            class Birne
+              def schaelen
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            a = Apfel.new "lol", 123
+            a.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain essen (bare args should infer Apfel)", names.contains("essen"))
+        assertFalse("Should NOT contain schaelen from Birne", names.contains("schaelen"))
+    }
+
     fun testDotCompletionOnVariableWithoutInferenceFallsBack() {
         myFixture.configureByText("main.cr", """
             def hello

@@ -96,15 +96,15 @@ object CrystalTypeInference {
     private fun inferTypeFromExpression(expr: PsiElement, project: Project): String? {
         val text = expr.text.trim()
 
-        // Pattern: Klasse.new (handles multi-line args)
-        val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\))?$""")
+        // Pattern: Klasse.new (handles multi-line args and bare args without parens)
+        val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
         val newMatch = newPattern.find(text)
         if (newMatch != null) {
             return newMatch.groupValues[1]
         }
 
-        // Pattern: Klasse.method_name(...) (handles multi-line args)
-        val classMethodPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.(\w+)(?:\([\s\S]*\))?$""")
+        // Pattern: Klasse.method_name(...) (handles multi-line args and bare args)
+        val classMethodPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.(\w+)(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
         val classMethodMatch = classMethodPattern.find(text)
         if (classMethodMatch != null) {
             val className = classMethodMatch.groupValues[1]
@@ -114,8 +114,8 @@ object CrystalTypeInference {
             return inferReturnTypeOfMethod(methodName, className, project)
         }
 
-        // Pattern: bare method_call (no dot) (handles multi-line args)
-        val bareCallPattern = Regex("""^(\w+)(?:\([\s\S]*\))?$""")
+        // Pattern: bare method_call (no dot) (handles multi-line args and bare args)
+        val bareCallPattern = Regex("""^(\w+)(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
         val bareCallMatch = bareCallPattern.find(text)
         if (bareCallMatch != null) {
             val methodName = bareCallMatch.groupValues[1]
