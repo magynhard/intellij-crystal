@@ -328,4 +328,40 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== .new Resolves to initialize ====================
+
+    fun testNewResolvesToInitialize() {
+        myFixture.configureByText("test.cr", """
+            class Apfelsaft
+              def initialize(cool : String, other : Int32)
+                super
+              end
+            end
+            a = Apfelsaft.new("lol", 123)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNewTooManyArgsForInitialize() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(x : Int32)
+              end
+            end
+            Foo.new(1, <error descr="Too many arguments: expected at most 1, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNewMissingArgsForInitialize() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(x : Int32, y : String)
+              end
+            end
+            Foo.<error descr="Missing required argument(s): 'y'">new</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

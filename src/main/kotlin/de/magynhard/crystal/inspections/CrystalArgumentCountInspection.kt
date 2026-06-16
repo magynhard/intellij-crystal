@@ -6,6 +6,7 @@ import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalMethodIndex
 
@@ -55,7 +56,20 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
 
-        if (methods.isEmpty()) return
+        if (methods.isEmpty()) {
+            // Special case: "new" on a class → resolve to "initialize" parameters
+            if (methodName == "new") {
+                val className = findClassNameBeforeNew(callExpr)
+                if (className != null) {
+                    val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
+                    if (initMethod != null) {
+                        checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
+                        return
+                    }
+                }
+            }
+            return
+        }
 
         checkArgumentCount(methods, arguments, methodNameElement, holder)
     }
@@ -82,7 +96,17 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             enclosing == null || enclosing == info.receiverName
         }
 
-        if (methods.isEmpty()) return
+        if (methods.isEmpty()) {
+            // Special case: "new" on a class → resolve to "initialize" parameters
+            if (info.methodName == "new") {
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(info.receiverName, project, argsElement.containingFile)
+                if (initMethod != null) {
+                    checkArgumentCount(listOf(initMethod), arguments, info.methodNameElement, holder)
+                    return
+                }
+            }
+            return
+        }
 
         checkArgumentCount(methods, arguments, info.methodNameElement, holder)
     }
@@ -620,6 +644,28 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
         }
         return element
+    }
+
+    /**
+     * For "ClassName.new(...)" — finds the class name (CONSTANT) before ".new".
+     */
+    private fun findClassNameBeforeNew(callExpr: PsiElement): String? {
+        var child = callExpr.firstChild
+        var foundDot = false
+        while (child != null) {
+            val type = child.node?.elementType
+            if (type == CrystalTypes.DOT) {
+                foundDot = true
+            } else if (foundDot && type == CrystalTypes.IDENTIFIER && child.text == "new") {
+                var beforeDot = child.prevSibling
+                while (beforeDot is PsiWhiteSpace) beforeDot = beforeDot.prevSibling
+                if (beforeDot?.node?.elementType == CrystalTypes.CONSTANT) {
+                    return beforeDot.text
+                }
+            }
+            child = child.nextSibling
+        }
+        return null
     }
 
     /**
