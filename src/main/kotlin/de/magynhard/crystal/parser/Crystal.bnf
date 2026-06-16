@@ -362,12 +362,14 @@ macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] ma
 parameter_list ::= [parameter_item (COMMA NLS parameter_item)* [COMMA]]
 private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 
-parameter ::= annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER IDENTIFIER [COLON type_reference] [ASSIGN expression]
-            | annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
-            | annotation_usage* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
-            | AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
-            | AMPERSAND [COLON type_reference]
-            | LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
+private param_prefix ::= annotation_usage
+                       | macro_control
+parameter ::= param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER IDENTIFIER [COLON type_reference] [ASSIGN expression]
+            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
+            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+            | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
+            | param_prefix* AMPERSAND [COLON type_reference]
+            | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
 
 // ==================== Property Declarations ====================

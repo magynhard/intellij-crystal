@@ -17,6 +17,9 @@ public interface CrystalParameter extends PsiElement {
   CrystalInstanceVarAccess getInstanceVarAccess();
 
   @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
+  @NotNull
   List<CrystalTypeArguments> getTypeArgumentsList();
 
   @NotNull

@@ -118,11 +118,13 @@ object CrystalTypeCompletionProvider {
 
     /**
      * Returns LookupElements for all type completions in the given context.
+     * Always includes hardcoded STDLIB_TYPES as baseline. When Crystal stdlib is indexed,
+     * additional types from the index are added.
      */
     fun getTypeLookups(position: PsiElement, project: Project): List<LookupElementBuilder> {
         val result = mutableListOf<LookupElementBuilder>()
 
-        // 1. Crystal stdlib types
+        // 1. Hardcoded stdlib types (always available, reliable baseline)
         for (typeName in STDLIB_TYPES) {
             result.add(
                 LookupElementBuilder.create(typeName)
@@ -131,10 +133,9 @@ object CrystalTypeCompletionProvider {
             )
         }
 
-        // 2. Project types from StubIndex
-        val projectTypes = StubIndex.getInstance().getAllKeys(CrystalClassIndex.KEY, project)
-        for (typeName in projectTypes) {
-            // Avoid duplicates with stdlib
+        // 2. Additional types from StubIndex (includes stdlib when CrystalStdlibLibraryProvider is active)
+        val allTypes = StubIndex.getInstance().getAllKeys(CrystalClassIndex.KEY, project)
+        for (typeName in allTypes) {
             if (typeName !in STDLIB_TYPES) {
                 result.add(
                     LookupElementBuilder.create(typeName)

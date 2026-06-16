@@ -100,9 +100,10 @@ class CrystalCompletionContributor : CompletionContributor() {
                         return
                     }
 
-                    // Case 2: identifier. (variable.method)
-                    if (beforeDotText.isNotEmpty() && beforeDotText[0].isLowerCase()) {
-                        val inferredType = CrystalTypeInference.inferType(beforeDotText, position, project)
+                    // Case 2: identifier. (variable.method or @instance_var.method)
+                    val cleanedText = beforeDotText.removePrefix("@")
+                    if (cleanedText.isNotEmpty() && cleanedText[0].isLowerCase()) {
+                        val inferredType = CrystalTypeInference.inferType(cleanedText, beforeDot, project)
                         if (inferredType != null) {
                             val instanceMethods = CrystalCompletionHelper.getInstanceMethods(inferredType, project)
                             for (method in instanceMethods) {

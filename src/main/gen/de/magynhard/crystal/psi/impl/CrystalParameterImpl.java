@@ -47,6 +47,12 @@ public class CrystalParameterImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @NotNull
+  public List<CrystalMacroControl> getMacroControlList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalTypeArguments> getTypeArgumentsList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeArguments.class);
   }

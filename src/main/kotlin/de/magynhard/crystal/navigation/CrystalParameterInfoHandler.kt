@@ -601,7 +601,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
     /**
      * For dot-calls: find the receiver name (e.g., "ENV" in ENV.fetch(...)).
      */
-    private fun findReceiverNameFromSiblings(argsHolder: PsiElement): String? {
+    internal fun findReceiverNameFromSiblings(argsHolder: PsiElement): String? {
         var sibling = argsHolder.prevSibling
         while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
         if (sibling == null) return null
@@ -618,6 +618,8 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
         if (receiver == null) return null
 
         if (receiver.node?.elementType == CrystalTypes.CONSTANT) return receiver.text
+        val constantChild = receiver.node?.findChildByType(CrystalTypes.CONSTANT)
+        if (constantChild != null) return constantChild.text
         return null
     }
 

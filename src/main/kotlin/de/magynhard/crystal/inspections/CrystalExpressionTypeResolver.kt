@@ -144,7 +144,7 @@ object CrystalExpressionTypeResolver {
     }
 
     private fun lookupReturnType(methodName: String, project: com.intellij.openapi.project.Project): String? {
-        val scope = com.intellij.psi.search.GlobalSearchScope.projectScope(project)
+        val scope = com.intellij.psi.search.GlobalSearchScope.allScope(project)
         val methods = com.intellij.psi.stubs.StubIndex.getElements(
             de.magynhard.crystal.stubs.CrystalMethodIndex.KEY,
             methodName, project, scope, CrystalMethodDefinition::class.java

@@ -381,4 +381,22 @@ class CrystalParameterInfoHandlerTest : BasePlatformTestCase() {
             assertNull("Should not find method name inside block body", name)
         }
     }
+
+    fun testEnvFetchDoesNotShowUnrelatedFetchParams() {
+        myFixture.configureByText("fetch_source.cr", """
+            class HttpClient
+              def fetch(url : String, timeout : Int32 = 30, &block : String ->)
+              end
+            end
+        """.trimIndent())
+        val file = myFixture.configureByText("test.cr", """
+            ENV.fetch(<caret>"HOME")
+        """.trimIndent())
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for ENV.fetch", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("fetch", name)
+        val receiverName = handler.findReceiverNameFromSiblings(argsHolder)
+        assertEquals("ENV", receiverName)
+    }
 }

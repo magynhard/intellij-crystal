@@ -33,7 +33,7 @@ object CrystalCompletionHelper {
      * If currentFile is provided, prefers the definition from that file.
      */
     fun findTypeByName(name: String, project: Project, currentFile: PsiFile? = null): TypeLookupResult? {
-        val scope = GlobalSearchScope.projectScope(project)
+        val scope = GlobalSearchScope.allScope(project)
         val elements = StubIndex.getElements(
             CrystalClassIndex.KEY, name, project, scope, CrystalNamedElement::class.java
         )
@@ -71,17 +71,125 @@ object CrystalCompletionHelper {
     }
 
     /**
-     * Returns all methods defined inside the body of a type (class/module/struct/enum).
+     * Returns all methods belonging to a type, using the stub index.
+     * For stdlib types, methods may be spread across multiple required files
+     * and inherited via include — PSI tree traversal won't find them.
+     * Instead, we search all indexed methods and filter by enclosing class name.
      */
     private fun getMethodsFromType(typeResult: TypeLookupResult): List<CrystalMethodDefinition> {
-        val body: PsiElement? = when (typeResult.kind) {
-            TypeKind.CLASS -> (typeResult.element as CrystalClassDefinition).classBody
-            TypeKind.MODULE -> (typeResult.element as CrystalModuleDefinition).classBody
-            TypeKind.STRUCT -> (typeResult.element as CrystalStructDefinition).classBody
-            TypeKind.ENUM -> (typeResult.element as CrystalEnumDefinition).enumBody
+        val project = typeResult.element.project
+
+        // 1. Collect the full type hierarchy (self + parents via inheritance/include)
+        val hierarchyNames = collectFullHierarchy(typeResult)
+
+        // 2. Search all indexed methods and filter by enclosing class
+        val scope = GlobalSearchScope.allScope(project)
+        val result = mutableListOf<CrystalMethodDefinition>()
+        val seen = mutableSetOf<String>()
+
+        for (key in StubIndex.getInstance().getAllKeys(CrystalMethodIndex.KEY, project)) {
+            val elements = StubIndex.getElements(CrystalMethodIndex.KEY, key, project, scope, CrystalMethodDefinition::class.java)
+            for (method in elements) {
+                val enclosingClass = getEnclosingClassName(method) ?: continue
+                if (enclosingClass in hierarchyNames) {
+                    val name = method.name ?: continue
+                    if (seen.add(name)) result.add(method)
+                }
+            }
         }
-        if (body == null) return emptyList()
-        return PsiTreeUtil.getChildrenOfTypeAsList(body, CrystalMethodDefinition::class.java)
+        return result
+    }
+
+    /**
+     * Collects the full type hierarchy: the type itself, plus all parents
+     * reachable via superclass clauses and include/extend statements.
+     */
+    private fun collectFullHierarchy(typeResult: TypeLookupResult): Set<String> {
+        val project = typeResult.element.project
+        val names = mutableSetOf<String>()
+        val queue = ArrayDeque<TypeLookupResult>()
+        queue.addLast(typeResult)
+
+        while (queue.isNotEmpty()) {
+            val current = queue.removeFirst()
+            val typeName = current.element.name ?: continue
+            if (!names.add(typeName)) continue
+
+            val parentNames = collectParentTypeNames(current.element, current.kind)
+            for (parentName in parentNames) {
+                if (parentName in names) continue
+                val parentResult = findTypeByName(parentName, project)
+                    ?: findTypeByName(parentName.substringAfterLast("::"), project)
+                if (parentResult != null) queue.addLast(parentResult)
+            }
+        }
+        return names
+    }
+
+    /**
+     * Collects parent class/module names from superclass/include clauses.
+     * Handles: class Foo < Bar, class Foo < Bar::Baz, include Bar, extend Bar
+     */
+    private fun collectParentTypeNames(element: CrystalNamedElement, kind: TypeKind): Set<String> {
+        val parentNames = mutableSetOf<String>()
+
+        // Superclass from class/struct definition header: class Foo < Bar
+        when (element) {
+            is CrystalClassDefinition -> {
+                val superClause = element.superclassClause
+                if (superClause != null) {
+                    extractTypeNameFromReference(superClause)?.let { parentNames.add(it) }
+                }
+            }
+            is CrystalStructDefinition -> {
+                val superClause = element.superclassClause
+                if (superClause != null) {
+                    extractTypeNameFromReference(superClause)?.let { parentNames.add(it) }
+                }
+            }
+        }
+
+        // Include/Extend from class body: include Bar, extend Bar
+        val body: PsiElement = when (kind) {
+            TypeKind.CLASS -> (element as CrystalClassDefinition).classBody ?: return parentNames
+            TypeKind.MODULE -> (element as CrystalModuleDefinition).classBody ?: return parentNames
+            TypeKind.STRUCT -> (element as CrystalStructDefinition).classBody ?: return parentNames
+            TypeKind.ENUM -> return parentNames
+        }
+
+        for (child in body.children) {
+            when (child) {
+                is CrystalIncludeStatement -> {
+                    val typeRef = child.typeReference
+                    if (typeRef != null) {
+                        val text = typeRef.text.trim()
+                        if (text.isNotEmpty() && text[0].isUpperCase()) {
+                            parentNames.add(text)
+                        }
+                    }
+                }
+                is CrystalExtendStatement -> {
+                    val typeRef = child.typeReference
+                    if (typeRef != null) {
+                        val text = typeRef.text.trim()
+                        if (text.isNotEmpty() && text[0].isUpperCase()) {
+                            parentNames.add(text)
+                        }
+                    }
+                }
+            }
+        }
+
+        return parentNames
+    }
+
+    /**
+     * Extracts the type name from a superclass clause.
+     */
+    private fun extractTypeNameFromReference(superClause: CrystalSuperclassClause): String? {
+        val typeRef = superClause.typeReference
+        val text = typeRef.text.trim()
+        return text.takeIf { it.isNotEmpty() && it[0].isUpperCase() }
     }
 
     /**
@@ -96,7 +204,7 @@ object CrystalCompletionHelper {
      * Returns all method names from the project-wide StubIndex.
      */
     fun getAllMethods(project: Project): Collection<CrystalMethodDefinition> {
-        val scope = GlobalSearchScope.projectScope(project)
+        val scope = GlobalSearchScope.allScope(project)
         val allKeys = StubIndex.getInstance().getAllKeys(CrystalMethodIndex.KEY, project)
         return allKeys.flatMap { key ->
             StubIndex.getElements(CrystalMethodIndex.KEY, key, project, scope, CrystalMethodDefinition::class.java)

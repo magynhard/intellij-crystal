@@ -67,10 +67,13 @@ object CrystalTypeInference {
         // Collect all assignments in the file (simple approach)
         val assignments = PsiTreeUtil.collectElementsOfType(containingFile, CrystalAssignment::class.java)
 
-        for (assignment in assignments) {
+        // Search in reverse — last assignment before cursor wins
+        for (assignment in assignments.reversed()) {
             // Check if this assignment assigns to our variable
             val identNode = assignment.node.findChildByType(CrystalTypes.IDENTIFIER)
-            if (identNode?.text != name) continue
+            val instanceVarAccess = assignment.instanceVarAccess
+            val varName = identNode?.text ?: instanceVarAccess?.text
+            if (varName != name && varName != "@$name") continue
 
             // Only consider assignments that appear before our context
             if (assignment.textOffset >= context.textOffset) continue
@@ -93,15 +96,15 @@ object CrystalTypeInference {
     private fun inferTypeFromExpression(expr: PsiElement, project: Project): String? {
         val text = expr.text.trim()
 
-        // Pattern: Klasse.new
-        val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\(.*\))?$""")
+        // Pattern: Klasse.new (handles multi-line args)
+        val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\))?$""")
         val newMatch = newPattern.find(text)
         if (newMatch != null) {
             return newMatch.groupValues[1]
         }
 
-        // Pattern: Klasse.method_name(...)
-        val classMethodPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.(\w+)(?:\(.*\))?$""")
+        // Pattern: Klasse.method_name(...) (handles multi-line args)
+        val classMethodPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.(\w+)(?:\([\s\S]*\))?$""")
         val classMethodMatch = classMethodPattern.find(text)
         if (classMethodMatch != null) {
             val className = classMethodMatch.groupValues[1]
@@ -111,8 +114,8 @@ object CrystalTypeInference {
             return inferReturnTypeOfMethod(methodName, className, project)
         }
 
-        // Pattern: bare method_call (no dot)
-        val bareCallPattern = Regex("""^(\w+)(?:\(.*\))?$""")
+        // Pattern: bare method_call (no dot) (handles multi-line args)
+        val bareCallPattern = Regex("""^(\w+)(?:\([\s\S]*\))?$""")
         val bareCallMatch = bareCallPattern.find(text)
         if (bareCallMatch != null) {
             val methodName = bareCallMatch.groupValues[1]
@@ -130,7 +133,7 @@ object CrystalTypeInference {
      * If className is provided, searches within that class; otherwise project-wide.
      */
     private fun inferReturnTypeOfMethod(methodName: String, className: String?, project: Project): String? {
-        val scope = GlobalSearchScope.projectScope(project)
+        val scope = GlobalSearchScope.allScope(project)
         val methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         )

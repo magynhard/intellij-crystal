@@ -178,11 +178,21 @@ class CrystalCompletionTest : BasePlatformTestCase() {
     // ==================== Dot completion on variable (instance methods) ====================
 
     fun testDotCompletionOnVariableWithTypeInference() {
+        // Class with our target methods
         myFixture.addFileToProject("apfel.cr", """
             class Apfel
               def essen
               end
               def werfen
+              end
+            end
+        """.trimIndent())
+        // Other class with different methods — should NOT appear if inference works
+        myFixture.addFileToProject("birne.cr", """
+            class Birne
+              def schaelen
+              end
+              def waschen
               end
             end
         """.trimIndent())
@@ -195,6 +205,8 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain essen", names.contains("essen"))
         assertTrue("Should contain werfen", names.contains("werfen"))
+        assertFalse("Should NOT contain schaelen from Birne (inference should narrow)", names.contains("schaelen"))
+        assertFalse("Should NOT contain waschen from Birne (inference should narrow)", names.contains("waschen"))
     }
 
     fun testDotCompletionOnVariableWithoutInferenceFallsBack() {
@@ -228,6 +240,42 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain schmecken", names.contains("schmecken"))
+    }
+
+    // ==================== Instance variable (@var.) dot-completion ====================
+
+    fun testDotCompletionOnInstanceVariable() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def essen
+              end
+              def werfen
+              end
+            end
+        """.trimIndent())
+        myFixture.addFileToProject("birne.cr", """
+            class Birne
+              def schaelen
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            class Foo
+              @apfel : Apfel
+              def initialize
+                @apfel = Apfel.new
+              end
+              def bar
+                @apfel.<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain essen", names.contains("essen"))
+        assertTrue("Should contain werfen", names.contains("werfen"))
+        assertFalse("Should NOT contain schaelen from Birne", names.contains("schaelen"))
     }
 
     // ==================== Type annotation completion ====================
