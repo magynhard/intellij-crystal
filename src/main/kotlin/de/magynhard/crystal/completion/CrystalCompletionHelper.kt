@@ -79,13 +79,20 @@ object CrystalCompletionHelper {
      */
     fun getMethodsAsLookups(typeName: String, project: Project): List<LookupElement> {
         val typeResult = findTypeByName(typeName, project) ?: return emptyList()
-        val hierarchyNames = collectFullHierarchy(typeResult)
+        val hierarchy = collectFullHierarchy(typeResult).toMutableList()
+
+        // In Crystal, all classes implicitly inherit from Object.
+        // collectFullHierarchy only traverses explicit parents, so add Object if missing.
+        if (typeResult.kind == TypeKind.CLASS && "Object" !in hierarchy) {
+            hierarchy.add("Object")
+        }
+
         val scope = GlobalSearchScope.allScope(project)
         val result = mutableListOf<LookupElement>()
         val seen = mutableSetOf<String>()
         var depth = 0
 
-        for (className in hierarchyNames) {
+        for (className in hierarchy) {
             val priority = when (depth) {
                 0 -> 10.0
                 1 -> 5.0
