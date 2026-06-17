@@ -64,6 +64,6 @@ class CrystalStdlibSourceRootConfigurator : ProjectActivity {
     }
 
     companion object {
-        private const val LIBRARY_NAME = "Crystal StdLib"
+        const val LIBRARY_NAME = "Crystal StdLib"
     }
 }

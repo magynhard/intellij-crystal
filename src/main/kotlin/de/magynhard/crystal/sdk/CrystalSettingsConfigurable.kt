@@ -8,9 +8,9 @@ import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.AdditionalLibraryRootsListener
+import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
@@ -22,6 +22,8 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     private lateinit var crystalPathField: TextFieldWithBrowseButton
     private var versionLabel: JLabel = JBLabel("")
     private var stdlibStatusLabel: JLabel = JBLabel("")
+    private var stdlibVersionLabel: JLabel = JBLabel("")
+    private var stdlibPathLabel: JLabel = JBLabel("")
 
     override fun getDisplayName(): String = "Crystal"
 
@@ -57,7 +59,13 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
             }
             group("Standard Library") {
                 row("Status:") {
-                    cell(stdlibStatusLabel)
+                    cell(stdlibStatusLabel).align(AlignX.FILL)
+                }
+                row("Version:") {
+                    cell(stdlibVersionLabel).align(AlignX.FILL)
+                }
+                row("Path:") {
+                    cell(stdlibPathLabel).align(AlignX.FILL)
                 }
                 row {
                     button("Force Re-index") {
@@ -99,44 +107,55 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     private fun updateStdlibStatus() {
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project)
         val version = CrystalStdlibResolver.resolveCrystalVersion(project)
-        stdlibStatusLabel.text = if (stdlibRoot != null) {
-            "Indexed (Crystal ${version ?: "unknown"}) - ${stdlibRoot.path}"
+        if (stdlibRoot != null) {
+            stdlibStatusLabel.text = "Available"
+            stdlibVersionLabel.text = version ?: "unknown"
+            stdlibPathLabel.text = stdlibRoot.path
         } else {
-            "Not available (Crystal not installed or not configured)"
+            stdlibStatusLabel.text = "Not available"
+            stdlibVersionLabel.text = "-"
+            stdlibPathLabel.text = "Crystal not installed or not configured"
         }
     }
 
     private fun forceReindex() {
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
         val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
+        val module = com.intellij.openapi.module.ModuleManager.getInstance(project).modules.firstOrNull() ?: return
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Re-indexing Crystal Stdlib", true) {
             override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
                 indicator.isIndeterminate = true
-                indicator.text = "Removing old Crystal Stdlib index..."
 
-                // Step 1: Remove library — clears stale index entries
-                com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
-                    AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
-                        project,
-                        "Crystal Stdlib",
-                        listOf(stdlibRoot),
-                        emptyList(),
-                        "crystal-stdlib-removal"
-                    )
+                // Step 1: Remove module library
+                indicator.text = "Removing old Crystal Stdlib index..."
+                ModuleRootModificationUtil.updateModel(module) { model ->
+                    val existingLib = model.moduleLibraryTable.getLibraryByName(CrystalStdlibSourceRootConfigurator.LIBRARY_NAME)
+                    if (existingLib != null) {
+                        model.moduleLibraryTable.removeLibrary(existingLib)
+                    }
                 }
 
-                indicator.text = "Indexing Crystal Stdlib ($version)..."
+                // Step 2: Re-add module library
+                indicator.text = "Adding Crystal Stdlib ($version)..."
+                ModuleRootModificationUtil.updateModel(module) { model ->
+                    val library = model.moduleLibraryTable.createLibrary(CrystalStdlibSourceRootConfigurator.LIBRARY_NAME)
+                    val libraryModel = library.modifiableModel
+                    libraryModel.addRoot(stdlibRoot, OrderRootType.SOURCES)
+                    libraryModel.commit()
+                }
 
-                // Step 2: Re-add library — triggers fresh indexing
-                com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
-                    AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
-                        project,
-                        "Crystal Stdlib ($version)",
-                        emptyList(),
-                        listOf(stdlibRoot),
-                        "crystal-stdlib-$version-force-reindex"
-                    )
+                // Step 3: Force re-index each stdlib file individually.
+                // This is necessary because StubUpdatingIndex caches by content hash —
+                // if the file content hasn't changed, the old stubs are reused even
+                // though the BNF grammar (and thus stub structure) may have changed.
+                indicator.text = "Re-indexing Crystal Stdlib files ($version)..."
+                val stdlibFiles = collectCrystalFiles(stdlibRoot, indicator)
+                var processed = 0
+                for (file in stdlibFiles) {
+                    if (indicator.isCanceled) break
+                    indicator.text = "Re-indexing (${++processed}/${stdlibFiles.size}): ${file.name}"
+                    com.intellij.util.indexing.FileBasedIndex.getInstance().requestReindex(file)
                 }
             }
 
@@ -146,13 +165,32 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
                     NotificationGroupManager.getInstance()
                         .getNotificationGroup("Crystal Reindex")
                         .createNotification(
-                            "Crystal Stdlib re-indexed",
-                            "Successfully re-indexed Crystal Stdlib ($version)",
+                            "Crystal Stdlib index cleared",
+                            "The old index was removed and is now rebuilding in the background (Crystal $version). Completion and navigation will become available as files are indexed.",
                             NotificationType.INFORMATION
                         )
                         .notify(project)
                 }
             }
         })
+    }
+
+    private fun collectCrystalFiles(
+        root: com.intellij.openapi.vfs.VirtualFile,
+        indicator: com.intellij.openapi.progress.ProgressIndicator
+    ): List<com.intellij.openapi.vfs.VirtualFile> {
+        val result = mutableListOf<com.intellij.openapi.vfs.VirtualFile>()
+        val stack = ArrayDeque<com.intellij.openapi.vfs.VirtualFile>()
+        stack.addLast(root)
+        while (stack.isNotEmpty()) {
+            if (indicator.isCanceled) break
+            val file = stack.removeFirst()
+            if (file.isDirectory) {
+                file.children?.forEach { stack.addLast(it) }
+            } else if (file.extension == "cr") {
+                result.add(file)
+            }
+        }
+        return result
     }
 }
