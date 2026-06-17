@@ -43,7 +43,24 @@ private fun getNameFromTypeName(element: PsiElement): String? {
 }
 
 private fun getNameFromMethodName(element: PsiElement): String? {
-    return findNameIdentifierInMethodName(element)?.text
+    // Try to find IDENTIFIER or CONSTANT first (regular method names)
+    val identifier = findNameIdentifierInMethodName(element)
+    if (identifier != null) return identifier.text
+
+    // For operator methods (e.g. def self.[]), compose name from operator tokens
+    // method_name ::= SELF DOT (operator_method_name) — tokens like LBRACKET, RBRACKET, ASSIGN, QUESTION, etc.
+    val methodName = element.node.findChildByType(CrystalTypes.METHOD_NAME) ?: return null
+    val sb = StringBuilder()
+    var child = methodName.firstChildNode
+    while (child != null) {
+        val type = child.elementType
+        // Skip SELF and DOT prefix tokens
+        if (type != CrystalTypes.SELF && type != CrystalTypes.DOT) {
+            sb.append(child.psi.text)
+        }
+        child = child.treeNext
+    }
+    return sb.toString().takeIf { it.isNotEmpty() }
 }
 
 private fun setNameOnIdentifier(nameIdentifier: PsiElement?, name: String): PsiElement? {

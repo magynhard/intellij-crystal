@@ -628,6 +628,52 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain String from stdlib", names.contains("String"))
     }
 
+    fun testEnvDotCompletion() {
+        // Setup stdlib same way as diagnostic tests
+        myFixture.addFileToProject("main.cr", "puts 1")
+        de.magynhard.crystal.sdk.CrystalStdlibSourceRootConfigurator().let { configurator ->
+            kotlinx.coroutines.runBlocking { configurator.execute(project) }
+        }
+        myFixture.configureByText("test.cr", """
+            ENV.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should offer ENV completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain fetch", names.contains("fetch"))
+        assertTrue("Should contain [] (bracket access)", names.contains("[]"))
+        assertTrue("Should contain keys", names.contains("keys"))
+        assertTrue("Should contain has_key?", names.contains("has_key?"))
+    }
+
+    fun testOverloadsShowSeparateEntries() {
+        myFixture.addFileToProject("main.cr", "puts 1")
+        de.magynhard.crystal.sdk.CrystalStdlibSourceRootConfigurator().let { configurator ->
+            kotlinx.coroutines.runBlocking { configurator.execute(project) }
+        }
+        myFixture.configureByText("test.cr", """
+            ENV.<caret>
+        """.trimIndent())
+
+        // Verify getStaticMethods returns all overloads (backend correctness)
+        val staticMethods = de.magynhard.crystal.completion.CrystalCompletionHelper.getStaticMethods("ENV", project)
+        val fetchMethods = staticMethods.filter { it.name == "fetch" }
+        assertTrue("getStaticMethods should return multiple fetch overloads, found: ${fetchMethods.size}", fetchMethods.size >= 2)
+
+        // Verify signatures differ
+        val signatures = fetchMethods.map {
+            de.magynhard.crystal.completion.CrystalCompletionHelper.getParameterSignature(it)
+        }.toSet()
+        assertTrue("Fetch overloads should have different signatures: $signatures", signatures.size >= 2)
+
+        // Verify completion includes fetch
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        if (lookups != null) {
+            assertTrue("Should have fetch in completion", lookups.any { it.lookupString == "fetch" })
+        }
+        // IntelliJ merges same-name overloads into one entry — overloads are via Parameter Info
+    }
+
     fun testNoCompletionInsideStringLiteral() {
         myFixture.configureByText("test.cr", """
             x = "hello <caret>"

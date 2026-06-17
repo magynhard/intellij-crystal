@@ -105,7 +105,10 @@ object CrystalCompletionHelper {
             for (method in elements) {
                 if (isStaticMethod(method)) continue
                 val name = method.name ?: continue
-                if (seen.add(name)) {
+                // Deduplicate by name+signature so overloads with different params appear separately
+                val signature = getParameterSignature(method)
+                val key = "$name$signature"
+                if (seen.add(key)) {
                     result.add(buildMethodLookup(method, priority))
                 }
             }
@@ -136,7 +139,10 @@ object CrystalCompletionHelper {
             )
             for (method in elements) {
                 val name = method.name ?: continue
-                if (seen.add(name)) result.add(method)
+                // Deduplicate by name+signature to keep overloads with different params
+                val signature = getParameterSignature(method)
+                val key = "$name$signature"
+                if (seen.add(key)) result.add(method)
             }
         }
         return result
@@ -346,7 +352,7 @@ object CrystalCompletionHelper {
         val className = getEnclosingClassName(method)
         val returnType = getReturnType(method)
 
-        var builder = LookupElementBuilder.create(name)
+        var builder = LookupElementBuilder.create(method)
             .withIcon(AllIcons.Nodes.Method)
             .withTailText(signature, true)
 

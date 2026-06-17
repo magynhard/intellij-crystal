@@ -4261,7 +4261,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
   //                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
   //                                 | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
-  //                                 | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET
+  //                                 | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET QUESTION | LBRACKET RBRACKET
   static boolean operator_method_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "operator_method_name")) return false;
     boolean result_;
@@ -4292,6 +4292,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, CASE_EQ);
     if (!result_) result_ = consumeToken(builder_, MATCH_OP);
     if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET, ASSIGN);
+    if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET, QUESTION);
     if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET);
     exit_section_(builder_, marker_, null, result_);
     return result_;
