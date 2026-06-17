@@ -2,23 +2,14 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
-## [1.1.17] — 2026-06-18
-
-### Added
-
-- **Overloaded methods in completion** — multiple overloads of the same method (e.g. `ENV.fetch` with 3 different signatures) now appear as separate entries in the code completion popup, each showing its parameter signature
-
-### Changed
-
-- **Method lookup elements use PSI object identity** — `LookupElementBuilder.create(method)` replaces `LookupElementBuilder.create(name)`, enabling IntelliJ to distinguish overloaded methods with the same name
-
-## [1.1.16] — 2026-06-14
+## [0.1.16] — 2026-06-18
 
 ### Added
 
 - **Keywords as method/macro names** — `macro require(...)`, `def if(...)`, `def self.require(...)` etc. now parse correctly; all Crystal keywords are valid as method names
 - **Annotation definitions inside module/class bodies** — `annotation GeneratedWrapper ... end` inside `module`/`class` now parses correctly
 - **Global namespace prefix in expressions** — `::Bytes.new(...)`, `::Foo::Bar.new(x)` etc. now parse correctly
+- **Overloaded methods in completion** — multiple overloads of the same method (e.g. `ENV.fetch` with 3 different signatures) now appear as separate entries in the code completion popup, each showing its parameter signature
 
 ### Bug Fixes
 
@@ -30,7 +21,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Fix multi-level pointer types in lib bindings** — `BaseInfo***`, `UInt8**` etc. (arbitrary pointer depth) in `fun` parameter types now parse correctly; type suffix now allows multiple `*`/`**` tokens
 - **Fix postfix modifier after compound assignment** — `@data[key] += 1 if condition` now parses correctly; `expression_statement` now allows `postfix_modifier` after `expression_assign_suffix`
 
-## [1.1.15] — 2026-06-14
+### Changed
+
+- **Method lookup elements use PSI object identity** — `LookupElementBuilder.create(method)` replaces `LookupElementBuilder.create(name)`, enabling IntelliJ to distinguish overloaded methods with the same name
+
+## [0.1.15] — 2026-06-14
 
 ### Changed
 
@@ -41,7 +36,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 - **Fix `new` resolution using wrong class** — `findTypeByName` now prefers the class from the current file when multiple classes with the same name exist in the project
 
-## [1.1.13] — 2026-06-14
+## [0.1.13] — 2026-06-14
 
 ### Added
 
