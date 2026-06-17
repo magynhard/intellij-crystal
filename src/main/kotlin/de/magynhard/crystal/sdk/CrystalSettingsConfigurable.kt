@@ -1,8 +1,12 @@
 package de.magynhard.crystal.sdk
 
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.Configurable
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.AdditionalLibraryRootsListener
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
@@ -106,19 +110,25 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
         val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
 
-        // Step 1: Remove library — clears stale index entries
-        ApplicationManager.getApplication().invokeLaterOnWriteThread {
-            com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
-                AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
-                    project,
-                    "Crystal Stdlib",
-                    listOf(stdlibRoot),
-                    emptyList(),
-                    "crystal-stdlib-removal"
-                )
-            }
-            // Step 2: Re-add library — triggers fresh indexing (queued after removal)
-            ApplicationManager.getApplication().invokeLaterOnWriteThread {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Re-indexing Crystal Stdlib", true) {
+            override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
+                indicator.isIndeterminate = true
+                indicator.text = "Removing old Crystal Stdlib index..."
+
+                // Step 1: Remove library — clears stale index entries
+                com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+                    AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
+                        project,
+                        "Crystal Stdlib",
+                        listOf(stdlibRoot),
+                        emptyList(),
+                        "crystal-stdlib-removal"
+                    )
+                }
+
+                indicator.text = "Indexing Crystal Stdlib ($version)..."
+
+                // Step 2: Re-add library — triggers fresh indexing
                 com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
                     AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
                         project,
@@ -129,7 +139,20 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
                     )
                 }
             }
-        }
-        updateStdlibStatus()
+
+            override fun onSuccess() {
+                updateStdlibStatus()
+                ApplicationManager.getApplication().invokeLater {
+                    NotificationGroupManager.getInstance()
+                        .getNotificationGroup("Crystal Reindex")
+                        .createNotification(
+                            "Crystal Stdlib re-indexed",
+                            "Successfully re-indexed Crystal Stdlib ($version)",
+                            NotificationType.INFORMATION
+                        )
+                        .notify(project)
+                }
+            }
+        })
     }
 }

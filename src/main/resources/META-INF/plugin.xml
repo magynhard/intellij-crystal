@@ -318,6 +318,7 @@
 
         <notificationGroup id="Crystal Formatting" displayType="BALLOON"/>
         <notificationGroup id="Crystal Rename Verification" displayType="BALLOON"/>
+        <notificationGroup id="Crystal Reindex" displayType="BALLOON"/>
 
         <codeInsight.parameterInfo
                 language="Crystal"
