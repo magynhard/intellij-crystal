@@ -106,15 +106,28 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
         val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
 
+        // Step 1: Remove library — clears stale index entries
         ApplicationManager.getApplication().invokeLaterOnWriteThread {
             com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
                 AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
                     project,
-                    "Crystal Stdlib ($version)",
-                    emptyList(),
+                    "Crystal Stdlib",
                     listOf(stdlibRoot),
-                    "crystal-stdlib-$version-force-reindex"
+                    emptyList(),
+                    "crystal-stdlib-removal"
                 )
+            }
+            // Step 2: Re-add library — triggers fresh indexing (queued after removal)
+            ApplicationManager.getApplication().invokeLaterOnWriteThread {
+                com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+                    AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
+                        project,
+                        "Crystal Stdlib ($version)",
+                        emptyList(),
+                        listOf(stdlibRoot),
+                        "crystal-stdlib-$version-force-reindex"
+                    )
+                }
             }
         }
         updateStdlibStatus()
