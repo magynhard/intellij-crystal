@@ -399,4 +399,28 @@ class CrystalParameterInfoHandlerTest : BasePlatformTestCase() {
         val receiverName = handler.findReceiverNameFromSiblings(argsHolder)
         assertEquals("ENV", receiverName)
     }
+
+    fun testClassNewParameterInfo() {
+        myFixture.configureByText("test.cr", """
+            class Apfelsaft
+              def initialize(@cool : String, other : Int32)
+              end
+            end
+            Apfelsaft.new(<caret>"hi", 1)
+        """.trimIndent())
+        val file = myFixture.file
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for Class.new(...)", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("new", name)
+
+        // Check that getInitializeMethod resolves the class
+        val project = myFixture.project
+        val initMethod = de.magynhard.crystal.completion.CrystalCompletionHelper.getInitializeMethod(
+            "Apfelsaft", project, argsHolder.containingFile
+        )
+        assertNotNull("Should find initialize method for Apfelsaft", initMethod)
+        val params = initMethod!!.parameterList?.parameterList ?: emptyList()
+        assertEquals("initialize should have 2 params", 2, params.size)
+    }
 }

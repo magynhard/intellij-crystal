@@ -753,4 +753,66 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Debug: instance method completion ====================
+
+    fun testInstanceMethodDotCompletion() {
+        myFixture.addFileToProject("apfelsaft.cr", """
+            class Apfelsaft
+              def initialize(@cool : String, other : Int32)
+              end
+
+              def essen(speed : String, anders : Int)
+                puts "Schmeckt gut"
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            a = Apfelsaft.new("hi", 1)
+            a.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain essen: $names", names.contains("essen"))
+    }
+
+    fun testInstanceMethodDotCompletionSameFile() {
+        myFixture.configureByText("main.cr", """
+            class Apfelsaft
+              def initialize(@cool : String, other : Int32)
+              end
+
+              def essen(speed : String, anders : Int)
+                puts "Schmeckt gut"
+              end
+            end
+
+            a = Apfelsaft.new("hi", 1)
+            a.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain essen: $names", names.contains("essen"))
+    }
+
+    fun testClassNewCompletionShowsInitializeParams() {
+        myFixture.addFileToProject("apfelsaft2.cr", """
+            class Apfelsaft
+              def initialize(@cool : String, other : Int32)
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Apfelsaft.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val newLookup = lookups.find { it.lookupString == "new" }
+        assertNotNull("Should contain 'new'", newLookup)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        newLookup!!.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("Should show initialize params in tail text: $tailText",
+            tailText.contains("cool") && tailText.contains("other"))
+    }
 }
