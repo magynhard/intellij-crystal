@@ -399,4 +399,48 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== @param shorthand (instance var assignment) ====================
+
+    fun testNewWithShorthandInstanceVar() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(@x : Int32, @y : String)
+              end
+            end
+            Foo.new(1, "hi")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNewWithShorthandTooManyArgs() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(@x : Int32)
+              end
+            end
+            Foo.new(1, <error descr="Too many arguments: expected at most 1, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNewWithShorthandMissingArgs() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(@x : Int32, @y : String)
+              end
+            end
+            Foo.<error descr="Missing required argument(s): 'y'">new</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMethodWithShorthandTooManyArgs() {
+        myFixture.configureByText("test.cr", """
+            def foo(@x : Int32)
+            end
+            foo(1, <error descr="Too many arguments: expected at most 1, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

@@ -320,6 +320,29 @@ object CrystalCompletionHelper {
     }
 
     /**
+     * Extracts the parameter name from a [CrystalParameter] node.
+     * Handles both normal parameters (`radius`) and shorthand instance
+     * variable assignment (`@radius`) — the `@` prefix is stripped.
+     *
+     * @return the parameter name, or `null` if the parameter is a splat/block prefix
+     */
+    fun extractParameterName(param: CrystalParameter): String? {
+        // Normal case: IDENTIFIER child (e.g. `radius : Float64`)
+        val identNode = param.node.findChildByType(CrystalTypes.IDENTIFIER)
+        if (identNode != null) return identNode.text
+
+        // Shorthand: INSTANCE_VAR_ACCESS child (e.g. `@radius : Float64`)
+        // Strip the `@` prefix so it's treated like a normal parameter name
+        val instanceVarNode = param.node.findChildByType(CrystalTypes.INSTANCE_VAR_ACCESS)
+        if (instanceVarNode != null) {
+            val varText = instanceVarNode.text // "@radius"
+            return if (varText.startsWith("@")) varText.substring(1) else varText
+        }
+
+        return null
+    }
+
+    /**
      * Formats the parameter list of a method as a string like "(a, b, c)".
      */
     fun getParameterSignature(method: CrystalMethodDefinition): String {
@@ -328,8 +351,7 @@ object CrystalCompletionHelper {
         if (params.isEmpty()) return "()"
 
         val paramStrings = params.map { param ->
-            val nameNode = param.node.findChildByType(CrystalTypes.IDENTIFIER)
-            val name = nameNode?.text ?: "?"
+            val name = extractParameterName(param) ?: "?"
             val typeRef = param.typeReference
             if (typeRef != null) "$name : ${typeRef.text}" else name
         }

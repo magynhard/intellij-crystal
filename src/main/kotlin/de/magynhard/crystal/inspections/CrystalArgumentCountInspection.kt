@@ -247,7 +247,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 CrystalTypes.STAR -> { hasSplat = true; continue }
                 CrystalTypes.DOUBLE_STAR -> { hasDoubleSplat = true; continue }
             }
-            val name = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: continue
+            val name = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param) ?: continue
             val hasDefault = param.expression != null
             regularParams.add(ParamInfo(name, hasDefault))
         }

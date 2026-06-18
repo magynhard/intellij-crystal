@@ -58,6 +58,19 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain aprikose_param", names.contains("aprikose_param"))
     }
 
+    fun testCompletesShorthandInstanceVarParameters() {
+        myFixture.configureByText("main.cr", """
+            def foo(@apfel_param : String, @aprikose_param : Int32)
+              ap<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions (multiple matches)", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain apfel_param (without @)", names.contains("apfel_param"))
+        assertTrue("Should contain aprikose_param (without @)", names.contains("aprikose_param"))
+    }
+
     // ==================== Dot completion on class (static methods) ====================
 
     fun testDotCompletionOnClassShowsStaticMethods() {

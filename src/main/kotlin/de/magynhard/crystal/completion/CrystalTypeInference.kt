@@ -41,7 +41,7 @@ object CrystalTypeInference {
 
         val paramList = method.parameterList ?: return null
         for (param in paramList.parameterList) {
-            val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
+            val paramName = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param)
             if (paramName == name) {
                 // Has type annotation?
                 val typeRef = param.typeReference

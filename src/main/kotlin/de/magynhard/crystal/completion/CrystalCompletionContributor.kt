@@ -145,7 +145,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                 val paramList = method.parameterList
                 if (paramList != null) {
                     for (param in paramList.parameterList) {
-                        val name = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: continue
+                        val name = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param) ?: continue
                         result.addElement(
                             LookupElementBuilder.create(name)
                                 .withIcon(AllIcons.Nodes.Parameter)
