@@ -589,12 +589,17 @@ private primary_expression ::= grouped_expression
 grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAREN
 
 method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-                         | (IDENTIFIER | CONSTANT | SELECT) !LBRACKET bare_argument_list [block]
+                         | (IDENTIFIER | CONSTANT | SELECT) !LBRACKET !binary_op_lookahead bare_argument_list [block]
                          | (IDENTIFIER | CONSTANT) block
                          | (SUPER | PREVIOUS_DEF) call_args
                          | (SUPER | PREVIOUS_DEF) bare_argument_list {
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
+
+// Prevent bare_argument_list from consuming binary operators (+ -) followed by IDENTIFIER
+// as bare unary expressions. Without this, "width + height" is parsed as method call
+// "width(+height)" instead of the binary expression "width + height".
+private binary_op_lookahead ::= (PLUS | MINUS) IDENTIFIER
 
 // Implicit object call: .method? or .operator (used in &.foo shorthand and case/when patterns)
 implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]

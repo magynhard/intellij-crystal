@@ -1851,6 +1851,28 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // (PLUS | MINUS) IDENTIFIER
+  static boolean binary_op_lookahead(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "binary_op_lookahead")) return false;
+    if (!nextTokenIs(builder_, "", MINUS, PLUS)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = binary_op_lookahead_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, IDENTIFIER);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // PLUS | MINUS
+  private static boolean binary_op_lookahead_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "binary_op_lookahead_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, PLUS);
+    if (!result_) result_ = consumeToken(builder_, MINUS);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // DO [PIPE NLS parameter_list NLS PIPE] statement_list rescue_clause* [else_clause] [ensure_clause] END
   //         | LBRACE [PIPE NLS parameter_list NLS PIPE] statement_list RBRACE
   public static boolean block(PsiBuilder builder_, int level_) {
@@ -3543,7 +3565,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-  //                          | (IDENTIFIER | CONSTANT | SELECT) !LBRACKET bare_argument_list [block]
+  //                          | (IDENTIFIER | CONSTANT | SELECT) !LBRACKET !binary_op_lookahead bare_argument_list [block]
   //                          | (IDENTIFIER | CONSTANT) block
   //                          | (SUPER | PREVIOUS_DEF) call_args
   //                          | (SUPER | PREVIOUS_DEF) bare_argument_list
@@ -3589,15 +3611,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (IDENTIFIER | CONSTANT | SELECT) !LBRACKET bare_argument_list [block]
+  // (IDENTIFIER | CONSTANT | SELECT) !LBRACKET !binary_op_lookahead bare_argument_list [block]
   private static boolean method_call_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_call_expression_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = method_call_expression_1_0(builder_, level_ + 1);
     result_ = result_ && method_call_expression_1_1(builder_, level_ + 1);
+    result_ = result_ && method_call_expression_1_2(builder_, level_ + 1);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
-    result_ = result_ && method_call_expression_1_3(builder_, level_ + 1);
+    result_ = result_ && method_call_expression_1_4(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -3622,9 +3645,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
+  // !binary_op_lookahead
+  private static boolean method_call_expression_1_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_call_expression_1_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !binary_op_lookahead(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
   // [block]
-  private static boolean method_call_expression_1_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "method_call_expression_1_3")) return false;
+  private static boolean method_call_expression_1_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_call_expression_1_4")) return false;
     block(builder_, level_ + 1);
     return true;
   }
