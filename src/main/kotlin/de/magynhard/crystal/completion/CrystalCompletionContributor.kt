@@ -157,7 +157,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                             .withIcon(AllIcons.Nodes.Parameter)
                             .withTypeText("parameter", true)
                             .withBoldness(true)
-                        result.addElement(PrioritizedLookupElement.withPriority(lookup, 10000000.0))
+                        result.addElement(PrioritizedLookupElement.withPriority(lookup, 100.0))
                     }
                 }
             }
