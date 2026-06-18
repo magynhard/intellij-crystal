@@ -106,6 +106,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
                     CrystalTypes.COLON -> pastColon = true
                     CrystalTypes.ASSIGN -> pastAssign = true
                     else -> {
+                        if (child.elementType == com.intellij.psi.TokenType.WHITE_SPACE) continue
                         if (pastAssign) {
                             defaultText = (defaultText ?: "") + child.text
                         } else if (pastColon) {
