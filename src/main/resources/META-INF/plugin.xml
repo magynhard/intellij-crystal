@@ -258,6 +258,15 @@
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.highlighting.CrystalSingleQuoteStringInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Colon spacing in type annotations"
+                shortName="CrystalColonSpacing"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalColonSpacingInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>
