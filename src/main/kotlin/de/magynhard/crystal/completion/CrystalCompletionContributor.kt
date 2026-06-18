@@ -3,6 +3,7 @@ package de.magynhard.crystal.completion
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.icons.AllIcons
+import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
@@ -145,18 +146,18 @@ class CrystalCompletionContributor : CompletionContributor() {
         }
 
         private fun addLocalVariablesAndParameters(position: PsiElement, result: CompletionResultSet) {
-            // Find enclosing method and collect parameter names
+            // Find enclosing method and collect parameter names (highest priority)
             val method = PsiTreeUtil.getParentOfType(position, CrystalMethodDefinition::class.java)
             if (method != null) {
                 val paramList = method.parameterList
                 if (paramList != null) {
                     for (param in paramList.parameterList) {
                         val name = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param) ?: continue
-                        result.addElement(
-                            LookupElementBuilder.create(name)
-                                .withIcon(AllIcons.Nodes.Parameter)
-                                .withTypeText("parameter", true)
-                        )
+                        val lookup = LookupElementBuilder.create(name)
+                            .withIcon(AllIcons.Nodes.Parameter)
+                            .withTypeText("parameter", true)
+                            .withBoldness(true)
+                        result.addElement(PrioritizedLookupElement.withPriority(lookup, 10000000.0))
                     }
                 }
             }
@@ -170,11 +171,11 @@ class CrystalCompletionContributor : CompletionContributor() {
                 val identNode = assignment.node.findChildByType(CrystalTypes.IDENTIFIER)
                 val name = identNode?.text ?: continue
                 if (seen.add(name)) {
-                    result.addElement(
-                        LookupElementBuilder.create(name)
-                            .withIcon(AllIcons.Nodes.Variable)
-                            .withTypeText("local", true)
-                    )
+                    val lookup = LookupElementBuilder.create(name)
+                        .withIcon(AllIcons.Nodes.Variable)
+                        .withTypeText("local", true)
+                        .withBoldness(true)
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 50.0))
                 }
             }
         }
