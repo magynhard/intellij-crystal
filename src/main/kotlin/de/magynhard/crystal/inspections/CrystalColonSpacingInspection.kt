@@ -2,7 +2,6 @@ package de.magynhard.crystal.inspections
 
 import com.intellij.codeInspection.*
 import com.intellij.lang.ASTNode
-import com.intellij.openapi.editor.Document
 import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import de.magynhard.crystal.psi.*
@@ -11,8 +10,12 @@ import de.magynhard.crystal.psi.*
  * Inspection that reports missing spaces before/after colon in parameter type
  * annotations and return type annotations.
  *
- * Crystal style requires: `speed : String` (space before and after colon).
+ * Crystal requires: `speed : String` (space before AND after colon).
  * Flags: `speed: String`, `speed :String`, `speed:String`
+ *
+ * Handles two cases:
+ * 1. PSI-based: when parser succeeds and COLON token exists (e.g. `speed: String`)
+ * 2. Text-based: when `:String` is lexed as a symbol literal (e.g. `speed :String`)
  *
  * Exception: colon after `=` (default value) is exempt, e.g. `= :name` is valid.
  */
@@ -20,6 +23,10 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
+            override fun visitFile(file: PsiFile) {
+                scanForMissingSpaceAfterColon(file, holder)
+            }
+
             override fun visitElement(element: PsiElement) {
                 if (element is CrystalMethodDefinition) {
                     checkMethodDefinition(element, holder)
@@ -27,6 +34,73 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
             }
         }
     }
+
+    // ==================== File-level text scan ====================
+    // Catches `:IDENTIFIER` patterns where the lexer produced a symbol literal
+    // instead of COLON + IDENTIFIER (e.g. `speed :String` → SYMBOL_COLON)
+
+    private fun scanForMissingSpaceAfterColon(file: PsiFile, holder: ProblemsHolder) {
+        val text = file.text
+        // Match : followed by a letter (IDENTIFIER/CONSTANT) without space
+        val regex = Regex(":(?=[A-Za-z_])")
+        var offset = 0
+        while (offset < text.length) {
+            val match = regex.find(text, offset) ?: break
+            val colonOffset = match.range.first
+
+            // Exception: preceded by `=` (default value colon)
+            if (isPrecededByEquals(text, colonOffset)) {
+                offset = match.range.last + 1
+                continue
+            }
+
+            // Exception: preceded by another identifier (hash key like `hash[:key]`)
+            if (isPrecededByIdentifier(text, colonOffset)) {
+                offset = match.range.last + 1
+                continue
+            }
+
+            // Check if already reported by PSI-based check
+            if (isAlreadyReported(file, colonOffset)) {
+                offset = match.range.last + 1
+                continue
+            }
+
+            // Report error on the colon
+            val elementAtColon = file.findElementAt(colonOffset)
+            if (elementAtColon != null) {
+                holder.registerProblem(
+                    elementAtColon,
+                    "Space required after colon in type annotation",
+                    ProblemHighlightType.GENERIC_ERROR,
+                    InsertSpaceAfterColonQuickFix(colonOffset)
+                )
+            }
+
+            offset = match.range.last + 1
+        }
+    }
+
+    private fun isPrecededByEquals(text: String, colonOffset: Int): Boolean {
+        var i = colonOffset - 1
+        while (i >= 0 && text[i] == ' ') i--
+        return i >= 0 && text[i] == '='
+    }
+
+    private fun isPrecededByIdentifier(text: String, colonOffset: Int): Boolean {
+        if (colonOffset == 0) return false
+        val prevChar = text[colonOffset - 1]
+        return prevChar.isLetterOrDigit() || prevChar == '_'
+    }
+
+    private fun isAlreadyReported(file: PsiFile, colonOffset: Int): Boolean {
+        // Check if this colon is already flagged by the PSI-based check
+        val element = file.findElementAt(colonOffset) ?: return false
+        // If the element is a COLON token (PSI-based found it), it's already reported
+        return element.node.elementType == CrystalTypes.COLON
+    }
+
+    // ==================== PSI-based checks ====================
 
     private fun checkMethodDefinition(method: CrystalMethodDefinition, holder: ProblemsHolder) {
         val paramList = method.parameterList ?: return
@@ -96,9 +170,19 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
         }
     }
 
-    /**
-     * Quick-fix: inserts space(s) around colon by manipulating the document text.
-     */
+    // ==================== Quick-fixes ====================
+
+    private class InsertSpaceAfterColonQuickFix(private val colonOffset: Int) : LocalQuickFix {
+        override fun getName(): String = "Insert space after colon"
+        override fun getFamilyName(): String = "Crystal Colon Spacing"
+
+        override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
+            val psiFile = descriptor.psiElement?.containingFile ?: return
+            val document = PsiDocumentManager.getInstance(project).getDocument(psiFile) ?: return
+            document.insertString(colonOffset + 1, " ")
+        }
+    }
+
     private class ColonSpacingQuickFix(
         private val colonNode: ASTNode,
         private val insertBefore: Boolean,

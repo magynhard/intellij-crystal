@@ -2,13 +2,20 @@ package de.magynhard.crystal.inspections
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
+/**
+ * Tests for colon spacing inspection.
+ *
+ * Note: `speed :String` (no space after :) causes a parse error because
+ * the lexer produces SYMBOL_COLON(":String") instead of COLON + IDENTIFIER.
+ * This case is handled by the parser error, not by this inspection.
+ * The inspection catches cases where the parser succeeds but spacing is wrong.
+ */
 class CrystalColonSpacingInspectionTest : BasePlatformTestCase() {
 
     override fun getTestDataPath(): String = "src/test/testData"
 
     // ==================== Missing space BEFORE colon ====================
-    // Parser can parse: "speed: String" (no space before :) → COLON token exists
-    // Parser CANNOT parse: "speed:String" or "speed :String" (no space after :) → parse error
+    // "speed: String" → parser succeeds, COLON token exists
 
     fun testMissingSpaceBeforeColonInParameter() {
         myFixture.configureByText("test.cr", """
@@ -17,6 +24,8 @@ class CrystalColonSpacingInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Correct spacing ====================
 
     fun testCorrectSpacingNoWarning() {
         myFixture.configureByText("test.cr", """
@@ -68,6 +77,15 @@ class CrystalColonSpacingInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def foo(a : Int32, b : String, c : Bool)
             end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    // ==================== No false positive ====================
+
+    fun testHashAccessNotFlagged() {
+        myFixture.configureByText("test.cr", """
+            h = {:key => 1}
         """.trimIndent())
         myFixture.checkHighlighting()
     }
