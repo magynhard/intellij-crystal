@@ -232,4 +232,46 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Record macro type checking ====================
+
+    fun testRecordNewWithCorrectTypes() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.new(host: "localhost", port: 8080, ssl: true)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewWithStringTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new(host: <error descr="Type mismatch: expected 'String', got 'Int32'">123</error>, port: 8080)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewWithIntTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new(host: "localhost", port: <error descr="Type mismatch: expected 'Int32', got 'String'">"wrong"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewWithPositionalArgsCorrectTypes() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32
+            Config.new("localhost", 8080)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewWithPositionalArgsTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32
+            Config.new(<error descr="Type mismatch: expected 'String', got 'Int32'">123</error>, 8080)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

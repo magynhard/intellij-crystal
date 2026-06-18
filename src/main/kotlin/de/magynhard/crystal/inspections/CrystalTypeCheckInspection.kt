@@ -83,6 +83,18 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             }
         }
 
+        // Fallback: "record Name, ..." macro — type-check against record parameters
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNew(callExpr)
+            if (className != null) {
+                val recordParams = extractRecordParamInfo(className, callExpr)
+                if (recordParams != null) {
+                    checkRecordTypeArgs(recordParams, arguments, holder)
+                    return
+                }
+            }
+        }
+
         if (methods.isEmpty()) {
             return
         }
@@ -222,6 +234,18 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsElement.containingFile)
                 if (initMethod != null) {
                     methods = listOf(initMethod)
+                }
+            }
+        }
+
+        // Fallback: "record Name, ..." macro — type-check against record parameters
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNewFromArgs(argsElement)
+            if (className != null) {
+                val recordParams = extractRecordParamInfo(className, argsElement)
+                if (recordParams != null) {
+                    checkRecordTypeArgs(recordParams, arguments, holder)
+                    return
                 }
             }
         }
@@ -534,5 +558,85 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
     private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
         return CrystalCompletionHelper.getEnclosingClassName(method)
+    }
+
+    // ==================== Record Macro Support ====================
+
+    data class RecordParamInfo(val name: String, val typeText: String?, val hasDefault: Boolean)
+
+    /**
+     * Extracts parameter info from a `record` macro call for type checking.
+     * Returns list of (name, typeText, hasDefault) or null if not a record.
+     */
+    private fun extractRecordParamInfo(className: String, contextElement: PsiElement): List<RecordParamInfo>? {
+        val file = contextElement.containingFile ?: return null
+        val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file) ?: return null
+        val bareArgList = recordDef.bareArgumentList ?: return null
+        val args = bareArgList.bareArgumentList
+        if (args.size <= 1) return emptyList()
+
+        val params = mutableListOf<RecordParamInfo>()
+        for (i in 1 until args.size) {
+            val arg = args[i]
+            val children = arg.node.getChildren(null)
+            var name: String? = null
+            var typeText: String? = null
+            var hasDefault = false
+            var pastColon = false
+            var pastAssign = false
+            for (child in children) {
+                when (child.elementType) {
+                    CrystalTypes.IDENTIFIER -> name = child.text
+                    CrystalTypes.COLON -> pastColon = true
+                    CrystalTypes.ASSIGN -> pastAssign = true
+                    else -> {
+                        if (child.elementType == com.intellij.psi.TokenType.WHITE_SPACE) continue
+                        if (pastAssign) {
+                            hasDefault = true
+                        } else if (pastColon) {
+                            typeText = (typeText ?: "") + child.text
+                        }
+                    }
+                }
+            }
+            if (name != null) {
+                params.add(RecordParamInfo(name, typeText, hasDefault))
+            }
+        }
+        return params
+    }
+
+    /**
+     * Type-checks arguments against record parameters.
+     */
+    private fun checkRecordTypeArgs(
+        recordParams: List<RecordParamInfo>,
+        arguments: List<ArgumentInfo>,
+        holder: ProblemsHolder
+    ) {
+        for ((argIndex, argInfo) in arguments.withIndex()) {
+            val resolvedType = CrystalExpressionTypeResolver.resolveType(argInfo.expression) ?: continue
+
+            // Find matching record param by name (named) or position (positional)
+            val recordParam = if (argInfo.name != null) {
+                recordParams.find { it.name == argInfo.name }
+            } else {
+                recordParams.getOrNull(argIndex)
+            }
+
+            if (recordParam == null) continue
+            val paramType = recordParam.typeText ?: continue
+
+            if (!CrystalTypeCompatibility.isCompatible(
+                    resolvedType.typeName, paramType, resolvedType.isUnsuffixedNumericLiteral
+                )) {
+                val highlightElement = findHighlightTarget(argInfo.expression)
+                holder.registerProblem(
+                    highlightElement,
+                    "Type mismatch: expected '$paramType', got '${resolvedType.typeName}'",
+                    ProblemHighlightType.GENERIC_ERROR
+                )
+            }
+        }
     }
 }
