@@ -717,4 +717,40 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should offer completions after newline", lookups)
     }
+
+    // ==================== Record macro completion ====================
+
+    fun testRecordDotCompletionOffersNew() {
+        myFixture.configureByText("main.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain 'new' for record type", names.contains("new"))
+    }
+
+    fun testRecordNewTailTextShowsParameters() {
+        myFixture.configureByText("main.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val newLookup = lookups?.find { it.lookupString == "new" }
+        assertNotNull("Should have 'new' lookup", newLookup)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        newLookup!!.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("Should show record parameters in tail text: $tailText",
+            tailText.contains("host") && tailText.contains("port") && tailText.contains("ssl"))
+    }
+
+    fun testRecordNewWithoutArgsHasNoError() {
+        myFixture.configureByText("main.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.new(host: "localhost", port: 8080, ssl: true)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

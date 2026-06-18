@@ -92,9 +92,15 @@ class CrystalCompletionContributor : CompletionContributor() {
                         for (method in staticMethods) {
                             result.addElement(CrystalCompletionHelper.buildMethodLookup(method))
                         }
-                        // Offer "new" with initialize parameters only for classes/structs (not modules/enums)
-                        if (staticMethods.none { it.name == "new" } && CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
-                            result.addElement(CrystalCompletionHelper.buildNewLookup(beforeDotText, project, parameters.originalFile))
+                        if (staticMethods.none { it.name == "new" }) {
+                            // Fallback 1: record macro — offer "new" with record parameters
+                            val recordDef = CrystalCompletionHelper.findRecordDefinition(beforeDotText, parameters.originalFile)
+                            if (recordDef != null) {
+                                result.addElement(CrystalCompletionHelper.buildRecordNewLookup(recordDef, beforeDotText))
+                            } else if (CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
+                                // Fallback 2: known class/struct — offer "new" with initialize parameters
+                                result.addElement(CrystalCompletionHelper.buildNewLookup(beforeDotText, project, parameters.originalFile))
+                            }
                         }
                         return
                     }

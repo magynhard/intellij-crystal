@@ -30,7 +30,7 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
  * including incomplete expressions where the PSI tree is broken,
  * and bare calls where no argument has been typed yet.
  */
-class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMethodDefinition> {
+class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
 
     /**
      * Synthetic anchor element for parameter info that provides an extended text range
@@ -73,6 +73,57 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
             result = 31 * result + lparenOffset
             return result
         }
+    }
+
+    // ==================== Record Parameter Info ====================
+
+    /** Wrapper for record parameters to display in Ctrl+P. */
+    data class RecordParameterInfo(val params: List<RecordParam>)
+    data class RecordParam(val text: String) {
+        override fun toString() = text
+    }
+
+    /**
+     * Extracts a parameter list from a `record` macro call for parameter info display.
+     */
+    private fun extractRecordParameterList(recordCall: CrystalMethodCallExpression): RecordParameterInfo? {
+        val bareArgList = recordCall.bareArgumentList ?: return null
+        val args = bareArgList.bareArgumentList
+        if (args.size <= 1) return RecordParameterInfo(emptyList())
+
+        val params = mutableListOf<RecordParam>()
+        for (i in 1 until args.size) {
+            val arg = args[i]
+            val children = arg.node.getChildren(null)
+            var name: String? = null
+            var typeText: String? = null
+            var defaultText: String? = null
+            var pastColon = false
+            var pastAssign = false
+            for (child in children) {
+                when (child.elementType) {
+                    CrystalTypes.IDENTIFIER -> name = child.text
+                    CrystalTypes.COLON -> pastColon = true
+                    CrystalTypes.ASSIGN -> pastAssign = true
+                    else -> {
+                        if (pastAssign) {
+                            defaultText = (defaultText ?: "") + child.text
+                        } else if (pastColon) {
+                            typeText = (typeText ?: "") + child.text
+                        }
+                    }
+                }
+            }
+            if (name != null) {
+                val param = buildString {
+                    append(name)
+                    if (typeText != null) append(" : ").append(typeText)
+                    if (defaultText != null) append(" = ").append(defaultText)
+                }
+                params.add(RecordParam(param))
+            }
+        }
+        return RecordParameterInfo(params)
     }
 
     companion object {
@@ -165,6 +216,22 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
             }
         }
 
+        // Fallback: "record Name, ..." macro — extract parameters from record fields
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNew(argsHolder)
+            if (className != null) {
+                val file = argsHolder.containingFile ?: return null
+                val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file)
+                if (recordDef != null) {
+                    val recordParams = extractRecordParameterList(recordDef)
+                    if (recordParams != null) {
+                        context.itemsToShow = arrayOf(recordParams)
+                        return argsHolder
+                    }
+                }
+            }
+        }
+
         if (methods.isEmpty()) return null
         context.itemsToShow = methods
         return argsHolder
@@ -189,13 +256,18 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
         context.setCurrentParameter(index)
     }
 
-    override fun updateUI(method: CrystalMethodDefinition?, context: ParameterInfoUIContext) {
+    override fun updateUI(method: Any?, context: ParameterInfoUIContext) {
         if (method == null) {
             context.isUIComponentEnabled = false
             return
         }
 
-        val paramList = method.parameterList?.parameterList ?: emptyList()
+        val paramList = when (method) {
+            is CrystalMethodDefinition -> method.parameterList?.parameterList ?: emptyList()
+            is RecordParameterInfo -> method.params
+            else -> return
+        }
+
         if (paramList.isEmpty()) {
             context.setupUIComponentPresentation(
                 "<no parameters>",
@@ -206,7 +278,13 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, CrystalMeth
             return
         }
 
-        val params = paramList.map { it.text.trim() }
+        val params = paramList.map {
+            when (it) {
+                is CrystalParameter -> it.text.trim()
+                is RecordParam -> it.text
+                else -> it.toString().trim()
+            }
+        }
         val text = params.joinToString(", ")
 
         val currentIndex = context.currentParameterIndex

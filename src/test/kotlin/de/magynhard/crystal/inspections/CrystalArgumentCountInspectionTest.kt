@@ -443,4 +443,46 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Record macro support ====================
+
+    fun testRecordNewWithValidNamedArgs() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.new(host: "localhost", port: 8080, ssl: true)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewWithTooManyArgs() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new(<error descr="Unknown named argument 'ssl'">ssl: true</error>, host: "localhost", port: 8080)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewWithMissingRequiredArg() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.<error descr="Missing required argument(s): 'host'">new</error>(port: 8080)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewWithPositionalArgs() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new("localhost", 8080)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewUnknownNamedArg() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new(<error descr="Unknown named argument 'unknown'">unknown: "value"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

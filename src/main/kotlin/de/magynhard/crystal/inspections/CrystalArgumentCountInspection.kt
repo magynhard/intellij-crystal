@@ -6,6 +6,7 @@ import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalMethodIndex
@@ -56,20 +57,25 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
 
-        if (methods.isEmpty()) {
-            // Special case: "new" on a class → resolve to "initialize" parameters
-            if (methodName == "new") {
-                val className = findClassNameBeforeNew(callExpr)
-                if (className != null) {
-                    val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
-                    if (initMethod != null) {
-                        checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
-                        return
-                    }
+        if (methodName == "new") {
+            val className = findClassNameBeforeNew(callExpr)
+            if (className != null) {
+                // Try regular class initialize first
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
+                if (initMethod != null) {
+                    checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
+                    return
+                }
+                // Fallback: "record Name, ..." macro — extract parameters from record fields
+                val recordParams = findRecordParameters(className, callExpr)
+                if (recordParams != null) {
+                    checkRecordArguments(recordParams, arguments, methodNameElement, holder)
+                    return
                 }
             }
-            return
         }
+
+        if (methods.isEmpty()) return
 
         checkArgumentCount(methods, arguments, methodNameElement, holder)
     }
@@ -96,17 +102,22 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             enclosing == null || enclosing == info.receiverName
         }
 
-        if (methods.isEmpty()) {
-            // Special case: "new" on a class → resolve to "initialize" parameters
-            if (info.methodName == "new") {
-                val initMethod = CrystalCompletionHelper.getInitializeMethod(info.receiverName, project, argsElement.containingFile)
-                if (initMethod != null) {
-                    checkArgumentCount(listOf(initMethod), arguments, info.methodNameElement, holder)
-                    return
-                }
+        if (info.methodName == "new") {
+            // Try regular class initialize first
+            val initMethod = CrystalCompletionHelper.getInitializeMethod(info.receiverName, project, argsElement.containingFile)
+            if (initMethod != null) {
+                checkArgumentCount(listOf(initMethod), arguments, info.methodNameElement, holder)
+                return
             }
-            return
+            // Fallback: "record Name, ..." macro — extract parameters from record fields
+            val recordParams = findRecordParameters(info.receiverName, argsElement)
+            if (recordParams != null) {
+                checkRecordArguments(recordParams, arguments, info.methodNameElement, holder)
+                return
+            }
         }
+
+        if (methods.isEmpty()) return
 
         checkArgumentCount(methods, arguments, info.methodNameElement, holder)
     }
@@ -670,5 +681,144 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
     private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
         return CrystalCompletionHelper.getEnclosingClassName(method)
+    }
+
+    // ==================== Record Macro Support ====================
+
+    /**
+     * Finds a `record ClassName, ...` macro call in the file and extracts its parameter list.
+     * Returns the list of parameter infos (name, hasDefault) or null if no record found.
+     */
+    private fun findRecordParameters(className: String, contextElement: PsiElement): List<ParamInfo>? {
+        val file = contextElement.containingFile ?: return null
+        val recordCalls = PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java)
+        for (call in recordCalls) {
+            val methodName = call.firstChild
+            if (methodName?.text != "record") continue
+            // First bare argument should be the class name (CONSTANT, possibly wrapped in VARIABLE_REFERENCE)
+            val bareArgList = call.bareArgumentList ?: continue
+            val firstArg = bareArgList.bareArgumentList.firstOrNull() ?: continue
+            val firstName = firstArg.firstChild
+            // The CONSTANT may be wrapped in a VARIABLE_REFERENCE node
+            val nameText = if (firstName?.node?.elementType == CrystalTypes.CONSTANT) {
+                firstName.text
+            } else {
+                firstName?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
+            }
+            if (nameText == className) {
+                return extractRecordFields(bareArgList)
+            }
+        }
+        return null
+    }
+
+    /**
+     * Extracts parameter infos from a record's bare argument list.
+     * Each record field like `host : String` or `port : Int32 = 80` becomes a ParamInfo.
+     */
+    private fun extractRecordFields(bareArgList: CrystalBareArgumentList): List<ParamInfo> {
+        val params = mutableListOf<ParamInfo>()
+        val args = bareArgList.bareArgumentList
+        // Skip the first argument (class name)
+        for (i in 1 until args.size) {
+            val arg = args[i]
+            val children = arg.node.getChildren(null)
+            var name: String? = null
+            var hasDefault = false
+            for (child in children) {
+                when (child.elementType) {
+                    CrystalTypes.IDENTIFIER -> name = child.text
+                    CrystalTypes.ASSIGN -> hasDefault = true
+                }
+            }
+            if (name != null) {
+                params.add(ParamInfo(name, hasDefault))
+            }
+        }
+        return params
+    }
+
+    /**
+     * Validates arguments against record parameters (from `record` macro).
+     * Reports missing required args or too many args.
+     */
+    private fun checkRecordArguments(
+        recordParams: List<ParamInfo>,
+        arguments: List<ArgumentInfo>,
+        methodNameElement: PsiElement,
+        holder: ProblemsHolder
+    ) {
+        // If any argument has an unresolvable splat/double-splat, skip the check entirely
+        val hasUnresolvedSplat = arguments.any { it.isSplat && it.resolvedSplatCount == null }
+        val hasUnresolvedDoubleSplat = arguments.any { it.isDoubleSplat && it.resolvedDoubleSplatKeys == null }
+        if (hasUnresolvedSplat || hasUnresolvedDoubleSplat) return
+
+        val effectivePositionalCount = arguments.sumOf { arg ->
+            when {
+                arg.isBlockPass -> 0
+                arg.isSplat -> arg.resolvedSplatCount ?: 1
+                arg.isDoubleSplat -> 0
+                arg.name != null -> 0
+                else -> 1
+            }
+        }
+
+        val namedArgNames = mutableSetOf<String>()
+        for (arg in arguments) {
+            if (arg.name != null) namedArgNames.add(arg.name)
+            if (arg.isDoubleSplat && arg.resolvedDoubleSplatKeys != null) {
+                namedArgNames.addAll(arg.resolvedDoubleSplatKeys)
+            }
+        }
+
+        val effectiveArgCount = effectivePositionalCount + namedArgNames.size
+        val requiredParams = recordParams.filter { !it.hasDefault }
+        val paramNames = recordParams.map { it.name }.toSet()
+
+        // Check unknown named args
+        if (namedArgNames.isNotEmpty()) {
+            val unknown = namedArgNames - paramNames
+            if (unknown.isNotEmpty()) {
+                for (arg in arguments) {
+                    if (arg.name != null && arg.name in unknown) {
+                        holder.registerProblem(
+                            arg.element,
+                            "Unknown named argument '${arg.name}'",
+                            ProblemHighlightType.GENERIC_ERROR
+                        )
+                    }
+                }
+                return
+            }
+        }
+
+        // Check missing required args
+        val satisfiedByName = namedArgNames.intersect(requiredParams.map { it.name }.toSet())
+        val requiredNotSatisfiedByName = requiredParams.filter { it.name !in satisfiedByName }
+        val positionallyRequired = requiredNotSatisfiedByName.size
+        if (effectivePositionalCount < positionallyRequired) {
+            val missing = requiredNotSatisfiedByName.drop(effectivePositionalCount).map { it.name }
+            val missingStr = missing.joinToString(", ") { "'$it'" }
+            holder.registerProblem(
+                methodNameElement,
+                "Missing required argument(s): $missingStr",
+                ProblemHighlightType.GENERIC_ERROR
+            )
+            return
+        }
+
+        // Check too many args (record params have no splat)
+        val maxPositional = recordParams.size - namedArgNames.intersect(paramNames).size
+        if (effectivePositionalCount > maxPositional) {
+            for (i in (arguments.size - (effectivePositionalCount - maxPositional)) until arguments.size) {
+                val argExpr = arguments[i].element
+                val target = findHighlightTarget(argExpr)
+                holder.registerProblem(
+                    target,
+                    "Too many arguments: expected at most ${recordParams.size}, got $effectiveArgCount",
+                    ProblemHighlightType.GENERIC_ERROR
+                )
+            }
+        }
     }
 }
