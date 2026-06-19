@@ -2,10 +2,15 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
-## [0.1.16] — 2026-06-18
+## [0.1.16] — 2026-06-x
 
 ### Added
 
+- **Colon spacing inspection** — reports missing space after `:` in type annotations (e.g. `x:Int32` → warning)
+- **`@param` shorthand support** — `@param` in method bodies is recognized for completion, type inference, and inspections
+- **Record macro support** — `record Config, host : String, port : Int32` works for completion, parameter info (`Ctrl+P`), and argument inspections
+- **Type checking for record macro parameters** — validates argument types against record parameters in inspections
+- **Parameter completion priority boost** — parameters appear higher in the completion popup with bold styling
 - **Keywords as method/macro names** — `macro require(...)`, `def if(...)`, `def self.require(...)` etc. now parse correctly; all Crystal keywords are valid as method names
 - **Annotation definitions inside module/class bodies** — `annotation GeneratedWrapper ... end` inside `module`/`class` now parses correctly
 - **Global namespace prefix in expressions** — `::Bytes.new(...)`, `::Foo::Bar.new(x)` etc. now parse correctly
@@ -20,6 +25,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Fix `?`/`!` suffix after macro interpolation** — `{{ expr }}?` and `{{ expr }}!` (Crystal method name suffixes) now parse correctly; the lexer consumes `?`/`!` immediately following `}}` as part of the interpolation end token
 - **Fix multi-level pointer types in lib bindings** — `BaseInfo***`, `UInt8**` etc. (arbitrary pointer depth) in `fun` parameter types now parse correctly; type suffix now allows multiple `*`/`**` tokens
 - **Fix postfix modifier after compound assignment** — `@data[key] += 1 if condition` now parses correctly; `expression_statement` now allows `postfix_modifier` after `expression_assign_suffix`
+- **Fix greedy IDENTIFIER consumption in argument and bare_argument rules** — `Vector2D.new(x * scalar, y * scalar)` now correctly parses as two separate arguments; binary expressions like `x * scalar` inside calls are no longer misparsed as bare method calls with binary args
+- **Fix splat prefix detection in argument extraction** — only the first child node is checked for splat prefix, preventing false positives on wrapped arguments
+- **Fix record macro parameter priority** — record macro parameters are now checked before class `initialize` in inspections, preventing false "wrong argument type" errors
+- **Fix colon spacing inspection scope** — only scans within method definitions, not the entire file body
+- **Fix binary `+`/`-` parsed as bare method arguments** — `+`/`-` followed by an identifier no longer parsed as bare method call arguments
 
 ### Changed
 
