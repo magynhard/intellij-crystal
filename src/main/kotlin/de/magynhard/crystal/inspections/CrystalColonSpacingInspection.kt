@@ -23,10 +23,6 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
-            override fun visitFile(file: PsiFile) {
-                scanForMissingSpaceAfterColon(file, holder)
-            }
-
             override fun visitElement(element: PsiElement) {
                 if (element is CrystalMethodDefinition) {
                     checkMethodDefinition(element, holder)
@@ -38,24 +34,29 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
     // ==================== File-level text scan ====================
     // Catches `:IDENTIFIER` patterns where the lexer produced a symbol literal
     // instead of COLON + IDENTIFIER (e.g. `speed :String` → SYMBOL_COLON)
+    // Only scans within method definitions to avoid false positives on method calls.
 
-    private fun scanForMissingSpaceAfterColon(file: PsiFile, holder: ProblemsHolder) {
-        val text = file.text
-        // Match : followed by a letter (IDENTIFIER/CONSTANT) without space
+    private fun scanMethodForMissingSpaceAfterColon(method: CrystalMethodDefinition, holder: ProblemsHolder) {
+        val file = method.containingFile ?: return
+        val fileText = file.text
+        val methodStart = method.textOffset
+        val methodEnd = methodStart + method.textLength
+
+        // Scan only within this method's text range
         val regex = Regex(":(?=[A-Za-z_])")
-        var offset = 0
-        while (offset < text.length) {
-            val match = regex.find(text, offset) ?: break
+        var offset = methodStart
+        while (offset < methodEnd) {
+            val match = regex.find(fileText, offset) ?: break
             val colonOffset = match.range.first
 
             // Exception: preceded by `=` (default value colon)
-            if (isPrecededByEquals(text, colonOffset)) {
+            if (isPrecededByEquals(fileText, colonOffset)) {
                 offset = match.range.last + 1
                 continue
             }
 
             // Exception: preceded by another identifier (hash key like `hash[:key]`)
-            if (isPrecededByIdentifier(text, colonOffset)) {
+            if (isPrecededByIdentifier(fileText, colonOffset)) {
                 offset = match.range.last + 1
                 continue
             }
@@ -108,6 +109,7 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
             checkParameterColonSpacing(param, holder)
         }
         checkReturnTypeColon(method, holder)
+        scanMethodForMissingSpaceAfterColon(method, holder)
     }
 
     private fun checkParameterColonSpacing(param: CrystalParameter, holder: ProblemsHolder) {

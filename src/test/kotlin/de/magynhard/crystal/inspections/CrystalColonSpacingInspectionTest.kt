@@ -89,4 +89,21 @@ class CrystalColonSpacingInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testSymbolInMethodCallNotFlagged() {
+        myFixture.configureByText("test.cr", """
+            class Apfelsaft
+              def initialize(@cool : String, other : Int32)
+              end
+
+              def essen(speed : String, anders : Symbol = :name) : String
+                speed
+              end
+            end
+
+            a = Apfelsaft.new "test", 1
+            a.essen "gol", :lol
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
