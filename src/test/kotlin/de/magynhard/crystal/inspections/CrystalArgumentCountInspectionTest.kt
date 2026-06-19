@@ -525,4 +525,25 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testMultiplicationInMethodCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32) : Int32
+              a + b
+            end
+            add(2 * 3, 4 * 5)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMultiplicationInStructNewCall() {
+        myFixture.configureByText("test.cr", """
+            struct Vector2D
+              def initialize(@x : Float64, @y : Float64)
+              end
+            end
+            Vector2D.new(1.0 * 2.0, 3.0 * 4.0)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

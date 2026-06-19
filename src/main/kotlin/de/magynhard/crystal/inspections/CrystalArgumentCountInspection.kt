@@ -412,15 +412,19 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         var isDoubleSplat = false
         var isBlockPass = false
 
-        for (i in children.indices) {
-            val type = children[i].elementType
-            if (type == CrystalTypes.STAR) isSplat = true
-            if (type == CrystalTypes.DOUBLE_STAR) isDoubleSplat = true
-            if (type == CrystalTypes.AMPERSAND) isBlockPass = true
-            if (type == CrystalTypes.COLON && i > 0
-                && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
-                namedLabel = children[i - 1].text
-                break
+        val firstType = children.firstOrNull()?.elementType
+        when (firstType) {
+            CrystalTypes.STAR -> isSplat = true
+            CrystalTypes.DOUBLE_STAR -> isDoubleSplat = true
+            CrystalTypes.AMPERSAND -> isBlockPass = true
+        }
+        if (!isSplat && !isDoubleSplat && !isBlockPass) {
+            for (i in children.indices) {
+                if (children[i].elementType == CrystalTypes.COLON && i > 0
+                    && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
+                    namedLabel = children[i - 1].text
+                    break
+                }
             }
         }
 
@@ -437,15 +441,19 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         var isDoubleSplat = false
         var isBlockPass = false
 
-        for (i in children.indices) {
-            val type = children[i].elementType
-            if (type == CrystalTypes.STAR) isSplat = true
-            if (type == CrystalTypes.DOUBLE_STAR) isDoubleSplat = true
-            if (type == CrystalTypes.AMPERSAND) isBlockPass = true
-            if (type == CrystalTypes.COLON && i > 0
-                && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
-                namedLabel = children[i - 1].text
-                break
+        val firstType = children.firstOrNull()?.elementType
+        when (firstType) {
+            CrystalTypes.STAR -> isSplat = true
+            CrystalTypes.DOUBLE_STAR -> isDoubleSplat = true
+            CrystalTypes.AMPERSAND -> isBlockPass = true
+        }
+        if (!isSplat && !isDoubleSplat && !isBlockPass) {
+            for (i in children.indices) {
+                if (children[i].elementType == CrystalTypes.COLON && i > 0
+                    && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
+                    namedLabel = children[i - 1].text
+                    break
+                }
             }
         }
 
