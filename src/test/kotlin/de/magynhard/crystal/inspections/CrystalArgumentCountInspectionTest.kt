@@ -546,4 +546,16 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testVariableMultiplicationInCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32) : Int32
+              a + b
+            end
+            x = 2
+            y = 3
+            add(x, y)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

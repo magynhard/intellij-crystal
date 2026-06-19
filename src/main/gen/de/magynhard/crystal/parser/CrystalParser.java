@@ -247,7 +247,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //            | DOUBLE_STAR expression
   //            | AMPERSAND expression
   //            | OUT IDENTIFIER
-  //            | [IDENTIFIER COLON] expression
+  //            | named_argument
+  //            | expression
   public static boolean argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "argument")) return false;
     boolean result_;
@@ -256,7 +257,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = argument_1(builder_, level_ + 1);
     if (!result_) result_ = argument_2(builder_, level_ + 1);
     if (!result_) result_ = parseTokens(builder_, 0, OUT, IDENTIFIER);
-    if (!result_) result_ = argument_4(builder_, level_ + 1);
+    if (!result_) result_ = named_argument(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
@@ -292,24 +294,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
-  }
-
-  // [IDENTIFIER COLON] expression
-  private static boolean argument_4(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "argument_4")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = argument_4_0(builder_, level_ + 1);
-    result_ = result_ && expression(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
-  // [IDENTIFIER COLON]
-  private static boolean argument_4_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "argument_4_0")) return false;
-    parseTokens(builder_, 0, IDENTIFIER, COLON);
-    return true;
   }
 
   /* ********************************************************** */
@@ -4199,6 +4183,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, PERCENT);
     if (!result_) result_ = consumeToken(builder_, WRAP_STAR);
     return result_;
+  }
+
+  /* ********************************************************** */
+  // IDENTIFIER COLON expression
+  static boolean named_argument(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "named_argument")) return false;
+    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_);
+    result_ = consumeTokens(builder_, 2, IDENTIFIER, COLON);
+    pinned_ = result_; // pin = 2
+    result_ = result_ && expression(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
   }
 
   /* ********************************************************** */

@@ -613,7 +613,14 @@ argument ::= STAR expression
            | DOUBLE_STAR expression
            | AMPERSAND expression
            | OUT IDENTIFIER
-           | [IDENTIFIER COLON] expression
+           | named_argument
+           | expression
+
+// Named argument: requires both IDENTIFIER and COLON to match before committing.
+// Without pin=2, the optional [IDENTIFIER COLON] prefix would greedily consume
+// IDENTIFIER even when COLON doesn't follow, causing binary expressions like
+// x * 2 to be misparsed (x consumed, * 2 treated as unary star expression).
+private named_argument ::= IDENTIFIER COLON expression {pin=2}
 
 // Bare (parenthesis-free) arguments — used for calls like: describe App5 do ... end
 bare_argument_list ::= bare_argument (COMMA bare_argument)*
