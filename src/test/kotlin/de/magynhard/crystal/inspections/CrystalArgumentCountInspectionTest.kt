@@ -485,4 +485,44 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testRecordNewBareDotCallWithValidNamedArgs() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.new host: "localhost", port: 8080, ssl: true
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewBareDotCallWithUnknownNamedArg() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new host: "localhost", port: 8080, <error descr="Unknown named argument 'unknown'">unknown: "value"</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewBareDotCallWithAssignment() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            config = Config.new host: "lol"
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewBareDotCallWithMissingRequiredArg() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.<error descr="Missing required argument(s): 'host'">new</error> port: 8080
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewBareDotCallWithPositionalArgs() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new "localhost", 8080
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

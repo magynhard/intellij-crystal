@@ -274,4 +274,20 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testRecordNewBareDotCallWithCorrectTypes() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.new host: "localhost", port: 8080, ssl: true
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordNewBareDotCallWithStringTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.new host: <error descr="Type mismatch: expected 'String', got 'Int32'">123</error>, port: 8080
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

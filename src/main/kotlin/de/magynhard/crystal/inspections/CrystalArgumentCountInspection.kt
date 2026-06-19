@@ -60,16 +60,18 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         if (methodName == "new") {
             val className = findClassNameBeforeNew(callExpr)
             if (className != null) {
-                // Try regular class initialize first
-                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
-                if (initMethod != null) {
-                    checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
-                    return
-                }
-                // Fallback: "record Name, ..." macro — extract parameters from record fields
+                // Check record definition first — if `record Config, ...` exists in the
+                // current file, its parameters take priority over any `class Config`
+                // defined elsewhere (which might have a different `initialize`).
                 val recordParams = findRecordParameters(className, callExpr)
                 if (recordParams != null) {
                     checkRecordArguments(recordParams, arguments, methodNameElement, holder)
+                    return
+                }
+                // No record found — try regular class initialize
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
+                if (initMethod != null) {
+                    checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
                     return
                 }
             }
@@ -103,16 +105,18 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         }
 
         if (info.methodName == "new") {
-            // Try regular class initialize first
-            val initMethod = CrystalCompletionHelper.getInitializeMethod(info.receiverName, project, argsElement.containingFile)
-            if (initMethod != null) {
-                checkArgumentCount(listOf(initMethod), arguments, info.methodNameElement, holder)
-                return
-            }
-            // Fallback: "record Name, ..." macro — extract parameters from record fields
+            // Check record definition first — if `record Config, ...` exists in the
+            // current file, its parameters take priority over any `class Config`
+            // defined elsewhere (which might have a different `initialize`).
             val recordParams = findRecordParameters(info.receiverName, argsElement)
             if (recordParams != null) {
                 checkRecordArguments(recordParams, arguments, info.methodNameElement, holder)
+                return
+            }
+            // No record found — try regular class initialize
+            val initMethod = CrystalCompletionHelper.getInitializeMethod(info.receiverName, project, argsElement.containingFile)
+            if (initMethod != null) {
+                checkArgumentCount(listOf(initMethod), arguments, info.methodNameElement, holder)
                 return
             }
         }

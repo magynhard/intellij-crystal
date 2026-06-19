@@ -72,18 +72,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
 
-        // Special case: "new" on a class → resolve to "initialize" parameters
-        if (methods.isEmpty() && methodName == "new") {
-            val className = findClassNameBeforeNew(callExpr)
-            if (className != null) {
-                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
-                if (initMethod != null) {
-                    methods = listOf(initMethod)
-                }
-            }
-        }
-
-        // Fallback: "record Name, ..." macro — type-check against record parameters
+        // Check record definition first — if `record Config, ...` exists in the
+        // current file, its parameters take priority over any `class Config`
+        // defined elsewhere (which might have a different `initialize`).
         if (methods.isEmpty() && methodName == "new") {
             val className = findClassNameBeforeNew(callExpr)
             if (className != null) {
@@ -91,6 +82,17 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 if (recordParams != null) {
                     checkRecordTypeArgs(recordParams, arguments, holder)
                     return
+                }
+            }
+        }
+
+        // No record found — try regular class initialize
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNew(callExpr)
+            if (className != null) {
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
+                if (initMethod != null) {
+                    methods = listOf(initMethod)
                 }
             }
         }
@@ -227,18 +229,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             }
         }
 
-        // Special case: "new" on a class → resolve to "initialize" parameters
-        if (methods.isEmpty() && methodName == "new") {
-            val className = findClassNameBeforeNewFromArgs(argsElement)
-            if (className != null) {
-                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsElement.containingFile)
-                if (initMethod != null) {
-                    methods = listOf(initMethod)
-                }
-            }
-        }
-
-        // Fallback: "record Name, ..." macro — type-check against record parameters
+        // Check record definition first — if `record Config, ...` exists in the
+        // current file, its parameters take priority over any `class Config`
+        // defined elsewhere (which might have a different `initialize`).
         if (methods.isEmpty() && methodName == "new") {
             val className = findClassNameBeforeNewFromArgs(argsElement)
             if (className != null) {
@@ -246,6 +239,17 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 if (recordParams != null) {
                     checkRecordTypeArgs(recordParams, arguments, holder)
                     return
+                }
+            }
+        }
+
+        // No record found — try regular class initialize
+        if (methods.isEmpty() && methodName == "new") {
+            val className = findClassNameBeforeNewFromArgs(argsElement)
+            if (className != null) {
+                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsElement.containingFile)
+                if (initMethod != null) {
+                    methods = listOf(initMethod)
                 }
             }
         }
