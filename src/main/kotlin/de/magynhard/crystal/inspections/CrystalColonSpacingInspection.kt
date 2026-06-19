@@ -42,10 +42,14 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
         val methodStart = method.textOffset
         val methodEnd = methodStart + method.textLength
 
-        // Scan only within this method's text range
+        // Only scan the DEF line (header), not the method body
+        // Find the end of the first line of the method definition
+        val firstNewline = fileText.indexOf('\n', methodStart)
+        val headerEnd = if (firstNewline >= 0 && firstNewline < methodEnd) firstNewline else methodEnd
+
         val regex = Regex(":(?=[A-Za-z_])")
         var offset = methodStart
-        while (offset < methodEnd) {
+        while (offset < headerEnd) {
             val match = regex.find(fileText, offset) ?: break
             val colonOffset = match.range.first
 
