@@ -10,3 +10,4 @@ build/
 /sample.rb
 bin/
 /.env
+/test.cr
