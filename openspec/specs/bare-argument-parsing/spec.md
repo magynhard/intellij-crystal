@@ -1,10 +1,4 @@
-# bare-argument-parsing
-
-## Purpose
-
-Define correct parsing behavior for bare arguments in Crystal method calls, including DOT-calls (`Foo.bar(...)`) and bare method calls (`bar(...)`).
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Bare argument parsing correctly handles binary expressions
 
