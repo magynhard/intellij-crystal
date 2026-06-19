@@ -558,4 +558,47 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testBareDotCallWithBinaryMultiplication() {
+        myFixture.configureByText("test.cr", """
+            struct Vector2D
+              def initialize(@x : Float64, @y : Float64)
+              end
+            end
+            scalar = 2.0
+            Vector2D.new x * scalar, y * scalar
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testParenthesizedDotCallWithBinaryMultiplication() {
+        myFixture.configureByText("test.cr", """
+            struct Vector2D
+              def initialize(@x : Float64, @y : Float64)
+              end
+            end
+            scalar = 2.0
+            Vector2D.new(x * scalar, y * scalar)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBareDotCallWithNamedArgs() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80, ssl : Bool = false
+            Config.new host: "localhost", port: 8080, ssl: true
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBareCallWithSplatArgument() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32) : Int32
+              a + b
+            end
+            args = {1, 2}
+            add(*args)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

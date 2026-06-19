@@ -596,10 +596,13 @@ method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
 
-// Prevent bare_argument_list from consuming binary operators (+ -) followed by IDENTIFIER
+// Prevent bare_argument_list from consuming binary operators followed by IDENTIFIER
 // as bare unary expressions. Without this, "width + height" is parsed as method call
 // "width(+height)" instead of the binary expression "width + height".
-private binary_op_lookahead ::= (PLUS | MINUS) IDENTIFIER
+// Also blocks *, /, % etc. so that "x * scalar" inside parenthesized calls is not
+// misparsed as bare method call "x" with arguments "* scalar".
+// Tradeoff: bare calls with splat like "add *args" need parentheses: "add(*args)".
+private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PERCENT | DOUBLE_STAR) IDENTIFIER
 
 // Implicit object call: .method? or .operator (used in &.foo shorthand and case/when patterns)
 implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]
@@ -625,11 +628,17 @@ private named_argument ::= IDENTIFIER COLON expression {pin=2}
 // Bare (parenthesis-free) arguments — used for calls like: describe App5 do ... end
 bare_argument_list ::= bare_argument (COMMA bare_argument)*
 
-bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_expression]
-                | [IDENTIFIER COLON] bare_expression
+bare_argument ::= named_bare_argument
                 | STAR bare_expression
                 | DOUBLE_STAR bare_expression
+                | bare_expression
                 | OUT IDENTIFIER
+
+// Named bare argument: requires both IDENTIFIER and COLON to match before committing.
+// Without pin=2, the optional [IDENTIFIER COLON] prefix would greedily consume
+// IDENTIFIER even when COLON doesn't follow, causing binary expressions like
+// x * scalar to be misparsed (x consumed, * scalar treated as unary star).
+private named_bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_expression] {pin=2}
 
 // Bare expression: same as expression but does not consume blocks or assignments
 // This prevents the bare argument from eating the 'do' that belongs to the outer method call
