@@ -2,7 +2,7 @@
 # Docs: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
 
 # Disable the "Open a blank issue" button — all issues must go through a
-# template so that JETZT/SOLL examples are provided. Use Discussions for
+# template so that current/expected examples are provided. Use Discussions for
 # anything that doesn't fit a template yet.
 blank_issues_enabled: false
 

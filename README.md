@@ -10,7 +10,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 > [!WARNING]
 > Early Beta — This plugin is in active development. Bugs are to be expected.
 > Please use the [issue templates](.github/ISSUE_TEMPLATE/) and fill them out
-> carefully (JETZT/SOLL examples are required) so we can triage effectively.
+> carefully (current/expected examples are required) so we can triage effectively.
 > For vague ideas, use
 > [Discussions](https://github.com/magynhard/intellij-crystal/discussions) first.
 

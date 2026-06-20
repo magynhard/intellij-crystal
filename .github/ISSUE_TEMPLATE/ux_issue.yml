@@ -13,7 +13,7 @@ body:
         (impossible) — **friction**.
 
         **Please take 5 minutes to fill this out carefully.** Issues without
-        concrete JETZT/SOLL workflow examples will be closed as `needs-info`.
+        concrete current and desired workflow examples will be closed as `needs-info`.
 
         Describing the friction step-by-step often reveals that the real pain
         is somewhere else than you initially thought, or that it's part of a
@@ -50,7 +50,7 @@ body:
   - type: textarea
     id: jetzt-workflow
     attributes:
-      label: "JETZT-Workflow (current) — step by step"
+      label: "Current workflow — step by step"
       description: |
         List the exact steps a user has to perform today. Number them.
         This lets us see exactly where the friction is and how many steps
@@ -70,7 +70,7 @@ body:
   - type: textarea
     id: soll-workflow
     attributes:
-      label: "SOLL-Workflow (desired) — how should it ideally work?"
+      label: "Desired workflow — how should it ideally work?"
       description: |
         Describe the ideal workflow. Don't worry about implementation
         feasibility — describe what would feel natural. A concrete example

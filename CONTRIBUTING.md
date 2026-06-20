@@ -35,7 +35,7 @@ first. We'll help you figure out which type fits.
 
 Every issue template requires three fields. They're mandatory for a reason:
 
-### JETZT-Zustand (current state)
+### Current state
 
 Show **what happens today** with a minimal, self-contained code example. For
 bugs, this is the reproduction case. For features, this is the current
@@ -53,7 +53,7 @@ Config.new(<caret>)
 **Bad:** "Completion doesn't work for records." (No example, no caret
 position, no detail about what "doesn't work" means.)
 
-### SOLL-Zustand (desired state)
+### Desired state
 
 Show **what should happen instead** with a concrete example. For bugs, this
 is the correct behavior. For features, this is the desired behavior. For UX
@@ -102,7 +102,7 @@ It helps us:
    the issue within a few days, assigns labels, and either accepts it or
    asks for more info (`needs-info` label).
 
-2. **Needs info** — If JETZT/SOLL examples are missing or the reproduction
+2. **Needs info** — If current/expected examples are missing or the reproduction
    doesn't work, the issue gets `needs-info` and a comment asking for
    specifics. If no response within 2 weeks, the issue is closed.
 
@@ -140,7 +140,7 @@ Requires JDK 21. See [README.md](README.md) for full setup instructions.
 
 | | Issues | Discussions |
 |---|---|---|
-| **Use for** | Concrete, actionable reports with JETZT/SOLL examples | Vague ideas, questions, "what if..." brainstorming, design discussion |
+| **Use for** | Concrete, actionable reports with current/expected examples | Vague ideas, questions, "what if..." brainstorming, design discussion |
 | **Template** | Required (bug / feature / UX) | Free-form |
 | **Action** | Gets triaged, labeled, eventually implemented or closed | Stays open for discussion, may become an issue later |
 

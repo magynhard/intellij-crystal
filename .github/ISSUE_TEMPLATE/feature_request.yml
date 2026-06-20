@@ -9,7 +9,7 @@ body:
         ## Thanks for taking the time to propose a feature!
 
         **Please take 5 minutes to fill this out carefully.** Issues without
-        concrete **JETZT** (current) and **SOLL** (desired) code examples will
+        concrete **current** and **desired** code examples will
         be closed as `needs-info`.
 
         Filling this out thoroughly often reveals the real problem — many
@@ -68,7 +68,7 @@ body:
   - type: textarea
     id: jetzt-zustand
     attributes:
-      label: "JETZT-Zustand (current state) — what's possible today?"
+      label: "Current state — what's possible today?"
       description: |
         Show the current workaround (if any) or confirm it's not possible at
         all. A code example helps us understand the gap precisely.
@@ -84,7 +84,7 @@ body:
   - type: textarea
     id: soll-zustand
     attributes:
-      label: "SOLL-Zustand (desired state) — how should it work?"
+      label: "Desired state — how should it work?"
       description: |
         Describe the desired behavior with a concrete code example. If the
         feature involves cursor position, use `<caret>` to mark it.
