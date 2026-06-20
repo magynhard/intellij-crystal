@@ -92,4 +92,59 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
         assertTrue(targets!!.isNotEmpty())
         assertEquals("run", (targets[0] as CrystalMethodDefinition).name)
     }
+
+    // ==================== ".new" constructor resolution ====================
+
+    fun testNewGoesToInitialize() {
+        val targets = gotoTargets("""
+            class Senf
+              def initialize(x : Int32)
+              end
+            end
+            Senf.n<caret>ew
+        """.trimIndent())
+        assertNotNull("Should resolve Senf.new to def initialize", targets)
+        assertTrue(targets!!.isNotEmpty())
+        assertTrue("Target should be a method definition", targets[0] is CrystalMethodDefinition)
+        assertEquals("initialize", (targets[0] as CrystalMethodDefinition).name)
+    }
+
+    fun testNewGoesToSelfNewWhenDefined() {
+        val targets = gotoTargets("""
+            class Senf
+              def self.new
+              end
+              def initialize
+              end
+            end
+            Senf.n<caret>ew
+        """.trimIndent())
+        assertNotNull("Should resolve Senf.new to def self.new (priority over initialize)", targets)
+        assertTrue(targets!!.isNotEmpty())
+        assertTrue("Target should be a method definition", targets[0] is CrystalMethodDefinition)
+        assertEquals("new", (targets[0] as CrystalMethodDefinition).name)
+    }
+
+    fun testNewGoesToRecord() {
+        val targets = gotoTargets("""
+            record Config, host : String, port : Int32 = 80
+            Config.n<caret>ew
+        """.trimIndent())
+        assertNotNull("Should resolve Config.new to record definition", targets)
+        assertTrue(targets!!.isNotEmpty())
+        assertTrue("Target should be the record macro call",
+            targets[0].text.contains("record"))
+    }
+
+    fun testNewOnUnknownClassReturnsNull() {
+        val targets = gotoTargets("""
+            class Senf
+              def initialize
+              end
+            end
+            Unbekannt.n<caret>ew
+        """.trimIndent())
+        // No class "Unbekannt" — should return null, not every "new" method in the project.
+        assertNull("Should return null for unknown class .new", targets)
+    }
 }

@@ -30,6 +30,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Fix record macro parameter priority** — record macro parameters are now checked before class `initialize` in inspections, preventing false "wrong argument type" errors
 - **Fix colon spacing inspection scope** — only scans within method definitions, not the entire file body
 - **Fix binary `+`/`-` parsed as bare method arguments** — `+`/`-` followed by an identifier no longer parsed as bare method call arguments
+- **Fix Go to Definition on `.new`** — `Senf.new` now jumps to the correct target following Crystal's constructor resolution order (`def self.new` → `record` → `def initialize`), instead of showing every `new` method project-wide
 
 ### Changed
 

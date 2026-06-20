@@ -3,12 +3,19 @@ package de.magynhard.crystal.navigation
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.stubs.StubIndex
+import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 
 /**
  * Handles Go to Definition (Ctrl+Click / Ctrl+B) for:
  * 1. Identifiers after DOT (e.g. "Apfel.tanzen" → jumps to "def self.tanzen" or "def tanzen")
  * 2. Instance variables (@name) and class variables (@@name) → jumps to property declaration or shows all usages
+ * 3. ".new" on a class (e.g. "Senf.new") → jumps to "def self.new", "record Senf", or "def initialize"
+ *    following Crystal's constructor resolution order (self.new > record > initialize).
  */
 class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
 
@@ -52,11 +59,79 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         // Check if this identifier is after a DOT (dot-call like "obj.method" or "Class.method")
         val prev = skipWhitespaceBefore(sourceElement)
         if (prev != null && prev.node.elementType == CrystalTypes.DOT) {
+            // Special case: "ClassName.new" → resolve to self.new / record / initialize.
+            // Without this, CrystalMethodIndex returns EVERY "new" method project-wide.
+            if (name == "new") {
+                val className = findClassNameBeforeNewToken(sourceElement)
+                if (className != null) {
+                    val targets = findNewTargets(className, sourceElement)
+                    return if (targets.isNotEmpty()) targets.toTypedArray() else null
+                }
+                // No class receiver detected — return null rather than flooding the
+                // user with every "new" method in the project.
+                return null
+            }
+
             val results = CrystalDefinitionFinder.findDefinitions(name, sourceElement.project)
             return if (results.isNotEmpty()) results.toTypedArray() else null
         }
 
         return null
+    }
+
+    /**
+     * For "ClassName.new" — extracts the class name from the receiver before ".new".
+     * Returns null for non-class receivers (e.g. "obj.new" where obj is lowercase).
+     *
+     * Uses PsiTreeUtil.prevLeaf to cross composite boundaries: for "Senf.new" the leaf
+     * before DOT is the CONSTANT "Senf"; for "Outer::Inner.new" the last CONSTANT ("Inner")
+     * is returned, which is the correct key for CrystalMethodByClassIndex (immediate
+     * enclosing class).
+     */
+    private fun findClassNameBeforeNewToken(newToken: PsiElement): String? {
+        val dot = prevLeafSkipWhitespace(newToken) ?: return null
+        if (dot.node.elementType != CrystalTypes.DOT) return null
+        val receiver = prevLeafSkipWhitespace(dot) ?: return null
+        if (receiver.node.elementType == CrystalTypes.CONSTANT) return receiver.text
+        return null
+    }
+
+    /**
+     * Resolves "ClassName.new" to its actual target, following Crystal's constructor
+     * resolution order:
+     * 1. "def self.new" in the class — explicit override of the default constructor
+     * 2. "record ClassName, ..." macro — auto-generates "new" with record fields
+     * 3. "def initialize" in the class — called by the built-in "Class#new"
+     */
+    private fun findNewTargets(className: String, sourceElement: PsiElement): List<PsiElement> {
+        val project = sourceElement.project
+        val scope = GlobalSearchScope.allScope(project)
+
+        // 1. Explicit "def self.new" in the class — takes priority (overrides default "new")
+        val classMethods = StubIndex.getElements(
+            CrystalMethodByClassIndex.KEY, className, project, scope,
+            CrystalMethodDefinition::class.java
+        )
+        val selfNew = classMethods.filter { it.name == "new" }
+        if (selfNew.isNotEmpty()) return selfNew.toList()
+
+        // 2. "record" macro — auto-generates "new" with the record fields as parameters
+        val recordDef = CrystalCompletionHelper.findRecordDefinition(className, sourceElement.containingFile)
+        if (recordDef != null) return listOf(recordDef)
+
+        // 3. Default: "def initialize" (called by the built-in "Class#new")
+        val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, sourceElement.containingFile)
+        if (initMethod != null) return listOf(initMethod)
+
+        return emptyList()
+    }
+
+    private fun prevLeafSkipWhitespace(element: PsiElement): PsiElement? {
+        var prev: PsiElement? = PsiTreeUtil.prevLeaf(element)
+        while (prev != null && prev.node.elementType.toString() == "WHITE_SPACE") {
+            prev = PsiTreeUtil.prevLeaf(prev)
+        }
+        return prev
     }
 
     private fun skipWhitespaceBefore(element: PsiElement): PsiElement? {
