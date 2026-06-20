@@ -9,9 +9,9 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 > [!WARNING]
 > Early Beta — This plugin is in active development. Bugs are to be expected.
-> Please use the [issue templates](.github/ISSUE_TEMPLATE/) and fill them out
-> carefully (current/expected examples are required) so we can triage effectively.
-> For vague ideas, use
+> Please [open an issue](https://github.com/magynhard/intellij-crystal/issues/new/choose)
+> and fill out the template carefully (current/expected examples are required)
+> so we can triage effectively. For vague ideas, use
 > [Discussions](https://github.com/magynhard/intellij-crystal/discussions) first.
 
 ![New Project Wizard](doc/img/screenshots/001_new_project.png)
@@ -293,9 +293,9 @@ Issues and pull requests are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING
 before opening an issue — it explains the three issue types and what
 information we need.
 
-- 🐛 [Bug Report](https://github.com/magynhard/intellij-crystal/issues/new?template=bug_report.yml) — something doesn't work as expected
-- ✨ [Feature Request](https://github.com/magynhard/intellij-crystal/issues/new?template=feature_request.yml) — a Crystal construct or IDE feature that isn't supported yet
-- 🦥 [UX Issue](https://github.com/magynhard/intellij-crystal/issues/new?template=ux_issue.yml) — something works but feels clunky
+- 🐛 [Report a bug](https://github.com/magynhard/intellij-crystal/issues/new/choose) — something doesn't work as expected
+- ✨ [Request a feature](https://github.com/magynhard/intellij-crystal/issues/new/choose) — a Crystal construct or IDE feature that isn't supported yet
+- 🦥 [Report a UX issue](https://github.com/magynhard/intellij-crystal/issues/new/choose) — something works but feels clunky
 - 💬 [Discussions](https://github.com/magynhard/intellij-crystal/discussions) — for vague ideas, questions, and design discussion
 
 See [TODO.md](TODO.md) for already-planned features.
