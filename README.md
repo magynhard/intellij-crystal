@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="doc/img/crystal-logo.svg" width="150" alt="Crystal Logo">
+</p>
+
 # Crystal Language Plugin for JetBrains IDEs
 
 [![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.15-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/32180-crystal-language)
