@@ -1,0 +1,125 @@
+name: "🦥 UX Issue"
+description: "Something that technically works but feels clunky, slow, or unintuitive — friction in the workflow, not a bug and not a missing feature"
+title: "[UX] "
+labels: ["ux", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for taking the time to report a UX pain!
+
+        UX issues are about things that **work** but feel clunky, slow, or
+        unintuitive. Not a bug (wrong behavior), not a missing feature
+        (impossible) — **friction**.
+
+        **Please take 5 minutes to fill this out carefully.** Issues without
+        concrete JETZT/SOLL workflow examples will be closed as `needs-info`.
+
+        Describing the friction step-by-step often reveals that the real pain
+        is somewhere else than you initially thought, or that it's part of a
+        bigger workflow issue. That insight is valuable — write it down before
+        filing.
+
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-flight checks
+      description: Please confirm each of these before continuing.
+      options:
+        - label: I searched existing issues for this UX pain
+          required: true
+        - label: I confirmed the feature works technically (this is about the workflow, not a bug)
+          required: true
+
+  - type: textarea
+    id: pain-description
+    attributes:
+      label: Pain description — what feels clunky?
+      description: |
+        Describe the situation in plain language. What makes this part of
+        the plugin frustrating to use? Be specific about *when* and *where*
+        the friction occurs.
+      placeholder: |
+        When I want to run a single spec, I have to right-click the file,
+        navigate through "Run", then pick "Crystal Spec", then edit the
+        run configuration to add a line number. It takes 5 clicks for
+        something I do 50 times a day.
+    validations:
+      required: true
+
+  - type: textarea
+    id: jetzt-workflow
+    attributes:
+      label: "JETZT-Workflow (current) — step by step"
+      description: |
+        List the exact steps a user has to perform today. Number them.
+        This lets us see exactly where the friction is and how many steps
+        are involved.
+      placeholder: |
+        1. Right-click the .cr file in the project tree
+        2. Hover "Run" (submenu opens)
+        3. Click "Crystal Spec"
+        4. The spec runs for the whole file
+        5. Open Run Configuration editor
+        6. Find the "Line" field and type the line number
+        7. Click Run again
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: soll-workflow
+    attributes:
+      label: "SOLL-Workflow (desired) — how should it ideally work?"
+      description: |
+        Describe the ideal workflow. Don't worry about implementation
+        feasibility — describe what would feel natural. A concrete example
+        helps us find the right solution.
+      placeholder: |
+        1. Click the gutter icon next to the `it` block
+        2. Select "Run 'it: does the thing'"
+        Done.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often do you encounter this friction?
+      description: This helps us prioritize. Be honest — "rarely" is a valid answer.
+      options:
+        - "Rarely — once a week or less"
+        - "Sometimes — a few times per week"
+        - "Often — daily"
+        - "Every session — multiple times per day"
+        - "Constantly — it's the main thing slowing me down"
+      default: 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: edge-cases
+    attributes:
+      label: Related pains and scaling considerations
+      description: |
+        Are there other places in the plugin with similar friction? Does
+        the pain scale with project size, number of files, or team size?
+        Does it affect newcomers more than experienced users? Mention
+        anything that helps us understand the full picture.
+      placeholder: |
+        - Similar friction: Run Configuration for `crystal build`
+          also requires too many steps
+        - Scales badly: in a 200-file project, running specs by
+          directory requires navigating a deep tree
+        - Affects newcomers: people coming from RubyMine expect
+          gutter icons and are confused by their absence
+    validations:
+      required: true
+
+  - type: input
+    id: affected-users
+    attributes:
+      label: Affected user group (optional)
+      description: Who feels this pain most? e.g. "Crystal newcomers", "IDE power users", "everyone".
+      placeholder: "Everyone who runs specs regularly"

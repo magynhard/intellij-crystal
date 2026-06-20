@@ -1,0 +1,132 @@
+name: "✨ Feature Request"
+description: "Request a new feature or support for a Crystal construct that isn't supported yet (parser, completion, navigation, inspection, integration, ...)"
+title: "[Feature] "
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for taking the time to propose a feature!
+
+        **Please take 5 minutes to fill this out carefully.** Issues without
+        concrete **JETZT** (current) and **SOLL** (desired) code examples will
+        be closed as `needs-info`.
+
+        Filling this out thoroughly often reveals the real problem — many
+        "feature requests" turn out to be a different feature, a bug in
+        disguise, or already possible via a workaround. Taking the time to
+        articulate the use case *before* filing often surfaces a better idea
+        or makes the request unnecessary.
+
+        > If you're requesting parser support for a syntax pattern, include a
+        > **minimal code example** that currently fails to parse and mark where
+        > the parse error appears.
+
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-flight checks
+      description: Please confirm each of these before continuing.
+      options:
+        - label: I searched existing issues and [TODO.md](https://github.com/magynhard/intellij-crystal/blob/main/TODO.md) for this feature
+          required: true
+        - label: I checked whether this is already supported (tried the latest plugin version)
+          required: true
+        - label: I considered whether this is really a bug (unexpected behavior) rather than a missing feature
+          required: true
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature type
+      description: Pick the category that best fits. This helps us route the request.
+      options:
+        - "Parser / Syntax support — a Crystal construct that doesn't parse yet"
+        - "New IDE feature — completion, inspection, navigation, refactoring, inlay hints, ..."
+        - "Integration — external tool, run configuration, debugger, formatter, ..."
+        - "Other"
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case — what problem does this solve?
+      description: |
+        Describe the real-world situation where you need this. What pain or
+        friction exists *without* it? A concrete use case is more useful than
+        a list of desired capabilities.
+      placeholder: |
+        I'm working with record types heavily in my project. When I type
+        `Config.new(...)`, the autocomplete doesn't show the record's field
+        parameters. I have to look up the record definition manually every
+        time, which slows me down significantly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: jetzt-zustand
+    attributes:
+      label: "JETZT-Zustand (current state) — what's possible today?"
+      description: |
+        Show the current workaround (if any) or confirm it's not possible at
+        all. A code example helps us understand the gap precisely.
+      placeholder: |
+        # Currently: no completion for record fields
+        record Config, host : String, port : Int32 = 80
+
+        Config.new(<caret>)  # ← no parameter hints shown
+      render: crystal
+    validations:
+      required: true
+
+  - type: textarea
+    id: soll-zustand
+    attributes:
+      label: "SOLL-Zustand (desired state) — how should it work?"
+      description: |
+        Describe the desired behavior with a concrete code example. If the
+        feature involves cursor position, use `<caret>` to mark it.
+      placeholder: |
+        # Desired: completion shows record fields as parameters
+        record Config, host : String, port : Int32 = 80
+
+        Config.new(<caret>)
+        # → completion popup shows:
+        #   host : String
+        #   port : Int32 = 80
+      render: crystal
+    validations:
+      required: true
+
+  - type: textarea
+    id: edge-cases
+    attributes:
+      label: Edge cases and related use cases
+      description: |
+        Which related syntax patterns or use cases should be considered
+        together? What are the boundary cases? Thinking about these upfront
+        helps us design the feature correctly the first time instead of
+        fixing regressions later.
+      placeholder: |
+        - Nested records (record inside a class)
+        - Records with default values for all fields (zero-arg new?)
+        - Records with splat fields (`record Point, *coords`)
+        - Interaction with generics: `record Box(T), value : T`
+        - Should this also work for struct definitions with named fields?
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References (optional)
+      description: |
+        How do other IDEs (RubyMine, VSCode + crystal-lsp, Neovim) handle this?
+        Links to Crystal docs, GitHub issues, or spec files that define the
+        expected behavior.
+      placeholder: |
+        - RubyMine shows parameter hints for Ruby structs
+        - https://crystal-lang.org/reference/syntax_and_semantics/record.html
+        - Related: crystal-lang/crystal#12345

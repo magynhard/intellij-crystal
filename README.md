@@ -8,9 +8,11 @@
 Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBrains IDEs.
 
 > [!WARNING]
-> Early Beta / Proof of Concept — This plugin is in early development.
-> Bugs and issues are to be expected. Please avoid opening issues for minor problems.
-> Instead, discuss constructively at a higher level or share feature ideas in the [TODO list](TODO.md).
+> Early Beta — This plugin is in active development. Bugs are to be expected.
+> Please use the [issue templates](.github/ISSUE_TEMPLATE/) and fill them out
+> carefully (JETZT/SOLL examples are required) so we can triage effectively.
+> For vague ideas, use
+> [Discussions](https://github.com/magynhard/intellij-crystal/discussions) first.
 
 ![New Project Wizard](doc/img/screenshots/001_new_project.png)
 
@@ -287,7 +289,16 @@ Requires JDK 21.
 
 ## Contributing
 
-See [TODO.md](TODO.md) for ideas about features or create an issue.
+Issues and pull requests are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md)
+before opening an issue — it explains the three issue types and what
+information we need.
+
+- 🐛 [Bug Report](https://github.com/magynhard/intellij-crystal/issues/new?template=bug_report.yml) — something doesn't work as expected
+- ✨ [Feature Request](https://github.com/magynhard/intellij-crystal/issues/new?template=feature_request.yml) — a Crystal construct or IDE feature that isn't supported yet
+- 🦥 [UX Issue](https://github.com/magynhard/intellij-crystal/issues/new?template=ux_issue.yml) — something works but feels clunky
+- 💬 [Discussions](https://github.com/magynhard/intellij-crystal/discussions) — for vague ideas, questions, and design discussion
+
+See [TODO.md](TODO.md) for already-planned features.
 
 ## License
 

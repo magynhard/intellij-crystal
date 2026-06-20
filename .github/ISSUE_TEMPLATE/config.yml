@@ -1,0 +1,34 @@
+# Issue template chooser configuration.
+# Docs: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+
+# Disable the "Open a blank issue" button — all issues must go through a
+# template so that JETZT/SOLL examples are provided. Use Discussions for
+# anything that doesn't fit a template yet.
+blank_issues_enabled: false
+
+contact_links:
+  - name: "💬 Discussions — vague ideas, questions, \"what if...\""
+    url: https://github.com/magynhard/intellij-crystal/discussions
+    about: |
+      For ideas that aren't concrete enough for an issue yet — discuss first,
+      issue later. Also for questions about how the plugin works or whether
+      something is possible.
+
+  - name: "📋 TODO.md — already-planned feature ideas"
+    url: https://github.com/magynhard/intellij-crystal/blob/main/TODO.md
+    about: |
+      Check the TODO list before requesting a feature — it may already be
+      planned. If it's on the list, add a comment to the relevant Discussion
+      rather than opening a new issue.
+
+  - name: "📖 README — setup, requirements, features"
+    url: https://github.com/magynhard/intellij-crystal/blob/main/README.md
+    about: |
+      Make sure you've installed the Crystal compiler and (optionally) LLDB
+      DAP correctly. Many "bugs" are actually setup issues.
+
+  - name: "🔧 CHANGELOG — recent fixes and known changes"
+    url: https://github.com/magynhard/intellij-crystal/blob/main/CHANGELOG.md
+    about: |
+      Check if the behavior you're seeing was already fixed in a recent
+      release. Make sure you're on the latest plugin version.

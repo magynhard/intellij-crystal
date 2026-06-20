@@ -1,0 +1,126 @@
+name: "🐛 Bug Report"
+description: "Report something that doesn't work as expected — parse error, wrong highlighting, crash, false-positive inspection, broken navigation, ..."
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for taking the time to file a bug report!
+
+        **Please take 5 minutes to fill this out carefully.** Issues without
+        concrete **JETZT** (current) and **SOLL** (expected) code examples will
+        be closed as `needs-info`.
+
+        Filling this out thoroughly often reveals the real problem — many
+        "bugs" turn out to be something else (missing feature, misunderstood
+        Crystal semantics, stale index) after a moment of reflection. That's
+        fine: the template helps surface that *before* anyone has to ask.
+
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-flight checks
+      description: Please confirm each of these before continuing.
+      options:
+        - label: I searched existing issues for duplicates
+          required: true
+        - label: I reproduced this with the latest plugin version
+          required: true
+        - label: I checked [TODO.md](https://github.com/magynhard/intellij-crystal/blob/main/TODO.md) and [CHANGELOG.md](https://github.com/magynhard/intellij-crystal/blob/main/CHANGELOG.md) for known limitations
+          required: true
+
+  - type: input
+    id: crystal-version
+    attributes:
+      label: Crystal version
+      description: Output of `crystal --version` in a terminal.
+      placeholder: "Crystal 1.14.0 [b8b5ca0] (2024-10-16)"
+    validations:
+      required: true
+
+  - type: input
+    id: ide-version
+    attributes:
+      label: IDE name and version
+      description: e.g. "IntelliJ IDEA 2026.1.2" or "RubyMine 2026.1". Find it under Help → About.
+      placeholder: "IntelliJ IDEA 2026.1.2"
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Settings → Plugins → Crystal Language. Use the exact version number.
+      placeholder: "0.1.16"
+    validations:
+      required: true
+
+  - type: textarea
+    id: jetzt-zustand
+    attributes:
+      label: "JETZT-Zustand (current behavior) — code example that reproduces the bug"
+      description: |
+        Paste a **minimal, self-contained** Crystal snippet that triggers the
+        bug. Remove everything unrelated. If the bug involves a project with
+        multiple files, include the minimum needed to reproduce.
+      placeholder: |
+        class Foo
+          def initialize(@x : Int32)
+          end
+        end
+
+        Foo.new(42)
+        # → Go to Definition on .new jumps to 30 unrelated methods
+      render: crystal
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: What actually happens?
+      description: |
+        Describe the wrong behavior, error message, or attach a stack trace.
+        For crashes, include the IDE log excerpt (Help → Show Log in Files).
+      placeholder: "Go to Definition shows a list of 30 'new' methods from across the project instead of Foo#initialize."
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: soll-zustand
+    attributes:
+      label: "SOLL-Zustand (expected behavior) — what should happen instead?"
+      description: |
+        Describe the correct behavior and, if possible, show the expected
+        outcome with a short code example.
+      placeholder: |
+        Go to Definition on Foo.new should jump directly to
+        `def initialize(@x : Int32)` in class Foo.
+      render: crystal
+    validations:
+      required: true
+
+  - type: textarea
+    id: edge-cases
+    attributes:
+      label: Edge cases and related constellations
+      description: |
+        Does the bug also occur with nested structures? Empty bodies?
+        Different argument orders? Multiple files? List any variations you
+        tried or can think of. This helps us understand the full scope and
+        prevents fix-then-regress cycles.
+      placeholder: |
+        - Also happens with `Outer::Inner.new` (nested class)
+        - Does NOT happen when the class has `def self.new` defined
+        - Happens with zero-arg `Foo.new` and with args
+    validations:
+      required: true
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Screenshots / screencast / additional context (optional)
+      description: Attach images or drag-and-drop a GIF/screenshot. Logs go here too.
