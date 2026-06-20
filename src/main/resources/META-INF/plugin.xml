@@ -9,6 +9,12 @@
   all powered by a native GrammarKit parser (no external language server required).
 </p>
 
+<p>
+  <b>Early Beta</b> — This plugin is under active development and bugs are to be expected.
+  If you encounter a problem, please <a href="https://github.com/magynhard/intellij-crystal/issues/new/choose">open a GitHub issue</a>
+  with a minimal reproduction — that helps us fix it faster than a negative review would.
+</p>
+
 <h2>Debugging</h2>
 <p>
   Full debugger integration via <b>LLDB DAP</b> (Debug Adapter Protocol). Set breakpoints, step through code,
