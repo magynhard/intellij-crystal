@@ -5,8 +5,13 @@ import com.intellij.psi.*
 
 /**
  * Reference from an identifier usage to its definition (class/module/struct/enum/method/macro).
- * Resolves via CrystalDefinitionFinder (StubIndex + FileTypeIndex fallback) for project-wide
- * lookup, with local-scope fallback for variables and parameters.
+ *
+ * Resolution order:
+ * 1. Local scope (fast — walks up PSI tree, no I/O) — for variables and parameters
+ * 2. Project-wide StubIndex + FileTypeIndex fallback (slow) — for methods, classes, etc.
+ *
+ * Local scope MUST be checked first to avoid expensive project-wide index scans
+ * on every right-click or hover for local variables and parameters.
  */
 class CrystalReference(
     element: PsiElement,
@@ -16,12 +21,13 @@ class CrystalReference(
 ) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
     override fun resolve(): PsiElement? {
-        // 1. Project-wide definition lookup (StubIndex + FileTypeIndex fallback)
-        val definitions = CrystalDefinitionFinder.findDefinitions(name, element.project)
-        if (definitions.isNotEmpty()) return definitions.first()
+        // 1. Local scope fallback (fast — no I/O, walks up PSI tree)
+        val local = resolveLocal()
+        if (local != null) return local
 
-        // 2. Local scope fallback: variables and parameters
-        return resolveLocal()
+        // 2. Project-wide definition lookup (slow — StubIndex + FileTypeIndex fallback)
+        val definitions = CrystalDefinitionFinder.findDefinitions(name, element.project)
+        return definitions.firstOrNull()
     }
 
     private fun resolveLocal(): PsiElement? {
