@@ -92,7 +92,6 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 
 ## Documentation
 
-- **`TODO.md`** must be kept up to date after every change — mark completed items, add new ones, remove stale entries.
 - **`README.md`** should be updated when user-facing features or setup instructions change.
 
 ## Plugin Registration

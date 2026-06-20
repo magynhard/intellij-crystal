@@ -14,13 +14,6 @@ contact_links:
       issue later. Also for questions about how the plugin works or whether
       something is possible.
 
-  - name: "📋 TODO.md — already-planned feature ideas"
-    url: https://github.com/magynhard/intellij-crystal/blob/main/TODO.md
-    about: |
-      Check the TODO list before requesting a feature — it may already be
-      planned. If it's on the list, add a comment to the relevant Discussion
-      rather than opening a new issue.
-
   - name: "📖 README — setup, requirements, features"
     url: https://github.com/magynhard/intellij-crystal/blob/main/README.md
     about: |

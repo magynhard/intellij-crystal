@@ -27,7 +27,7 @@ body:
           required: true
         - label: I reproduced this with the latest plugin version
           required: true
-        - label: I checked [TODO.md](https://github.com/magynhard/intellij-crystal/blob/main/TODO.md) and [CHANGELOG.md](https://github.com/magynhard/intellij-crystal/blob/main/CHANGELOG.md) for known limitations
+        - label: I checked [CHANGELOG.md](https://github.com/magynhard/intellij-crystal/blob/main/CHANGELOG.md) for known limitations
           required: true
 
   - type: input

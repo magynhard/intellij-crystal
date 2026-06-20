@@ -302,7 +302,7 @@ information we need.
 - 🦥 [Report a UX issue](https://github.com/magynhard/intellij-crystal/issues/new/choose) — something works but feels clunky
 - 💬 [Discussions](https://github.com/magynhard/intellij-crystal/discussions) — for vague ideas, questions, and design discussion
 
-See [TODO.md](TODO.md) for already-planned features.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to report issues and contribute.
 
 ## License
 

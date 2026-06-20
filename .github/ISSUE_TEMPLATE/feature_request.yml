@@ -28,7 +28,7 @@ body:
       label: Pre-flight checks
       description: Please confirm each of these before continuing.
       options:
-        - label: I searched existing issues and [TODO.md](https://github.com/magynhard/intellij-crystal/blob/main/TODO.md) for this feature
+        - label: I searched existing issues for this feature
           required: true
         - label: I checked whether this is already supported (tried the latest plugin version)
           required: true

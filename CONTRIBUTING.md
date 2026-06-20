@@ -10,10 +10,9 @@ Spend 2 minutes on these checks — it saves everyone time:
 
 1. **Search existing issues** — your problem may already be reported or
    discussed. Use the search bar on the [Issues page](https://github.com/magynhard/intellij-crystal/issues).
-2. **Check [TODO.md](TODO.md)** — the feature you want may already be planned.
-3. **Update to the latest plugin version** — Settings → Plugins → Check for
+2. **Update to the latest plugin version** — Settings → Plugins → Check for
    Updates. Many "bugs" are already fixed in the latest release.
-4. **Reproduce with a minimal example** — strip your code down to the
+3. **Reproduce with a minimal example** — strip your code down to the
    smallest snippet that still triggers the issue. This is required for all
    issue types.
 
