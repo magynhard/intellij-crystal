@@ -2,16 +2,23 @@ package de.magynhard.crystal.psi
 
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.stubs.StubIndex
+import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalMethodIndex
 
 /**
  * Reference from an identifier usage to its definition (class/module/struct/enum/method/macro).
  *
  * Resolution order:
  * 1. Local scope (fast — walks up PSI tree, no I/O) — for variables and parameters
- * 2. Project-wide StubIndex + FileTypeIndex fallback (slow) — for methods, classes, etc.
+ * 2. StubIndex lookup (fast — in-memory index) — for methods, classes, etc.
  *
- * Local scope MUST be checked first to avoid expensive project-wide index scans
- * on every right-click or hover for local variables and parameters.
+ * IMPORTANT: Does NOT use CrystalDefinitionFinder.findDefinitions() because that
+ * includes a FileTypeIndex fallback that scans ALL .cr files in the project and
+ * walks their PSI trees, causing 90+ second delays on every right-click/hover.
+ * Go to Definition via CrystalGotoDeclarationHandler still uses the full
+ * CrystalDefinitionFinder with the FileTypeIndex fallback.
  */
 class CrystalReference(
     element: PsiElement,
@@ -23,11 +30,35 @@ class CrystalReference(
     override fun resolve(): PsiElement? {
         // 1. Local scope fallback (fast — no I/O, walks up PSI tree)
         val local = resolveLocal()
-        if (local != null) return local
+        if (local != null) {
+            // If the result is an IDENTIFIER leaf (not PsiNameIdentifierOwner),
+            // promote to its parent composite if it implements PsiNameIdentifierOwner.
+            // This ensures IntelliJ's rename framework activates (requires
+            // element instanceof PsiNameIdentifierOwner in MemberInplaceRenameHandler).
+            // Go to Definition still works because getNavigationElement() returns
+            // the IDENTIFIER leaf via getNameIdentifier().
+            if (local !is PsiNameIdentifierOwner) {
+                val parent = local.parent
+                if (parent is PsiNameIdentifierOwner) return parent
+            }
+            return local
+        }
 
-        // 2. Project-wide definition lookup (slow — StubIndex + FileTypeIndex fallback)
-        val definitions = CrystalDefinitionFinder.findDefinitions(name, element.project)
-        return definitions.firstOrNull()
+        // 2. StubIndex lookup only (fast — in-memory index, no FileTypeIndex scan)
+        val scope = GlobalSearchScope.allScope(element.project)
+        val types = StubIndex.getElements(
+            CrystalClassIndex.KEY, name, element.project, scope,
+            CrystalNamedElement::class.java
+        )
+        if (types.isNotEmpty()) return types.first()
+
+        val methods = StubIndex.getElements(
+            CrystalMethodIndex.KEY, name, element.project, scope,
+            CrystalMethodDefinition::class.java
+        )
+        if (methods.isNotEmpty()) return methods.first()
+
+        return null
     }
 
     private fun resolveLocal(): PsiElement? {

@@ -369,7 +369,9 @@ parameter ::= param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER IDENTIFI
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | param_prefix* AMPERSAND [COLON type_reference]
-            | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
+            | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN {
+  mixin="de.magynhard.crystal.psi.impl.CrystalParameterMixin"
+}
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
 
 // ==================== Property Declarations ====================
@@ -471,7 +473,9 @@ with_yield_statement ::= WITH expression YIELD {pin=1}
 
 // ==================== Assignments ====================
 
-assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] {pin=2}
+assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] {pin=2
+  mixin="de.magynhard.crystal.psi.impl.CrystalAssignmentMixin"
+}
 
 multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values {pin=4}
 private multi_assign_target_list ::= multi_assign_target (COMMA NLS multi_assign_target)*
