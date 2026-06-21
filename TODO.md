@@ -33,11 +33,22 @@ The following scenarios are broken when renaming @variables:
   accepts `@`-prefixed names. The `@` prefix is automatically added by `setName()` and
   `handleElementRename()` when the user types just the bare name (e.g. `other`).
 
+- [ ] **Rename `@some` to `@come` (typing `@` prefix)** — mixed result: some
+  occurrences become `@@come`, others `@come`. The rename framework passes the
+  name with `@` prefix to some handlers and without to others. Our `fixedName`
+  logic adds `@` when missing, but doesn't strip it when present, causing
+  inconsistency. All occurrences should become `@come`.
+
+- [ ] **Rename `@@barta` to `@@cool` (typing `@@` prefix)** — some occurrences
+  lose the `@@` prefix and become just `@cool`. The rename framework strips the
+  `@@` prefix before calling `handleElementRename`, and our code adds back only
+  a single `@`. All occurrences should become `@@cool`.
+
 - [ ] **Rename `my_var` to `@my_var`** (adding `@` prefix) — currently not possible
   because the rename target is a plain IDENTIFIER, and adding `@` would change the
   token type from IDENTIFIER to INSTANCE_VAR. The setName() / handleElementRename()
-  creates a new token via PsiFileFactory, but the replacement may not produce the
-  correct token type in all contexts.
+  creates a new token via createLeafFromText(), but the replacement may not produce
+  the correct token type in all contexts.
 
 - [ ] **Rename `@other_var` to `some_var`** (removing `@` prefix) — same issue in
   reverse. Removing `@` changes the token type from INSTANCE_VAR to IDENTIFIER.
@@ -55,8 +66,14 @@ the parsed PSI tree to find the correct leaf token, instead of using `firstChild
 which returned wrapper composites (statement/expression_statement). This was causing
 `@@` double-prefix corruption when renaming `@sample` to `@pump`.
 
-The remaining edge cases (changing `my_var` → `@my_var` or `@other` → `some_var`)
-require token type changes which are still complex.
+**Remaining issue**: The rename framework inconsistently passes the new name
+with or without the `@`/`@@` prefix to `setName()` vs `handleElementRename()`.
+The `fixedName` logic that adds `@` when missing works when the name is passed
+without prefix, but causes double-prefix when the name already includes `@`.
+The framework's behavior varies depending on which reference is being renamed
+(definition site vs usage site). Need to investigate the exact rename flow to
+determine whether to always strip the prefix and re-add it, or to detect the
+framework's convention.
 
 ## Type Inference (Issue #1)
 
