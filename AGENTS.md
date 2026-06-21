@@ -92,6 +92,7 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 
 ## Documentation
 
+- **`TODO.md`** contains follow-up tasks for ongoing work (rename, type inference, etc.). Update after completing tasks.
 - **`README.md`** should be updated when user-facing features or setup instructions change.
 
 ## Plugin Registration
