@@ -38,21 +38,17 @@ class CrystalInstanceVarReference(element: PsiElement) :
     }
 
     override fun handleElementRename(newElementName: String): PsiElement {
-        // Replace the INSTANCE_VAR or CLASS_VAR leaf directly.
         val identNode = element.node.findChildByType(CrystalTypes.INSTANCE_VAR)
             ?: element.node.findChildByType(CrystalTypes.CLASS_VAR)
             ?: return element
 
-        // Ensure the new name has the correct prefix
         val fixedName = when (identNode.elementType) {
             CrystalTypes.INSTANCE_VAR -> if (!newElementName.startsWith("@")) "@$newElementName" else newElementName
             CrystalTypes.CLASS_VAR -> if (!newElementName.startsWith("@@")) "@@$newElementName" else newElementName
             else -> newElementName
         }
 
-        val psiFile = PsiFileFactory.getInstance(element.project)
-            .createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, fixedName)
-        val newLeaf = psiFile.node.firstChildNode ?: return element
+        val newLeaf = createLeafFromText(element.project, fixedName, identNode.elementType) ?: return element
         identNode.treeParent.replaceChild(identNode, newLeaf)
         return element
     }

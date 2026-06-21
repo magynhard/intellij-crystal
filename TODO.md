@@ -49,10 +49,14 @@ The following scenarios are broken when renaming @variables:
 ~~character check that rejects `@`-prefixed names.~~ **Fixed**: validator now
 accepts `@`/`@@`-prefixed identifiers.
 
-The remaining issues (token type changes when adding/removing `@`) are deep
-structural problems: renaming `my_var` → `@my_var` changes the AST node type
-from `IDENTIFIER` to `INSTANCE_VAR`, which may break the PSI tree structure
-depending on the parent context.
+~~The remaining issues (token type changes when adding/removing `@`) are deep~~
+~~structural problems~~ **Fixed**: `createLeafFromText()` helper now properly walks
+the parsed PSI tree to find the correct leaf token, instead of using `firstChildNode`
+which returned wrapper composites (statement/expression_statement). This was causing
+`@@` double-prefix corruption when renaming `@sample` to `@pump`.
+
+The remaining edge cases (changing `my_var` → `@my_var` or `@other` → `some_var`)
+require token type changes which are still complex.
 
 ## Type Inference (Issue #1)
 

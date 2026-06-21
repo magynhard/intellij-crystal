@@ -37,14 +37,13 @@ abstract class CrystalAssignmentMixin(node: ASTNode) : ASTWrapperPsiElement(node
 
     override fun setName(name: String): PsiElement {
         val ident = nameIdentifier ?: return this
-        val fixedName = when (ident.node.elementType) {
+        val tokenType = ident.node.elementType
+        val fixedName = when (tokenType) {
             CrystalTypes.INSTANCE_VAR -> if (!name.startsWith("@")) "@$name" else name
             CrystalTypes.CLASS_VAR -> if (!name.startsWith("@@")) "@@$name" else name
             else -> name
         }
-        val factory = com.intellij.psi.PsiFileFactory.getInstance(project)
-        val dummyFile = factory.createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, fixedName)
-        val newNode = dummyFile.node.firstChildNode ?: return this
+        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)
         return this
     }

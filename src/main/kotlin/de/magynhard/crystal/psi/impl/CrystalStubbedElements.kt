@@ -65,13 +65,8 @@ private fun getNameFromMethodName(element: PsiElement): String? {
 
 private fun setNameOnIdentifier(nameIdentifier: PsiElement?, name: String): PsiElement? {
     if (nameIdentifier == null) return null
-    val factory = com.intellij.psi.PsiFileFactory.getInstance(nameIdentifier.project)
-    val dummyFile = factory.createFileFromText(
-        "dummy.cr",
-        de.magynhard.crystal.CrystalLanguage,
-        name
-    )
-    val newNode = dummyFile.node.firstChildNode ?: return null
+    val tokenType = nameIdentifier.node.elementType
+    val newNode = de.magynhard.crystal.psi.createLeafFromText(nameIdentifier.project, name, tokenType) ?: return null
     nameIdentifier.node.treeParent.replaceChild(nameIdentifier.node, newNode)
     return newNode.psi
 }
