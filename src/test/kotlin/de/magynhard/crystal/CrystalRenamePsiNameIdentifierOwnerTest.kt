@@ -125,6 +125,23 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         assertEquals("name", nameParam!!.name)
     }
 
+    fun testInstanceVarParameterGetNameIdentifier() {
+        // def initialize(@x : Int32) — the INSTANCE_VAR token is the name
+        val file = myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(@x : Int32)
+              end
+            end
+        """.trimIndent())
+        val params = PsiTreeUtil.findChildrenOfType(file, CrystalParameter::class.java)
+        val xParam = params.find { it.text.contains("@x") } as? PsiNameIdentifierOwner
+        assertNotNull("Should find @x parameter", xParam)
+        val nameIdent = xParam!!.nameIdentifier
+        assertNotNull("Should have name identifier", nameIdent)
+        assertEquals("@x", nameIdent!!.text)
+        assertEquals("@x", xParam.name)
+    }
+
     // ==================== CrystalAssignment — PsiNameIdentifierOwner ====================
 
     fun testAssignmentImplementsPsiNameIdentifierOwner() {
@@ -284,6 +301,62 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         val resolved = ref.resolve()
         // x is defined in other() — should NOT resolve to it from greet()
         assertNull("Should not resolve to variable in different method", resolved)
+    }
+
+    // ==================== E2E Rename Tests ====================
+
+    fun testRenameInstanceVarParameter() {
+        val file = myFixture.configureByText("test.cr", """
+            class Senf
+              def initialize(<caret>@testfein : Int32)
+                @sahne = @testfein + 4
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("testfein2")
+        myFixture.checkResult("""
+            class Senf
+              def initialize(@testfein2 : Int32)
+                @sahne = @testfein2 + 4
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameInstanceVarUsage() {
+        val file = myFixture.configureByText("test.cr", """
+            class Senf
+              def initialize(@testfein : Int32)
+                @sahne = <caret>@testfein + 4
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("testfein2")
+        myFixture.checkResult("""
+            class Senf
+              def initialize(@testfein2 : Int32)
+                @sahne = @testfein2 + 4
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameLocalVariablePreservesAllOccurrences() {
+        val file = myFixture.configureByText("test.cr", """
+            def greet
+              <caret>x = 1
+              puts x
+              puts x + 1
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("y")
+        myFixture.checkResult("""
+            def greet
+              y = 1
+              puts y
+              puts y + 1
+            end
+        """.trimIndent())
     }
 
     // ==================== Rename processor availability ====================

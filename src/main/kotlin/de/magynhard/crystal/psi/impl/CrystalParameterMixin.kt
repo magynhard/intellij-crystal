@@ -17,13 +17,22 @@ import de.magynhard.crystal.psi.CrystalTypes
 abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node), CrystalParameter, PsiNameIdentifierOwner {
 
     override fun getNameIdentifier(): PsiElement? {
-        // Walk children to find the IDENTIFIER token (internal parameter name).
+        // Walk children to find the name token (internal parameter name).
         // Crystal convention: `external internal : Type` — the LAST IDENTIFIER is the name.
+        // For instance var parameters: `def initialize(@x : Int32)` — the instance_var_access
+        // child wraps the INSTANCE_VAR token, so check for it as a composite.
         var lastIdent: PsiElement? = null
         var child = node.firstChildNode
         while (child != null) {
-            if (child.elementType == CrystalTypes.IDENTIFIER) {
-                lastIdent = child.psi
+            when (child.elementType) {
+                CrystalTypes.IDENTIFIER -> {
+                    lastIdent = child.psi
+                }
+                CrystalTypes.INSTANCE_VAR_ACCESS -> {
+                    // instance_var_access wraps INSTANCE_VAR — find the leaf inside
+                    val instanceVar = child.findChildByType(CrystalTypes.INSTANCE_VAR)
+                    if (instanceVar != null) lastIdent = instanceVar.psi
+                }
             }
             child = child.treeNext
         }
@@ -34,8 +43,15 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
 
     override fun setName(name: String): PsiElement {
         val ident = nameIdentifier ?: return this
+        // Ensure the name has the correct prefix for the token type.
+        // INSTANCE_VAR requires '@', CLASS_VAR requires '@@'.
+        val fixedName = when (ident.node.elementType) {
+            CrystalTypes.INSTANCE_VAR -> if (!name.startsWith("@")) "@$name" else name
+            CrystalTypes.CLASS_VAR -> if (!name.startsWith("@@")) "@@$name" else name
+            else -> name
+        }
         val factory = com.intellij.psi.PsiFileFactory.getInstance(project)
-        val dummyFile = factory.createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, name)
+        val dummyFile = factory.createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, fixedName)
         val newNode = dummyFile.node.firstChildNode ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)
         return this

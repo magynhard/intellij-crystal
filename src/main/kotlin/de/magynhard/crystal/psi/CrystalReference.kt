@@ -116,14 +116,25 @@ class CrystalReference(
     }
 
     override fun handleElementRename(newElementName: String): PsiElement {
-        // Replace the IDENTIFIER or CONSTANT leaf that this reference covers.
+        // Replace the identifier leaf that this reference covers.
         // PsiReferenceBase.handleElementRename() would use an ElementManipulator,
         // but we don't have one registered — so we do the replacement directly.
         val identNode = element.node.findChildByType(CrystalTypes.IDENTIFIER)
             ?: element.node.findChildByType(CrystalTypes.CONSTANT)
+            ?: element.node.findChildByType(CrystalTypes.INSTANCE_VAR)
+            ?: element.node.findChildByType(CrystalTypes.CLASS_VAR)
             ?: return element
+
+        // Ensure the new name has the correct prefix for the token type.
+        // Crystal's INSTANCE_VAR requires '@', CLASS_VAR requires '@@'.
+        val fixedName = when (identNode.elementType) {
+            CrystalTypes.INSTANCE_VAR -> if (!newElementName.startsWith("@")) "@$newElementName" else newElementName
+            CrystalTypes.CLASS_VAR -> if (!newElementName.startsWith("@@")) "@@$newElementName" else newElementName
+            else -> newElementName
+        }
+
         val psiFile = PsiFileFactory.getInstance(element.project)
-            .createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, newElementName)
+            .createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, fixedName)
         val newLeaf = psiFile.node.firstChildNode ?: return element
         identNode.treeParent.replaceChild(identNode, newLeaf)
         return element

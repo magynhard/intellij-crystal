@@ -2,6 +2,7 @@ package de.magynhard.crystal.psi
 
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.PsiReferenceBase
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.navigation.CrystalInstanceVarFinder
@@ -34,6 +35,26 @@ class CrystalInstanceVarReference(element: PsiElement) :
         val myClass = findEnclosingClass(element)
         val targetClass = findEnclosingClass(target)
         return myClass != null && myClass == targetClass
+    }
+
+    override fun handleElementRename(newElementName: String): PsiElement {
+        // Replace the INSTANCE_VAR or CLASS_VAR leaf directly.
+        val identNode = element.node.findChildByType(CrystalTypes.INSTANCE_VAR)
+            ?: element.node.findChildByType(CrystalTypes.CLASS_VAR)
+            ?: return element
+
+        // Ensure the new name has the correct prefix
+        val fixedName = when (identNode.elementType) {
+            CrystalTypes.INSTANCE_VAR -> if (!newElementName.startsWith("@")) "@$newElementName" else newElementName
+            CrystalTypes.CLASS_VAR -> if (!newElementName.startsWith("@@")) "@@$newElementName" else newElementName
+            else -> newElementName
+        }
+
+        val psiFile = PsiFileFactory.getInstance(element.project)
+            .createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, fixedName)
+        val newLeaf = psiFile.node.firstChildNode ?: return element
+        identNode.treeParent.replaceChild(identNode, newLeaf)
+        return element
     }
 
     override fun getVariants(): Array<Any> = emptyArray()
