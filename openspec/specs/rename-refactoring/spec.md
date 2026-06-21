@@ -381,8 +381,8 @@ incrementally via Approach C (scope-aware PsiReference) in a separate change.
 3. Add mixin for `CrystalAssignment` implementing `PsiNameIdentifierOwner`
 4. Override `isInplaceRenameAvailable` in `CrystalRefactoringSupportProvider`
 5. Tests: verify rename works for local vars, params, assignments, methods, instance vars
-6. (Future) Make `CrystalReference.resolveLocal()` scope-aware
-7. (Future) Add scope-aware rename tests
+6. ~~(Future)~~ Make `CrystalReference.resolveLocal()` scope-aware — **Done**: `resolveLocal()` now finds variable assignments via recursive subtree search (`findAssignmentWithName`), stops at method/macro/class boundaries
+7. (Future) Full scope-aware rename: collect all references in same scope for rename target set
 
 ### 6.2 What to NEVER do
 
@@ -395,13 +395,53 @@ incrementally via Approach C (scope-aware PsiReference) in a separate change.
 
 ---
 
-## 7. Existing Infrastructure (reuse these)
+## 7. resolveLocal() Fix — Variable Assignment Discovery
+
+### 7.1 Problem
+
+`resolveLocal()` could not find variable assignments like `x = 1` when resolving
+a reference to `x`. The sibling-walking logic checked `sibling.firstChild`, but
+sibling nodes in the PSI tree are wrapped in `CrystalStatement` composites —
+`firstChild` returns the statement wrapper, not the IDENTIFIER leaf.
+
+### 7.2 Solution
+
+Added `findAssignmentWithName()` — a recursive subtree search that:
+
+1. Walks the sibling's PSI subtree looking for `CrystalAssignment` nodes
+2. Uses `(element as PsiNameIdentifierOwner).name` to match the variable name
+3. **Stops at scope boundaries**: `CrystalMethodDefinition`, `CrystalMacroDefinition`,
+   `CrystalClassDefinition`, `CrystalModuleDefinition`, `CrystalStructDefinition`,
+   `CrystalEnumDefinition` — prevents resolving across method/class boundaries
+
+### 7.3 Scope boundary behavior
+
+The scope boundary check in `findAssignmentWithName` means:
+
+```crystal
+def other
+  x = 99  # ← NOT visible from greet()
+end
+
+def greet
+  puts x   # ← resolveLocal() returns null (not found locally)
+end
+```
+
+This is correct behavior: `x` in `greet()` should not resolve to the assignment
+in `other()`. If `x` is undefined in `greet()`, it falls through to StubIndex
+lookup (which also returns null for local variables), resulting in an unresolved
+reference — which is the expected behavior for an undefined variable.
+
+---
+
+## 8. Existing Infrastructure (reuse these)
 
 | Component | File | Purpose |
 |-----------|------|---------|
 | `CrystalInstanceVarAccessMixin` | `psi/impl/CrystalInstanceVarAccessMixin.kt` | Template for PsiNameIdentifierOwner mixin |
 | `CrystalNamedElement` | `psi/CrystalNamedElement.kt` | Interface for PsiNameIdentifierOwner elements |
-| `CrystalReference` | `psi/CrystalReference.kt` | PsiReference with local scope fallback |
+| `CrystalReference` | `psi/CrystalReference.kt` | PsiReference with local scope fallback + `findAssignmentWithName` |
 | `CrystalRenameVerifier` | `refactoring/CrystalRenameVerifier.kt` | Post-rename compiler verification |
 | `CrystalNamesValidator` | `refactoring/CrystalNamesValidator.kt` | Identifier validation |
 | `CrystalRefactoringSupportProvider` | `refactoring/CrystalRefactoringSupportProvider.kt` | Refactoring availability |
@@ -410,7 +450,7 @@ incrementally via Approach C (scope-aware PsiReference) in a separate change.
 
 ---
 
-## 8. Test Strategy
+## 9. Test Strategy
 
 ### 8.1 Existing tests (do not break)
 
@@ -419,13 +459,33 @@ incrementally via Approach C (scope-aware PsiReference) in a separate change.
 - `CrystalParameterInfoHandlerTest` — parameter info at call sites
 - All inspection tests — type check, argument count, unused variables
 
-### 8.2 New tests needed
+### 8.2 Tests in `CrystalRenamePsiNameIdentifierOwnerTest`
 
-| Test | What it verifies | Mechanism |
-|------|-----------------|-----------|
-| Rename local variable | Rename dialog opens, renames `x` to `y` | `myFixture.renameElementAtCaret()` |
-| Rename parameter | Rename dialog opens, renames param | Same |
-| Rename method definition | Rename dialog opens, renames method | Same |
-| Rename instance variable | Rename dialog opens, renames `@name` | Same (already works, verify not broken) |
-| Rename does not affect other methods | Renaming `x` in method A doesn't change `x` in method B | (Future — requires scope-awareness) |
-| Rename with compiler verification | After rename, `CrystalRenameVerifier` runs | Verify notification appears on error |
+| Test | What it verifies | Status |
+|------|-----------------|--------|
+| `testVariableReferenceImplementsPsiNameIdentifierOwner` | CrystalVariableReference is PsiNameIdentifierOwner | Done |
+| `testVariableReferenceGetNameIdentifier` | nameIdentifier returns IDENTIFIER leaf | Done |
+| `testVariableReferenceGetName` | getName returns identifier text | Done |
+| `testVariableReferenceConstantGetNameIdentifier` | Constants (Foo) have nameIdentifier | Done |
+| `testParameterImplementsPsiNameIdentifierOwner` | CrystalParameter is PsiNameIdentifierOwner | Done |
+| `testParameterGetNameIdentifier` | nameIdentifier returns last IDENTIFIER (internal name) | Done |
+| `testParameterGetName` | getName returns parameter name | Done |
+| `testParameterWithExternalNameUsesInternalName` | `def foo(user_name name)` returns "name" | Done |
+| `testAssignmentImplementsPsiNameIdentifierOwner` | CrystalAssignment is PsiNameIdentifierOwner | Done |
+| `testAssignmentGetNameIdentifier` | nameIdentifier returns LHS IDENTIFIER | Done |
+| `testAssignmentGetName` | getName returns variable name | Done |
+| `testResolveParameterReturnsComposite` | resolve() returns CrystalParameter (not IDENTIFIER leaf) | Done |
+| `testResolveMethodReturnsMethodDefinition` | resolve() finds method via StubIndex | Done |
+| `testResolveClassConstantReturnsClassDefinition` | resolve() finds class via StubIndex | Done |
+| `testResolveLocalFindsVariableAssignment` | resolve() finds CrystalAssignment for local variable | Done |
+| `testResolveLocalFindsAssignmentBeforeMultipleStatements` | resolve() finds assignment across intervening statements | Done |
+| `testResolveLocalDoesNotCrossMethodBoundary` | resolve() does not find assignment in sibling method | Done |
+| `testRenameUsesDefaultProcessorForAllElements` | No custom renamePsiElementProcessor registered | Done |
+
+### 8.3 Remaining test gaps (future)
+
+| Test | What it verifies |
+|------|-----------------|
+| Rename local variable end-to-end | `myFixture.renameElementAtCaret()` renames `x` to `y` |
+| Rename parameter end-to-end | `myFixture.renameElementAtCaret()` renames param |
+| Scope-aware rename isolation | Renaming `x` in method A doesn't change `x` in method B |

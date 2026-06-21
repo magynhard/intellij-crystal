@@ -225,6 +225,67 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
             resolved is CrystalClassDefinition)
     }
 
+    // ==================== resolveLocal() — variable assignment resolution ====================
+
+    fun testResolveLocalFindsVariableAssignment() {
+        val file = myFixture.configureByText("test.cr", """
+            def greet
+              x = 1
+              puts <caret>x
+            end
+        """.trimIndent())
+        val element = file.findElementAt(myFixture.caretOffset) ?: error("No element at caret")
+        val varRef = element.parent as? CrystalVariableReference
+            ?: error("Expected CrystalVariableReference, got ${element.parent?.javaClass?.simpleName}")
+        val ref = varRef.references.filterIsInstance<CrystalReference>().firstOrNull()
+            ?: error("Should have CrystalReference")
+        val resolved = ref.resolve()
+        assertNotNull("Should resolve to variable assignment", resolved)
+        assertTrue("Should resolve to CrystalAssignment (PsiNameIdentifierOwner)",
+            resolved is CrystalAssignment)
+        assertTrue("Resolved element should be PsiNameIdentifierOwner",
+            resolved is PsiNameIdentifierOwner)
+    }
+
+    fun testResolveLocalFindsAssignmentBeforeMultipleStatements() {
+        val file = myFixture.configureByText("test.cr", """
+            def greet
+              name = "world"
+              puts "hello"
+              puts "foo"
+              puts <caret>name
+            end
+        """.trimIndent())
+        val element = file.findElementAt(myFixture.caretOffset) ?: error("No element at caret")
+        val varRef = element.parent as? CrystalVariableReference
+            ?: error("Expected CrystalVariableReference")
+        val ref = varRef.references.filterIsInstance<CrystalReference>().firstOrNull()
+            ?: error("Should have CrystalReference")
+        val resolved = ref.resolve()
+        assertNotNull("Should resolve to variable assignment", resolved)
+        assertTrue("Should resolve to CrystalAssignment",
+            resolved is CrystalAssignment)
+    }
+
+    fun testResolveLocalDoesNotCrossMethodBoundary() {
+        val file = myFixture.configureByText("test.cr", """
+            def other
+              x = 99
+            end
+            def greet
+              puts <caret>x
+            end
+        """.trimIndent())
+        val element = file.findElementAt(myFixture.caretOffset) ?: error("No element at caret")
+        val varRef = element.parent as? CrystalVariableReference
+            ?: error("Expected CrystalVariableReference")
+        val ref = varRef.references.filterIsInstance<CrystalReference>().firstOrNull()
+            ?: error("Should have CrystalReference")
+        val resolved = ref.resolve()
+        // x is defined in other() — should NOT resolve to it from greet()
+        assertNull("Should not resolve to variable in different method", resolved)
+    }
+
     // ==================== Rename processor availability ====================
 
     fun testRenameUsesDefaultProcessorForAllElements() {

@@ -273,6 +273,15 @@
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.inspections.CrystalColonSpacingInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Invalid instance variable type"
+                shortName="CrystalInstanceVarType"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalInstanceVarTypeInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>

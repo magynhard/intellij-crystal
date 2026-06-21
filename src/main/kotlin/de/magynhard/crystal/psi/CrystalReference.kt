@@ -67,11 +67,8 @@ class CrystalReference(
             // Walk siblings before the reference looking for assignments like "name = ..."
             var sibling = scope.prevSibling
             while (sibling != null) {
-                val firstChild = sibling.firstChild
-                if (firstChild != null && firstChild.text == name &&
-                    firstChild.node.elementType == CrystalTypes.IDENTIFIER) {
-                    return firstChild
-                }
+                val assignment = findAssignmentWithName(sibling, name)
+                if (assignment != null) return assignment
                 sibling = sibling.prevSibling
             }
             // Check parameters if we're inside a method
@@ -90,6 +87,46 @@ class CrystalReference(
             scope = scope.parent
         }
         return null
+    }
+
+    /**
+     * Recursively searches a PSI subtree for a CrystalAssignment node
+     * whose variable name matches [targetName].
+     *
+     * Stops at method/macro/class/struct boundaries to avoid resolving
+     * across scope boundaries — a variable in method A should not resolve
+     * to an assignment in sibling method B.
+     */
+    private fun findAssignmentWithName(element: PsiElement, targetName: String): PsiElement? {
+        // Don't cross scope boundaries
+        if (element is CrystalMethodDefinition || element is CrystalMacroDefinition ||
+            element is CrystalClassDefinition || element is CrystalModuleDefinition ||
+            element is CrystalStructDefinition || element is CrystalEnumDefinition) {
+            return null
+        }
+        if (element is CrystalAssignment && element is PsiNameIdentifierOwner &&
+            (element as PsiNameIdentifierOwner).name == targetName) {
+            return element
+        }
+        for (child in element.children) {
+            val result = findAssignmentWithName(child, targetName)
+            if (result != null) return result
+        }
+        return null
+    }
+
+    override fun handleElementRename(newElementName: String): PsiElement {
+        // Replace the IDENTIFIER or CONSTANT leaf that this reference covers.
+        // PsiReferenceBase.handleElementRename() would use an ElementManipulator,
+        // but we don't have one registered — so we do the replacement directly.
+        val identNode = element.node.findChildByType(CrystalTypes.IDENTIFIER)
+            ?: element.node.findChildByType(CrystalTypes.CONSTANT)
+            ?: return element
+        val psiFile = PsiFileFactory.getInstance(element.project)
+            .createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, newElementName)
+        val newLeaf = psiFile.node.firstChildNode ?: return element
+        identNode.treeParent.replaceChild(identNode, newLeaf)
+        return element
     }
 
     override fun getVariants(): Array<Any> = emptyArray()

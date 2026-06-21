@@ -6,20 +6,17 @@ The scope-aware rename infrastructure is in place (PsiNameIdentifierOwner on
 CrystalVariableReference, CrystalParameter, CrystalAssignment; resolve() promotion
 logic; CrystalRefactoringSupportProvider). These follow-up tasks complete the work:
 
-- [ ] **Fix resolveLocal() to find variable assignments** — currently only finds
-  parameters (via CrystalMethodDefinition check). Variable assignments like
-  `sas = Senf.new` are not found because the sibling-walking logic checks
-  `sibling.firstChild` which is an `expression_statement` composite, not the
-  IDENTIFIER leaf. Need to walk into siblings to find CrystalAssignment composites
-  with matching IDENTIFIER children.
+- [x] **Fix resolveLocal() to find variable assignments** — now uses recursive
+  `findAssignmentWithName()` that walks sibling subtrees to find `CrystalAssignment`
+  composites. Stops at method/macro/class boundaries to prevent cross-scope resolution.
 
-- [ ] **Add rename tests for PsiNameIdentifierOwner composites** — test that
-  CrystalParameter, CrystalAssignment, and CrystalVariableReference correctly
-  implement getNameIdentifier/getName/setName, and that resolve() returns the
-  composite (not the leaf) for elements inside these containers.
+- [x] **Add rename tests for PsiNameIdentifierOwner composites** — 18 tests in
+  `CrystalRenamePsiNameIdentifierOwnerTest` covering CrystalParameter, CrystalAssignment,
+  CrystalVariableReference PsiNameIdentifierOwner implementation, resolve() promotion,
+  and resolveLocal() scope boundary behavior.
 
-- [ ] **Update rename spec** — document the resolveLocal() limitation and the
-  planned fix. Track in openspec/specs/rename-refactoring/spec.md.
+- [x] **Update rename spec** — documented resolveLocal() fix (section 7), updated test
+  matrix (section 9.2), added known limitations. See openspec/specs/rename-refactoring/spec.md.
 
 ## Type Inference (Issue #1)
 
