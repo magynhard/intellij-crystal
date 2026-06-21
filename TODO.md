@@ -29,10 +29,9 @@ logic; CrystalRefactoringSupportProvider). These follow-up tasks complete the wo
 
 The following scenarios are broken when renaming @variables:
 
-- [ ] **Rename `@example` to `@other`** — typing a new name with `@` prefix in the
-  rename dialog triggers "Inserted identifier is not valid". The `CrystalNamesValidator`
-  rejects `@other` as an identifier because it starts with `@`. Need to make the
-  validator accept `@`-prefixed names when renaming an instance variable.
+- [x] **Rename `@example` to `@other`** — `CrystalNamesValidator.isIdentifier()` now
+  accepts `@`-prefixed names. The `@` prefix is automatically added by `setName()` and
+  `handleElementRename()` when the user types just the bare name (e.g. `other`).
 
 - [ ] **Rename `my_var` to `@my_var`** (adding `@` prefix) — currently not possible
   because the rename target is a plain IDENTIFIER, and adding `@` would change the
@@ -46,20 +45,14 @@ The following scenarios are broken when renaming @variables:
 
 ### Root Cause Analysis
 
-The core problem is that `CrystalNamesValidator.isIdentifier()` uses a simple
-character check that rejects `@`-prefixed names. When the user types `@newname`
-in the rename dialog, the validator says "not valid identifier" and the rename
-is blocked before it even reaches `setName()`.
+~~The core problem is that `CrystalNamesValidator.isIdentifier()` uses a simple~~
+~~character check that rejects `@`-prefixed names.~~ **Fixed**: validator now
+accepts `@`/`@@`-prefixed identifiers.
 
-**Fix approach:**
-1. Make `CrystalNamesValidator.isIdentifier()` accept `@`-prefixed names when
-   the context is an instance variable rename (check if the target element is
-   `CrystalInstanceVarAccess` or `CrystalParameter` with `instance_var_access`)
-2. OR: Strip the `@` prefix in the validator and let `setName()`/`handleElementRename()`
-   re-add it — but this requires passing context about what's being renamed
-
-The `@`-prefix handling in `setName()` and `handleElementRename()` is already
-correct (adds `@` if missing). The blocker is the validator rejecting the input.
+The remaining issues (token type changes when adding/removing `@`) are deep
+structural problems: renaming `my_var` → `@my_var` changes the AST node type
+from `IDENTIFIER` to `INSTANCE_VAR`, which may break the PSI tree structure
+depending on the parent context.
 
 ## Type Inference (Issue #1)
 

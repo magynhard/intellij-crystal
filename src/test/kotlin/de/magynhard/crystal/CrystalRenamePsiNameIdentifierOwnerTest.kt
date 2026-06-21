@@ -323,6 +323,25 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         """.trimIndent())
     }
 
+    fun testRenameInstanceVarWithAtPrefix() {
+        // Renaming @example to @other — user types just "other", the @ prefix is added automatically
+        val file = myFixture.configureByText("test.cr", """
+            class Senf
+              def initialize(<caret>@example : Int32)
+                @sahne = @example + 4
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("other")
+        myFixture.checkResult("""
+            class Senf
+              def initialize(@other : Int32)
+                @sahne = @other + 4
+              end
+            end
+        """.trimIndent())
+    }
+
     fun testRenameInstanceVarUsage() {
         val file = myFixture.configureByText("test.cr", """
             class Senf
@@ -357,6 +376,19 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
               puts y + 1
             end
         """.trimIndent())
+    }
+
+    // ==================== CrystalNamesValidator ====================
+
+    fun testNamesValidatorAcceptsAtPrefixedIdentifiers() {
+        val validator = de.magynhard.crystal.refactoring.CrystalNamesValidator()
+        assertTrue("@name should be valid", validator.isIdentifier("@name", null))
+        assertTrue("@my_var should be valid", validator.isIdentifier("@my_var", null))
+        assertTrue("@other123 should be valid", validator.isIdentifier("@other123", null))
+        assertTrue("@@class_var should be valid", validator.isIdentifier("@@class_var", null))
+        assertFalse("@ should be invalid (no name after @)", validator.isIdentifier("@", null))
+        assertFalse("@@ should be invalid (no name after @@)", validator.isIdentifier("@@", null))
+        assertFalse("@123 should be invalid (starts with digit)", validator.isIdentifier("@123", null))
     }
 
     // ==================== Rename processor availability ====================
