@@ -413,6 +413,46 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         """.trimIndent())
     }
 
+    // ==================== Explicit Prefix Tests ====================
+
+    fun testRenameClassVarWithExplicitPrefix() {
+        val file = myFixture.configureByText("test.cr", """
+            class Foo
+              @@example = 1
+              def self.test
+                puts @@example
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("@@other")
+        myFixture.checkResult("""
+            class Foo
+              @@other = 1
+              def self.test
+                puts @@other
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameInstanceVarWithExplicitPrefix() {
+        val file = myFixture.configureByText("test.cr", """
+            class Bar
+              def initialize(@ini : Int32)
+                @other = @ini + 1
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("@other_ini")
+        myFixture.checkResult("""
+            class Bar
+              def initialize(@other_ini : Int32)
+                @other = @other_ini + 1
+              end
+            end
+        """.trimIndent())
+    }
+
     // ==================== CrystalNamesValidator ====================
 
     fun testNamesValidatorAcceptsAtPrefixedIdentifiers() {
