@@ -18,15 +18,11 @@ abstract class CrystalClassVarAccessMixin(node: ASTNode) : ASTWrapperPsiElement(
     override fun getName(): String = text
 
     override fun setName(name: String): PsiElement {
-        val newName = "@@$name"
-        val newNode = project.let {
-            com.intellij.psi.PsiFileFactory.getInstance(it)
-                .createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, newName)
-                .firstChild?.node
-        }
-        if (newNode != null) {
-            node.treeParent.replaceChild(node, newNode)
-        }
+        val identNode = node.findChildByType(CrystalTypes.CLASS_VAR) ?: return this
+        val bareName = name.removePrefix("@").removePrefix("@")
+        val fixedName = "@@$bareName"
+        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, CrystalTypes.CLASS_VAR) ?: return this
+        identNode.treeParent.replaceChild(identNode, newNode)
         return this
     }
 
