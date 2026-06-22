@@ -418,7 +418,7 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
     fun testRenameClassVarWithExplicitPrefix() {
         val file = myFixture.configureByText("test.cr", """
             class Foo
-              @@example = 1
+              <caret>@@example = 1
               def self.test
                 puts @@example
               end
@@ -438,7 +438,7 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
     fun testRenameInstanceVarWithExplicitPrefix() {
         val file = myFixture.configureByText("test.cr", """
             class Bar
-              def initialize(@ini : Int32)
+              def initialize(<caret>@ini : Int32)
                 @other = @ini + 1
               end
             end

@@ -19,16 +19,11 @@ abstract class CrystalInstanceVarAccessMixin(node: ASTNode) : ASTWrapperPsiEleme
     override fun getName(): String = text
 
     override fun setName(name: String): PsiElement {
-        // Replace the INSTANCE_VAR token text — preserve the @ prefix
-        val newName = "@$name"
-        val newNode = project.let {
-            com.intellij.psi.PsiFileFactory.getInstance(it)
-                .createFileFromText("dummy.cr", de.magynhard.crystal.CrystalLanguage, newName)
-                .firstChild?.node
-        }
-        if (newNode != null) {
-            node.treeParent.replaceChild(node, newNode)
-        }
+        val identNode = node.findChildByType(CrystalTypes.INSTANCE_VAR) ?: return this
+        val bareName = name.removePrefix("@").removePrefix("@")
+        val fixedName = "@$bareName"
+        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, CrystalTypes.INSTANCE_VAR) ?: return this
+        identNode.treeParent.replaceChild(identNode, newNode)
         return this
     }
 
