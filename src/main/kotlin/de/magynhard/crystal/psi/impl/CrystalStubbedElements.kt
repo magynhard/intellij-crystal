@@ -66,7 +66,13 @@ private fun getNameFromMethodName(element: PsiElement): String? {
 private fun setNameOnIdentifier(nameIdentifier: PsiElement?, name: String): PsiElement? {
     if (nameIdentifier == null) return null
     val tokenType = nameIdentifier.node.elementType
-    val newNode = de.magynhard.crystal.psi.createLeafFromText(nameIdentifier.project, name, tokenType) ?: return null
+    val bareName = name.removePrefix("@").removePrefix("@")
+    val fixedName = when (tokenType) {
+        CrystalTypes.INSTANCE_VAR -> "@$bareName"
+        CrystalTypes.CLASS_VAR -> "@@$bareName"
+        else -> bareName
+    }
+    val newNode = de.magynhard.crystal.psi.createLeafFromText(nameIdentifier.project, fixedName, tokenType) ?: return null
     nameIdentifier.node.treeParent.replaceChild(nameIdentifier.node, newNode)
     return newNode.psi
 }

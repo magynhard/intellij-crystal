@@ -44,10 +44,13 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
     override fun setName(name: String): PsiElement {
         val ident = nameIdentifier ?: return this
         val tokenType = ident.node.elementType
+        // Strip any @/@@ prefix the user may have typed, then re-apply from original token type.
+        // The variable type (instance var, class var, local var) never changes during rename.
+        val bareName = name.removePrefix("@").removePrefix("@")
         val fixedName = when (tokenType) {
-            CrystalTypes.INSTANCE_VAR -> if (!name.startsWith("@")) "@$name" else name
-            CrystalTypes.CLASS_VAR -> if (!name.startsWith("@@")) "@@$name" else name
-            else -> name
+            CrystalTypes.INSTANCE_VAR -> "@$bareName"
+            CrystalTypes.CLASS_VAR -> "@@$bareName"
+            else -> bareName
         }
         val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)

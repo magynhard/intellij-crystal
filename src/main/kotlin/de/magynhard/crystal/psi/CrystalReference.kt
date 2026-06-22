@@ -122,10 +122,12 @@ class CrystalReference(
             ?: element.node.findChildByType(CrystalTypes.CLASS_VAR)
             ?: return element
 
+        // Strip any @/@@ prefix the user may have typed, then re-apply from original token type.
+        val bareName = newElementName.removePrefix("@").removePrefix("@")
         val fixedName = when (identNode.elementType) {
-            CrystalTypes.INSTANCE_VAR -> if (!newElementName.startsWith("@")) "@$newElementName" else newElementName
-            CrystalTypes.CLASS_VAR -> if (!newElementName.startsWith("@@")) "@@$newElementName" else newElementName
-            else -> newElementName
+            CrystalTypes.INSTANCE_VAR -> "@$bareName"
+            CrystalTypes.CLASS_VAR -> "@@$bareName"
+            else -> bareName
         }
 
         val newLeaf = createLeafFromText(element.project, fixedName, identNode.elementType) ?: return element

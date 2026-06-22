@@ -60,10 +60,11 @@ abstract class CrystalVariableReferenceMixin(node: ASTNode) : ASTWrapperPsiEleme
     override fun setName(name: String): PsiElement {
         val ident = nameIdentifier ?: return this
         val tokenType = ident.node.elementType
+        val bareName = name.removePrefix("@").removePrefix("@")
         val fixedName = when (tokenType) {
-            CrystalTypes.INSTANCE_VAR -> if (!name.startsWith("@")) "@$name" else name
-            CrystalTypes.CLASS_VAR -> if (!name.startsWith("@@")) "@@$name" else name
-            else -> name
+            CrystalTypes.INSTANCE_VAR -> "@$bareName"
+            CrystalTypes.CLASS_VAR -> "@@$bareName"
+            else -> bareName
         }
         val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)

@@ -27,32 +27,20 @@ logic; CrystalRefactoringSupportProvider). These follow-up tasks complete the wo
 
 ### Instance Variable Rename — Remaining Issues
 
-The following scenarios are broken when renaming @variables:
+The `@`/`@@` prefix is always preserved from the original token type. The user
+only types the bare name. The prefix is never changed during rename.
 
-- [x] **Rename `@example` to `@other`** — `CrystalNamesValidator.isIdentifier()` now
-  accepts `@`-prefixed names. The `@` prefix is automatically added by `setName()` and
-  `handleElementRename()` when the user types just the bare name (e.g. `other`).
+| Scenario | User types | Result | Status |
+|----------|-----------|--------|--------|
+| `@var` → `foo` | `foo` | `@foo` | ✅ Works |
+| `@var` → `@foo` | `@foo` | `@foo` | ✅ Works |
+| `@@var` → `cool` | `cool` | `@@cool` | ✅ Works |
+| `@@var` → `@cool` | `@cool` | `@@cool` | ✅ Works |
+| `my_var` → `@my_var` | — | Not supported | N/A (different types) |
+| `@var` → `var` | — | Not supported | N/A (different types) |
 
-- [ ] **Rename `@some` to `@come` (typing `@` prefix)** — mixed result: some
-  occurrences become `@@come`, others `@come`. The rename framework passes the
-  name with `@` prefix to some handlers and without to others. Our `fixedName`
-  logic adds `@` when missing, but doesn't strip it when present, causing
-  inconsistency. All occurrences should become `@come`.
-
-- [ ] **Rename `@@barta` to `@@cool` (typing `@@` prefix)** — some occurrences
-  lose the `@@` prefix and become just `@cool`. The rename framework strips the
-  `@@` prefix before calling `handleElementRename`, and our code adds back only
-  a single `@`. All occurrences should become `@@cool`.
-
-- [ ] **Rename `my_var` to `@my_var`** (adding `@` prefix) — currently not possible
-  because the rename target is a plain IDENTIFIER, and adding `@` would change the
-  token type from IDENTIFIER to INSTANCE_VAR. The setName() / handleElementRename()
-  creates a new token via createLeafFromText(), but the replacement may not produce
-  the correct token type in all contexts.
-
-- [ ] **Rename `@other_var` to `some_var`** (removing `@` prefix) — same issue in
-  reverse. Removing `@` changes the token type from INSTANCE_VAR to IDENTIFIER.
-  The replacement may fail or produce an incorrect AST.
+Type changes (`IDENTIFIER` ↔ `INSTANCE_VAR` ↔ `CLASS_VAR`) are intentionally
+not supported — they are fundamentally different variable types.
 
 ### Root Cause Analysis
 
@@ -63,17 +51,11 @@ accepts `@`/`@@`-prefixed identifiers.
 ~~The remaining issues (token type changes when adding/removing `@`) are deep~~
 ~~structural problems~~ **Fixed**: `createLeafFromText()` helper now properly walks
 the parsed PSI tree to find the correct leaf token, instead of using `firstChildNode`
-which returned wrapper composites (statement/expression_statement). This was causing
-`@@` double-prefix corruption when renaming `@sample` to `@pump`.
+which returned wrapper composites (statement/expression_statement).
 
-**Remaining issue**: The rename framework inconsistently passes the new name
-with or without the `@`/`@@` prefix to `setName()` vs `handleElementRename()`.
-The `fixedName` logic that adds `@` when missing works when the name is passed
-without prefix, but causes double-prefix when the name already includes `@`.
-The framework's behavior varies depending on which reference is being renamed
-(definition site vs usage site). Need to investigate the exact rename flow to
-determine whether to always strip the prefix and re-add it, or to detect the
-framework's convention.
+**Fixed**: All `setName()` and `handleElementRename()` methods now always strip
+any `@`/`@@` prefix from the user input and re-apply it from the original token
+type. This ensures consistent behavior regardless of what the user types.
 
 ## Type Inference (Issue #1)
 

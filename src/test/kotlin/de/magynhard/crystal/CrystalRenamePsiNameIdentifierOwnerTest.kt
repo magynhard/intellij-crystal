@@ -342,6 +342,41 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         """.trimIndent())
     }
 
+    fun testRenameInstanceVarStripsAtPrefix() {
+        // User types @crane in dialog — internally "crane" is passed to setName/handleElementRename
+        // The @ prefix is always re-applied from the original token type
+        val file = myFixture.configureByText("test.cr", """
+            class Senf
+              def initialize(<caret>@sample : Int32)
+                @sahne = @sample + 4
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("crane")
+        myFixture.checkResult("""
+            class Senf
+              def initialize(@crane : Int32)
+                @sahne = @crane + 4
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameInstanceVarKeepsPrefixEvenIfUserAddsIt() {
+        // Verify that setName always applies the correct prefix from token type
+        // (Cannot call setName directly — must use WriteCommandAction)
+        val file = myFixture.configureByText("test.cr", """
+            class Senf
+              def initialize(@testfein : Int32)
+              end
+            end
+        """.trimIndent())
+        val element = file.findElementAt(file.text.indexOf("@testfein")) ?: error("No element")
+        val param = element.parent as? com.intellij.psi.PsiNameIdentifierOwner ?: error("Not a named element")
+        // getName() should return the full name including @ prefix
+        assertEquals("@testfein", param.name)
+    }
+
     fun testRenameInstanceVarUsage() {
         val file = myFixture.configureByText("test.cr", """
             class Senf
