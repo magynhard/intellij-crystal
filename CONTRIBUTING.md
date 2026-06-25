@@ -27,8 +27,7 @@ type slows down triage.
 | **✨ Feature Request** | A Crystal construct isn't supported yet, or a new IDE feature is needed. The feature is *impossible* today, not just clunky. | "Support for `asm` blocks inside macros" / "Inlay hints for inferred types" |
 | **🦥 UX Issue** | Something technically works but feels clunky, slow, or unintuitive. It's about the *workflow*, not a bug or missing feature. | "Running a single spec requires 5 clicks" / "Rename dialog has too many steps" |
 
-**Not sure?** Use [Discussions](https://github.com/magynhard/intellij-crystal/discussions)
-first. We'll help you figure out which type fits.
+**Not sure?** Pick the type that best fits — you can always update the issue later.
 
 ## How to Write a Good Issue
 
@@ -134,14 +133,3 @@ cd intellij-crystal
 ```
 
 Requires JDK 21. See [README.md](README.md) for full setup instructions.
-
-## Discussions vs. Issues
-
-| | Issues | Discussions |
-|---|---|---|
-| **Use for** | Concrete, actionable reports with current/expected examples | Vague ideas, questions, "what if..." brainstorming, design discussion |
-| **Template** | Required (bug / feature / UX) | Free-form |
-| **Action** | Gets triaged, labeled, eventually implemented or closed | Stays open for discussion, may become an issue later |
-
-**When in doubt, start with Discussions.** You can always turn a discussion
-into an issue once the idea is concrete enough.

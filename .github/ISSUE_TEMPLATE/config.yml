@@ -2,18 +2,10 @@
 # Docs: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
 
 # Disable the "Open a blank issue" button — all issues must go through a
-# template so that current/expected examples are provided. Use Discussions for
-# anything that doesn't fit a template yet.
+# template so that current/expected examples are provided.
 blank_issues_enabled: false
 
 contact_links:
-  - name: "💬 Discussions — vague ideas, questions, \"what if...\""
-    url: https://github.com/magynhard/intellij-crystal/discussions
-    about: |
-      For ideas that aren't concrete enough for an issue yet — discuss first,
-      issue later. Also for questions about how the plugin works or whether
-      something is possible.
-
   - name: "📖 README — setup, requirements, features"
     url: https://github.com/magynhard/intellij-crystal/blob/main/README.md
     about: |

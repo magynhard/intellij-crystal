@@ -15,8 +15,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 > Early Beta — This plugin is in active development. Bugs are to be expected.
 > Please [open an issue](https://github.com/magynhard/intellij-crystal/issues/new/choose)
 > and fill out the template carefully (current/expected examples are required)
-> so we can triage effectively. For vague ideas, use
-> [Discussions](https://github.com/magynhard/intellij-crystal/discussions) first.
+> so we can triage effectively.
 
 ![New Project Wizard](doc/img/screenshots/001_new_project.png)
 
@@ -300,7 +299,6 @@ information we need.
 - 🐛 [Report a bug](https://github.com/magynhard/intellij-crystal/issues/new/choose) — something doesn't work as expected
 - ✨ [Request a feature](https://github.com/magynhard/intellij-crystal/issues/new/choose) — a Crystal construct or IDE feature that isn't supported yet
 - 🦥 [Report a UX issue](https://github.com/magynhard/intellij-crystal/issues/new/choose) — something works but feels clunky
-- 💬 [Discussions](https://github.com/magynhard/intellij-crystal/discussions) — for vague ideas, questions, and design discussion
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to report issues and contribute.
 
