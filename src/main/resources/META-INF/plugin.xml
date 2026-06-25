@@ -98,6 +98,38 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.1.16</h3>
+<ul>
+  <li><b>Colon spacing inspection</b> — reports missing space after <code>:</code> in type annotations (e.g. <code>x:Int32</code> → warning)</li>
+  <li><b><code>@param</code> shorthand support</b> — <code>@param</code> in method bodies is recognized for completion, type inference, and inspections</li>
+  <li><b>Record macro support</b> — <code>record Config, host : String, port : Int32</code> works for completion, parameter info (<code>Ctrl+P</code>), and argument inspections</li>
+  <li><b>Type checking for record macro parameters</b> — validates argument types against record parameters in inspections</li>
+  <li><b>Parameter completion priority boost</b> — parameters appear higher in the completion popup with bold styling</li>
+  <li><b>Keywords as method/macro names</b> — <code>macro require(...)</code>, <code>def if(...)</code>, <code>def self.require(...)</code> etc. now parse correctly; all Crystal keywords are valid as method names</li>
+  <li><b>Annotation definitions inside module/class bodies</b> — <code>annotation GeneratedWrapper ... end</code> inside <code>module</code>/<code>class</code> now parses correctly</li>
+  <li><b>Global namespace prefix in expressions</b> — <code>::Bytes.new(...)</code>, <code>::Foo::Bar.new(x)</code> etc. now parse correctly</li>
+  <li><b>Overloaded methods in completion</b> — multiple overloads of the same method (e.g. <code>ENV.fetch</code> with 3 different signatures) now appear as separate entries in the code completion popup, each showing its parameter signature</li>
+  <li><b>Bug fix</b> — renaming <code>@var</code>/<code>@@var</code> with explicit prefix now correctly preserves the variable type</li>
+  <li><b>Bug fix</b> — postfix modifiers (e.g. <code>return x if condition</code>) no longer break macro body <code>end</code> detection</li>
+  <li><b>Bug fix</b> — type check and parameter info for DOT-calls on constants no longer show false positive type mismatches</li>
+  <li><b>Bug fix</b> — false positive "Unknown named argument" on class constructor DOT-calls fixed</li>
+  <li><b>Bug fix</b> — <code>case ... end.tap do</code> no longer causes a parse error</li>
+  <li><b>Bug fix</b> — <code>?</code>/<code>!</code> suffix after macro interpolation now parses correctly</li>
+  <li><b>Bug fix</b> — multi-level pointer types in lib bindings (e.g. <code>BaseInfo***</code>) now parse correctly</li>
+  <li><b>Bug fix</b> — postfix modifier after compound assignment (e.g. <code>@data[key] += 1 if condition</code>) now parses correctly</li>
+  <li><b>Bug fix</b> — binary expressions inside calls are no longer misparsed as bare method calls</li>
+  <li><b>Bug fix</b> — splat prefix detection in argument extraction no longer produces false positives</li>
+  <li><b>Bug fix</b> — record macro parameter priority fixed, preventing false "wrong argument type" errors</li>
+  <li><b>Bug fix</b> — colon spacing inspection now only scans within method definitions</li>
+  <li><b>Bug fix</b> — binary <code>+</code>/<code>-</code> no longer parsed as bare method arguments</li>
+  <li><b>Bug fix</b> — Go to Definition on <code>.new</code> now follows Crystal's constructor resolution order</li>
+  <li><b>Bug fix</b> — operator method names (<code>[]</code>, <code>[]?</code>, <code>[]=</code>) now parse correctly</li>
+  <li><b>Bug fix</b> — <code>ENV.fetch</code> completion fixed; all stdlib methods inside <code>module ENV</code> are now indexed</li>
+  <li><b>Changed</b> — method lookup elements use PSI object identity to distinguish overloaded methods</li>
+  <li><b>Changed</b> — Force Re-index button now properly removes the library before re-adding it</li>
+  <li><b>Changed</b> — Force Re-index shows background progress bar with status updates</li>
+</ul>
+
 <h3>1.1.15</h3>
 <ul>
   <li><b>Parameter info (Ctrl+P)</b> for <code>ClassName.new</code> — now shows <code>initialize</code> method parameters when calling <code>new</code> on a class</li>
