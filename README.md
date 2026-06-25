@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="doc/img/crystal-logo.svg" width="150" alt="Crystal Logo">
+  <img src="src/main/resources/META-INF/pluginIcon.svg" width="150" alt="Crystal Logo">
 </p>
 
 # Crystal Language Plugin for JetBrains IDEs
