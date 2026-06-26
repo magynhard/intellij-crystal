@@ -2,6 +2,12 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.1.17] — 2026-xx-yy
+
+### Bug Fixes
+
+- **Fix false positive "Too many arguments" on parameter variables** — using a parameter variable in a binary expression (e.g. `count + 87` inside `def dance(count : Int32)`) no longer falsely reports "Too many arguments" because the inspection now checks if the method name resolves to a local variable or parameter before validating argument count against StubIndex methods
+
 ## [0.1.16] — 2026-06-25
 
 ### Added

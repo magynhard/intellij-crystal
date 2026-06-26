@@ -601,4 +601,34 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Parameter variable shadowing ====================
+
+    fun testParameterVariableNotConfusedWithMethod() {
+        myFixture.configureByText("test.cr", """
+            def dance(count : Int32)
+              return count + 87
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testParameterVariableNotConfusedWithMethodInClass() {
+        myFixture.configureByText("test.cr", """
+            class Apfelsaft::Tools
+              def self.dance(count : Int32)
+                return count + 87
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLocalVariableAssignmentNotConfusedWithMethod() {
+        myFixture.configureByText("test.cr", """
+            count = 42
+            result = count + 87
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

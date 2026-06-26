@@ -47,6 +47,13 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     private fun checkCall(callExpr: PsiElement, holder: ProblemsHolder) {
+        // Skip if the method name resolves to a local variable or parameter.
+        // This prevents false positives when a bare call like "count + 87" is parsed
+        // as method_call_expression(count, +87) due to binary_op_lookahead not catching
+        // operators followed by literals. The parameter shadows any same-named method.
+        val resolvedRef = callExpr.reference?.resolve()
+        if (resolvedRef != null && resolvedRef !is CrystalMethodDefinition) return
+
         val methodName = extractMethodName(callExpr) ?: return
         val arguments = extractArguments(callExpr)
         val methodNameElement = findMethodNameElement(callExpr) ?: return
