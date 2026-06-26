@@ -65,6 +65,15 @@ exclusive = 1...10   # excludes 10
 # Range in context (precedence matters)
 range = 1 + 2..4 + 5  # => 3..9
 
+# Range with omitted start/end (inside bracket access)
+arr = [1, 2, 3, 4, 5]
+from_start = arr[..2]
+from_start_excl = arr[...2]
+to_end = arr[1..]
+to_end_excl = arr[1...]
+full_range = arr[..]
+full_range_excl = arr[...]
+
 # Compound assignment
 x = 10
 x += 5    # x = x + 5

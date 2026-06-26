@@ -1549,39 +1549,41 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]]
+  // [bare_or_bitwise_expression] (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
+  //                                | bare_or_bitwise_expression
   static boolean bare_range_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_range_expression")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = bare_or_bitwise_expression(builder_, level_ + 1);
-    result_ = result_ && bare_range_expression_1(builder_, level_ + 1);
+    result_ = bare_range_expression_0(builder_, level_ + 1);
+    if (!result_) result_ = bare_or_bitwise_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // [(DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]]
-  private static boolean bare_range_expression_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_range_expression_1")) return false;
-    bare_range_expression_1_0(builder_, level_ + 1);
+  // [bare_or_bitwise_expression] (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
+  private static boolean bare_range_expression_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_range_expression_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = bare_range_expression_0_0(builder_, level_ + 1);
+    result_ = result_ && bare_range_expression_0_1(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && bare_range_expression_0_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [bare_or_bitwise_expression]
+  private static boolean bare_range_expression_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_range_expression_0_0")) return false;
+    bare_or_bitwise_expression(builder_, level_ + 1);
     return true;
   }
 
-  // (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
-  private static boolean bare_range_expression_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_range_expression_1_0")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = bare_range_expression_1_0_0(builder_, level_ + 1);
-    result_ = result_ && NLS(builder_, level_ + 1);
-    result_ = result_ && bare_range_expression_1_0_2(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
   // DOTDOT | DOTDOTDOT
-  private static boolean bare_range_expression_1_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_range_expression_1_0_0")) return false;
+  private static boolean bare_range_expression_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_range_expression_0_1")) return false;
     boolean result_;
     result_ = consumeToken(builder_, DOTDOT);
     if (!result_) result_ = consumeToken(builder_, DOTDOTDOT);
@@ -1589,8 +1591,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [bare_or_bitwise_expression]
-  private static boolean bare_range_expression_1_0_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_range_expression_1_0_2")) return false;
+  private static boolean bare_range_expression_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_range_expression_0_3")) return false;
     bare_or_bitwise_expression(builder_, level_ + 1);
     return true;
   }
@@ -5449,39 +5451,41 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]]
+  // [or_bitwise_expression] (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
+  //                            | or_bitwise_expression
   static boolean range_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "range_expression")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = or_bitwise_expression(builder_, level_ + 1);
-    result_ = result_ && range_expression_1(builder_, level_ + 1);
+    result_ = range_expression_0(builder_, level_ + 1);
+    if (!result_) result_ = or_bitwise_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // [(DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]]
-  private static boolean range_expression_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "range_expression_1")) return false;
-    range_expression_1_0(builder_, level_ + 1);
+  // [or_bitwise_expression] (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
+  private static boolean range_expression_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "range_expression_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = range_expression_0_0(builder_, level_ + 1);
+    result_ = result_ && range_expression_0_1(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && range_expression_0_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [or_bitwise_expression]
+  private static boolean range_expression_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "range_expression_0_0")) return false;
+    or_bitwise_expression(builder_, level_ + 1);
     return true;
   }
 
-  // (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
-  private static boolean range_expression_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "range_expression_1_0")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = range_expression_1_0_0(builder_, level_ + 1);
-    result_ = result_ && NLS(builder_, level_ + 1);
-    result_ = result_ && range_expression_1_0_2(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
   // DOTDOT | DOTDOTDOT
-  private static boolean range_expression_1_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "range_expression_1_0_0")) return false;
+  private static boolean range_expression_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "range_expression_0_1")) return false;
     boolean result_;
     result_ = consumeToken(builder_, DOTDOT);
     if (!result_) result_ = consumeToken(builder_, DOTDOTDOT);
@@ -5489,8 +5493,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [or_bitwise_expression]
-  private static boolean range_expression_1_0_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "range_expression_1_0_2")) return false;
+  private static boolean range_expression_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "range_expression_0_3")) return false;
     or_bitwise_expression(builder_, level_ + 1);
     return true;
   }
