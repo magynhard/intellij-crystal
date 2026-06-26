@@ -317,6 +317,26 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
      * 4. RPAREN edge case
      */
     fun findArgsHolder(file: PsiFile, offset: Int): PsiElement? {
+        // Quick check: if the cursor is directly after a method name (DOT-call or bare call),
+        // return a synthetic anchor for it. This must run BEFORE the Primary/Fallback A paths
+        // because `findArgsParent` would otherwise return the OUTER call's args (e.g., for
+        // `puts Tesa.hika<caret>`, it would return `puts`'s CrystalBareArgumentList instead of
+        // `hika`'s).
+        val quickCheckAnchor = scanBackwardsForBareCall(file, offset)
+        if (quickCheckAnchor is CrystalParameterInfoAnchor) {
+            // Only use the quick check if it found a DOT-call or a bare call (not just a plain identifier)
+            val nameToken = quickCheckAnchor.nameToken
+            val prev = PsiTreeUtil.prevLeaf(nameToken)
+            val prevNonWs = if (prev is PsiWhiteSpace || prev?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
+                PsiTreeUtil.prevLeaf(prev!!)
+            } else prev
+            val prevType = prevNonWs?.node?.elementType
+            // Use quick check for DOT-calls and bare calls (where the method name is at the start of a statement)
+            if (prevType == CrystalTypes.DOT || prevType == null) {
+                return quickCheckAnchor
+            }
+        }
+
         // Primary: try element at offset
         val elementAtOffset = file.findElementAt(offset)
         val primary = findArgsParent(elementAtOffset)
@@ -523,9 +543,10 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
     private fun findMethodNameInLeaves(leaves: List<PsiElement>, file: PsiFile, cursorOffset: Int): PsiElement? {
         // Pattern we're looking for:
         // [DOT] IDENTIFIER WHITESPACE [args...]
-        // The IDENTIFIER followed by whitespace is the method name.
+        // The LAST IDENTIFIER followed by whitespace (before the cursor) is the method name.
+        // We iterate backwards so that in `puts Tesa.hika <caret>`, we find `hika` and not `puts`.
 
-        for (i in leaves.indices) {
+        for (i in leaves.indices.reversed()) {
             val type = leaves[i].node?.elementType
 
             if (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT) {
@@ -547,8 +568,8 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
                 // If preceded by DOT → this is a dot-call method name (valid)
                 // If preceded by nothing (start of collected tokens) → statement start (valid)
                 // If preceded by whitespace → could be start of statement after newline break (valid)
-                // If preceded by IDENTIFIER/CONSTANT without DOT → ambiguous; the FIRST one is the call
-                //   Actually we want the FIRST qualifying IDENTIFIER, so we return immediately
+                // If preceded by IDENTIFIER/CONSTANT without DOT → ambiguous; with backward iteration
+                //   this is fine because we hit the LAST one first.
 
                 // Disqualify if preceded by COMMA (this would make it an argument, not method name)
                 if (prevType == CrystalTypes.COMMA) continue

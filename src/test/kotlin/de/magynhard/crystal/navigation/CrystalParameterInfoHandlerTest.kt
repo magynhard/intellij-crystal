@@ -423,4 +423,84 @@ class CrystalParameterInfoHandlerTest : BasePlatformTestCase() {
         val params = initMethod!!.parameterList?.parameterList ?: emptyList()
         assertEquals("initialize should have 2 params", 2, params.size)
     }
+
+    // ==================== DOT-call after method call (regression tests) ====================
+
+    fun testFindArgsDotCallAfterMethodCallWithSpace() {
+        val file = myFixture.configureByText("test.cr", """
+            def puts(x)
+            end
+            class Tesa
+              def self.hika(name : String)
+              end
+            end
+            puts Tesa.hika <caret>"test"
+        """.trimIndent())
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for Tesa.hika after puts", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("hika", name)
+    }
+
+    fun testFindArgsDotCallAfterMethodCallNoSpace() {
+        val file = myFixture.configureByText("test.cr", """
+            def puts(x)
+            end
+            class Tesa
+              def self.hika(name : String)
+              end
+            end
+            puts Tesa.hika<caret>
+        """.trimIndent())
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for Tesa.hika after puts (no space)", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("hika", name)
+    }
+
+    fun testFindArgsNamespaceDotCallAfterMethodCallWithSpace() {
+        val file = myFixture.configureByText("test.cr", """
+            def puts(x)
+            end
+            class RvmCli
+              class Tools
+                def self.hello(name : String)
+                end
+              end
+            end
+            puts RvmCli::Tools.hello <caret>"test"
+        """.trimIndent())
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for RvmCli::Tools.hello after puts", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("hello", name)
+    }
+
+    fun testFindArgsDotCallAloneWithSpace() {
+        val file = myFixture.configureByText("test.cr", """
+            class Tesa
+              def self.hika(name : String)
+              end
+            end
+            Tesa.hika <caret>"test"
+        """.trimIndent())
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for Tesa.hika (no puts, with space)", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("hika", name)
+    }
+
+    fun testFindArgsBareCallAfterMethodCallWithSpace() {
+        val file = myFixture.configureByText("test.cr", """
+            def puts(x)
+            end
+            def greet(name : String)
+            end
+            puts greet <caret>"test"
+        """.trimIndent())
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for greet after puts", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("greet", name)
+    }
 }
