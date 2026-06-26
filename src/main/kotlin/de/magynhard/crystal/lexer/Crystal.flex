@@ -417,6 +417,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   ")"                  { return CrystalTypes.RPAREN; }
   "["                  { return CrystalTypes.LBRACKET; }
   "]"                  { return CrystalTypes.RBRACKET; }
+  "::"                 { return CrystalTypes.DOUBLE_COLON; }
   ":"                  { return CrystalTypes.COLON; }
   "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
@@ -554,9 +555,10 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
-  "/"                  { return CrystalTypes.SLASH; }
-  ":"                  { return CrystalTypes.COLON; }
-  "=="                 { return CrystalTypes.EQ; }
+   "/"                  { return CrystalTypes.SLASH; }
+   "::"                 { return CrystalTypes.DOUBLE_COLON; }
+   ":"                  { return CrystalTypes.COLON; }
+   "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
   "<"                  { return CrystalTypes.LT; }
   ">"                  { return CrystalTypes.GT; }

@@ -1,3 +1,5 @@
 x = "hello #{name}"
 y = "result: #{1 + 2}"
 z = "type: #{obj.class}"
+w = "#{Foo::Bar.method}"
+v = "value: #{RvmCli::Tools.config}"
