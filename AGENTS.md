@@ -62,6 +62,7 @@ Generated sources live in `src/main/gen/` and are **committed**. Regenerate with
 - **MACRO_INTERPOLATION and MACRO_CONTROL lexer states must mirror INTERPOLATION.** Whenever a token type or rule is added to the `<INTERPOLATION>` state (e.g., `SYMBOL`, `:"string"`), it must also be added to `<MACRO_INTERPOLATION>` and `<MACRO_CONTROL>`. These states share the same semantic structure but are separate in the lexer.
 - **TextAttributesKey fallback colors are cached in the user's theme.** Once a user has loaded the plugin, the key's fallback color is persisted. To change a key's effective color, rename it (e.g., `CRYSTAL_PARAMETER` → `CRYSTAL_PARAMETER_V2`) so IntelliJ resolves the new fallback freshly. The `ColorSettingsPage` entry uses the key reference, so no UI change is needed.
 - **IntelliJ's built-in TODO highlighting renders above the Annotator layer.** `textAttributes(...)` on the Annotator won't override it. Use `enforcedTextAttributes(...)` with concrete `TextAttributes` obtained from `EditorColorsManager.getInstance().globalScheme.getAttributes(...)` to override the built-in TODO coloring.
+- **FileTypeIndex scans are forbidden at runtime.** Any code that uses `FileTypeIndex.processFiles()` or iterates over all `.cr` files in the project (outside of the StubIndex builder) causes 90+ second hangs on every right-click/hover. Only the initial StubIndex builder (which runs once at project load) may scan all files. For runtime lookups, always use `StubIndex.getElements()` which queries the in-memory index.
 
 ## Key Directories
 
@@ -94,6 +95,7 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 
 - **`TODO.md`** contains follow-up tasks for ongoing work (rename, type inference, etc.). Update after completing tasks.
 - **`README.md`** should be updated when user-facing features or setup instructions change.
+- **`CHANGELOG.md`** — every change must have an entry. The skill `.agents/skills/changelog-entry/SKILL.md` describes the full workflow including version detection and auto-creation of new version sections.
 
 ## Plugin Registration
 
