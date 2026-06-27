@@ -1,5 +1,6 @@
 package de.magynhard.crystal.psi
 
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
@@ -27,10 +28,20 @@ class CrystalReference(
     rangeLength: Int
 ) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
+    companion object {
+        private val LOG = Logger.getInstance(CrystalReference::class.java)
+        private var resolveCallCount = java.util.concurrent.atomic.AtomicInteger(0)
+    }
+
     override fun resolve(): PsiElement? {
+        val callCount = resolveCallCount.incrementAndGet()
+        LOG.warn("CRYSTAL RESOLVE #$callCount: name=$name, element=${element.javaClass.simpleName}, " +
+                 "file=${element.containingFile?.name}, offset=${element.textRange.startOffset}")
+
         // 1. Local scope fallback (fast — no I/O, walks up PSI tree)
         val local = resolveLocal()
         if (local != null) {
+            LOG.warn("CRYSTAL RESOLVE #$callCount: found local ${local.javaClass.simpleName} '${local.text}'")
             // If the result is an IDENTIFIER leaf (not PsiNameIdentifierOwner),
             // promote to its parent composite if it implements PsiNameIdentifierOwner.
             // This ensures IntelliJ's rename framework activates (requires
@@ -50,14 +61,21 @@ class CrystalReference(
             CrystalClassIndex.KEY, name, element.project, scope,
             CrystalNamedElement::class.java
         )
-        if (types.isNotEmpty()) return types.first()
+        if (types.isNotEmpty()) {
+            LOG.warn("CRYSTAL RESOLVE #$callCount: StubIndex class hit: ${types.first().javaClass.simpleName}")
+            return types.first()
+        }
 
         val methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, name, element.project, scope,
             CrystalMethodDefinition::class.java
         )
-        if (methods.isNotEmpty()) return methods.first()
+        if (methods.isNotEmpty()) {
+            LOG.warn("CRYSTAL RESOLVE #$callCount: StubIndex method hit: ${methods.first().javaClass.simpleName} '${methods.first().name}'")
+            return methods.first()
+        }
 
+        LOG.warn("CRYSTAL RESOLVE #$callCount: NO RESULT for '$name'")
         return null
     }
 
