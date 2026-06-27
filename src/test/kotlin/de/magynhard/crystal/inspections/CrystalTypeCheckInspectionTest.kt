@@ -290,4 +290,45 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Bare DOT-call type checking ====================
+
+    fun testBareDotCallTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            def hika(name : String)
+            end
+            class Foo
+              def self.bar(x : String)
+              end
+            end
+            puts Foo.bar <error descr="Type mismatch: expected 'String', got 'Int32'">123</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBareDotCallCorrectType() {
+        myFixture.configureByText("test.cr", """
+            def hika(name : String)
+            end
+            class Foo
+              def self.bar(x : String)
+              end
+            end
+            puts Foo.bar "hello"
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBareDotCallAfterMethodCallTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            class RvmCli
+              class Tools
+                def self.hello(name : String)
+                end
+              end
+            end
+            puts RvmCli::Tools.hello <error descr="Type mismatch: expected 'String', got 'Int32'">123</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

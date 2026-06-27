@@ -680,7 +680,7 @@ private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) bare
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
 private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                           | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args]
+                           | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args | bare_argument_list]
                           | DOUBLE_COLON CONSTANT
                           | LBRACKET argument_list RBRACKET [QUESTION]
                           | call_args
