@@ -1,6 +1,5 @@
 package de.magynhard.crystal.psi
 
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
@@ -28,20 +27,10 @@ class CrystalReference(
     rangeLength: Int
 ) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
-    companion object {
-        private val LOG = Logger.getInstance(CrystalReference::class.java)
-        private var resolveCallCount = java.util.concurrent.atomic.AtomicInteger(0)
-    }
-
     override fun resolve(): PsiElement? {
-        val callCount = resolveCallCount.incrementAndGet()
-        LOG.warn("CRYSTAL RESOLVE #$callCount: name=$name, element=${element.javaClass.simpleName}, " +
-                 "file=${element.containingFile?.name}, offset=${element.textRange.startOffset}")
-
         // 1. Local scope fallback (fast — no I/O, walks up PSI tree)
         val local = resolveLocal()
         if (local != null) {
-            LOG.warn("CRYSTAL RESOLVE #$callCount: found local ${local.javaClass.simpleName} '${local.text}'")
             // If the result is an IDENTIFIER leaf (not PsiNameIdentifierOwner),
             // promote to its parent composite if it implements PsiNameIdentifierOwner.
             // This ensures IntelliJ's rename framework activates (requires
@@ -61,27 +50,25 @@ class CrystalReference(
             CrystalClassIndex.KEY, name, element.project, scope,
             CrystalNamedElement::class.java
         )
-        if (types.isNotEmpty()) {
-            LOG.warn("CRYSTAL RESOLVE #$callCount: StubIndex class hit: ${types.first().javaClass.simpleName}")
-            return types.first()
-        }
+        if (types.isNotEmpty()) return types.first()
 
         val methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, name, element.project, scope,
             CrystalMethodDefinition::class.java
         )
-        if (methods.isNotEmpty()) {
-            LOG.warn("CRYSTAL RESOLVE #$callCount: StubIndex method hit: ${methods.first().javaClass.simpleName} '${methods.first().name}'")
-            return methods.first()
-        }
+        if (methods.isNotEmpty()) return methods.first()
 
-        LOG.warn("CRYSTAL RESOLVE #$callCount: NO RESULT for '$name'")
         return null
     }
 
     private fun resolveLocal(): PsiElement? {
+        val containingFile = element.containingFile ?: return null
         var scope: PsiElement? = element.parent
-        while (scope != null) {
+        // Walk up the PSI tree, but NEVER cross the file boundary — climbing into
+        // PsiDirectory would traverse the whole project tree and lazily parse
+        // every sibling file (including .sh build scripts), freezing the IDE for
+        // tens of seconds on Ctrl+B / identifier highlighting.
+        while (scope != null && scope !== containingFile) {
             // Walk siblings before the reference looking for assignments like "name = ..."
             var sibling = scope.prevSibling
             while (sibling != null) {
@@ -114,6 +101,10 @@ class CrystalReference(
      * Stops at method/macro/class/struct boundaries to avoid resolving
      * across scope boundaries — a variable in method A should not resolve
      * to an assignment in sibling method B.
+     *
+     * Also refuses to cross file/directory boundaries — a defensive guard
+     * so any future regression in [resolveLocal] cannot cascade into the
+     * project tree and lazily parse every sibling file.
      */
     private fun findAssignmentWithName(element: PsiElement, targetName: String): PsiElement? {
         // Don't cross scope boundaries
@@ -122,6 +113,11 @@ class CrystalReference(
             element is CrystalStructDefinition || element is CrystalEnumDefinition) {
             return null
         }
+        // Hard boundary: never recurse into files or directories. This is a defensive
+        // guard — resolveLocal() also stops at the file boundary, but this ensures
+        // that even if the walk escaped, we cannot trigger lazy parsing of every
+        // file in the project (which caused 40+ second EDT freezes).
+        if (element is PsiFile || element is PsiDirectory) return null
         if (element is CrystalAssignment && element is PsiNameIdentifierOwner &&
             (element as PsiNameIdentifierOwner).name == targetName) {
             return element

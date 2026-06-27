@@ -153,4 +153,51 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         assertNotNull("Should resolve forward reference", resolved)
         assertTrue(resolved is CrystalMethodDefinition)
     }
+
+    /**
+     * Regression test for a bug where Ctrl+B on a top-level bare method call
+     * (e.g. `sahne` after `def sahne(bonbon : String) … end`) froze the IDE for
+     * tens of seconds with a "Resolving reference..." popup.
+     *
+     * Root cause: CrystalReference.resolveLocal() walked scope.parent upward
+     * without stopping at the file boundary. Once `scope` reached PsiFile.parent
+     * (= PsiDirectory), prevSibling traversal recursed into every sibling file
+     * via findAssignmentWithName() → element.children → PsiFileImpl.getChildren()
+     * → lazy-parse of each file (including .sh build scripts via the Shell plugin).
+     *
+     * This test reproduces the trigger (top-level def followed by a bare call,
+     * with several preceding statements so the walk has siblings to scan) and
+     * asserts resolution still terminates and finds the method. The test reuses
+     * the shared BasePlatformTestCase project, so a regression that escapes
+     * the file boundary would walk the entire test data tree and time out.
+     */
+    fun testTopLevelBareCallResolvesWithoutEscapingFileBoundary() {
+        val file = myFixture.configureByText("test.cr", """
+            arr = [1, 2, 3, 4]
+            a = arr[..2]
+            b = arr[2..]
+            puts "a: #{a}"
+            puts "b: #{b}"
+
+            def sahne(bonbon : String)
+              return bonbon
+            end
+
+            sahne
+        """.trimIndent())
+        val varRefs = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+        val sahneRef = varRefs.find { ref ->
+            ref.text == "sahne" &&
+            ref.parent !is CrystalMethodName &&
+            ref.parent?.parent !is CrystalMethodDefinition
+        }
+        assertNotNull("Should find 'sahne' variable reference (the bare call)", sahneRef)
+        val reference = findReference(sahneRef!!)
+        assertNotNull("variable_reference should have a CrystalReference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve sahne to the method definition", resolved)
+        assertTrue("Should resolve to CrystalMethodDefinition",
+            resolved is CrystalMethodDefinition)
+        assertEquals("sahne", (resolved as CrystalMethodDefinition).name)
+    }
 }
