@@ -202,4 +202,90 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         // If not, at least should not crash
         assertTrue("Should not crash", doc == null || doc.isNotEmpty())
     }
+
+    // ==================== Resolution from DOT-call Sites (Phase 1 fallback) ====================
+    //
+    // Hover / Ctrl+Q on `Apfel.tanzen` and `a.essen` must show the method's documentation,
+    // even though DOT-call identifiers currently carry no PsiReference (because `postfix_op`
+    // and `bare_postfix_op` are private BNF rules). The DocumentationProvider falls back to
+    // CrystalGotoDeclarationHandler.getGotoDeclarationTargets().
+    //
+    // Phase 2 of the unified-reference refactor will give these identifiers a real
+    // PsiReference, at which point the fallback becomes unused — but these tests stay green
+    // because `getCustomDocumentationElement` checks `ref.resolve()` first.
+
+    /**
+     * Drives the full hover flow: getCustomDocumentationElement → generateDoc.
+     * getCustomDocumentationElement is what the platform calls first to resolve
+     * which element to document; generateDoc then renders it.
+     */
+    private fun hoverDoc(code: String): String? {
+        myFixture.configureByText("test.cr", code)
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        if (target != null) {
+            val doc = provider.generateDoc(target, leaf)
+            if (doc != null) return doc
+        }
+        // Fallback: generateDoc may resolve directly (e.g. when leaf is already on a definition)
+        return provider.generateDoc(leaf, null)
+    }
+
+    fun testHoverOnStaticClassDotCallShowsMethodDoc() {
+        val doc = hoverDoc("""
+            class Apfel
+              # Tanzt laut.
+              def self.tanzen
+              end
+            end
+            Apfel.tan<caret>zen
+        """.trimIndent())
+        assertNotNull("Hover on Apfel.tanzen should return doc", doc)
+        assertTrue("Should contain method name 'tanzen'", doc!!.contains("tanzen"))
+        assertTrue("Should contain class name 'Apfel'", doc.contains("Apfel"))
+        assertTrue("Should contain doc comment 'Tanzt laut'", doc.contains("Tanzt laut"))
+    }
+
+    fun testHoverOnInstanceMethodDotCallShowsMethodDoc() {
+        val doc = hoverDoc("""
+            class Apfel
+              # Isst den Apfel.
+              def essen
+              end
+            end
+            a = Apfel.new
+            a.es<caret>sen
+        """.trimIndent())
+        assertNotNull("Hover on a.essen should return doc", doc)
+        assertTrue("Should contain method name 'essen'", doc!!.contains("essen"))
+        assertTrue("Should contain doc comment 'Isst den Apfel'", doc.contains("Isst den Apfel"))
+    }
+
+    fun testHoverOnTopLevelBareCallStillWorks() {
+        val doc = hoverDoc("""
+            # Sahnetoßchen.
+            def sahne(bonbon : String)
+              return bonbon
+            end
+            sah<caret>ne
+        """.trimIndent())
+        assertNotNull("Hover on sahne should return doc", doc)
+        assertTrue("Should contain method name 'sahne'", doc!!.contains("sahne"))
+        assertTrue("Should contain doc comment 'Sahnetoßchen'", doc.contains("Sahneto"))
+    }
+
+    fun testHoverOnDotNewShowsConstructorDoc() {
+        val doc = hoverDoc("""
+            class Senf
+              # Erzeugt eine Senf-Instanz.
+              def initialize(x : Int32)
+              end
+            end
+            Senf.n<caret>ew
+        """.trimIndent())
+        assertNotNull("Hover on Senf.new should return doc", doc)
+        // Should resolve to def initialize (the default constructor target)
+        assertTrue("Should contain 'initialize' or 'Senf'", doc!!.contains("initialize") || doc.contains("Senf"))
+    }
 }

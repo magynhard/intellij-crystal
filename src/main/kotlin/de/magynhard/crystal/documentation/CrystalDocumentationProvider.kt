@@ -1,12 +1,16 @@
 package de.magynhard.crystal.documentation
 
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.lang.documentation.AbstractDocumentationProvider
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.richcopy.HtmlSyntaxInfoUtil
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
@@ -15,6 +19,17 @@ import org.intellij.markdown.parser.MarkdownParser
 /**
  * Provides Quick Documentation (Ctrl+Q / F1) and hover documentation for Crystal elements.
  * Shows the element signature (syntax-highlighted) and doc comments rendered as Markdown/HTML.
+ *
+ * Resolution order for `getCustomDocumentationElement` (hover / Ctrl+Q on a usage):
+ * 1. PsiReference on the context element or its parent — works for `variable_reference`,
+ *    `method_call_expression`, `bare_method_call_expression`, `type_path` (these have
+ *    mixins that return CrystalReference).
+ * 2. CrystalGotoDeclarationHandler fallback — for DOT-call identifiers
+ *    (`Apfel.tanzen`, `a.essen`, `Senf.new`) which currently have no PsiReference because
+ *    `postfix_op` / `bare_postfix_op` are private BNF rules and produce flat sibling tokens.
+ *    The handler knows how to resolve the DOT pattern and the `.new` constructor special case.
+ *    Phase 2 of the unified-reference refactor will replace this fallback with a real
+ *    PsiReference on a dedicated `dot_call_access` composite.
  */
 class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
@@ -24,15 +39,27 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     }
 
     override fun getCustomDocumentationElement(
-        editor: com.intellij.openapi.editor.Editor,
-        file: com.intellij.psi.PsiFile,
+        editor: Editor,
+        file: PsiFile,
         contextElement: PsiElement?,
         targetOffset: Int
     ): PsiElement? {
         if (contextElement == null) return null
-        // Try to resolve reference from the context element
+        // 1. Try PsiReference on the context element (and its parent, for leaf tokens
+        //    whose reference lives on the wrapping composite, e.g. IDENTIFIER inside
+        //    CrystalVariableReference).
         val ref = contextElement.reference ?: contextElement.parent?.reference
-        return ref?.resolve()
+        val resolved = ref?.resolve()
+        if (resolved != null) return resolved
+
+        // 2. Fallback for DOT-call identifiers (Apfel.tanzen, a.essen, Senf.new) —
+        //    these have no PsiReference today. Delegate to the GotoDeclarationHandler,
+        //    which knows how to resolve the DOT pattern via sibling/leaf scanning.
+        //    We pass targetOffset as the caret offset so the handler's skipWhitespaceBefore
+        //    / prevLeafSkipWhitespace scans work relative to the hover position.
+        val handler: GotoDeclarationHandler = CrystalGotoDeclarationHandler()
+        val targets = handler.getGotoDeclarationTargets(contextElement, targetOffset, editor)
+        return targets?.firstOrNull()
     }
 
     // ==================== Target Resolution ====================
