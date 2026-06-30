@@ -4,14 +4,19 @@ import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.richcopy.HtmlSyntaxInfoUtil
+import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.stubs.StubIndex
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.stubs.CrystalClassIndex
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
@@ -20,16 +25,10 @@ import org.intellij.markdown.parser.MarkdownParser
  * Provides Quick Documentation (Ctrl+Q / F1) and hover documentation for Crystal elements.
  * Shows the element signature (syntax-highlighted) and doc comments rendered as Markdown/HTML.
  *
- * Resolution order for `getCustomDocumentationElement` (hover / Ctrl+Q on a usage):
- * 1. PsiReference on the context element or its parent — works for `variable_reference`,
- *    `method_call_expression`, `bare_method_call_expression`, `type_path` (these have
- *    mixins that return CrystalReference).
- * 2. CrystalGotoDeclarationHandler fallback — for DOT-call identifiers
- *    (`Apfel.tanzen`, `a.essen`, `Senf.new`) which currently have no PsiReference because
- *    `postfix_op` / `bare_postfix_op` are private BNF rules and produce flat sibling tokens.
- *    The handler knows how to resolve the DOT pattern and the `.new` constructor special case.
- *    Phase 2 of the unified-reference refactor will replace this fallback with a real
- *    PsiReference on a dedicated `dot_call_access` composite.
+ * Documentation links: type names, class names, and superclass names inside the rendered
+ * documentation popup are hyperlinked via `psi_element://class:<name>` URLs. Clicking them
+ * resolves via [CrystalClassIndex] and replaces the popup content with the target element's
+ * documentation (handled by [getDocumentationElementForLink]).
  */
 class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
@@ -55,11 +54,20 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         // 2. Fallback for DOT-call identifiers (Apfel.tanzen, a.essen, Senf.new) —
         //    these have no PsiReference today. Delegate to the GotoDeclarationHandler,
         //    which knows how to resolve the DOT pattern via sibling/leaf scanning.
-        //    We pass targetOffset as the caret offset so the handler's skipWhitespaceBefore
-        //    / prevLeafSkipWhitespace scans work relative to the hover position.
         val handler: GotoDeclarationHandler = CrystalGotoDeclarationHandler()
         val targets = handler.getGotoDeclarationTargets(contextElement, targetOffset, editor)
         return targets?.firstOrNull()
+    }
+
+    override fun getDocumentationElementForLink(psiManager: PsiManager, link: String, originalElement: PsiElement?): PsiElement? {
+        if (!link.startsWith("class:")) return null
+        val className = link.removePrefix("class:")
+        val project = originalElement?.project ?: return null
+        val elements = StubIndex.getElements(
+            CrystalClassIndex.KEY, className, project,
+            GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
+        )
+        return elements.firstOrNull()
     }
 
     // ==================== Target Resolution ====================
@@ -68,7 +76,8 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         if (element == null) return null
         // Already a definition
         if (element is CrystalMethodDefinition || element is CrystalClassDefinition
-            || element is CrystalModuleDefinition) {
+            || element is CrystalModuleDefinition || element is CrystalStructDefinition
+            || element is CrystalEnumDefinition) {
             return element
         }
         // Try resolving via reference
@@ -82,7 +91,8 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         var depth = 0
         while (current != null && depth < 4) {
             if (current is CrystalMethodDefinition || current is CrystalClassDefinition
-                || current is CrystalModuleDefinition) {
+                || current is CrystalModuleDefinition || current is CrystalStructDefinition
+                || current is CrystalEnumDefinition) {
                 return current
             }
             current = current.parent
@@ -112,22 +122,19 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     // ==================== Signature Rendering ====================
 
     private fun renderSignature(target: PsiElement): String {
-        val signatureText = buildSignatureText(target)
-        // Use HtmlSyntaxInfoUtil for syntax-highlighted signature
-        val highlighted = highlightCrystalCode(signatureText, target)
-        return highlighted ?: escapeHtml(signatureText)
-    }
-
-    private fun buildSignatureText(target: PsiElement): String {
+        val project = target.project
         return when (target) {
-            is CrystalMethodDefinition -> buildMethodSignature(target)
-            is CrystalClassDefinition -> buildClassSignature(target)
-            is CrystalModuleDefinition -> buildModuleSignature(target)
-            else -> target.text.lines().first()
+            is CrystalMethodDefinition -> buildMethodSignatureHtml(target, project)
+            is CrystalClassDefinition -> buildClassSignatureHtml(target, project)
+            is CrystalModuleDefinition -> buildModuleSignatureHtml(target, project)
+            is CrystalStructDefinition -> buildStructSignatureHtml(target, project)
+            is CrystalEnumDefinition -> buildEnumSignatureHtml(target, project)
+            else -> highlightCrystalCode(target.text.lines().first(), target)
+                ?: escapeHtml(target.text.lines().first())
         }
     }
 
-    private fun buildMethodSignature(method: CrystalMethodDefinition): String {
+    private fun buildMethodSignatureHtml(method: CrystalMethodDefinition, project: Project): String {
         val sb = StringBuilder()
         val enclosingClass = PsiTreeUtil.getParentOfType(method, CrystalClassDefinition::class.java)
             ?: PsiTreeUtil.getParentOfType(method, CrystalModuleDefinition::class.java)
@@ -138,59 +145,120 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             else -> null
         }
 
-        // Check if it's a self (class) method
-        val methodNameText = method.methodName?.text ?: method.name ?: "unknown"
-        val isSelfMethod = methodNameText.startsWith("self.")
+        // Line 1: enclosing class name (linked) — top-level methods show "Object" (Crystal's universal base)
+        val displayClassName = className ?: "Object"
+        sb.append(linkToClass(displayClassName, project) ?: escapeHtml(displayClassName))
+        sb.append("\n")
 
-        if (className != null) {
-            sb.append(className)
-            if (isSelfMethod) {
-                sb.append(".")
-                sb.append(methodNameText.removePrefix("self."))
-            } else {
-                sb.append("#")
-                sb.append(methodNameText)
-            }
-        } else {
-            sb.append(methodNameText)
-        }
+        // Line 2: method signature (no "def " prefix)
+        val methodNameText = method.name ?: "unknown"
 
-        // Parameters
+        // Build the method line as plain text, then highlight
         val paramList = method.parameterList
-        if (paramList != null) {
-            sb.append("(")
-            sb.append(paramList.parameterList.joinToString(", ") { it.text.trim() })
-            sb.append(")")
-        }
+        val paramsText = if (paramList != null) {
+            paramList.parameterList.joinToString(", ") { it.text.trim() }
+        } else ""
 
-        // Return type
-        val returnType = method.typeReference
-        if (returnType != null) {
-            sb.append(" : ")
-            sb.append(returnType.text)
+        val retTypeText = method.typeReference?.let { " : ${it.text}" } ?: ""
+
+        val methodLine = "$methodNameText($paramsText)$retTypeText"
+        val highlighted = highlightCrystalCode(methodLine, method) ?: escapeHtml(methodLine)
+
+        // Wrap type names with links
+        sb.append(wrapTypeLinks(highlighted, project))
+
+        return sb.toString()
+    }
+
+    private fun buildClassSignatureHtml(classDef: CrystalClassDefinition, project: Project): String {
+        val sb = StringBuilder()
+        sb.append(highlightCrystalCode("class ", classDef) ?: escapeHtml("class "))
+        // Class name is plain — no self-link (the popup IS the class's documentation)
+        sb.append(escapeHtml(classDef.name ?: "Unknown"))
+
+        // Superclass
+        val superclassClause = classDef.superclassClause
+        if (superclassClause != null) {
+            val superTypeRef = superclassClause.typeReference
+            val superName = superTypeRef.text.trim()
+            sb.append(" < ")
+            sb.append(linkToClass(superName, project) ?: escapeHtml(superName))
         }
 
         return sb.toString()
     }
 
-    private fun buildClassSignature(classDef: CrystalClassDefinition): String {
-        val sb = StringBuilder("class ")
-        sb.append(classDef.name ?: "Unknown")
-        // Check for superclass via text scan (simple approach)
-        val text = classDef.text
-        val firstLine = text.lines().first()
-        if (firstLine.contains("<")) {
-            val superPart = firstLine.substringAfter("<").trim()
-            if (superPart.isNotEmpty()) {
-                sb.append(" < ")
-                sb.append(superPart)
+    private fun buildModuleSignatureHtml(moduleDef: CrystalModuleDefinition, project: Project): String {
+        return "${highlightCrystalCode("module ", moduleDef) ?: escapeHtml("module ")}${escapeHtml(moduleDef.name ?: "Unknown")}"
+    }
+
+    private fun buildStructSignatureHtml(structDef: CrystalStructDefinition, project: Project): String {
+        val sb = StringBuilder()
+        sb.append(highlightCrystalCode("struct ", structDef) ?: escapeHtml("struct "))
+        sb.append(escapeHtml(structDef.name ?: "Unknown"))
+
+        val superclassClause = structDef.superclassClause
+        if (superclassClause != null) {
+            val superTypeRef = superclassClause.typeReference
+            val superName = superTypeRef.text.trim()
+            sb.append(" < ")
+            sb.append(linkToClass(superName, project) ?: escapeHtml(superName))
+        }
+
+        return sb.toString()
+    }
+
+    private fun buildEnumSignatureHtml(enumDef: CrystalEnumDefinition, project: Project): String {
+        val sb = StringBuilder()
+        sb.append(highlightCrystalCode("enum ", enumDef) ?: escapeHtml("enum "))
+        sb.append(escapeHtml(enumDef.name ?: "Unknown"))
+        return sb.toString()
+    }
+
+    // ==================== Documentation Links ====================
+
+    /**
+     * Returns an `<a>` tag linking to the class documentation, or null if the class
+     * is not found in [CrystalClassIndex] (silent omit — callers fall back to plain text).
+     */
+    private fun linkToClass(name: String, project: Project): String? {
+        val elements = StubIndex.getElements(
+            CrystalClassIndex.KEY, name, project,
+            GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
+        )
+        if (elements.isEmpty()) return null
+        return "<a href=\"psi_element://class:$name\">$name</a>"
+    }
+
+    /**
+     * Wraps type names in the syntax-highlighted HTML with clickable links.
+     * For each uppercase identifier found in the HTML that exists in [CrystalClassIndex],
+     * the span containing it is wrapped with an `<a>` tag pointing to the class documentation.
+     */
+    private fun wrapTypeLinks(highlightedHtml: String, project: Project): String {
+        // Find all potential type names (uppercase identifiers) in the HTML text content
+        val typeNames = Regex("[A-Z][A-Za-z0-9_]*")
+            .findAll(highlightedHtml)
+            .map { it.value }
+            .distinct()
+            .filter { name ->
+                StubIndex.getElements(
+                    CrystalClassIndex.KEY, name, project,
+                    GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
+                ).isNotEmpty()
             }
-        }
-        return sb.toString()
-    }
+            .toList()
 
-    private fun buildModuleSignature(moduleDef: CrystalModuleDefinition): String {
-        return "module ${moduleDef.name ?: "Unknown"}"
+        var result = highlightedHtml
+        for (name in typeNames) {
+            // Wrap spans containing this name with an <a> tag
+            // The regex matches: <span ...>...NAME...</span> where NAME is the type name
+            result = result.replace(
+                Regex("""(<span[^>]*>\s*)${Regex.escape(name)}(\s*</span>)"""),
+                "<a href=\"psi_element://class:$name\">$1$name$2</a>"
+            )
+        }
+        return result
     }
 
     // ==================== Doc Comment Collection ====================

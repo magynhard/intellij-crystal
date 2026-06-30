@@ -6,6 +6,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.CrystalClassDefinition
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalModuleDefinition
+import de.magynhard.crystal.psi.CrystalStructDefinition
+import de.magynhard.crystal.psi.CrystalEnumDefinition
 
 class CrystalDocumentationProviderTest : BasePlatformTestCase() {
 
@@ -29,6 +31,18 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         val file = myFixture.configureByText("test.cr", fileText)
         val modules = PsiTreeUtil.findChildrenOfType(file, CrystalModuleDefinition::class.java)
         return modules.first { it.name == moduleName }
+    }
+
+    private fun findStruct(fileText: String, structName: String): CrystalStructDefinition {
+        val file = myFixture.configureByText("test.cr", fileText)
+        val structs = PsiTreeUtil.findChildrenOfType(file, CrystalStructDefinition::class.java)
+        return structs.first { it.name == structName }
+    }
+
+    private fun findEnum(fileText: String, enumName: String): CrystalEnumDefinition {
+        val file = myFixture.configureByText("test.cr", fileText)
+        val enums = PsiTreeUtil.findChildrenOfType(file, CrystalEnumDefinition::class.java)
+        return enums.first { it.name == enumName }
     }
 
     // ==================== Method Documentation ====================
@@ -73,7 +87,6 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         val doc = provider.generateDoc(method, null)
         assertNotNull(doc)
         assertTrue("Should contain doc comment text", doc!!.contains("Addiert zwei Zahlen"))
-        // Code blocks are rendered via markdown — check that code content exists in some form
         assertTrue("Should contain code block with code", doc.contains("code") || doc.contains("pre"))
     }
 
@@ -122,9 +135,9 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertTrue("Should contain 'module' keyword", doc.contains("module"))
     }
 
-    // ==================== Signature Tests ====================
+    // ==================== Signature Format Tests ====================
 
-    fun testInstanceMethodShowsClassName() {
+    fun testInstanceMethodShowsEnclosingClass() {
         val method = findMethod("""
             class Foo
               def bar(x : Int32)
@@ -133,10 +146,14 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         """.trimIndent(), "bar")
         val doc = provider.generateDoc(method, null)
         assertNotNull(doc)
-        assertTrue("Should show Foo#bar", doc!!.contains("Foo") && doc.contains("#") && doc.contains("bar"))
+        // New format: class name on line 1, method name on line 2 (no "def " prefix, no "#")
+        assertTrue("Should contain class name 'Foo'", doc!!.contains("Foo"))
+        assertTrue("Should contain method name 'bar'", doc.contains("bar"))
+        // The class name should be hyperlinked
+        assertTrue("Class name should be hyperlinked", doc.contains("psi_element://class:Foo"))
     }
 
-    fun testClassMethodShowsDotNotation() {
+    fun testClassMethodShowsEnclosingClass() {
         val method = findMethod("""
             class Foo
               def self.create(name : String)
@@ -145,7 +162,8 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         """.trimIndent(), "create")
         val doc = provider.generateDoc(method, null)
         assertNotNull(doc)
-        assertTrue("Should show Foo.create", doc!!.contains("Foo") && doc.contains("create"))
+        assertTrue("Should contain class name 'Foo'", doc!!.contains("Foo"))
+        assertTrue("Should contain method name 'create'", doc.contains("create"))
         assertFalse("Should NOT show 'self.' in output", doc.contains("self."))
     }
 
@@ -158,6 +176,101 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         val doc = provider.generateDoc(method, null)
         assertNotNull(doc)
         assertTrue("Should contain return type", doc!!.contains("Float64"))
+    }
+
+    fun testTopLevelMethodShowsObjectAsEnclosingClass() {
+        val method = findMethod("""
+            def sahne(bonbon : String)
+              return bonbon
+            end
+        """.trimIndent(), "sahne")
+        val doc = provider.generateDoc(method, null)
+        assertNotNull(doc)
+        // Top-level methods show "Object" as the enclosing class
+        assertTrue("Should show 'Object' as enclosing class", doc!!.contains("Object"))
+        assertTrue("Should contain method name 'sahne'", doc.contains("sahne"))
+    }
+
+    fun testNoDefPrefixInMethodSignature() {
+        val method = findMethod("""
+            class Foo
+              def bar(x : Int32)
+              end
+            end
+        """.trimIndent(), "bar")
+        val doc = provider.generateDoc(method, null)
+        assertNotNull(doc)
+        // The signature line should NOT start with "def "
+        assertFalse("Should NOT contain 'def ' prefix in signature", doc!!.contains("def "))
+    }
+
+    fun testParameterTypeIsHyperlinked() {
+        val method = findMethod("""
+            class Foo
+              def greet(name : Foo)
+              end
+            end
+        """.trimIndent(), "greet")
+        val doc = provider.generateDoc(method, null)
+        assertNotNull(doc)
+        // Foo (a project-defined class) should be hyperlinked
+        assertTrue("Should contain 'Foo' in parameter", doc!!.contains("Foo"))
+        assertTrue("Foo should be hyperlinked", doc.contains("psi_element://class:Foo"))
+    }
+
+    fun testSuperclassIsHyperlinkedInClassSignature() {
+        val classDef = findClass("""
+            class Animal
+            end
+            class Dog < Animal
+            end
+        """.trimIndent(), "Dog")
+        val doc = provider.generateDoc(classDef, null)
+        assertNotNull(doc)
+        assertTrue("Should contain 'class' keyword", doc!!.contains("class"))
+        assertTrue("Should contain class name 'Dog'", doc!!.contains("Dog"))
+        assertTrue("Should contain superclass 'Animal'", doc.contains("Animal"))
+        assertTrue("Superclass should be hyperlinked", doc.contains("psi_element://class:Animal"))
+    }
+
+    fun testOwnClassNameIsNotHyperlinked() {
+        val classDef = findClass("""
+            class Foo
+            end
+        """.trimIndent(), "Foo")
+        val doc = provider.generateDoc(classDef, null)
+        assertNotNull(doc)
+        // The class's own name should NOT be hyperlinked (no self-link)
+        assertFalse("Own class name should NOT be hyperlinked", doc!!.contains("psi_element://class:Foo"))
+    }
+
+    // ==================== Struct/Enum Tests ====================
+
+    fun testStructDefinitionShowsStructSignature() {
+        val structDef = findStruct("""
+            struct Point
+              property x : Int32
+              property y : Int32
+            end
+        """.trimIndent(), "Point")
+        val doc = provider.generateDoc(structDef, null)
+        assertNotNull(doc)
+        assertTrue("Should contain 'struct' keyword", doc!!.contains("struct"))
+        assertTrue("Should contain struct name 'Point'", doc.contains("Point"))
+    }
+
+    fun testEnumDefinitionShowsEnumSignature() {
+        val enumDef = findEnum("""
+            enum Color
+              RED
+              GREEN
+              BLUE
+            end
+        """.trimIndent(), "Color")
+        val doc = provider.generateDoc(enumDef, null)
+        assertNotNull(doc)
+        assertTrue("Should contain 'enum' keyword", doc!!.contains("enum"))
+        assertTrue("Should contain enum name 'Color'", doc.contains("Color"))
     }
 
     // ==================== Edge Cases ====================
@@ -180,7 +293,6 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         """.trimIndent())
         val element = file.findElementAt(myFixture.editor.document.text.indexOf("42"))
         val doc = provider.generateDoc(element, null)
-        // A literal at depth < 4 will find a parent assignment or statement — might be null
         // Just ensure no crash
         assertTrue("Should return null or non-null without crashing", doc == null || doc.isNotEmpty())
     }
@@ -194,31 +306,14 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
             end
             wichtig(5)
         """.trimIndent())
-        // Find the "wichtig" identifier at the call site
         val callOffset = myFixture.editor.document.text.lastIndexOf("wichtig")
         val leaf = file.findElementAt(callOffset)!!
         val doc = provider.generateDoc(leaf, null)
-        // If reference resolution works, should get the doc
-        // If not, at least should not crash
         assertTrue("Should not crash", doc == null || doc.isNotEmpty())
     }
 
-    // ==================== Resolution from DOT-call Sites (Phase 1 fallback) ====================
-    //
-    // Hover / Ctrl+Q on `Apfel.tanzen` and `a.essen` must show the method's documentation,
-    // even though DOT-call identifiers currently carry no PsiReference (because `postfix_op`
-    // and `bare_postfix_op` are private BNF rules). The DocumentationProvider falls back to
-    // CrystalGotoDeclarationHandler.getGotoDeclarationTargets().
-    //
-    // Phase 2 of the unified-reference refactor will give these identifiers a real
-    // PsiReference, at which point the fallback becomes unused — but these tests stay green
-    // because `getCustomDocumentationElement` checks `ref.resolve()` first.
+    // ==================== Resolution from DOT-call Sites ====================
 
-    /**
-     * Drives the full hover flow: getCustomDocumentationElement → generateDoc.
-     * getCustomDocumentationElement is what the platform calls first to resolve
-     * which element to document; generateDoc then renders it.
-     */
     private fun hoverDoc(code: String): String? {
         myFixture.configureByText("test.cr", code)
         val offset = myFixture.caretOffset
@@ -228,7 +323,6 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
             val doc = provider.generateDoc(target, leaf)
             if (doc != null) return doc
         }
-        // Fallback: generateDoc may resolve directly (e.g. when leaf is already on a definition)
         return provider.generateDoc(leaf, null)
     }
 
@@ -285,7 +379,53 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
             Senf.n<caret>ew
         """.trimIndent())
         assertNotNull("Hover on Senf.new should return doc", doc)
-        // Should resolve to def initialize (the default constructor target)
         assertTrue("Should contain 'initialize' or 'Senf'", doc!!.contains("initialize") || doc.contains("Senf"))
+    }
+
+    // ==================== Link Infrastructure Tests ====================
+
+    fun testGetDocumentationElementForLinkResolvesToClassViaIndex() {
+        val file = myFixture.configureByText("test.cr", """
+            class Tesa
+              def self.hika(name : String)
+              end
+            end
+        """.trimIndent())
+        val project = myFixture.project
+        val resolved = provider.getDocumentationElementForLink(
+            com.intellij.psi.PsiManager.getInstance(project),
+            "class:Tesa",
+            file
+        )
+        assertNotNull("Should resolve Tesa link to class definition", resolved)
+        assertTrue("Should resolve to CrystalClassDefinition", resolved is CrystalClassDefinition)
+    }
+
+    fun testGetDocumentationElementForLinkReturnsNullForUnknownName() {
+        val file = myFixture.configureByText("test.cr", """
+            class Foo
+            end
+        """.trimIndent())
+        val project = myFixture.project
+        val resolved = provider.getDocumentationElementForLink(
+            com.intellij.psi.PsiManager.getInstance(project),
+            "class:DoesNotExist",
+            file
+        )
+        assertNull("Should return null for unknown class name", resolved)
+    }
+
+    fun testGetDocumentationElementForLinkIgnoresNonClassPrefix() {
+        val file = myFixture.configureByText("test.cr", """
+            class Foo
+            end
+        """.trimIndent())
+        val project = myFixture.project
+        val resolved = provider.getDocumentationElementForLink(
+            com.intellij.psi.PsiManager.getInstance(project),
+            "method:foo",
+            file
+        )
+        assertNull("Should return null for non-class prefix", resolved)
     }
 }
