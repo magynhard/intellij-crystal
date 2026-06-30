@@ -32,6 +32,7 @@ public interface CrystalTypes {
   IElementType CLASS_VAR_ACCESS = new CrystalElementType("CLASS_VAR_ACCESS");
   IElementType CONDITION = new CrystalElementType("CONDITION");
   IElementType CONSTANT_ASSIGNMENT = new CrystalElementType("CONSTANT_ASSIGNMENT");
+  IElementType DOT_CALL_ACCESS = new CrystalElementType("DOT_CALL_ACCESS");
   IElementType ELSE_CLAUSE = new CrystalElementType("ELSE_CLAUSE");
   IElementType ELSIF_CLAUSE = new CrystalElementType("ELSIF_CLAUSE");
   IElementType ENSURE_CLAUSE = new CrystalElementType("ENSURE_CLAUSE");
@@ -343,6 +344,9 @@ public interface CrystalTypes {
       }
       else if (type == CONSTANT_ASSIGNMENT) {
         return new CrystalConstantAssignmentImpl(node);
+      }
+      else if (type == DOT_CALL_ACCESS) {
+        return new CrystalDotCallAccessImpl(node);
       }
       else if (type == ELSE_CLAUSE) {
         return new CrystalElseClauseImpl(node);

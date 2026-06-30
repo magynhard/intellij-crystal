@@ -56,24 +56,37 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         val name = sourceElement.text
         if (name.isBlank()) return null
 
-        // Check if this identifier is after a DOT (dot-call like "obj.method" or "Class.method")
+        // The dot_call_access BNF rule now provides a CrystalDotCallReference via its
+        // mixin, so the platform's TargetElementUtil resolves DOT-calls the same way as
+        // variable_reference (top-level calls). This handler is only reached as a
+        // fallback when the reference returned null (e.g. unknown-instance receiver).
+        //
+        // The ONLY DOT-call case still handled here is the `.new` constructor, which
+        // has no dedicated `def new` in Crystal and therefore cannot resolve via
+        // CrystalMethodByClassIndex. The handler implements Crystal's constructor
+        // resolution order: self.new > record > initialize.
+        if (name == "new") {
+            val className = findClassNameBeforeNewToken(sourceElement)
+            if (className != null) {
+                val targets = findNewTargets(className, sourceElement)
+                return if (targets.isNotEmpty()) targets.toTypedArray() else null
+            }
+            // No class receiver detected — return null rather than flooding the
+            // user with every "new" method in the project.
+            return null
+        }
+
+        // Non-.new DOT-calls are fully handled by the PsiReference — return null here
+        // so the platform uses the reference resolution result (or no-result, when the
+        // receiver type is unknown — no false-positive name-only guessing).
+        // Check whether this identifier is preceded by DOT to confirm it's a DOT-call
+        // (otherwise it's a variable_reference handled entirely by the reference).
         val prev = skipWhitespaceBefore(sourceElement)
         if (prev != null && prev.node.elementType == CrystalTypes.DOT) {
-            // Special case: "ClassName.new" → resolve to self.new / record / initialize.
-            // Without this, CrystalMethodIndex returns EVERY "new" method project-wide.
-            if (name == "new") {
-                val className = findClassNameBeforeNewToken(sourceElement)
-                if (className != null) {
-                    val targets = findNewTargets(className, sourceElement)
-                    return if (targets.isNotEmpty()) targets.toTypedArray() else null
-                }
-                // No class receiver detected — return null rather than flooding the
-                // user with every "new" method in the project.
-                return null
-            }
-
-            val results = CrystalDefinitionFinder.findDefinitions(name, sourceElement.project)
-            return if (results.isNotEmpty()) results.toTypedArray() else null
+            // DOT-call: delegate to the reference (already invoked by TargetElementUtil
+            // before falling through to this handler). Return null so we don't second-
+            // guess the reference's resolution.
+            return null
         }
 
         return null

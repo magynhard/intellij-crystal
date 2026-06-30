@@ -1,5 +1,6 @@
 package de.magynhard.crystal
 
+import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
@@ -7,10 +8,29 @@ import de.magynhard.crystal.psi.*
 
 /**
  * Tests for cross-file Go to Definition — definitions in one file, usages in another.
+ *
+ * Resolution path matches what the platform does for Ctrl+B:
+ * 1. PsiReference on the element or its parent (CrystalDotCallAccess for DOT-calls,
+ *    CrystalVariableReference for direct calls).
+ * 2. GotoDeclarationHandler fallback for the `.new` constructor special case
+ *    (resolves to self.new > record > initialize).
  */
 class CrystalCrossFileGotoTest : BasePlatformTestCase() {
 
-    // ==================== DOT-call cross-file (GotoDeclarationHandler) ====================
+    /**
+     * Resolves the DOT-call at the caret using the same path as the IDE:
+     * leaf element → parent (CrystalDotCallAccess) → reference → resolve.
+     */
+    private fun dotCallTargets(): Array<out PsiElement>? {
+        val element = myFixture.file.findElementAt(myFixture.caretOffset) ?: return null
+        // 1. Reference resolution via CrystalDotCallAccess mixin.
+        val ref = element.reference ?: element.parent?.reference
+        val resolved = ref?.resolve()
+        if (resolved != null) return arrayOf(resolved)
+        // 2. GotoDeclarationHandler fallback (e.g. ".new" constructor).
+        val handler = CrystalGotoDeclarationHandler()
+        return handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
+    }
 
     fun testDotCallResolvesToSelfMethodInOtherFile() {
         myFixture.addFileToProject("apfel.cr", """
@@ -21,9 +41,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.configureByText("main.cr", "Apfel.tan<caret>zen")
 
-        val element = myFixture.file.findElementAt(myFixture.caretOffset)
-        val handler = CrystalGotoDeclarationHandler()
-        val targets = handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
+        val targets = dotCallTargets()
 
         assertNotNull("Should resolve Apfel.tanzen across files", targets)
         assertTrue("Should have at least one target", targets!!.isNotEmpty())
@@ -43,9 +61,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
             a.es<caret>sen
         """.trimIndent())
 
-        val element = myFixture.file.findElementAt(myFixture.caretOffset)
-        val handler = CrystalGotoDeclarationHandler()
-        val targets = handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
+        val targets = dotCallTargets()
 
         assertNotNull("Should resolve a.essen across files", targets)
         assertTrue(targets!!.isNotEmpty())
@@ -101,9 +117,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.configureByText("main.cr", "Utils.hel<caret>per")
 
-        val element = myFixture.file.findElementAt(myFixture.caretOffset)
-        val handler = CrystalGotoDeclarationHandler()
-        val targets = handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
+        val targets = dotCallTargets()
 
         assertNotNull("Should resolve Utils.helper across files", targets)
         assertTrue(targets!!.isNotEmpty())

@@ -17,9 +17,6 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalAsmExpression> getAsmExpressionList();
 
   @NotNull
-  List<CrystalBareArgumentList> getBareArgumentListList();
-
-  @NotNull
   List<CrystalBeginStatement> getBeginStatementList();
 
   @NotNull
@@ -33,6 +30,9 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalClassVarAccess> getClassVarAccessList();
+
+  @NotNull
+  List<CrystalDotCallAccess> getDotCallAccessList();
 
   @NotNull
   List<CrystalExpression> getExpressionList();

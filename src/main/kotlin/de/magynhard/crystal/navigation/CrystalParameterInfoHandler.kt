@@ -733,6 +733,18 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
 
         var receiver = beforeName.prevSibling
         while (receiver is PsiWhiteSpace) receiver = receiver.prevSibling
+        // After the BNF refactor (dot_call_access rule), DOT is the first child of a
+        // CrystalDotCallAccess composite, so its prevSibling is null. Walk across the
+        // composite boundary: take the prevSibling of the dot_call_access parent —
+        // that's the receiver expression in the flattened postfix_expression sequence.
+        if (receiver == null) {
+            val dotParent = beforeName.parent
+            if (dotParent is CrystalDotCallAccess) {
+                var prev = dotParent.prevSibling
+                while (prev is PsiWhiteSpace) prev = prev.prevSibling
+                receiver = prev
+            }
+        }
         if (receiver == null) return null
 
         if (receiver.node?.elementType == CrystalTypes.CONSTANT) return receiver.text

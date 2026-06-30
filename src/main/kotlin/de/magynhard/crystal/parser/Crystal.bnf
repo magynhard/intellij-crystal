@@ -531,11 +531,21 @@ private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET) u
 private postfix_expression ::= primary_expression postfix_op*
 
 private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                     | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args | bare_argument_list] [block]
+                     | NLS dot_call_access [block]
                      | DOUBLE_COLON CONSTANT
                      | LBRACKET argument_list RBRACKET [QUESTION]
                      | call_args [block]
                      | NLS DOT IDENTIFIER assign_op expression
+
+// DOT-call access: the method-name + optional args part of a DOT-call (e.g. `.tanzen`,
+// `.new(arg)`, `.method arg`). Non-private so it gets a real PSI composite with a
+// CrystalDotCallAccessMixin providing getReference() — enables identifier highlighting
+// and hover for DOT-calls (Apfel.tanzen, a.essen) through the same PsiReference
+// mechanism as variable_reference. The DOT and method name are children of this composite;
+// the receiver is the prevSibling in the flattened postfix_expression sequence.
+dot_call_access ::= DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args | bare_argument_list] {
+  mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
+}
 
 // Keywords that Crystal allows as method names after DOT
 private keyword_as_method ::= ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
@@ -680,7 +690,7 @@ private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) bare
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
 private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                           | NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args | bare_argument_list]
+                           | NLS dot_call_access
                           | DOUBLE_COLON CONSTANT
                           | LBRACKET argument_list RBRACKET [QUESTION]
                           | call_args

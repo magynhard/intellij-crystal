@@ -1,17 +1,43 @@
 package de.magynhard.crystal
 
+import com.intellij.psi.PsiElement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 
 /**
  * Tests for Go to Definition on DOT-call expressions (e.g. Apfel.tanzen, obj.method).
+ *
+ * Resolution path mirrors what the platform does on Ctrl+B:
+ * 1. PsiReference on the element or its parent (CrystalDotCallAccess for DOT-calls)
+ * 2. GotoDeclarationHandler fallback for the `.new` constructor special case.
  */
 class CrystalGotoDeclarationTest : BasePlatformTestCase() {
 
-    private fun gotoTargets(code: String): Array<out com.intellij.psi.PsiElement>? {
+    /**
+     * Resolves the target at the caret using the real platform flow:
+     * - Element at caret (leaf IDENTIFIER / CONSTANT)
+     * - Walk up to find a PsiReference (CrystalDotCallAccess for DOT-calls,
+     *   CrystalVariableReference for top-level calls)
+     * - If the reference resolves, return that target — this is what
+     *   IdentifierHighlightingComputer and the Documentation Provider both use.
+     * - If no reference resolves, fall back to the GotoDeclarationHandler
+     *   (handles the `.new` constructor resolution order).
+     */
+    private fun gotoTargets(code: String): Array<out PsiElement>? {
         myFixture.configureByText("test.cr", code)
-        val element = myFixture.file.findElementAt(myFixture.caretOffset)
+        val element = myFixture.file.findElementAt(myFixture.caretOffset) ?: return null
+
+        // 1. Reference resolution via PsiReference on the element or its parent.
+        //    Covers CrystalDotCallAccess for DOT-calls and CrystalVariableReference
+        //    for top-level calls.
+        val ref = element.reference ?: element.parent?.reference
+        val resolved = ref?.resolve()
+        if (resolved != null) return arrayOf(resolved)
+
+        // 2. GotoDeclarationHandler fallback — exercised by the platform when no
+        //    PsiReference resolves. Handles the .new constructor special case
+        //    (resolves to self.new > record > initialize).
         val handler = CrystalGotoDeclarationHandler()
         return handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
     }
@@ -46,16 +72,23 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
         assertEquals("essen", (targets[0] as CrystalMethodDefinition).name)
     }
 
-    fun testTopLevelMethodViaDotCall() {
+    /**
+     * Behaviour change after the unified-reference refactor:
+     * `x.greet` where `x = 1` (Int) is no longer resolved via name-only matching.
+     * `greet` is a top-level `def`, not a method on `Int`, so `CrystalMethodByClassIndex`
+     * returns no match. Resolution returns null (no false positives) instead of the
+     * old behaviour of jumping to the first method named `greet` project-wide.
+     */
+    fun testTopLevelMethodViaDotCallOnUnknownReceiverReturnsNull() {
         val targets = gotoTargets("""
             def greet
             end
             x = 1
             x.gre<caret>et
         """.trimIndent())
-        // "greet" exists as a top-level def — handler should find it
-        assertNotNull("Should find greet method", targets)
-        assertTrue(targets!!.isNotEmpty())
+        // `greet` exists as a top-level def but is NOT a method of `Int` (x's type).
+        // No false-positive name-only matching — return null per the no-guessing rule.
+        assertNull("Should not resolve via name-only when receiver type is unknown/unrelated", targets)
     }
 
     fun testNonMethodIdentifierAfterDotReturnsNull() {
@@ -73,9 +106,17 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
             end
             hell<caret>o
         """.trimIndent())
-        // No DOT before "hello" — GotoDeclarationHandler should return null
-        // (variable_reference mixin handles this case instead)
-        assertNull("Should return null when no DOT precedes identifier", targets)
+        // No DOT before "hello" — GotoDeclarationHandler returns null for DOT-only logic.
+        // The variable_reference PsiReference also resolves to the method definition,
+        // so the GotoDeclarationHandler is not invoked. But we still expect the test to
+        // NOT go through the handler (it goes through the reference instead). The
+        // handler's targets array should be empty here.
+        // This test confirms the handler itself returns null for bare identifiers
+        // (not preceded by DOT) — the resolution is purely via the reference.
+        val handler = CrystalGotoDeclarationHandler()
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val handlerTargets = handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
+        assertNull("Handler should return null when no DOT precedes identifier", handlerTargets)
     }
 
     fun testNestedClassMethodViaDotCall() {
