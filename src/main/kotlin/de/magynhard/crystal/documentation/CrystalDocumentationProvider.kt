@@ -233,10 +233,12 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     /**
      * Wraps type names in the syntax-highlighted HTML with clickable links.
      * For each uppercase identifier found in the HTML that exists in [CrystalClassIndex],
-     * the span containing it is wrapped with an `<a>` tag pointing to the class documentation.
+     * it is wrapped with an `<a>` tag pointing to the class documentation.
+     * Uses a word-boundary match (no letter/digit/underscore before or after) to prevent
+     * partial matches like `Foo` inside `FooBar`.
      */
     private fun wrapTypeLinks(highlightedHtml: String, project: Project): String {
-        // Find all potential type names (uppercase identifiers) in the HTML text content
+        // Find all potential type names (uppercase identifiers) in the HTML
         val typeNames = Regex("[A-Z][A-Za-z0-9_]*")
             .findAll(highlightedHtml)
             .map { it.value }
@@ -251,11 +253,11 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
         var result = highlightedHtml
         for (name in typeNames) {
-            // Wrap spans containing this name with an <a> tag
-            // The regex matches: <span ...>...NAME...</span> where NAME is the type name
+            // Match type name only at word boundaries — no letter/digit/underscore before or after
+            // to prevent matching `Foo` inside `FooBar` or `Foo_Bar`
             result = result.replace(
-                Regex("""(<span[^>]*>\s*)${Regex.escape(name)}(\s*</span>)"""),
-                "<a href=\"psi_element://class:$name\">$1$name$2</a>"
+                Regex("""(?<![a-zA-Z0-9_])${Regex.escape(name)}(?![a-zA-Z0-9_])"""),
+                "<a href=\"psi_element://class:$name\">$name</a>"
             )
         }
         return result
