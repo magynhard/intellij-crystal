@@ -128,13 +128,20 @@ now works via the `namespace_access` BNF rule and `CrystalNamespaceReference`.
 
 **Resolution:** The reference walks left through prevSibling elements to reconstruct
 the full namespace path (`Outer::Inner`), looks it up in `CrystalClassIndex`, then
-falls back to the simple name (`Inner`) for lexically-nested classes.
+falls back to the simple name (`Inner`) for lexically-nested classes. When multiple
+classes share the same simple name (e.g. `Foo::Sub` and `Bar::Sub`), the reference
+filters candidates by comparing their qualified name (built via `buildQualifiedName`)
+with the full namespace path.
 
 **Supported patterns:**
 - `::Foo` — leading namespace (global)
 - `A::B` — nested namespace
 - `A::B::C` — multi-level nested namespace
 - `A::B.method` — nested namespace with DOT-call
+
+**Disambiguation:** When multiple classes have the same simple name but different
+enclosing classes (e.g. `Foo::Sub` and `Bar::Sub`), resolution correctly identifies
+the right class by comparing the full qualified name chain.
 
 ---
 

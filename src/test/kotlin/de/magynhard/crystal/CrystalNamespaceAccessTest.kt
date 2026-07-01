@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.CrystalClassDefinition
+import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalNamespaceAccess
 import de.magynhard.crystal.psi.CrystalVariableReference
 
@@ -80,5 +81,80 @@ class CrystalNamespaceAccessTest : BasePlatformTestCase() {
         """.trimIndent())
         assertNotNull("Variable reference Foo should resolve to class", resolved)
         assertTrue("Should resolve to CrystalClassDefinition", resolved is CrystalClassDefinition)
+    }
+
+    // ==================== Disambiguation: same simple name, different enclosing class ====================
+
+    fun testNestedClassResolvesCorrectlyWhenMultipleClassesSameName() {
+        val file = myFixture.configureByText("test.cr", """
+            class Foo
+              class Sub
+              end
+            end
+            class Bar
+              class Sub
+              end
+            end
+            Foo::Sub
+        """.trimIndent())
+        // Find the namespace_access composite (::Sub in the expression, not in the class definition)
+        val namespaceAccesses = PsiTreeUtil.findChildrenOfType(file, CrystalNamespaceAccess::class.java)
+        assertEquals("Should have exactly one namespace_access", 1, namespaceAccesses.size)
+
+        val nsAccess = namespaceAccesses.first()
+        val resolved = nsAccess.getReference()?.resolve()
+        assertNotNull("Foo::Sub should resolve to Foo's Sub class", resolved)
+        assertTrue("Should resolve to CrystalClassDefinition", resolved is CrystalClassDefinition)
+        assertEquals("Sub", (resolved as CrystalClassDefinition).name)
+        // Verify it's Foo::Sub, not Bar::Sub — walk up from the parent to find the enclosing class
+        val enclosingClass = PsiTreeUtil.getParentOfType(resolved.parent, CrystalClassDefinition::class.java, false)
+        assertNotNull("Resolved Sub should be inside a class", enclosingClass)
+        assertEquals("Foo", enclosingClass?.name)
+    }
+
+    fun testDotCallResolvesCorrectlyForNestedClassMethod() {
+        val file = myFixture.configureByText("test.cr", """
+            class Foo
+              class Sub
+                def self.space
+                end
+              end
+            end
+            class Bar
+              class Sub
+                def self.space
+                end
+              end
+            end
+            Foo::Sub.space
+        """.trimIndent())
+        // Find the dot_call_access composite (.space in the expression)
+        val dotCallAccesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java)
+        assertEquals("Should have exactly one dot_call_access", 1, dotCallAccesses.size)
+
+        val dotCall = dotCallAccesses.first()
+        val resolved = dotCall.getReference()?.resolve()
+        assertNotNull("Foo::Sub.space should resolve to a method", resolved)
+        assertTrue("Should resolve to CrystalMethodDefinition", resolved is de.magynhard.crystal.psi.CrystalMethodDefinition)
+        assertEquals("space", (resolved as de.magynhard.crystal.psi.CrystalMethodDefinition).name)
+        // The method should be inside a class named Sub
+        val enclosingSub = PsiTreeUtil.getParentOfType(resolved, CrystalClassDefinition::class.java, false)
+        assertNotNull("Method should have an enclosing Sub class", enclosingSub)
+        assertEquals("Sub", enclosingSub?.name)
+    }
+
+    fun testMultiLevelNestedResolvesCorrectly() {
+        val resolved = resolveAtCaret("""
+            class A
+              class B
+                class C
+                end
+              end
+            end
+            A::B::<caret>C
+        """.trimIndent())
+        assertNotNull("A::B::C should resolve to C inside B inside A", resolved)
+        assertTrue("Should resolve to CrystalClassDefinition", resolved is CrystalClassDefinition)
+        assertEquals("C", (resolved as CrystalClassDefinition).name)
     }
 }

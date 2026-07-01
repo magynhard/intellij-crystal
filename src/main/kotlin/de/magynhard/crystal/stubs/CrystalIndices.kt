@@ -46,3 +46,20 @@ class CrystalMacroIndex : StringStubIndexExtension<CrystalMacroDefinition>() {
             StubIndexKey.createIndexKey("crystal.macro.index")
     }
 }
+
+/**
+ * Index that maps enclosing class/module/struct/enum names to their nested type definitions.
+ * Enables O(1) lookup of "all types nested inside class X" for completion of
+ * namespace paths like `Bar::<caret>`.
+ *
+ * Keyed by the enclosing type's simple name (e.g. "Foo" for a class `Sub` inside `class Foo`).
+ * Values are [CrystalNamedElement] — classes/modules/structs/enums defined inside the enclosing type.
+ */
+class CrystalClassByEnclosingIndex : StringStubIndexExtension<CrystalNamedElement>() {
+    override fun getKey(): StubIndexKey<String, CrystalNamedElement> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalNamedElement> =
+            StubIndexKey.createIndexKey("crystal.class.by.enclosing.index")
+    }
+}

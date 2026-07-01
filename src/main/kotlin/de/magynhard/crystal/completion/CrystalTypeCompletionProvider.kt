@@ -6,8 +6,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.CrystalClassDefinition
+import de.magynhard.crystal.psi.CrystalEnumDefinition
+import de.magynhard.crystal.psi.CrystalModuleDefinition
+import de.magynhard.crystal.psi.CrystalNamedElement
 import de.magynhard.crystal.psi.CrystalStructDefinition
+import de.magynhard.crystal.stubs.CrystalClassByEnclosingIndex
 import de.magynhard.crystal.stubs.CrystalClassIndex
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 
 /**
@@ -160,5 +165,32 @@ object CrystalTypeCompletionProvider {
     private fun isInsideClassOrStruct(position: PsiElement): Boolean {
         return PsiTreeUtil.getParentOfType(position, CrystalClassDefinition::class.java) != null ||
             PsiTreeUtil.getParentOfType(position, CrystalStructDefinition::class.java) != null
+    }
+
+    /**
+     * Returns LookupElements for types nested inside the given enclosing type name.
+     * Used for `Foo::<caret>` completion — shows only types defined inside `Foo`.
+     *
+     * Queries [CrystalClassByEnclosingIndex] for O(1) lookup of nested types.
+     */
+    fun getEnclosingTypeLookups(enclosingName: String, project: Project): List<LookupElementBuilder> {
+        val scope = GlobalSearchScope.allScope(project)
+        val nestedTypes = StubIndex.getElements(
+            CrystalClassByEnclosingIndex.KEY, enclosingName, project, scope,
+            CrystalNamedElement::class.java
+        )
+        return nestedTypes.mapNotNull { element ->
+            val name = element.name ?: return@mapNotNull null
+            val kind = when (element) {
+                is CrystalClassDefinition -> "class"
+                is CrystalModuleDefinition -> "module"
+                is CrystalStructDefinition -> "struct"
+                is CrystalEnumDefinition -> "enum"
+                else -> "type"
+            }
+            LookupElementBuilder.create(name)
+                .withIcon(AllIcons.Nodes.Class)
+                .withTypeText("$kind in $enclosingName", true)
+        }
     }
 }

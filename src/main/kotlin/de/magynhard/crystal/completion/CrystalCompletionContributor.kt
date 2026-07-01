@@ -124,6 +124,20 @@ class CrystalCompletionContributor : CompletionContributor() {
                 }
             }
 
+            // Case 1b: Double-colon after CONSTANT (Foo::<caret>) — show nested types only
+            if (prevLeaf != null && prevLeaf.text == "::") {
+                val beforeDoubleColon = getPreviousNonWhitespaceLeaf(prevLeaf)
+                if (beforeDoubleColon != null) {
+                    val beforeText = beforeDoubleColon.text
+                    if (beforeText.isNotEmpty() && beforeText[0].isUpperCase()) {
+                        for (lookup in CrystalTypeCompletionProvider.getEnclosingTypeLookups(beforeText, project)) {
+                            result.addElement(lookup)
+                        }
+                        return
+                    }
+                }
+            }
+
             // Case 3: Free-text completion — classes + methods + local vars/params + stdlib types
             for (lookup in CrystalTypeCompletionProvider.getStdlibTypeLookups()) {
                 result.addElement(lookup)

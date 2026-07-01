@@ -31,6 +31,10 @@ class CrystalClassDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalClassDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+
+        // Also index by enclosing class/module/struct/enum name for hierarchical completion
+        val enclosingName = findEnclosingParentName(stub)
+        enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
@@ -60,6 +64,9 @@ class CrystalModuleDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalModuleDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+
+        val enclosingName = findEnclosingParentName(stub)
+        enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
@@ -89,6 +96,9 @@ class CrystalStructDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalStructDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+
+        val enclosingName = findEnclosingParentName(stub)
+        enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
@@ -118,6 +128,9 @@ class CrystalEnumDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalEnumDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+
+        val enclosingName = findEnclosingParentName(stub)
+        enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
@@ -149,21 +162,8 @@ class CrystalMethodDefinitionElementType(debugName: String) :
         stub.name?.let { sink.occurrence(CrystalMethodIndex.KEY, it) }
 
         // Also index by enclosing class/module/struct/enum name for O(1) class→methods lookups
-        val className = findEnclosingTypeName(stub)
+        val className = findEnclosingParentName(stub)
         className?.let { sink.occurrence(CrystalMethodByClassIndex.KEY, it) }
-    }
-
-    private fun findEnclosingTypeName(stub: CrystalMethodDefinitionStub): String? {
-        var parent = stub.parentStub
-        while (parent != null) {
-            val name = (parent as? CrystalNamedStub)?.name
-            if (name != null && parent is CrystalClassDefinitionStub) return name
-            if (name != null && parent is CrystalModuleDefinitionStub) return name
-            if (name != null && parent is CrystalStructDefinitionStub) return name
-            if (name != null && parent is CrystalEnumDefinitionStub) return name
-            parent = parent.parentStub
-        }
-        return null
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
@@ -196,4 +196,25 @@ class CrystalMacroDefinitionElementType(debugName: String) :
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
+/**
+ * Walks up the stub tree from [stub] to find the name of the immediate enclosing
+ * class/module/struct/enum. Returns `null` if no enclosing type is found.
+ *
+ * Used for indexing: methods and nested types are indexed by their enclosing
+ * class name for hierarchical lookups.
+ */
+private fun findEnclosingParentName(stub: StubElement<*>): String? {
+    var parent = stub.parentStub
+    while (parent != null) {
+        if (parent is com.intellij.psi.stubs.PsiFileStub<*>) break
+        val name = (parent as? CrystalNamedStub)?.name
+        if (name != null && parent is CrystalClassDefinitionStub) return name
+        if (name != null && parent is CrystalModuleDefinitionStub) return name
+        if (name != null && parent is CrystalStructDefinitionStub) return name
+        if (name != null && parent is CrystalEnumDefinitionStub) return name
+        parent = parent.parentStub
+    }
+    return null
 }

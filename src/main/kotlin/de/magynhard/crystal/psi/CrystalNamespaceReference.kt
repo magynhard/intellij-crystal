@@ -31,23 +31,30 @@ class CrystalNamespaceReference(
         val scope = GlobalSearchScope.allScope(project)
         val fullName = buildFullName()
 
-        // Try full path first (for namespace-defined classes: `class A::B`)
+        // 1. Try full path first (for namespace-defined classes: `class A::B`)
         val byFullName = StubIndex.getElements(
             CrystalClassIndex.KEY, fullName, project, scope,
             CrystalNamedElement::class.java
         )
         if (byFullName.isNotEmpty()) return byFullName.first()
 
-        // Fall back to simple name (for lexically-nested classes: `class A; class B; end; end`)
+        // 2. Fall back to filtered simple-name lookup (for lexically-nested classes).
+        //    Filter by qualified name to disambiguate: Foo::Sub vs Bar::Sub.
         if (fullName != simpleName) {
-            val bySimpleName = StubIndex.getElements(
+            val candidates = StubIndex.getElements(
                 CrystalClassIndex.KEY, simpleName, project, scope,
                 CrystalNamedElement::class.java
             )
-            if (bySimpleName.isNotEmpty()) return bySimpleName.first()
+            return candidates.filter { candidate ->
+                CrystalPsiUtils.buildQualifiedName(candidate) == fullName
+            }.firstOrNull()
         }
 
-        return null
+        // 3. Simple name only (e.g., `::Foo` — no preceding path)
+        return StubIndex.getElements(
+            CrystalClassIndex.KEY, simpleName, project, scope,
+            CrystalNamedElement::class.java
+        ).firstOrNull()
     }
 
     /**
