@@ -50,6 +50,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalMacroInterpolation> getMacroInterpolationList();
 
   @NotNull
+  List<CrystalNamespaceAccess> getNamespaceAccessList();
+
+  @NotNull
   List<CrystalOffsetofExpression> getOffsetofExpressionList();
 
   @NotNull

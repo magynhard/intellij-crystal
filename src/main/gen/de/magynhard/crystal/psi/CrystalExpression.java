@@ -65,6 +65,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalMethodCallExpression> getMethodCallExpressionList();
 
   @NotNull
+  List<CrystalNamespaceAccess> getNamespaceAccessList();
+
+  @NotNull
   List<CrystalOffsetofExpression> getOffsetofExpressionList();
 
   @NotNull

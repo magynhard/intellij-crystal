@@ -143,6 +143,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalNamespaceAccess> getNamespaceAccessList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalNamespaceAccess.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalOffsetofExpression> getOffsetofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalOffsetofExpression.class);
   }

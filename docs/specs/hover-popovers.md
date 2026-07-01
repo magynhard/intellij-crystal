@@ -121,6 +121,21 @@ shows the parameter popup.
 
 **Not implemented yet.** No hover popup for `@var` or `@@var` references.
 
+### Namespace Access (Intermediate Segments)
+
+Hovering over intermediate namespace segments (e.g. `Inner` in `Outer::Inner.method`)
+now works via the `namespace_access` BNF rule and `CrystalNamespaceReference`.
+
+**Resolution:** The reference walks left through prevSibling elements to reconstruct
+the full namespace path (`Outer::Inner`), looks it up in `CrystalClassIndex`, then
+falls back to the simple name (`Inner`) for lexically-nested classes.
+
+**Supported patterns:**
+- `::Foo` — leading namespace (global)
+- `A::B` — nested namespace
+- `A::B::C` — multi-level nested namespace
+- `A::B.method` — nested namespace with DOT-call
+
 ---
 
 ## Resolution Priority

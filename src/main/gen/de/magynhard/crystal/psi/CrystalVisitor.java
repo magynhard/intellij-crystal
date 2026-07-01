@@ -263,6 +263,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitNamespaceAccess(@NotNull CrystalNamespaceAccess o) {
+    visitPsiElement(o);
+  }
+
   public void visitNextStatement(@NotNull CrystalNextStatement o) {
     visitPsiElement(o);
   }

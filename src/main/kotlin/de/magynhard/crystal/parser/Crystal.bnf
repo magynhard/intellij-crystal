@@ -532,7 +532,7 @@ private postfix_expression ::= primary_expression postfix_op*
 
 private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
                      | NLS dot_call_access [block]
-                     | DOUBLE_COLON CONSTANT
+                     | namespace_access
                      | LBRACKET argument_list RBRACKET [QUESTION]
                      | call_args [block]
                      | NLS DOT IDENTIFIER assign_op expression
@@ -545,6 +545,16 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // the receiver is the prevSibling in the flattened postfix_expression sequence.
 dot_call_access ::= DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args | bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
+}
+
+// Namespace access: `::Const` in expression context (e.g. `Foo::Bar`, `::Foo`, `A::B::C`).
+// Non-private so it gets a real PSI composite with a CrystalNamespaceAccessMixin providing
+// getReference() — enables Go to Definition and hover for intermediate namespace segments
+// (e.g. `Bar` in `Foo::Bar.baz`). The DOUBLE_COLON and CONSTANT are children of this
+// composite; the preceding part of the namespace path is the prevSibling in the flattened
+// postfix_expression sequence.
+namespace_access ::= DOUBLE_COLON CONSTANT {
+  mixin="de.magynhard.crystal.psi.impl.CrystalNamespaceAccessMixin"
 }
 
 // Keywords that Crystal allows as method names after DOT
@@ -579,7 +589,7 @@ private primary_expression ::= grouped_expression
                              | hash_literal
                              | tuple_literal
                              | proc_literal
-                             | DOUBLE_COLON CONSTANT
+                             | namespace_access
                              | method_call_expression
                              | implicit_object_call
                              | literal
@@ -691,7 +701,7 @@ private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
 private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
                            | NLS dot_call_access
-                          | DOUBLE_COLON CONSTANT
+                          | namespace_access
                           | LBRACKET argument_list RBRACKET [QUESTION]
                           | call_args
 

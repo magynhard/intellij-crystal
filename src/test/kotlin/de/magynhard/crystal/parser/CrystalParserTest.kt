@@ -238,4 +238,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testLibFunPointerParams() {
         doTest(true)
     }
+
+    fun testNamespaceAccess() {
+        doTest(true)
+    }
 }

@@ -113,6 +113,12 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
 
   @Override
   @NotNull
+  public List<CrystalNamespaceAccess> getNamespaceAccessList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalNamespaceAccess.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalOffsetofExpression> getOffsetofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalOffsetofExpression.class);
   }

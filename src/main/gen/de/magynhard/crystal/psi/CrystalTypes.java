@@ -74,6 +74,7 @@ public interface CrystalTypes {
   IElementType MODULE_DEFINITION = CrystalStubElementTypeFactory.create("MODULE_DEFINITION");
   IElementType MULTI_ASSIGNMENT = new CrystalElementType("MULTI_ASSIGNMENT");
   IElementType MULTI_ASSIGN_TARGET = new CrystalElementType("MULTI_ASSIGN_TARGET");
+  IElementType NAMESPACE_ACCESS = new CrystalElementType("NAMESPACE_ACCESS");
   IElementType NEXT_STATEMENT = new CrystalElementType("NEXT_STATEMENT");
   IElementType OFFSETOF_EXPRESSION = new CrystalElementType("OFFSETOF_EXPRESSION");
   IElementType PARAMETER = new CrystalElementType("PARAMETER");
@@ -470,6 +471,9 @@ public interface CrystalTypes {
       }
       else if (type == MULTI_ASSIGN_TARGET) {
         return new CrystalMultiAssignTargetImpl(node);
+      }
+      else if (type == NAMESPACE_ACCESS) {
+        return new CrystalNamespaceAccessImpl(node);
       }
       else if (type == NEXT_STATEMENT) {
         return new CrystalNextStatementImpl(node);
