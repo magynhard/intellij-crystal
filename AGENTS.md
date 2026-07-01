@@ -97,6 +97,7 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 - **`TODO.md`** contains follow-up tasks for ongoing work (rename, type inference, etc.). Update after completing tasks.
 - **`README.md`** should be updated when user-facing features or setup instructions change.
 - **`CHANGELOG.md`** — every change must have an entry. The skill `.agents/skills/changelog-entry/SKILL.md` describes the full workflow including version detection and auto-creation of new version sections.
+- **`docs/specs/`** contains behavioral specifications for implemented features — this is the project's single source of truth for specs. After every task, extend the relevant spec in `docs/specs/` or create a new `.md` file there if the topic doesn't exist yet. Specs should document what was discussed and decided (popup formats, resolution rules, edge cases, user decisions). Other spec locations are deprecated. If unsure whether a spec exists or which file to update, ask the user.
 
 ## Plugin Registration
 
