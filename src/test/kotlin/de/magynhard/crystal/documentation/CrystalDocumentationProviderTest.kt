@@ -428,4 +428,120 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         )
         assertNull("Should return null for non-class prefix", resolved)
     }
+
+    // ==================== Parameter Popup Tests ====================
+
+    fun testParameterHoverInDefinitionShowsParameterPopup() {
+        val doc = hoverDoc("""
+            def butter(bon<caret>bon : String)
+              return bonbon
+            end
+        """.trimIndent())
+        assertNotNull("Hover on parameter in definition should return doc", doc)
+        assertTrue("Should contain '(Parameter)' label", doc!!.contains("(Parameter)"))
+        assertTrue("Should contain parameter name 'bonbon'", doc.contains("bonbon"))
+    }
+
+    fun testParameterHoverInBodyShowsParameterPopup() {
+        val doc = hoverDoc("""
+            def butter(bonbon : String)
+              return bon<caret>bon
+            end
+        """.trimIndent())
+        assertNotNull("Hover on parameter in body should return doc", doc)
+        assertTrue("Should contain '(Parameter)' label", doc!!.contains("(Parameter)"))
+        assertTrue("Should contain parameter name 'bonbon'", doc.contains("bonbon"))
+    }
+
+    fun testParameterPopupShowsType() {
+        val doc = hoverDoc("""
+            def butter(bonbon : String)
+              return bon<caret>bon
+            end
+        """.trimIndent())
+        assertNotNull(doc)
+        assertTrue("Should contain type 'String'", doc!!.contains("String"))
+    }
+
+    fun testParameterPopupTypeIsLinked() {
+        val doc = hoverDoc("""
+            class Foo
+              def greet(x : Foo)
+                x
+              end
+            end
+            greet(Foo.new)
+        """.trimIndent())
+        // The hoverDoc helper finds the caret and resolves — Foo should be hyperlinked
+        // This is a basic check that the type appears in the output
+        assertTrue("Should contain 'Foo' as type", doc!!.contains("Foo"))
+    }
+
+    fun testUntypedParameterShowsAnyAndRuntimeNote() {
+        val doc = hoverDoc("""
+            def butter(bon<caret>bon)
+              return bonbon
+            end
+        """.trimIndent())
+        assertNotNull("Hover on untyped parameter should return doc", doc)
+        assertTrue("Should show 'Any' as pseudo-type", doc!!.contains("Any"))
+        assertTrue("Should contain '(Parameter)' label", doc.contains("(Parameter)"))
+        assertTrue("Should contain runtime note", doc.contains("determined at runtime"))
+    }
+
+    // ==================== Definition Hover Tests ====================
+
+    fun testMethodDefinitionHoverShowsPopup() {
+        val doc = hoverDoc("""
+            def bu<caret>tter(x : Int32)
+              x
+            end
+        """.trimIndent())
+        assertNotNull("Hover on method definition should return doc", doc)
+        assertTrue("Should contain method name 'butter'", doc!!.contains("butter"))
+    }
+
+    fun testClassDefinitionHoverShowsPopup() {
+        val doc = hoverDoc("""
+            class Fo<caret>o
+              def bar
+              end
+            end
+        """.trimIndent())
+        assertNotNull("Hover on class definition should return doc", doc)
+        assertTrue("Should contain 'class' keyword", doc!!.contains("class"))
+        assertTrue("Should contain class name 'Foo'", doc.contains("Foo"))
+    }
+
+    fun testModuleDefinitionHoverShowsPopup() {
+        val doc = hoverDoc("""
+            module Ba<caret>r
+            end
+        """.trimIndent())
+        assertNotNull("Hover on module definition should return doc", doc)
+        assertTrue("Should contain 'module' keyword", doc!!.contains("module"))
+        assertTrue("Should contain module name 'Bar'", doc.contains("Bar"))
+    }
+
+    fun testStructDefinitionHoverShowsPopup() {
+        val doc = hoverDoc("""
+            struct Po<caret>int
+              property x : Int32
+            end
+        """.trimIndent())
+        assertNotNull("Hover on struct definition should return doc", doc)
+        assertTrue("Should contain 'struct' keyword", doc!!.contains("struct"))
+        assertTrue("Should contain struct name 'Point'", doc.contains("Point"))
+    }
+
+    fun testEnumDefinitionHoverShowsPopup() {
+        val doc = hoverDoc("""
+            enum Colo<caret>r
+              RED
+            end
+        """.trimIndent())
+        assertNotNull("Hover on enum definition should return doc", doc)
+        assertTrue("Should contain 'enum' keyword", doc!!.contains("enum"))
+        assertTrue("Should contain enum name 'Color'", doc.contains("Color"))
+    }
 }

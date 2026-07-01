@@ -44,6 +44,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         targetOffset: Int
     ): PsiElement? {
         if (contextElement == null) return null
+
         // 1. Try PsiReference on the context element (and its parent, for leaf tokens
         //    whose reference lives on the wrapping composite, e.g. IDENTIFIER inside
         //    CrystalVariableReference).
@@ -56,7 +57,23 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         //    which knows how to resolve the DOT pattern via sibling/leaf scanning.
         val handler: GotoDeclarationHandler = CrystalGotoDeclarationHandler()
         val targets = handler.getGotoDeclarationTargets(contextElement, targetOffset, editor)
-        return targets?.firstOrNull()
+        if (targets?.firstOrNull() != null) return targets.first()
+
+        // 3. Definition/parameter walk-up: hovering over the definition name itself
+        //    (e.g. `butter` in `def butter`, `Foo` in `class Foo`) or a parameter name.
+        var current: PsiElement? = contextElement
+        var depth = 0
+        while (current != null && depth < 4) {
+            if (current is CrystalMethodDefinition || current is CrystalClassDefinition
+                || current is CrystalModuleDefinition || current is CrystalStructDefinition
+                || current is CrystalEnumDefinition || current is CrystalParameter) {
+                return current
+            }
+            current = current.parent
+            depth++
+        }
+
+        return null
     }
 
     override fun getDocumentationElementForLink(psiManager: PsiManager, link: String, originalElement: PsiElement?): PsiElement? {
@@ -74,10 +91,10 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     private fun resolveTarget(element: PsiElement?): PsiElement? {
         if (element == null) return null
-        // Already a definition
+        // Already a definition or parameter — return directly
         if (element is CrystalMethodDefinition || element is CrystalClassDefinition
             || element is CrystalModuleDefinition || element is CrystalStructDefinition
-            || element is CrystalEnumDefinition) {
+            || element is CrystalEnumDefinition || element is CrystalParameter) {
             return element
         }
         // Try resolving via reference
@@ -109,11 +126,18 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         sb.append(renderSignature(target))
         sb.append("</pre></div>")
 
-        val docComment = collectDocComment(target)
-        if (docComment != null) {
+        // Auto-generated doc for untyped parameters
+        if (target is CrystalParameter && target.typeReference == null) {
             sb.append("<div class='content'>")
-            sb.append(renderMarkdown(docComment, target))
+            sb.append("<p>The type of this parameter is not specified and will be determined at runtime.</p>")
             sb.append("</div>")
+        } else {
+            val docComment = collectDocComment(target)
+            if (docComment != null) {
+                sb.append("<div class='content'>")
+                sb.append(renderMarkdown(docComment, target))
+                sb.append("</div>")
+            }
         }
 
         return sb.toString()
@@ -129,6 +153,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             is CrystalModuleDefinition -> buildModuleSignatureHtml(target, project)
             is CrystalStructDefinition -> buildStructSignatureHtml(target, project)
             is CrystalEnumDefinition -> buildEnumSignatureHtml(target, project)
+            is CrystalParameter -> buildParameterSignatureHtml(target, project)
             else -> highlightCrystalCode(target.text.lines().first(), target)
                 ?: escapeHtml(target.text.lines().first())
         }
@@ -212,6 +237,29 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         val sb = StringBuilder()
         sb.append(highlightCrystalCode("enum ", enumDef) ?: escapeHtml("enum "))
         sb.append(escapeHtml(enumDef.name ?: "Unknown"))
+        return sb.toString()
+    }
+
+    private fun buildParameterSignatureHtml(param: CrystalParameter, project: Project): String {
+        val sb = StringBuilder()
+
+        // Line 1: type name (linked if resolvable, "Any" if untyped) + muted "(Parameter)"
+        val typeRef = param.typeReference
+        if (typeRef != null) {
+            // Use wrapTypeLinks to handle union types like "String | Int32"
+            val typeText = typeRef.text.trim()
+            val highlighted = highlightCrystalCode(typeText, param) ?: escapeHtml(typeText)
+            sb.append(wrapTypeLinks(highlighted, project))
+        } else {
+            sb.append(escapeHtml("Any"))
+        }
+        sb.append(" <span style='color:gray'>(Parameter)</span>")
+        sb.append("\n")
+
+        // Line 2: parameter name
+        val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: "unknown"
+        sb.append(escapeHtml(paramName))
+
         return sb.toString()
     }
 
