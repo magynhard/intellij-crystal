@@ -262,4 +262,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testRegexInterpolation() {
         doTest(true)
     }
+
+    fun testCommandInterpolation() {
+        doTest(true)
+    }
 }

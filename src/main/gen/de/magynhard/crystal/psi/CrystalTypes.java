@@ -30,6 +30,7 @@ public interface CrystalTypes {
   IElementType CLASS_BODY = new CrystalElementType("CLASS_BODY");
   IElementType CLASS_DEFINITION = CrystalStubElementTypeFactory.create("CLASS_DEFINITION");
   IElementType CLASS_VAR_ACCESS = new CrystalElementType("CLASS_VAR_ACCESS");
+  IElementType COMMAND_EXPRESSION = new CrystalElementType("COMMAND_EXPRESSION");
   IElementType CONDITION = new CrystalElementType("CONDITION");
   IElementType CONSTANT_ASSIGNMENT = new CrystalElementType("CONSTANT_ASSIGNMENT");
   IElementType DOT_CALL_ACCESS = new CrystalElementType("DOT_CALL_ACCESS");
@@ -142,6 +143,8 @@ public interface CrystalTypes {
   IElementType CLASS_VAR = new CrystalTokenType("CLASS_VAR");
   IElementType COLON = new CrystalTokenType("COLON");
   IElementType COMMA = new CrystalTokenType("COMMA");
+  IElementType COMMAND_BEGIN = new CrystalTokenType("COMMAND_BEGIN");
+  IElementType COMMAND_END = new CrystalTokenType("COMMAND_END");
   IElementType COMMAND_LITERAL = new CrystalTokenType("COMMAND_LITERAL");
   IElementType CONSTANT = new CrystalTokenType("CONSTANT");
   IElementType DEF = new CrystalTokenType("DEF");
@@ -341,6 +344,9 @@ public interface CrystalTypes {
       }
       else if (type == CLASS_VAR_ACCESS) {
         return new CrystalClassVarAccessImpl(node);
+      }
+      else if (type == COMMAND_EXPRESSION) {
+        return new CrystalCommandExpressionImpl(node);
       }
       else if (type == CONDITION) {
         return new CrystalConditionImpl(node);

@@ -23,10 +23,10 @@ The `INTERPOLATION` state (Crystal.flex:393) handles `{`/`}` brace-depth trackin
 
 | # | Crystal Syntax | Lexer State | BNF Rule | Interpolation? | Status |
 |---|---|---|---|---|---|
-| 5 | `%(hello #{name})` | `PERCENT_LITERAL` | `percent_literal` | ❌ **BUG** | **Fix needed** |
-| 6 | `%Q(hello #{name})` | `PERCENT_LITERAL` | `percent_literal` | ❌ **BUG** | **Fix needed** |
-| 7 | `%r(pattern #{name})` | `PERCENT_LITERAL` | `percent_literal` | ❌ **BUG** | **Fix needed** |
-| 8 | `%x(echo #{name})` | `PERCENT_LITERAL` | `percent_literal` | ❌ **BUG** | **Fix needed** |
+| 5 | `%(hello #{name})` | `PERCENT_LITERAL` | `percent_literal` | ✅ Done | ✅ Done |
+| 6 | `%Q(hello #{name})` | `PERCENT_LITERAL` | `percent_literal` | ✅ Done | ✅ Done |
+| 7 | `%r(pattern #{name})` | `PERCENT_LITERAL` | `percent_literal` | ✅ Done | ✅ Done |
+| 8 | `%x(echo #{name})` | `PERCENT_LITERAL` | `percent_literal` | ✅ Done | ✅ Done |
 
 ### Percent Literals — No Interpolation (correct by design)
 
@@ -40,8 +40,8 @@ The `INTERPOLATION` state (Crystal.flex:393) handles `{`/`}` brace-depth trackin
 
 | # | Crystal Syntax | Lexer State | BNF Rule | Interpolation? | Status |
 |---|---|---|---|---|---|
-| 12 | `/pattern #{name}/` | `YYINITIAL` (line 297) | `regex_expression` (line 774) | ❌ **BUG** | **Needs lexer state** |
-| 13 | `` `echo #{name}` `` | `YYINITIAL` (line 294) | `COMMAND_LITERAL` literal | ❌ **BUG** | **Needs lexer state** |
+| 12 | `/pattern #{name}/` | `REGEX` | `regex_expression` | ✅ Done | ✅ Done |
+| 13 | `` `echo #{name}` `` | `BACKTICK` | `command_expression` | ✅ Done | ✅ Done |
 
 ### Not Supported by Crystal
 
@@ -323,19 +323,27 @@ The existing escape rule on line 467 already handles `\\` → `STRING_ESCAPE` fo
 
 3. **Tests:** Create `RegexInterpolation.cr` parser test
 
-### Phase 3: Backtick command interpolation (complex — new lexer state)
+### Phase 3: Backtick command interpolation (complex — new lexer state) ✅ DONE
 
 **Files:** `Crystal.flex`, `Crystal.bnf`
 
 1. **Lexer — new `BACKTICK` state:**
    - Enter from `YYINITIAL` on `` ` ``
-   - Handle `#{}` → `INTERPOLATION`
-   - Handle `\\` → `STRING_ESCAPE`
-   - Handle closing `` ` `` → exit to `YYINITIAL`
+   - Handle `#{}` → `INTERPOLATION` (with depth stack)
+   - Handle `\\` → `STRING_ESCAPE` (including `\\\n` / `\\\r\n` line continuation)
+   - Handle `#` → `COMMAND_LITERAL` (lone hash)
+   - Handle `` ` `` → exit to `YYINITIAL` → `COMMAND_END`
+   - Handle `{NEWLINE}` → `COMMAND_LITERAL` (multiline backtick commands)
+   - Handle `[^\`#\\]+` → `COMMAND_LITERAL`
 
-2. **Parser — extend or create new rule for command interpolation**
+2. **Parser — new `command_expression` rule:**
+   ```bnf
+   command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* COMMAND_END
+   ```
+   Updated `literal` to reference `command_expression` instead of the old `COMMAND_LITERAL` token.
+   Renamed from `command_literal` to `command_expression` to avoid GrammarKit naming collision (`CrystalElementType("COMMAND_LITERAL")` vs `CrystalTokenType("COMMAND_LITERAL")`).
 
-3. **Tests:** Create `CommandInterpolation.cr` parser test
+3. **Tests:** `CommandInterpolation.cr` parser test — simple `` `ls -la` `` and interpolated `` `echo #{name}` ``
 
 ---
 
