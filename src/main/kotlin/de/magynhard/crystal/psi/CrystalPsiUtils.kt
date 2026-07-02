@@ -1,6 +1,7 @@
 package de.magynhard.crystal.psi
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.stubs.CrystalNamedStub
 
@@ -63,5 +64,45 @@ object CrystalPsiUtils {
             parent is CrystalStructDefinition ||
             parent is CrystalEnumDefinition
         }
+    }
+
+    /**
+     * Builds the full namespace path from a [CrystalNamespaceAccess] element
+     * by walking left through preceding [CrystalNamespaceAccess] and
+     * [CrystalVariableReference] elements.
+     *
+     * Example: for `Foo::Sub.space`, when called on the `::Sub` element,
+     * returns `"Foo::Sub"`.
+     */
+    fun buildNamespacePath(namespaceAccess: CrystalNamespaceAccess): String {
+        val parts = mutableListOf<String>()
+
+        // Get the CONSTANT from this namespace_access
+        namespaceAccess.node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.CONSTANT)
+            ?.text?.let { parts.add(0, it) }
+
+        // Walk left through preceding namespace_access and variable_reference
+        var current = namespaceAccess.prevSibling
+        while (current != null) {
+            when {
+                current is PsiWhiteSpace ||
+                    current.node?.elementType == de.magynhard.crystal.psi.CrystalTypes.NEWLINE -> {
+                    current = current.prevSibling
+                }
+                current is CrystalNamespaceAccess -> {
+                    current.node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.CONSTANT)
+                        ?.text?.let { parts.add(0, it) }
+                    current = current.prevSibling
+                }
+                current is CrystalVariableReference -> {
+                    current.node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.CONSTANT)
+                        ?.text?.let { parts.add(0, it) }
+                    break
+                }
+                else -> break
+            }
+        }
+
+        return parts.joinToString("::")
     }
 }

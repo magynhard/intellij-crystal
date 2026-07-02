@@ -89,7 +89,20 @@ class CrystalCompletionContributor : CompletionContributor() {
 
                     // Case 1: CONSTANT. (Class.method)
                     if (beforeDotText.isNotEmpty() && beforeDotText[0].isUpperCase()) {
-                        val staticMethods = CrystalCompletionHelper.getStaticMethods(beforeDotText, project)
+                        // Check if this CONSTANT is part of a namespace_access (e.g. Foo::Sub.space)
+                        val nsAccess = PsiTreeUtil.getParentOfType(beforeDot, CrystalNamespaceAccess::class.java, false)
+                        val staticMethods = if (nsAccess != null) {
+                            // Namespace receiver: build full path, filter by qualified enclosing class
+                            val qualifiedName = de.magynhard.crystal.psi.CrystalPsiUtils.buildNamespacePath(nsAccess)
+                            val allMethods = CrystalCompletionHelper.getStaticMethods(beforeDotText, project)
+                            allMethods.filter { method ->
+                                val enclosing = de.magynhard.crystal.psi.CrystalPsiUtils.getEnclosingType(method)
+                                enclosing != null && de.magynhard.crystal.psi.CrystalPsiUtils.buildQualifiedName(enclosing) == qualifiedName
+                            }
+                        } else {
+                            // Simple constant receiver (e.g. Apfel.tanzen)
+                            CrystalCompletionHelper.getStaticMethods(beforeDotText, project)
+                        }
                         for (method in staticMethods) {
                             result.addElement(CrystalCompletionHelper.buildMethodLookup(method))
                         }
@@ -98,8 +111,8 @@ class CrystalCompletionContributor : CompletionContributor() {
                             val recordDef = CrystalCompletionHelper.findRecordDefinition(beforeDotText, parameters.originalFile)
                             if (recordDef != null) {
                                 result.addElement(CrystalCompletionHelper.buildRecordNewLookup(recordDef, beforeDotText))
-                            } else if (CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
-                                // Fallback 2: known class/struct — offer "new" with initialize parameters
+                            } else if (nsAccess == null && CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
+                                // Fallback 2: only for simple constants, not namespace paths
                                 result.addElement(CrystalCompletionHelper.buildNewLookup(beforeDotText, project, parameters.originalFile))
                             }
                         }

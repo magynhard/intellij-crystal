@@ -143,6 +143,11 @@ with the full namespace path.
 enclosing classes (e.g. `Foo::Sub` and `Bar::Sub`), resolution correctly identifies
 the right class by comparing the full qualified name chain.
 
+**Method completion:** When typing `Foo::Sub.<caret>`, only methods from `Foo::Sub`
+are suggested (not from `Bar::Sub`). The completion contributor detects the namespace
+receiver, builds the full path via `buildNamespacePath`, and filters
+`CrystalMethodByClassIndex` results by the enclosing class's qualified name.
+
 ---
 
 ## Resolution Priority
