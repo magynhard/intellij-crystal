@@ -40,15 +40,19 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
             if (assignment.isCompound) continue
 
             val assignOffset = assignment.offset
-            val nextAssignOffset = assignments
+            val nextAssign = assignments
                 .filter { it.name == assignment.name && it.offset > assignOffset && !it.isCompound }
-                .minByOrNull { it.offset }?.offset ?: Int.MAX_VALUE
+                .minByOrNull { it.offset }
+
+            // Use the end offset of the next assignment as upper bound, so that
+            // references on its RHS (e.g. `abc = abc.upcase`) are counted as reads.
+            val nextAssignEndOffset = nextAssign?.identifierElement?.parent?.textRange?.endOffset ?: Int.MAX_VALUE
 
             val hasRead = references.any { ref ->
-                ref.name == assignment.name && ref.offset > assignOffset && ref.offset < nextAssignOffset
+                ref.name == assignment.name && ref.offset > assignOffset && ref.offset < nextAssignEndOffset
             }
 
-            val hasLaterRead = if (nextAssignOffset == Int.MAX_VALUE) {
+            val hasLaterRead = if (nextAssign == null) {
                 references.any { ref ->
                     ref.name == assignment.name && ref.offset > assignOffset
                 }

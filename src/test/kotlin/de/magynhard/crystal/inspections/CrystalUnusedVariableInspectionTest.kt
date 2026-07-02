@@ -217,4 +217,17 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Variable Used in Own Reassignment ====================
+
+    fun testVariableUsedInOwnReassignment() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              abc = "string"
+              abc = abc.upcase
+              puts abc
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
