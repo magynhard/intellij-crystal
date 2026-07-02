@@ -246,4 +246,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testQuestionPostfix() {
         doTest(true)
     }
+
+    fun testRescueTypes() {
+        doTest(true)
+    }
 }

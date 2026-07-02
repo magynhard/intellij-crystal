@@ -450,7 +450,14 @@ when_clause ::= WHEN expression_list then_clause statement_list
 
 in_clause ::= IN expression_list [IF expression] then_clause statement_list
 
-rescue_clause ::= RESCUE [IDENTIFIER [COLON type_reference]] then_clause statement_list
+rescue_clause ::= RESCUE [rescue_spec] then_clause statement_list
+
+// rescue_spec: handles all Crystal rescue clause forms.
+// Order matters in PEG (longer alternative first for IDENTIFIER disambiguation).
+// type_reference supports unions (SomeError | OtherError) and namespaces (::Foo).
+private rescue_spec ::= IDENTIFIER COLON type_reference
+                       | IDENTIFIER
+                       | type_reference
 
 ensure_clause ::= ENSURE statement_list
 

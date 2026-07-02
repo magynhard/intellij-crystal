@@ -5544,7 +5544,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // RESCUE [IDENTIFIER [COLON type_reference]] then_clause statement_list
+  // RESCUE [rescue_spec] then_clause statement_list
   public static boolean rescue_clause(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "rescue_clause")) return false;
     if (!nextTokenIs(builder_, RESCUE)) return false;
@@ -5558,37 +5558,34 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [IDENTIFIER [COLON type_reference]]
+  // [rescue_spec]
   private static boolean rescue_clause_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "rescue_clause_1")) return false;
-    rescue_clause_1_0(builder_, level_ + 1);
+    rescue_spec(builder_, level_ + 1);
     return true;
   }
 
-  // IDENTIFIER [COLON type_reference]
-  private static boolean rescue_clause_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "rescue_clause_1_0")) return false;
+  /* ********************************************************** */
+  // IDENTIFIER COLON type_reference
+  //                        | IDENTIFIER
+  //                        | type_reference
+  static boolean rescue_spec(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "rescue_spec")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, IDENTIFIER);
-    result_ = result_ && rescue_clause_1_0_1(builder_, level_ + 1);
+    result_ = rescue_spec_0(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = type_reference(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // [COLON type_reference]
-  private static boolean rescue_clause_1_0_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "rescue_clause_1_0_1")) return false;
-    rescue_clause_1_0_1_0(builder_, level_ + 1);
-    return true;
-  }
-
-  // COLON type_reference
-  private static boolean rescue_clause_1_0_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "rescue_clause_1_0_1_0")) return false;
+  // IDENTIFIER COLON type_reference
+  private static boolean rescue_spec_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "rescue_spec_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, COLON);
+    result_ = consumeTokens(builder_, 0, IDENTIFIER, COLON);
     result_ = result_ && type_reference(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
