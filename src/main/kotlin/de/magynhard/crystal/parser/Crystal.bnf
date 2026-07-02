@@ -623,7 +623,7 @@ private primary_expression ::= grouped_expression
 grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAREN
 
 method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-                         | (IDENTIFIER | CONSTANT | SELECT) !LBRACKET !binary_op_lookahead bare_argument_list [block]
+                         | (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !binary_op_lookahead bare_argument_list [block]
                          | (IDENTIFIER | CONSTANT) block
                          | (SUPER | PREVIOUS_DEF) call_args
                          | (SUPER | PREVIOUS_DEF) bare_argument_list {
@@ -638,8 +638,9 @@ method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
 // Tradeoff: bare calls with splat like "add *args" need parentheses: "add(*args)".
 private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PERCENT | DOUBLE_STAR) IDENTIFIER
 
-// Implicit object call: .method? or .operator (used in &.foo shorthand and case/when patterns)
+// Implicit object call: .method, .method(args), or .[index] (used in &.foo shorthand and case/when patterns)
 implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]
+                       | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
 
 call_args ::= LPAREN NLS argument_list NLS RPAREN
             | LPAREN RPAREN
@@ -665,6 +666,7 @@ bare_argument_list ::= bare_argument (COMMA bare_argument)*
 bare_argument ::= named_bare_argument
                 | STAR bare_expression
                 | DOUBLE_STAR bare_expression
+                | AMPERSAND bare_expression
                 | bare_expression
                 | OUT IDENTIFIER
 
@@ -723,6 +725,7 @@ private bare_primary_expression ::= grouped_expression
                                   | tuple_literal
                                   | proc_literal
                                   | bare_method_call_expression
+                                  | implicit_object_call
                                   | literal
                                   | instance_var_access
                                   | class_var_access

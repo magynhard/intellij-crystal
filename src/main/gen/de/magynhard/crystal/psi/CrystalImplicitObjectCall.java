@@ -8,6 +8,12 @@ import com.intellij.psi.PsiElement;
 public interface CrystalImplicitObjectCall extends PsiElement {
 
   @Nullable
+  CrystalArgumentList getArgumentList();
+
+  @Nullable
   CrystalCallArgs getCallArgs();
+
+  @Nullable
+  CrystalExpression getExpression();
 
 }

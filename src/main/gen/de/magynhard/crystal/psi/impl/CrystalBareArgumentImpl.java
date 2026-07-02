@@ -95,6 +95,12 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
 
   @Override
   @NotNull
+  public List<CrystalImplicitObjectCall> getImplicitObjectCallList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalImplicitObjectCall.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalInstanceSizeofExpression.class);
   }

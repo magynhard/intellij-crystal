@@ -250,4 +250,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testRescueTypes() {
         doTest(true)
     }
+
+    fun testImplicitObjectCallBracket() {
+        doTest(true)
+    }
 }

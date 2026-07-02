@@ -29,8 +29,20 @@ public class CrystalImplicitObjectCallImpl extends ASTWrapperPsiElement implemen
 
   @Override
   @Nullable
+  public CrystalArgumentList getArgumentList() {
+    return PsiTreeUtil.getChildOfType(this, CrystalArgumentList.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalCallArgs getCallArgs() {
     return PsiTreeUtil.getChildOfType(this, CrystalCallArgs.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalExpression getExpression() {
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
 }
