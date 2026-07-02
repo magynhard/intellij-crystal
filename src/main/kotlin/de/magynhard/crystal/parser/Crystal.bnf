@@ -498,7 +498,9 @@ private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_
 
 // ==================== Expressions ====================
 
-expression ::= or_expression [QUESTION expression COLON expression]
+expression ::= or_expression QUESTION expression COLON expression
+             | or_expression QUESTION
+             | or_expression
 
 private or_expression ::= and_expression (OR_OR NLS and_expression)*
 
@@ -667,7 +669,9 @@ private named_bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_ex
 
 // Bare expression: same as expression but does not consume blocks or assignments
 // This prevents the bare argument from eating the 'do' that belongs to the outer method call
-private bare_expression ::= bare_or_expression [QUESTION expression COLON expression]
+private bare_expression ::= bare_or_expression QUESTION expression COLON expression
+                          | bare_or_expression QUESTION
+                          | bare_or_expression
 
 private bare_or_expression ::= bare_and_expression (OR_OR NLS bare_and_expression)*
 

@@ -242,4 +242,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testNamespaceAccess() {
         doTest(true)
     }
+
+    fun testQuestionPostfix() {
+        doTest(true)
+    }
 }
