@@ -5610,14 +5610,51 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // REGEX_LITERAL
+  // REGEX_BEGIN (REGEX_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* REGEX_END
   public static boolean regex_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "regex_expression")) return false;
-    if (!nextTokenIs(builder_, REGEX_LITERAL)) return false;
+    if (!nextTokenIs(builder_, REGEX_BEGIN)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, REGEX_BEGIN);
+    result_ = result_ && regex_expression_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, REGEX_END);
+    exit_section_(builder_, marker_, REGEX_EXPRESSION, result_);
+    return result_;
+  }
+
+  // (REGEX_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)*
+  private static boolean regex_expression_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "regex_expression_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!regex_expression_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "regex_expression_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // REGEX_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  private static boolean regex_expression_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "regex_expression_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, REGEX_LITERAL);
-    exit_section_(builder_, marker_, REGEX_EXPRESSION, result_);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
+    if (!result_) result_ = regex_expression_1_0_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  private static boolean regex_expression_1_0_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "regex_expression_1_0_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, STRING_INTERPOLATION_END);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 

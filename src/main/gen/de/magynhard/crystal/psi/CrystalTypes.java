@@ -229,6 +229,8 @@ public interface CrystalTypes {
   IElementType QUESTION = new CrystalTokenType("QUESTION");
   IElementType RBRACE = new CrystalTokenType("RBRACE");
   IElementType RBRACKET = new CrystalTokenType("RBRACKET");
+  IElementType REGEX_BEGIN = new CrystalTokenType("REGEX_BEGIN");
+  IElementType REGEX_END = new CrystalTokenType("REGEX_END");
   IElementType REGEX_LITERAL = new CrystalTokenType("REGEX_LITERAL");
   IElementType REQUIRE = new CrystalTokenType("REQUIRE");
   IElementType RESCUE = new CrystalTokenType("RESCUE");

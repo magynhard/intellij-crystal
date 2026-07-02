@@ -110,7 +110,7 @@ CHAR_LITERAL = "'" ( [^'\\] | {CHAR_ESCAPE} ) "'"
 // Symbol (simple forms only — :"string" handled separately for interpolation support)
 SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 
-%state STRING INTERPOLATION PERCENT_LITERAL HEREDOC_BODY HEREDOC_START_LINE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
+%state STRING INTERPOLATION REGEX PERCENT_LITERAL HEREDOC_BODY HEREDOC_START_LINE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
 
 %%
 
@@ -302,9 +302,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "`" [^`]* "`"        { return CrystalTypes.COMMAND_LITERAL; }
 
   // Regex literal (only in operator position — not after identifiers, constants, literals, ) or ])
-  "/" [^/\r\n]+ "/" [imx]* { if (isRegexAllowed()) { return CrystalTypes.REGEX_LITERAL; }
-                             // Not regex context: put back everything except first /
-                             yypushback(yylength() - 1); return CrystalTypes.SLASH; }
+  "/"                    { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; }
+                           return CrystalTypes.SLASH; }
 
   // Multi-character operators (longest first)
   "<=>"                { return CrystalTypes.SPACESHIP; }
@@ -396,6 +395,19 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "\\" .               { return CrystalTypes.STRING_ESCAPE; }
   [^\"\#\\]+           { return CrystalTypes.STRING_LITERAL; }
   "#"                  { return CrystalTypes.STRING_LITERAL; }
+}
+
+<REGEX> {
+  "#{"                 { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
+  "#"                  { return CrystalTypes.REGEX_LITERAL; }
+  "\\" [abefnrtv\\\"\\'0\/]  { return CrystalTypes.STRING_ESCAPE; }
+  "\\" "u" "{" {HEX_DIGIT}+ "}"  { return CrystalTypes.STRING_ESCAPE; }
+  "\\" "u" {HEX_DIGIT}{4}        { return CrystalTypes.STRING_ESCAPE; }
+  "\\" "x" {HEX_DIGIT}{1,2}      { return CrystalTypes.STRING_ESCAPE; }
+  "\\" {OCT_DIGIT}{1,3}          { return CrystalTypes.STRING_ESCAPE; }
+  "\\" .               { return CrystalTypes.STRING_ESCAPE; }
+  "/" [imx]*            { popState(); return CrystalTypes.REGEX_END; }
+  [^\/\#\\]+            { return CrystalTypes.REGEX_LITERAL; }
 }
 
 <INTERPOLATION> {

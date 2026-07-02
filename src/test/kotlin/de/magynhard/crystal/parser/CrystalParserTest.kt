@@ -258,4 +258,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testPercentLiteralInterpolation() {
         doTest(true)
     }
+
+    fun testRegexInterpolation() {
+        doTest(true)
+    }
 }

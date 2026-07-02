@@ -7,4 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalRegexExpression extends PsiElement {
 
+  @NotNull
+  List<CrystalExpression> getExpressionList();
+
 }
