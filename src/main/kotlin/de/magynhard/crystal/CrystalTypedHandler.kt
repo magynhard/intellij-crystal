@@ -1,5 +1,6 @@
 package de.magynhard.crystal
 
+import com.intellij.codeInsight.AutoPopupController
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
@@ -7,9 +8,25 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 
 /**
- * Auto-inserts closing `}` when typing `{` after `#` inside a string (string interpolation).
+ * Handles Crystal-specific auto-completion and auto-insertion:
+ * - Auto-inserts closing `}` when typing `{` after `#` inside a string (string interpolation).
+ * - Triggers auto-completion popup when typing `::` (namespace access).
  */
 class CrystalTypedHandler : TypedHandlerDelegate() {
+
+    override fun checkAutoPopup(charTyped: Char, project: Project, editor: Editor, file: PsiFile): Result {
+        if (file.fileType != CrystalFileType) return Result.CONTINUE
+        if (charTyped != ':') return Result.CONTINUE
+
+        val offset = editor.caretModel.offset
+        if (offset < 2) return Result.CONTINUE
+
+        // Check if the character before the caret is ':' — meaning we're about to type the second ':'
+        if (editor.document.getText(TextRange.create(offset - 1, offset)) != ":") return Result.CONTINUE
+
+        AutoPopupController.getInstance(project).scheduleAutoPopup(editor)
+        return Result.STOP
+    }
 
     override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
         if (c != '{') return Result.CONTINUE

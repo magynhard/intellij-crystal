@@ -148,6 +148,11 @@ are suggested (not from `Bar::Sub`). The completion contributor detects the name
 receiver, builds the full path via `buildNamespacePath`, and filters
 `CrystalMethodByClassIndex` results by the enclosing class's qualified name.
 
+**Auto-popup for `::`:** Typing `::` after a CONSTANT (e.g. `Foo::<caret>`) now
+triggers the completion popup automatically — no Ctrl+Space needed. The
+`CrystalTypedHandler.checkAutoPopup()` detects the second `:` of `::` and calls
+`AutoPopupController.scheduleAutoPopup()`.
+
 ---
 
 ## Resolution Priority
