@@ -188,22 +188,3 @@ then:
 - **`::` auto-popup timing:** `checkAutoPopup` is called BEFORE the character is inserted.
   The check must look at the character at `offset - 1` (before caret), not `offset - 2`,
   to detect the first `:` when the second is being typed.
-
----
-
-## Completion
-
-### Type Completion (`Foo::<caret>`)
-Shows only types nested inside `Foo` via `CrystalClassByEnclosingIndex`. Stdlib types
-are shown as baseline, but nested types are filtered by the enclosing class name.
-
-### Method Completion (`Foo::Sub.<caret>`)
-Shows only methods from `Foo::Sub` (not from `Bar::Sub`). The completion contributor
-detects `CrystalNamespaceAccess` before the dot, builds the full path via
-`buildNamespacePath`, and filters `CrystalMethodByClassIndex` results by comparing
-each method's enclosing class qualified name against the expected path.
-
-### Auto-popup
-- `.` after CONSTANT → auto-popup with static methods (platform default)
-- `.` after identifier → auto-popup with instance methods (platform default)
-- `::` after CONSTANT → auto-popup with nested types (via `CrystalTypedHandler.checkAutoPopup`)
