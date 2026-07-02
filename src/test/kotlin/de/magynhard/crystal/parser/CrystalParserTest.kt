@@ -254,4 +254,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testImplicitObjectCallBracket() {
         doTest(true)
     }
+
+    fun testPercentLiteralInterpolation() {
+        doTest(true)
+    }
 }

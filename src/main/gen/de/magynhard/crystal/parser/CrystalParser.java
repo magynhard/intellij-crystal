@@ -5048,16 +5048,31 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // STRING_LITERAL | STRING_ESCAPE | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
+  // STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
   static boolean percent_literal_content(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_literal_content")) return false;
     boolean result_;
+    Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, STRING_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
+    if (!result_) result_ = percent_literal_content_2(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
     if (!result_) result_ = consumeToken(builder_, REGEX_LITERAL);
     if (!result_) result_ = consumeToken(builder_, COMMAND_LITERAL);
     if (!result_) result_ = consumeToken(builder_, NEWLINE);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END
+  private static boolean percent_literal_content_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_content_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, STRING_INTERPOLATION_BEGIN);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, STRING_INTERPOLATION_END);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 

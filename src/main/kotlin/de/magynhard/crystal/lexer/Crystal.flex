@@ -19,6 +19,7 @@ import com.intellij.psi.TokenType;
   private char percentOpenChar = 0;
   private char percentCloseChar = 0;
   private IElementType percentTokenType = null;
+  private boolean percentInterpolation = false;
   private String heredocId = "";
   private boolean heredocIndented = false;
   private boolean heredocRaw = false;
@@ -229,24 +230,27 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                         percentInterpolation = false;
                          yybegin(PERCENT_LITERAL);
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%i" [\(\[\{<|]     {
-                          char c = yycharat(yylength() - 1);
-                          percentOpenChar = c;
-                          percentCloseChar = closingChar(c);
-                          percentDepth = 1;
-                          percentTokenType = CrystalTypes.SYMBOL_LITERAL;
-                          yybegin(PERCENT_LITERAL);
-                          return CrystalTypes.PERCENT_SYMBOL_BEGIN;
-                        }
+                           char c = yycharat(yylength() - 1);
+                           percentOpenChar = c;
+                           percentCloseChar = closingChar(c);
+                           percentDepth = 1;
+                           percentTokenType = CrystalTypes.SYMBOL_LITERAL;
+                           percentInterpolation = false;
+                           yybegin(PERCENT_LITERAL);
+                           return CrystalTypes.PERCENT_SYMBOL_BEGIN;
+                         }
   "%q" [\(\[\{<|]     {
                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                         percentInterpolation = false;
                          yybegin(PERCENT_LITERAL);
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
@@ -256,6 +260,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                         percentInterpolation = true;
                          yybegin(PERCENT_LITERAL);
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
@@ -265,6 +270,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
                          percentTokenType = CrystalTypes.REGEX_LITERAL;
+                         percentInterpolation = true;
                          yybegin(PERCENT_LITERAL);
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
@@ -274,6 +280,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
                          percentTokenType = CrystalTypes.COMMAND_LITERAL;
+                         percentInterpolation = true;
                          yybegin(PERCENT_LITERAL);
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
@@ -283,6 +290,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                         percentInterpolation = true;
                          yybegin(PERCENT_LITERAL);
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
@@ -445,6 +453,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 }
 
 <PERCENT_LITERAL> {
+  "#{"                 { if (percentInterpolation) { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return percentTokenType; }
+  "#"                  { return percentTokenType; }
   // Handle nested opening delimiters (except | which doesn't nest)
   .                    {
                           char c = yycharat(0);

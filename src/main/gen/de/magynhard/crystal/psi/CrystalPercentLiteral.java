@@ -7,4 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalPercentLiteral extends PsiElement {
 
+  @NotNull
+  List<CrystalExpression> getExpressionList();
+
 }

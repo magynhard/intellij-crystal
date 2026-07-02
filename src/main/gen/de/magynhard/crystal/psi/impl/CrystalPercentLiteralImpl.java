@@ -27,4 +27,10 @@ public class CrystalPercentLiteralImpl extends ASTWrapperPsiElement implements C
     else super.accept(visitor);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalExpression> getExpressionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
+  }
+
 }
