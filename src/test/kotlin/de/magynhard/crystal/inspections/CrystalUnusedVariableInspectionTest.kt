@@ -230,4 +230,171 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Conditional Branch False Positives ====================
+
+    fun testInitialAssignWithConditionalReassignInIf() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              if true
+                x = "override"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithConditionalReassignInUnless() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              unless true
+                x = "override"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithConditionalReassignInBeginRescue() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              begin
+                x = "override"
+              rescue
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithConditionalReassignInWhile() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              while false
+                x = "override"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithConditionalReassignInUntil() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              until true
+                x = "override"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithConditionalReassignInFor() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              for item in [] of String
+                x = item
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithConditionalReassignInCase() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              case 1
+              when 1
+                x = "one"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithNestedConditionals() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              if true
+                if false
+                  x = "deep"
+                end
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitialAssignWithConditionalAndUnconditionalOverwrite() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = ""
+              if true
+                <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = "override"
+              end
+              x = "final"
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBeginWithoutRescueStillWarns() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = ""
+              begin
+                x = "override"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testConditionalAssignInElsifChain() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              if true
+                x = "one"
+              elsif false
+                x = "two"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testConditionalAssignInIfElse() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x = ""
+              if true
+                x = "one"
+              else
+                x = "two"
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

@@ -48,8 +48,22 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
             // references on its RHS (e.g. `abc = abc.upcase`) are counted as reads.
             val nextAssignEndOffset = nextAssign?.identifierElement?.parent?.textRange?.endOffset ?: Int.MAX_VALUE
 
+            // When the next assignment is inside a conditional branch (if/unless/while/until/for/case/
+            // begin+rescue), it may not execute. The current assignment's value is still a fallback
+            // that can be read by any reference after the conditional block. In that case, extend the
+            // search range to include reads up to the next unconditional assignment (or end of scope).
+            val effectiveUpperBound = if (nextAssign != null
+                && isInConditionalBranch(nextAssign.identifierElement.parent)) {
+                val nextUnconditional = assignments
+                    .filter { it.name == assignment.name && it.offset > assignOffset && !it.isCompound }
+                    .firstOrNull { !isInConditionalBranch(it.identifierElement.parent) }
+                nextUnconditional?.identifierElement?.parent?.textRange?.endOffset ?: Int.MAX_VALUE
+            } else {
+                nextAssignEndOffset
+            }
+
             val hasRead = references.any { ref ->
-                ref.name == assignment.name && ref.offset > assignOffset && ref.offset < nextAssignEndOffset
+                ref.name == assignment.name && ref.offset > assignOffset && ref.offset < effectiveUpperBound
             }
 
             val hasLaterRead = if (nextAssign == null) {
@@ -74,6 +88,32 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
                 )
             }
         }
+    }
+
+    /**
+     * Checks if [element] is inside a conditional construct that may prevent execution
+     * of the code it contains: if/unless/while/until/for/case/select, or begin+rescue.
+     * Plain `begin ... end` (without rescue) is NOT considered conditional — its body
+     * always executes.
+     */
+    private fun isInConditionalBranch(element: PsiElement): Boolean {
+        var current: PsiElement? = element.parent
+        while (current != null) {
+            when (current) {
+                is CrystalIfStatement,
+                is CrystalUnlessStatement,
+                is CrystalWhileStatement,
+                is CrystalUntilStatement,
+                is CrystalForStatement,
+                is CrystalCaseStatement,
+                is CrystalSelectStatement -> return true
+                is CrystalBeginStatement -> {
+                    if (current.rescueClauseList.isNotEmpty()) return true
+                }
+            }
+            current = current.parent
+        }
+        return false
     }
 
     private fun extractLocalAssignment(assignment: CrystalAssignment): AssignmentInfo? {
