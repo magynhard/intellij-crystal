@@ -631,4 +631,69 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Binary Operators with Literals in Arguments ====================
+
+    fun testPlusWithStringLiteralInCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def add(a : String, b : String)
+            end
+            name = "file"
+            add(name + ".ext", name + ".bak")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPlusWithPercentLiteralInCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def write_to_second_line(file : String, line : String)
+            end
+            cmd_path_no_ext = "test"
+            write_to_second_line(cmd_path_no_ext + ".ps1", %Q{not working})
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPlusWithIntegerLiteralInCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32) : Int32
+              a + b
+            end
+            x = 10
+            add(x + 5, x + 3)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMinusWithLiteralInCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def sub(a : Int32, b : Int32) : Int32
+              a - b
+            end
+            x = 10
+            sub(x - 5, x - 3)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBinaryOpWithGroupedExpressionInCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32) : Int32
+              a + b
+            end
+            x = 10
+            add(x + (1), x + (2))
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBinaryOpWithArrayLiteralInCallArgs() {
+        myFixture.configureByText("test.cr", """
+            def process(a : String, b : String)
+            end
+            arr = ["hello"]
+            process(arr[0] + "x", arr[0] + "y")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

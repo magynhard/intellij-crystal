@@ -1792,13 +1792,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PERCENT | DOUBLE_STAR) IDENTIFIER
+  // (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PERCENT | DOUBLE_STAR)
+  //     (IDENTIFIER | CONSTANT | STRING_LITERAL | INTEGER_LITERAL | FLOAT_LITERAL | CHAR_LITERAL
+  //      | SYMBOL_LITERAL | NIL | TRUE | FALSE | SELF | SUPER | PREVIOUS_DEF
+  //      | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+  //      | LPAREN | LBRACKET | LBRACE
+  //      | PERCENT_LITERAL_BEGIN | PERCENT_SYMBOL_BEGIN
+  //      | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN)
   static boolean binary_op_lookahead(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "binary_op_lookahead")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = binary_op_lookahead_0(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, IDENTIFIER);
+    result_ = result_ && binary_op_lookahead_1(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -1814,6 +1820,43 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
     if (!result_) result_ = consumeToken(builder_, PERCENT);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
+    return result_;
+  }
+
+  // IDENTIFIER | CONSTANT | STRING_LITERAL | INTEGER_LITERAL | FLOAT_LITERAL | CHAR_LITERAL
+  //      | SYMBOL_LITERAL | NIL | TRUE | FALSE | SELF | SUPER | PREVIOUS_DEF
+  //      | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+  //      | LPAREN | LBRACKET | LBRACE
+  //      | PERCENT_LITERAL_BEGIN | PERCENT_SYMBOL_BEGIN
+  //      | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN
+  private static boolean binary_op_lookahead_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "binary_op_lookahead_1")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, INTEGER_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, FLOAT_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, CHAR_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, NIL);
+    if (!result_) result_ = consumeToken(builder_, TRUE);
+    if (!result_) result_ = consumeToken(builder_, FALSE);
+    if (!result_) result_ = consumeToken(builder_, SELF);
+    if (!result_) result_ = consumeToken(builder_, SUPER);
+    if (!result_) result_ = consumeToken(builder_, PREVIOUS_DEF);
+    if (!result_) result_ = consumeToken(builder_, INSTANCE_VAR);
+    if (!result_) result_ = consumeToken(builder_, CLASS_VAR);
+    if (!result_) result_ = consumeToken(builder_, GLOBAL_VAR);
+    if (!result_) result_ = consumeToken(builder_, LPAREN);
+    if (!result_) result_ = consumeToken(builder_, LBRACKET);
+    if (!result_) result_ = consumeToken(builder_, LBRACE);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_LITERAL_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_SYMBOL_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, HEREDOC_START);
+    if (!result_) result_ = consumeToken(builder_, COMMAND_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, REGEX_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, MACRO_INTERPOLATION_BEGIN);
     return result_;
   }
 

@@ -632,13 +632,21 @@ method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
 
-// Prevent bare_argument_list from consuming binary operators followed by IDENTIFIER
-// as bare unary expressions. Without this, "width + height" is parsed as method call
+// Prevent bare_argument_list from consuming binary operators followed by expression-starting
+// tokens as bare unary expressions. Without this, "width + height" is parsed as method call
 // "width(+height)" instead of the binary expression "width + height".
 // Also blocks *, /, % etc. so that "x * scalar" inside parenthesized calls is not
 // misparsed as bare method call "x" with arguments "* scalar".
+// Covers all expression-starting tokens: identifiers, constants, literals, vars, group/array/hash
+// literals, percent literals, heredocs, commands, regex, and macro interpolation.
 // Tradeoff: bare calls with splat like "add *args" need parentheses: "add(*args)".
-private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PERCENT | DOUBLE_STAR) IDENTIFIER
+private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PERCENT | DOUBLE_STAR)
+    (IDENTIFIER | CONSTANT | STRING_LITERAL | INTEGER_LITERAL | FLOAT_LITERAL | CHAR_LITERAL
+     | SYMBOL_LITERAL | NIL | TRUE | FALSE | SELF | SUPER | PREVIOUS_DEF
+     | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+     | LPAREN | LBRACKET | LBRACE
+     | PERCENT_LITERAL_BEGIN | PERCENT_SYMBOL_BEGIN
+     | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN)
 
 // Implicit object call: .method, .method(args), or .[index] (used in &.foo shorthand and case/when patterns)
 implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]
