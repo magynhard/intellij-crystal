@@ -2,40 +2,61 @@
 
 Spec for the `CrystalUnusedVariableInspection` — specifically the "Value assigned to variable is never used" warning.
 
-## Current Algorithm
+## Overview
 
-The inspection works as follows:
+The inspection warns when a value assigned to a local variable is never read before the variable is reassigned or goes out of scope. It is aware of Crystal's control flow — assignments inside conditional branches (which may not execute) do NOT count as overwriting the previous value.
 
-1. Collect all local variable assignments and references in scope
-2. For each assignment `A`, find the next assignment `B` to the same variable (by offset)
-3. Check if there is a read (reference) between `A` and `B`
-4. If no read → report "Value assigned to 'x' is never used"
+## Algorithm
 
-## Problem
+1. Collect all local variable assignments and references in scope.
+2. For each assignment `A`, find the next assignment `B` to the same variable (by offset).
+3. If the next assignment `B` is inside a conditional branch:
+   - Extend the search range to the next unconditional assignment `C` (or end of scope if none exists).
+   - Check for reads between `A` and `C` (instead of between `A` and `B`).
+4. If no read is found in the search range → report "Value assigned to 'x' is never used".
 
-The algorithm assumes linear execution. It does not account for control flow constructs
-that may or may not execute. When a variable is conditionally reassigned, the initial
-assignment's value is still used as a fallback if the conditional branch is not taken.
+## Conditional Constructs
 
----
+A construct is considered *conditional* when its body may not execute at runtime. The following PSI element types are recognized:
 
-## False Positive Cases
+| Construct | Conditional? | Reason |
+|-----------|-------------|--------|
+| `CrystalIfStatement` (with or without else/elsif) | Yes | `if` body only executes when condition is truthy |
+| `CrystalUnlessStatement` | Yes | Body only executes when condition is falsy |
+| `CrystalWhileStatement` | Yes | Body may not execute if condition is initially falsy |
+| `CrystalUntilStatement` | Yes | Body may not execute if condition is initially truthy |
+| `CrystalForStatement` | Yes | Body may not execute if the collection is empty |
+| `CrystalCaseStatement` | Yes | Only executes the matching `when` branch (or none) |
+| `CrystalSelectStatement` | Yes | Only executes the matching `when` branch (or none) |
+| `CrystalBeginStatement` with rescue clauses | Yes | The body after `rescue` only executes if an exception is raised |
+| `CrystalBeginStatement` without rescue | No | Plain `begin...end` always executes its body |
 
-### Case 1: `if` without else
+### Purpose of the Rules
+
+An assignment is considered "used" if its value can possibly be read by subsequent code. When the next assignment to the same variable is inside a conditional branch, the branch may not execute — so the previous assignment's value could still flow through. Therefore, the search for reads must extend past conditional boundaries until the next unconditional overwrite (or end of scope).
+
+## Assignment Lifecycle Rules
+
+- **Linear consecutive assignments:** Only check for reads between `A` and the next assignment `B`. If `B` always executes, `A`'s value is dead.
+- **Conditional next assignment:** Extend the read-search range to the next unconditional assignment (or end of scope).
+- **Compound assignments** (`x += 1`, `x ||= true`) count as both a read of the current value and a write — they never trigger the warning by themselves.
+- **Any read** (not just direct references — also reads via compound assignment) suppresses the warning for preceding assignments.
+
+## Examples: Correct Behavior (No Warning Expected)
+
+Unless otherwise stated, no warning is expected on the first assignment.
+
+### `if` without else
 
 ```crystal
-proxy_command = ""
+x = ""
 if condition
-  proxy_command = "set HTTP_PROXY=#{proxy["hostname"]}"
+  x = "overridden"
 end
-command = %Q{#{proxy_command}"#{source}"}
+puts x
 ```
 
-**Expected:** No warning on `proxy_command = ""`.
-**Actual:** Warning "Value assigned to 'proxy_command' is never used".
-**Reason:** If `condition` is false, the initial `""` value flows through to `command`.
-
-### Case 2: `unless` without else
+### `unless` without else
 
 ```crystal
 x = ""
@@ -45,26 +66,18 @@ end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** If `condition` is true, `x` keeps its initial value.
-
-### Case 3: `begin` with `rescue`
+### `begin` with `rescue`
 
 ```crystal
-proxy_command2 = ""
+x = ""
 begin
-  proxy_command2 = "set HTTP_PROXY=#{proxy["hostname"]}"
+  x = compute_something
 rescue
 end
-command2 = %Q{#{proxy_command2}"#{source}"}
+puts x
 ```
 
-**Expected:** No warning on `proxy_command2 = ""`.
-**Actual:** Warning.
-**Reason:** If the body raises before assignment completes, `proxy_command2` keeps `""`.
-
-### Case 4: `while` loop (0 iterations possible)
+### `while` loop (0 iterations possible)
 
 ```crystal
 x = ""
@@ -74,11 +87,7 @@ end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** If `condition` is false from the start, the loop body never executes and `x` keeps `""`.
-
-### Case 5: `until` loop (0 iterations possible)
+### `until` loop (0 iterations possible)
 
 ```crystal
 x = ""
@@ -88,11 +97,7 @@ end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** Same as `while` — loop may never execute.
-
-### Case 6: `for` loop on potentially empty collection
+### `for` loop on potentially empty collection
 
 ```crystal
 x = ""
@@ -102,11 +107,7 @@ end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** If `items` is empty, the loop body never executes.
-
-### Case 7: `case` without else
+### `case` without else
 
 ```crystal
 x = ""
@@ -119,11 +120,7 @@ end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** If no `when` clause matches, `x` keeps `""`.
-
-### Case 8: `select` without else
+### `select` without else
 
 ```crystal
 x = ""
@@ -134,27 +131,19 @@ end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** If no `when` clause matches, `x` keeps `""`.
-
-### Case 9: Nested conditionals
+### Nested conditionals
 
 ```crystal
 x = ""
-if outer_condition
-  if inner_condition
+if outer
+  if inner
     x = "deep"
   end
 end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** If either condition is false, `x` keeps `""`.
-
-### Case 10: `elsif` chain without else
+### `elsif` chain without else
 
 ```crystal
 x = ""
@@ -166,123 +155,41 @@ end
 puts x
 ```
 
-**Expected:** No warning on `x = ""`.
-**Actual:** Warning.
-**Reason:** If neither condition matches, `x` keeps `""`.
+## Examples: Should Still Warn
 
----
-
-## True Positive Cases (should still warn)
-
-These should continue to produce warnings:
+### Linear reassignment
 
 ```crystal
-# Linear reassignment — value is truly lost
 x = 1      # ← warning: value never used
 x = 2
 puts x
 ```
 
+### `begin` without rescue (always executes)
+
 ```crystal
-# begin without rescue — body always executes
-x = ""
+x = ""     # ← warning: overwritten unconditionally
 begin
   x = "override"
 end
-puts x      # x is always "override" — warning on x = ""
+puts x
 ```
 
+### Unconditional overwrite after conditional
+
 ```crystal
-# Unconditional overwrite after conditional
-x = ""      # ← warning: overwritten unconditionally by x = 2
+x = ""     # ← warning: overwritten unconditionally by x = 2
 if cond
-  x = 1    # this assignment is also dead (overwritten by x = 2)
+  x = 1    # also dead (overwritten by x = 2)
 end
 x = 2
 puts x
 ```
 
----
+### No read before end of scope
 
-## Proposed Fix
-
-### 1. New helper: `isInConditionalBranch`
-
-Walk up the PSI tree from an assignment and check if any ancestor is a conditional construct:
-
-```kotlin
-private fun isInConditionalBranch(element: PsiElement): Boolean {
-    var current = element.parent
-    while (current != null) {
-        when (current) {
-            is CrystalIfStatement,
-            is CrystalUnlessStatement,
-            is CrystalWhileStatement,
-            is CrystalUntilStatement,
-            is CrystalForStatement,
-            is CrystalCaseStatement,
-            is CrystalSelectStatement -> return true
-            is CrystalBeginStatement -> {
-                if (current.rescueClauseList.isNotEmpty()) return true
-            }
-        }
-        current = current.parent
-    }
-    return false
-}
+```crystal
+def foo
+  x = 42   # ← warning: never read
+end
 ```
-
-Note: `CrystalBeginStatement` without rescue is NOT considered conditional — a plain
-`begin ... end` always executes its body.
-
-### 2. Modified search range in `analyzeScope`
-
-Replace the current logic:
-
-```kotlin
-val nextAssignEndOffset = nextAssign?.identifierElement?.parent?.textRange?.endOffset ?: Int.MAX_VALUE
-```
-
-With:
-
-```kotlin
-val effectiveUpperBound = if (nextAssign != null
-    && isInConditionalBranch(nextAssign.identifierElement.parent)) {
-    // Next assignment might not execute — extend search to include reads after it
-    val nextUnconditional = assignments
-        .filter { it.name == assignment.name && it.offset > assignOffset && !it.isCompound }
-        .firstOrNull { !isInConditionalBranch(it.identifierElement.parent) }
-    nextUnconditional?.identifierElement?.parent?.textRange?.endOffset ?: Int.MAX_VALUE
-} else {
-    nextAssignEndOffset
-}
-```
-
-Then use `effectiveUpperBound` for the read check:
-
-```kotlin
-val hasRead = references.any { ref ->
-    ref.name == assignment.name && ref.offset > assignOffset && ref.offset < effectiveUpperBound
-}
-```
-
-Remove the separate `hasLaterRead` variable — the `hasRead` check with `effectiveUpperBound`
-handles all cases.
-
-### 3. Rationale
-
-When the next assignment to a variable is inside a conditional branch:
-- The conditional branch may not execute
-- The initial assignment's value may survive and be read
-- Therefore, extend the search range to include reads that come AFTER the conditional
-- If there IS a subsequent unconditional assignment to the same variable, use that as
-  the upper bound instead (since that unconditional assignment always overwrites)
-
----
-
-## Impact
-
-- Fixes the two user-reported false positives (Cases 1 and 2)
-- Prevents false positives in all conditional constructs (Cases 3–10)
-- No regression for true positives — linear reassignment, begin-without-rescue, and
-  unconditional overwrites are correctly handled
