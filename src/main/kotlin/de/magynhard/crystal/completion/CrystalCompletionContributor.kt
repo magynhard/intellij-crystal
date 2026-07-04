@@ -302,12 +302,16 @@ class CrystalCompletionContributor : CompletionContributor() {
 
         /**
          * Checks if the caret is right after a numeric literal (integer or float).
-         * Returns true if completion should be suppressed.
+         * Only suppresses when on the same line — a newline means the user is typing a new identifier.
          */
         private fun isAfterNumericLiteral(position: PsiElement): Boolean {
             val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
             val tokenType = prev.node?.elementType
-            return tokenType == CrystalTypes.INTEGER_LITERAL || tokenType == CrystalTypes.FLOAT_LITERAL
+            if (tokenType != CrystalTypes.INTEGER_LITERAL && tokenType != CrystalTypes.FLOAT_LITERAL) return false
+            // Only suppress if on the same line (no newline between literal and caret)
+            val prevLine = prev.containingFile?.viewProvider?.document?.getLineNumber(prev.textRange.endOffset)
+            val posLine = position.containingFile?.viewProvider?.document?.getLineNumber(position.textRange.startOffset)
+            return prevLine == posLine
         }
 
         /**
