@@ -362,4 +362,84 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Trivial Expression Types ====================
+
+    fun testRegexLiteralMatchesRegexType() {
+        myFixture.configureByText("test.cr", """
+            def foo(r : Regex)
+            end
+            foo(/pattern/)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRegexLiteralMismatchString() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo(<error descr="Type mismatch: expected 'String', got 'Regex'">/pattern/</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCommandExpressionMatchesStringType() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo(`ls`)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCommandExpressionMismatchInt() {
+        myFixture.configureByText("test.cr", """
+            def foo(n : Int32)
+            end
+            foo(<error descr="Type mismatch: expected 'Int32', got 'String'">`ls`</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testHeredocLiteralMatchesStringType() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo(<<-HEREDOC
+            hello
+            HEREDOC
+            )
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testHeredocLiteralMismatchInt() {
+        myFixture.configureByText("test.cr", """
+            def foo(n : Int32)
+            end
+            foo(<error descr="Type mismatch: expected 'Int32', got 'String'"><<-HEREDOC
+            hello
+            HEREDOC</error>
+            )
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSizeofExpressionMatchesUInt64Type() {
+        myFixture.configureByText("test.cr", """
+            def foo(n : UInt64)
+            end
+            foo(sizeof(Int32))
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSizeofExpressionMismatchString() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo(<error descr="Type mismatch: expected 'String', got 'UInt64'">sizeof(Int32)</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

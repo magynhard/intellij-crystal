@@ -12,7 +12,7 @@ object CrystalTypeCompatibility {
         "Int8", "Int16", "Int32", "Int64", "Int128",
         "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
         "Float32", "Float64",
-        "String", "Char", "Bool", "Nil", "Symbol"
+        "String", "Char", "Bool", "Nil", "Symbol", "Regex"
     )
 
     /** All numeric types (integers + floats). */

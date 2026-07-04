@@ -51,6 +51,15 @@ object CrystalExpressionTypeResolver {
         // String expressions (interpolated strings)
         if (expr is CrystalStringExpression) return ResolvedType("String")
 
+        // Trivial expression types — always resolve to a fixed type
+        if (expr is CrystalRegexExpression) return ResolvedType("Regex")
+        if (expr is CrystalCommandExpression) return ResolvedType("String")
+        if (expr is CrystalHeredocLiteral) return ResolvedType("String")
+        if (expr is CrystalSymbolStringExpression) return ResolvedType("Symbol")
+        if (expr is CrystalSizeofExpression) return ResolvedType("UInt64")
+        if (expr is CrystalInstanceSizeofExpression) return ResolvedType("UInt64")
+        if (expr is CrystalOffsetofExpression) return ResolvedType("UInt64")
+
         // Variable references → delegate to existing type inference
         if (expr is CrystalVariableReference) {
             val name = expr.text
