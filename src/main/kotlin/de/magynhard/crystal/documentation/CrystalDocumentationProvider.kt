@@ -52,23 +52,26 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     ): PsiElement? {
         if (contextElement == null) return null
 
-        // 1. Try PsiReference on the context element (and its parent, for leaf tokens
+        // 1. Unwrap argument wrappers to find the actual expression inside
+        val unwrapped = unwrapArgument(contextElement)
+
+        // 2. Try PsiReference on the context element (and its parent, for leaf tokens
         //    whose reference lives on the wrapping composite, e.g. IDENTIFIER inside
         //    CrystalVariableReference).
-        val ref = contextElement.reference ?: contextElement.parent?.reference
+        val ref = unwrapped.reference ?: unwrapped.parent?.reference
         val resolved = ref?.resolve()
         if (resolved != null) return resolved
 
-        // 2. Fallback for DOT-call identifiers (Apfel.tanzen, a.essen, Senf.new) —
+        // 3. Fallback for DOT-call identifiers (Apfel.tanzen, a.essen, Senf.new) —
         //    these have no PsiReference today. Delegate to the GotoDeclarationHandler,
         //    which knows how to resolve the DOT pattern via sibling/leaf scanning.
         val handler: GotoDeclarationHandler = CrystalGotoDeclarationHandler()
-        val targets = handler.getGotoDeclarationTargets(contextElement, targetOffset, editor)
+        val targets = handler.getGotoDeclarationTargets(unwrapped, targetOffset, editor)
         if (targets?.firstOrNull() != null) return targets.first()
 
-        // 3. Definition/parameter walk-up: hovering over the definition name itself
+        // 4. Definition/parameter walk-up: hovering over the definition name itself
         //    (e.g. `butter` in `def butter`, `Foo` in `class Foo`) or a parameter name.
-        var current: PsiElement? = contextElement
+        var current: PsiElement? = unwrapped
         var depth = 0
         while (current != null && depth < 4) {
             if (current is CrystalMethodDefinition || current is CrystalClassDefinition
@@ -80,12 +83,29 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             depth++
         }
 
-        // 4. Variable identifier: hovering over a variable name (not a definition).
-        if (isVariableIdentifier(contextElement)) {
-            return contextElement
+        // 5. Variable identifier: hovering over a variable name (not a definition).
+        if (isVariableIdentifier(unwrapped)) {
+            return unwrapped
         }
 
         return null
+    }
+
+    /**
+     * Unwraps argument wrappers (CrystalArgument, CrystalBareArgument) to find
+     * the actual expression inside. E.g. for `foo(arr)`, extracts `arr` from
+     * the CrystalArgument wrapper.
+     */
+    private fun unwrapArgument(element: PsiElement): PsiElement {
+        return when (element) {
+            is CrystalArgument -> element.expression ?: element
+            is CrystalBareArgument -> {
+                // CrystalBareArgument contains the expression as a child
+                val expr = element.children.firstOrNull { it is CrystalExpression }
+                expr ?: element
+            }
+            else -> element
+        }
     }
 
     override fun getDocumentationElementForLink(psiManager: PsiManager, link: String, originalElement: PsiElement?): PsiElement? {
