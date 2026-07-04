@@ -565,4 +565,15 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Control-Flow Union Inference ====================
+
+    fun testTernaryExpressionType() {
+        myFixture.configureByText("test.cr", """
+            def foo(n : Int32?)
+            end
+            foo(true ? 1 : nil)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

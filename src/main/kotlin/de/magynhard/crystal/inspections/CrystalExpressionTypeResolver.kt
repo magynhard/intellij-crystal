@@ -1,6 +1,7 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.psi.*
@@ -27,9 +28,23 @@ object CrystalExpressionTypeResolver {
      * Returns null if the type cannot be determined.
      */
     fun resolveType(expr: PsiElement): ResolvedType? {
-        // Unwrap bare arguments to get the actual expression inside
         if (expr is CrystalBareArgument) {
             val inner = findExpressionInContainer(expr)
+            if (inner != null) return resolveType(inner)
+            return null
+        }
+
+        if (expr is CrystalStatement) {
+            val inner = expr.expressionStatement ?: expr.ifStatement
+                ?: expr.beginStatement ?: expr.assignment ?: expr.multiAssignment
+            if (inner != null) return resolveType(inner)
+            val firstChild = expr.children.firstOrNull { it !is PsiWhiteSpace }
+            if (firstChild != null) return resolveType(firstChild)
+            return null
+        }
+
+        if (expr is CrystalExpressionStatement) {
+            val inner = expr.expressionList.firstOrNull()
             if (inner != null) return resolveType(inner)
             return null
         }
@@ -69,6 +84,10 @@ object CrystalExpressionTypeResolver {
         // Tuple literal
         if (expr is CrystalTupleLiteral) return resolveTupleLiteral(expr)
 
+        // Control-flow expressions
+        if (expr is CrystalIfStatement) return resolveIfExpression(expr)
+        if (expr is CrystalCaseStatement) return resolveCaseExpression(expr)
+
         // Variable references → delegate to existing type inference
         if (expr is CrystalVariableReference) {
             val name = expr.text
@@ -91,7 +110,24 @@ object CrystalExpressionTypeResolver {
 
         // Expression wrapper — try first meaningful child
         if (expr is CrystalExpression) {
-            // Try literal tokens directly within the expression
+            val astChildren = expr.node.getChildren(null)
+            val questionIdx = astChildren.indexOfFirst { it.elementType == CrystalTypes.QUESTION }
+            if (questionIdx >= 0) {
+                val colonIdx = astChildren.indexOfFirst { it.elementType == CrystalTypes.COLON }
+                if (colonIdx > questionIdx) {
+                    val trueExpr = astChildren.drop(questionIdx + 1).firstOrNull { it.psi !is PsiWhiteSpace }?.psi
+                    val falseExpr = astChildren.drop(colonIdx + 1).firstOrNull { it.psi !is PsiWhiteSpace }?.psi
+                    val trueType = if (trueExpr != null) resolveType(trueExpr) else null
+                    val falseType = if (falseExpr != null) resolveType(falseExpr) else null
+                    if (trueType != null && falseType != null) {
+                        if (trueType.typeName == falseType.typeName) return trueType
+                        return ResolvedType("${trueType.typeName} | ${falseType.typeName}")
+                    }
+                    if (trueType != null) return trueType
+                    if (falseType != null) return falseType
+                    return null
+                }
+            }
             val firstChild = expr.firstChild
             if (firstChild != null) return resolveType(firstChild)
         }
@@ -197,6 +233,64 @@ object CrystalExpressionTypeResolver {
 
         val typeList = types.joinToString(", ") { it.typeName }
         return ResolvedType("Tuple($typeList)")
+    }
+
+    private fun resolveIfExpression(expr: CrystalIfStatement): ResolvedType? {
+        val branches = mutableListOf<ResolvedType>()
+
+        val thenStatements = expr.statementList?.statementList
+        if (!thenStatements.isNullOrEmpty()) {
+            val lastThen = thenStatements.lastOrNull()
+            if (lastThen != null) {
+                val thenType = resolveType(lastThen)
+                if (thenType != null) branches.add(thenType)
+            }
+        }
+
+        val elseClause = expr.elseClause
+        if (elseClause != null) {
+            val elseStatements = elseClause.statementList.statementList
+            val lastElse = elseStatements.lastOrNull()
+            if (lastElse != null) {
+                val elseType = resolveType(lastElse)
+                if (elseType != null) branches.add(elseType)
+            }
+        } else {
+            branches.add(ResolvedType("Nil"))
+        }
+
+        if (branches.isEmpty()) return null
+        if (branches.size == 1) return branches.first()
+        val typeList = branches.joinToString(" | ") { it.typeName }
+        return ResolvedType(typeList)
+    }
+
+    private fun resolveCaseExpression(expr: CrystalCaseStatement): ResolvedType? {
+        val branches = mutableListOf<ResolvedType>()
+
+        for (whenClause in expr.whenClauseList) {
+            val thenStatements = whenClause.statementList.statementList
+            val lastThen = thenStatements.lastOrNull()
+            if (lastThen != null) {
+                val thenType = resolveType(lastThen)
+                if (thenType != null) branches.add(thenType)
+            }
+        }
+
+        val elseClause = expr.elseClause
+        if (elseClause != null) {
+            val elseStatements = elseClause.statementList.statementList
+            val lastElse = elseStatements.lastOrNull()
+            if (lastElse != null) {
+                val elseType = resolveType(lastElse)
+                if (elseType != null) branches.add(elseType)
+            }
+        }
+
+        if (branches.isEmpty()) return null
+        if (branches.size == 1) return branches.first()
+        val typeList = branches.joinToString(" | ") { it.typeName }
+        return ResolvedType(typeList)
     }
 
     private fun resolveMethodCallReturnType(expr: PsiElement): ResolvedType? {
