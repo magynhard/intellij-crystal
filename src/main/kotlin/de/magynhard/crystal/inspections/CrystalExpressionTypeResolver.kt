@@ -63,6 +63,12 @@ object CrystalExpressionTypeResolver {
         // Array literal
         if (expr is CrystalArrayLiteral) return resolveArrayLiteral(expr)
 
+        // Hash literal
+        if (expr is CrystalHashLiteral) return resolveHashLiteral(expr)
+
+        // Tuple literal
+        if (expr is CrystalTupleLiteral) return resolveTupleLiteral(expr)
+
         // Variable references → delegate to existing type inference
         if (expr is CrystalVariableReference) {
             val name = expr.text
@@ -142,6 +148,55 @@ object CrystalExpressionTypeResolver {
             val union = elementTypes.joinToString(" | ") { it.typeName }
             ResolvedType("Array($union)")
         }
+    }
+
+    private fun resolveHashLiteral(expr: CrystalHashLiteral): ResolvedType? {
+        val typeRefs = expr.typeReferenceList
+        if (typeRefs.size >= 2) {
+            val keyType = typeRefs[0].text.trim().split("|").first().trim()
+                .replace(Regex("""\(.*\)"""), "").trim()
+            val valueType = typeRefs[1].text.trim().split("|").first().trim()
+                .replace(Regex("""\(.*\)"""), "").trim()
+            return ResolvedType("Hash($keyType, $valueType)")
+        }
+
+        val entries = expr.hashEntryList?.hashEntryList ?: emptyList()
+        if (entries.isEmpty()) return null
+
+        val keyTypes = entries.mapNotNull { entry ->
+            val expressions = entry.expressionList
+            if (expressions.isEmpty()) return@mapNotNull null
+            val keyExpr = expressions[0]
+            val keyText = keyExpr.text.trim()
+            if (keyText.matches(Regex("^[a-zA-Z_]\\w*[?!]?$"))) {
+                ResolvedType("Symbol")
+            } else {
+                resolveType(keyExpr)
+            }
+        }
+        val valueTypes = entries.mapNotNull { it.expressionList.getOrNull(1)?.let { e -> resolveType(e) } }
+        if (keyTypes.size != entries.size || valueTypes.size != entries.size) return null
+
+        val keyType = keyTypes.first().typeName
+        val valueType = valueTypes.first().typeName
+        return if (keyTypes.all { it.typeName == keyType } && valueTypes.all { it.typeName == valueType }) {
+            ResolvedType("Hash($keyType, $valueType)")
+        } else {
+            val keyUnion = keyTypes.joinToString(" | ") { it.typeName }
+            val valueUnion = valueTypes.joinToString(" | ") { it.typeName }
+            ResolvedType("Hash($keyUnion, $valueUnion)")
+        }
+    }
+
+    private fun resolveTupleLiteral(expr: CrystalTupleLiteral): ResolvedType? {
+        val elements = expr.expressionList.expressionList
+        if (elements.isEmpty()) return null
+
+        val types = elements.mapNotNull { resolveType(it) }
+        if (types.size != elements.size) return null
+
+        val typeList = types.joinToString(", ") { it.typeName }
+        return ResolvedType("Tuple($typeList)")
     }
 
     private fun resolveMethodCallReturnType(expr: PsiElement): ResolvedType? {

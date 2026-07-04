@@ -489,4 +489,80 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Hash Literal Inference ====================
+
+    fun testHashLiteralOfTypeAnnotation() {
+        myFixture.configureByText("test.cr", """
+            def foo(h : Hash(String, Int32))
+            end
+            foo({} of String => Int32)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testHashLiteralShorthandNoError() {
+        myFixture.configureByText("test.cr", """
+            def foo(h : Hash(Symbol, Int32))
+            end
+            foo({a: 1})
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testHashLiteralArrowNoError() {
+        myFixture.configureByText("test.cr", """
+            def foo(h : Hash(String, Int32))
+            end
+            foo({"a" => 1})
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testHashLiteralTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            def foo(h : Hash(String, Int32))
+            end
+            foo(<error descr="Type mismatch: expected 'Hash(String, Int32)', got 'Hash(String, String)'">{"a" => "b"}</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testHashLiteralWhereStringExpected() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo(<error descr="Type mismatch: expected 'String', got 'Hash(Symbol, Int32)'">{a: 1}</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    // ==================== Tuple Literal Inference ====================
+
+    fun testTupleLiteralNoError() {
+        myFixture.configureByText("test.cr", """
+            def foo(t : Tuple(Int32, String))
+            end
+            foo({1, "hi"})
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTupleLiteralTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            def foo(t : Tuple(Int32, String))
+            end
+            foo(<error descr="Type mismatch: expected 'Tuple(Int32, String)', got 'Tuple(String, Int32)'">{"hi", 1}</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTupleLiteralWhereStringExpected() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo(<error descr="Type mismatch: expected 'String', got 'Tuple(Int32, Int32)'">{1, 2}</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
