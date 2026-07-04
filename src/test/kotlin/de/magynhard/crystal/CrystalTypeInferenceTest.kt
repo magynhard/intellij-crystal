@@ -41,6 +41,24 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         assertEquals("Char", type)
     }
 
+    fun testInferCharLiteralWithEscapeSequences() {
+        myFixture.configureByText("test.cr", "x = '\\n'")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Char", type)
+    }
+
+    fun testInferCharLiteralWithHexEscape() {
+        myFixture.configureByText("test.cr", "x = '\\x41'")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Char", type)
+    }
+
+    fun testInferCharLiteralWithBackslashEscape() {
+        myFixture.configureByText("test.cr", "x = '\\\\'")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Char", type)
+    }
+
     fun testInferSymbolLiteral() {
         myFixture.configureByText("test.cr", "x = :foo")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)

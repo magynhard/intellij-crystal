@@ -172,8 +172,8 @@ object CrystalTypeInference {
         // String literal: "..."
         if (text.startsWith("\"")) return "String"
 
-        // Char literal: 'x' (single character)
-        if (text.startsWith("'") && text.length == 3) return "Char"
+        // Char literal: 'x', '\n', '\t', '\x41', etc.
+        if (text.startsWith("'") && text.endsWith("'") && text.length >= 3) return "Char"
 
         // Symbol literal: :name
         if (text.startsWith(":") && !text.startsWith("::")) return "Symbol"

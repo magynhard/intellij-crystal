@@ -104,7 +104,7 @@ CLASS_VAR = "@@" {IDENTIFIER}
 GLOBAL_VAR = "$" ({IDENTIFIER} | {DIGIT}+ | "~" | "?")
 
 // Character literal escape sequences
-CHAR_ESCAPE = "\\" ( [abefnrtv\\'0] | "u" "{" {HEX_DIGIT}+ "}" | "u" {HEX_DIGIT}{4} | {OCT_DIGIT}{1,3} )
+CHAR_ESCAPE = "\\" ( [abefnrtv\\'0] | "x" {HEX_DIGIT}{2} | "u" "{" {HEX_DIGIT}+ "}" | "u" {HEX_DIGIT}{4} | {OCT_DIGIT}{1,3} )
 CHAR_LITERAL = "'" ( [^'\\] | {CHAR_ESCAPE} ) "'"
 
 // Symbol (simple forms only — :"string" handled separately for interpolation support)
