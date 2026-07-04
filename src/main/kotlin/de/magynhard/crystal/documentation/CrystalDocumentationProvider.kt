@@ -158,7 +158,14 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         // An IDENTIFIER token or CrystalVariableReference that is NOT inside a definition/parameter
         val isIdent = element.node?.elementType == CrystalTypes.IDENTIFIER
         val isVarRef = element is CrystalVariableReference
-        if (!isIdent && !isVarRef) return false
+        if (!isIdent && !isVarRef) {
+            // Also check if it's a CrystalExpression wrapping a variable reference
+            if (element is CrystalExpression) {
+                val varRef = element.variableReferenceList.firstOrNull()
+                if (varRef != null) return isVariableIdentifier(varRef)
+            }
+            return false
+        }
         var current: PsiElement? = element.parent
         var depth = 0
         while (current != null && depth < 5) {
@@ -320,10 +327,18 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     private fun buildVariableDocumentation(target: PsiElement): String {
         val project = target.project
-        // Extract variable name: for CrystalVariableReference, find the IDENTIFIER child
+        // Extract variable name: handle CrystalVariableReference, CrystalExpression wrappers
         val name = when {
             target is CrystalVariableReference -> {
                 target.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: target.text
+            }
+            target is CrystalExpression -> {
+                val varRef = target.variableReferenceList.firstOrNull()
+                if (varRef != null) {
+                    varRef.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: varRef.text
+                } else {
+                    target.text
+                }
             }
             else -> target.text
         } ?: return ""
