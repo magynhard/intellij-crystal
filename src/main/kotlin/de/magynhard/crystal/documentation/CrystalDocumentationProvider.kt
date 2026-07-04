@@ -14,6 +14,7 @@ import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalClassIndex
@@ -34,6 +35,12 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? {
         val target = resolveTarget(element) ?: return null
+
+        // Variable hover: show inferred type
+        if (isVariableIdentifier(target)) {
+            return buildVariableDocumentation(target)
+        }
+
         return buildDocumentation(target)
     }
 
@@ -73,6 +80,11 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             depth++
         }
 
+        // 4. Variable identifier: hovering over a variable name (not a definition).
+        if (isVariableIdentifier(contextElement)) {
+            return contextElement
+        }
+
         return null
     }
 
@@ -97,6 +109,10 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             || element is CrystalEnumDefinition || element is CrystalParameter) {
             return element
         }
+        // Variable identifier — return directly for type info rendering
+        if (isVariableIdentifier(element)) {
+            return element
+        }
         // Try resolving via reference
         val ref = element.reference
         if (ref != null) {
@@ -116,6 +132,23 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             depth++
         }
         return null
+    }
+
+    private fun isVariableIdentifier(element: PsiElement): Boolean {
+        // An IDENTIFIER token that is NOT inside a definition/parameter
+        if (element.node?.elementType != CrystalTypes.IDENTIFIER) return false
+        var current: PsiElement? = element.parent
+        var depth = 0
+        while (current != null && depth < 5) {
+            if (current is CrystalMethodDefinition || current is CrystalClassDefinition
+                || current is CrystalModuleDefinition || current is CrystalStructDefinition
+                || current is CrystalEnumDefinition || current is CrystalParameter) {
+                return false
+            }
+            current = current.parent
+            depth++
+        }
+        return true
     }
 
     // ==================== Documentation Building ====================
@@ -259,6 +292,38 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         // Line 2: parameter name
         val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: "unknown"
         sb.append(escapeHtml(paramName))
+
+        return sb.toString()
+    }
+
+    private fun buildVariableDocumentation(target: PsiElement): String {
+        val project = target.project
+        val name = target.text ?: return ""
+
+        val sb = StringBuilder()
+        sb.append("<div class='definition'><pre>")
+        sb.append(buildVariableSignatureHtml(target, name, project))
+        sb.append("</pre></div>")
+
+        return sb.toString()
+    }
+
+    private fun buildVariableSignatureHtml(target: PsiElement, name: String, project: Project): String {
+        val sb = StringBuilder()
+
+        // Line 1: inferred type (linked) + muted "(Variable)"
+        val inferredType = CrystalTypeInference.inferType(name, target, project)
+        if (inferredType != null) {
+            val highlighted = highlightCrystalCode(inferredType, target) ?: escapeHtml(inferredType)
+            sb.append(wrapTypeLinks(highlighted, project))
+        } else {
+            sb.append(escapeHtml("Any"))
+        }
+        sb.append(" <span style='color:gray'>(Variable)</span>")
+        sb.append("\n")
+
+        // Line 2: variable name
+        sb.append(escapeHtml(name))
 
         return sb.toString()
     }
