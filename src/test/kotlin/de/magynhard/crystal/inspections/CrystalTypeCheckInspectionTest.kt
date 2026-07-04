@@ -319,6 +319,37 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    // ==================== Scalar Literal Inference (Regression Guards) ====================
+
+    fun testIntLiteralWhereStringExpectedStillWorks() {
+        myFixture.configureByText("test.cr", """
+            def greet(name : String)
+            end
+            greet(<error descr="Type mismatch: expected 'String', got 'Int32'">123</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testStringLiteralWhereStringExpectedNoError() {
+        myFixture.configureByText("test.cr", """
+            def greet(name : String)
+            end
+            greet("hello")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNilLiteralWhereNilableExpectedNoError() {
+        myFixture.configureByText("test.cr", """
+            def greet(name : String?)
+            end
+            greet(nil)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    // ==================== Bare DOT-call type checking ====================
+
     fun testBareDotCallAfterMethodCallTypeMismatch() {
         myFixture.configureByText("test.cr", """
             class RvmCli
