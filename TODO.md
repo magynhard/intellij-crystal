@@ -59,11 +59,11 @@ type. This ensures consistent behavior regardless of what the user types.
 
 ## Type Inference (Issue #1)
 
-- [ ] **Extend CrystalTypeInference for literal assignments** — currently only
+- [x] **Extend CrystalTypeInference for literal assignments** — currently only
   handles `Klasse.new`, `Klasse.method`, bare method_call. Add inference for
   literal assignments (`x = "hello"` → String, `x = 1` → Int32, `x = :sym` → Symbol).
-- [ ] **Add array/hash/named-tuple literal inference** — `x = [1, 2]` → Array(Int32)
-- [ ] **Add control-flow union inference** — `x = cond ? 1 : nil` → Int32?
+- [x] **Add array/hash/named-tuple literal inference** — `x = [1, 2]` → Array(Int32)
+- [x] **Add control-flow union inference** — `x = cond ? 1 : nil` → Int32?
 
 ## Inlay Hints (Issue #2)
 
