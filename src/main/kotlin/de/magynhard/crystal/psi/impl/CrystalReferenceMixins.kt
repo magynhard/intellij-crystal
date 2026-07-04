@@ -19,8 +19,6 @@ private fun createCrystalReference(element: ASTWrapperPsiElement): CrystalRefere
     if (parent is CrystalNamedElement) return null
     val grandParent = parent?.parent
     if (grandParent is CrystalNamedElement) return null
-    if (parent is CrystalTypeName) return null
-    if (parent is CrystalMethodName) return null
 
     val identNode = element.node.findChildByType(CrystalTypes.IDENTIFIER)
         ?: element.node.findChildByType(CrystalTypes.CONSTANT)

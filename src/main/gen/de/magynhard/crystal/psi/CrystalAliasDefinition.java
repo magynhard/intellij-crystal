@@ -8,9 +8,6 @@ import com.intellij.psi.PsiElement;
 public interface CrystalAliasDefinition extends PsiElement {
 
   @Nullable
-  CrystalTypeName getTypeName();
-
-  @Nullable
   CrystalTypeReference getTypeReference();
 
 }

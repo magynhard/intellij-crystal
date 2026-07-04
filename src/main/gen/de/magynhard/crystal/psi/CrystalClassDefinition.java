@@ -16,9 +16,6 @@ public interface CrystalClassDefinition extends CrystalNamedElement, StubBasedPs
   CrystalSuperclassClause getSuperclassClause();
 
   @Nullable
-  CrystalTypeName getTypeName();
-
-  @Nullable
   CrystalTypeParameters getTypeParameters();
 
 }

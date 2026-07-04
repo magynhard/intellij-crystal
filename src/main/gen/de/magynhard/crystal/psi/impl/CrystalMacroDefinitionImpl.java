@@ -40,8 +40,8 @@ public class CrystalMacroDefinitionImpl extends CrystalStubbedMacroDefinitionImp
 
   @Override
   @Nullable
-  public CrystalMethodName getMethodName() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMethodName.class);
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
   }
 
   @Override

@@ -71,7 +71,6 @@ public interface CrystalTypes {
   IElementType METHOD_BODY = new CrystalElementType("METHOD_BODY");
   IElementType METHOD_CALL_EXPRESSION = new CrystalElementType("METHOD_CALL_EXPRESSION");
   IElementType METHOD_DEFINITION = CrystalStubElementTypeFactory.create("METHOD_DEFINITION");
-  IElementType METHOD_NAME = new CrystalElementType("METHOD_NAME");
   IElementType MODULE_DEFINITION = CrystalStubElementTypeFactory.create("MODULE_DEFINITION");
   IElementType MULTI_ASSIGNMENT = new CrystalElementType("MULTI_ASSIGNMENT");
   IElementType MULTI_ASSIGN_TARGET = new CrystalElementType("MULTI_ASSIGN_TARGET");
@@ -103,7 +102,6 @@ public interface CrystalTypes {
   IElementType TYPEOF_EXPRESSION = new CrystalElementType("TYPEOF_EXPRESSION");
   IElementType TYPE_ALIAS_LIB = new CrystalElementType("TYPE_ALIAS_LIB");
   IElementType TYPE_ARGUMENTS = new CrystalElementType("TYPE_ARGUMENTS");
-  IElementType TYPE_NAME = new CrystalElementType("TYPE_NAME");
   IElementType TYPE_PARAMETERS = new CrystalElementType("TYPE_PARAMETERS");
   IElementType TYPE_PATH = new CrystalElementType("TYPE_PATH");
   IElementType TYPE_REFERENCE = new CrystalElementType("TYPE_REFERENCE");
@@ -468,9 +466,6 @@ public interface CrystalTypes {
       else if (type == METHOD_DEFINITION) {
         return new CrystalMethodDefinitionImpl(node);
       }
-      else if (type == METHOD_NAME) {
-        return new CrystalMethodNameImpl(node);
-      }
       else if (type == MODULE_DEFINITION) {
         return new CrystalModuleDefinitionImpl(node);
       }
@@ -563,9 +558,6 @@ public interface CrystalTypes {
       }
       else if (type == TYPE_ARGUMENTS) {
         return new CrystalTypeArgumentsImpl(node);
-      }
-      else if (type == TYPE_NAME) {
-        return new CrystalTypeNameImpl(node);
       }
       else if (type == TYPE_PARAMETERS) {
         return new CrystalTypeParametersImpl(node);

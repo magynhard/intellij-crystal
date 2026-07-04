@@ -251,10 +251,6 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitNamedElement(o);
   }
 
-  public void visitMethodName(@NotNull CrystalMethodName o) {
-    visitPsiElement(o);
-  }
-
   public void visitModuleDefinition(@NotNull CrystalModuleDefinition o) {
     visitNamedElement(o);
   }
@@ -372,10 +368,6 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitTypeArguments(@NotNull CrystalTypeArguments o) {
-    visitPsiElement(o);
-  }
-
-  public void visitTypeName(@NotNull CrystalTypeName o) {
     visitPsiElement(o);
   }
 

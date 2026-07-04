@@ -13,7 +13,7 @@ public interface CrystalMacroDefinition extends CrystalNamedElement, StubBasedPs
   CrystalMacroBody getMacroBody();
 
   @Nullable
-  CrystalMethodName getMethodName();
+  CrystalMacroInterpolation getMacroInterpolation();
 
   @Nullable
   CrystalParameterList getParameterList();

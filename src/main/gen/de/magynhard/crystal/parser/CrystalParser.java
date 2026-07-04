@@ -4082,16 +4082,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //               | keyword_as_method
   //               | operator_method_name
   //               | macro_interpolation
-  public static boolean method_name(PsiBuilder builder_, int level_) {
+  static boolean method_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_name")) return false;
     boolean result_;
-    Marker marker_ = enter_section_(builder_, level_, _NONE_, METHOD_NAME, "<method name>");
+    Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = method_name_1(builder_, level_ + 1);
     if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
     if (!result_) result_ = operator_method_name(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
-    exit_section_(builder_, level_, marker_, result_, false, null);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
@@ -6419,14 +6419,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // CONSTANT (DOUBLE_COLON CONSTANT)*
-  public static boolean type_name(PsiBuilder builder_, int level_) {
+  static boolean type_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_name")) return false;
     if (!nextTokenIs(builder_, CONSTANT)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, CONSTANT);
     result_ = result_ && type_name_1(builder_, level_ + 1);
-    exit_section_(builder_, marker_, TYPE_NAME, result_);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 

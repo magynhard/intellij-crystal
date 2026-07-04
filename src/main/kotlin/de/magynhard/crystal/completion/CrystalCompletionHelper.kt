@@ -383,8 +383,7 @@ object CrystalCompletionHelper {
      * Checks whether a method is a class method (def self.xxx).
      */
     fun isStaticMethod(method: CrystalMethodDefinition): Boolean {
-        val methodName = method.methodName ?: return false
-        return methodName.node.findChildByType(CrystalTypes.SELF) != null
+        return method.node.findChildByType(CrystalTypes.SELF) != null
     }
 
     /**

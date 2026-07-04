@@ -70,24 +70,17 @@ class CrystalAnnotator : Annotator {
 
     /**
      * Context-sensitive highlighting for CONSTANT tokens:
-     * - Inside type_name (class/module/struct/enum definition) → CLASS_DECLARATION
-     * - Inside method_name (def self.Foo) → FUNCTION_DECLARATION
+     * - Inside class/module/struct/enum definition → CLASS_DECLARATION
+     * - Inside method definition (def self.Foo) → FUNCTION_DECLARATION
      * - Everywhere else → CONSTANT (type references, standalone constants)
      */
     private fun annotateConstantToken(element: PsiElement, holder: AnnotationHolder) {
-        val parent = element.parent
-        if (parent is CrystalTypeName) {
-            apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
-        } else if (parent is CrystalMethodName) {
-            apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
-        } else {
-            apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
-        }
+        apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
     }
 
     /**
      * Context-sensitive highlighting for IDENTIFIER tokens:
-     * - Inside method_name (def greet, def self.greet) → FUNCTION_DECLARATION
+     * - Inside method definition (def greet, def self.greet) → FUNCTION_DECLARATION
      * - Inside parameter definition → PARAMETER
      * - Usage of a parameter inside method body → PARAMETER
      * - Everything else → IDENTIFIER (default)
@@ -95,8 +88,8 @@ class CrystalAnnotator : Annotator {
     private fun annotateIdentifierToken(element: PsiElement, holder: AnnotationHolder) {
         val parent = element.parent
 
-        // Method/macro name definition
-        if (parent is CrystalMethodName) {
+        // Method/macro name definition (method_name is now private, IDENTIFIER is direct child of method_definition)
+        if (parent is CrystalMethodDefinition || parent is CrystalMacroDefinition) {
             apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
             return
         }

@@ -362,6 +362,12 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.navigation.CrystalFindUsagesProvider"/>
 
+        <highlightUsagesHandlerFactory
+                implementation="de.magynhard.crystal.highlighting.CrystalHighlightUsagesHandlerFactory"/>
+
+        <findUsagesHandlerFactory
+                implementation="de.magynhard.crystal.navigation.CrystalFindUsagesHandlerFactory"/>
+
         <referencesSearch
                 implementation="de.magynhard.crystal.navigation.CrystalInstanceVarReferencesSearcher"/>
 

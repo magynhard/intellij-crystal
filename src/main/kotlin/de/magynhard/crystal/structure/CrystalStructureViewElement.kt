@@ -99,22 +99,22 @@ class CrystalStructureViewElement(private val element: PsiElement) :
     private fun getElementInfo(element: PsiElement): Triple<String, Icon?, String?> {
         return when (element) {
             is CrystalClassDefinition -> Triple(
-                element.typeName?.text ?: "<anonymous>",
+                element.name ?: "<anonymous>",
                 AllIcons.Nodes.Class,
                 "class"
             )
             is CrystalModuleDefinition -> Triple(
-                element.typeName?.text ?: "<anonymous>",
+                element.name ?: "<anonymous>",
                 AllIcons.Nodes.Module,
                 "module"
             )
             is CrystalStructDefinition -> Triple(
-                element.typeName?.text ?: "<anonymous>",
+                element.name ?: "<anonymous>",
                 AllIcons.Nodes.Record,
                 "struct"
             )
             is CrystalEnumDefinition -> Triple(
-                element.typeName?.text ?: "<anonymous>",
+                element.name ?: "<anonymous>",
                 AllIcons.Nodes.Enum,
                 "enum"
             )
@@ -124,23 +124,23 @@ class CrystalStructureViewElement(private val element: PsiElement) :
                 "lib"
             )
             is CrystalAnnotationDefinition -> Triple(
-                element.typeName?.text ?: "<anonymous>",
+                element.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: "<anonymous>",
                 AllIcons.Nodes.Annotationtype,
                 "annotation"
             )
             is CrystalMethodDefinition -> {
-                val name = element.methodName?.text ?: "<anonymous>"
+                val name = element.name ?: "<anonymous>"
                 val params = element.parameterList?.text ?: ""
                 val returnType = element.typeReference?.text?.let { " : $it" } ?: ""
                 Triple("$name($params)$returnType", AllIcons.Nodes.Method, "def")
             }
             is CrystalMacroDefinition -> {
-                val name = element.methodName?.text ?: "<anonymous>"
+                val name = element.name ?: "<anonymous>"
                 val params = element.parameterList?.text ?: ""
                 Triple("$name($params)", AllIcons.Nodes.Template, "macro")
             }
             is CrystalAliasDefinition -> Triple(
-                element.typeName?.text ?: "<anonymous>",
+                element.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: "<anonymous>",
                 AllIcons.Nodes.Type,
                 "alias"
             )

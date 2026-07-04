@@ -72,7 +72,6 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         // Find the standalone "greet" usage (not inside method_name)
         val greetRef = varRefs.find { ref ->
             ref.text == "greet" &&
-            ref.parent !is CrystalMethodName &&
             ref.parent?.parent !is CrystalMethodDefinition
         }
         assertNotNull("Should find 'greet' variable reference", greetRef)
@@ -143,7 +142,6 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         val varRefs = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
         val greetRef = varRefs.find { ref ->
             ref.text == "greet" &&
-            ref.parent !is CrystalMethodName &&
             ref.parent?.parent !is CrystalMethodDefinition
         }
         assertNotNull(greetRef)
@@ -188,7 +186,6 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         val varRefs = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
         val sahneRef = varRefs.find { ref ->
             ref.text == "sahne" &&
-            ref.parent !is CrystalMethodName &&
             ref.parent?.parent !is CrystalMethodDefinition
         }
         assertNotNull("Should find 'sahne' variable reference (the bare call)", sahneRef)

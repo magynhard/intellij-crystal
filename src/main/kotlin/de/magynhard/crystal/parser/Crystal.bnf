@@ -320,7 +320,7 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-method_name ::= IDENTIFIER
+private method_name ::= IDENTIFIER
               | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
               | keyword_as_method
               | operator_method_name
@@ -848,7 +848,7 @@ private type_parameter_item ::= [STAR] CONSTANT [ASSIGN type_reference]
 
 // ==================== Type Names ====================
 
-type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
+private type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
 
 // ==================== Typeof / Sizeof ====================
 

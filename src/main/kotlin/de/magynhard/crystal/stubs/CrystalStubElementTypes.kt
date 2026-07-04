@@ -22,7 +22,7 @@ class CrystalClassDefinitionElementType(debugName: String) :
     }
 
     override fun createStub(psi: CrystalClassDefinition, parentStub: StubElement<out PsiElement>?): CrystalClassDefinitionStub {
-        return CrystalClassDefinitionStub(parentStub, this, psi.typeName?.text)
+        return CrystalClassDefinitionStub(parentStub, this, psi.name)
     }
 
     override fun createPsi(stub: CrystalClassDefinitionStub): CrystalClassDefinition {
@@ -55,7 +55,7 @@ class CrystalModuleDefinitionElementType(debugName: String) :
     }
 
     override fun createStub(psi: CrystalModuleDefinition, parentStub: StubElement<out PsiElement>?): CrystalModuleDefinitionStub {
-        return CrystalModuleDefinitionStub(parentStub, this, psi.typeName?.text)
+        return CrystalModuleDefinitionStub(parentStub, this, psi.name)
     }
 
     override fun createPsi(stub: CrystalModuleDefinitionStub): CrystalModuleDefinition {
@@ -87,7 +87,7 @@ class CrystalStructDefinitionElementType(debugName: String) :
     }
 
     override fun createStub(psi: CrystalStructDefinition, parentStub: StubElement<out PsiElement>?): CrystalStructDefinitionStub {
-        return CrystalStructDefinitionStub(parentStub, this, psi.typeName?.text)
+        return CrystalStructDefinitionStub(parentStub, this, psi.name)
     }
 
     override fun createPsi(stub: CrystalStructDefinitionStub): CrystalStructDefinition {
@@ -119,7 +119,7 @@ class CrystalEnumDefinitionElementType(debugName: String) :
     }
 
     override fun createStub(psi: CrystalEnumDefinition, parentStub: StubElement<out PsiElement>?): CrystalEnumDefinitionStub {
-        return CrystalEnumDefinitionStub(parentStub, this, psi.typeName?.text)
+        return CrystalEnumDefinitionStub(parentStub, this, psi.name)
     }
 
     override fun createPsi(stub: CrystalEnumDefinitionStub): CrystalEnumDefinition {

@@ -34,14 +34,14 @@ public class CrystalMethodDefinitionImpl extends CrystalStubbedMethodDefinitionI
 
   @Override
   @Nullable
-  public CrystalMethodBody getMethodBody() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMethodBody.class);
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
   }
 
   @Override
   @Nullable
-  public CrystalMethodName getMethodName() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMethodName.class);
+  public CrystalMethodBody getMethodBody() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMethodBody.class);
   }
 
   @Override

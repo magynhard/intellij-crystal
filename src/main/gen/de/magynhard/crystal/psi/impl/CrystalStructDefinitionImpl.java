@@ -46,12 +46,6 @@ public class CrystalStructDefinitionImpl extends CrystalStubbedStructDefinitionI
 
   @Override
   @Nullable
-  public CrystalTypeName getTypeName() {
-    return PsiTreeUtil.getChildOfType(this, CrystalTypeName.class);
-  }
-
-  @Override
-  @Nullable
   public CrystalTypeParameters getTypeParameters() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypeParameters.class);
   }

@@ -40,12 +40,6 @@ public class CrystalEnumDefinitionImpl extends CrystalStubbedEnumDefinitionImpl 
 
   @Override
   @Nullable
-  public CrystalTypeName getTypeName() {
-    return PsiTreeUtil.getChildOfType(this, CrystalTypeName.class);
-  }
-
-  @Override
-  @Nullable
   public CrystalTypeReference getTypeReference() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }

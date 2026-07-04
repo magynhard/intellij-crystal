@@ -10,10 +10,10 @@ import de.magynhard.crystal.stubs.CrystalMethodDefinitionStub;
 public interface CrystalMethodDefinition extends CrystalNamedElement, StubBasedPsiElement<CrystalMethodDefinitionStub> {
 
   @Nullable
-  CrystalMethodBody getMethodBody();
+  CrystalMacroInterpolation getMacroInterpolation();
 
   @Nullable
-  CrystalMethodName getMethodName();
+  CrystalMethodBody getMethodBody();
 
   @Nullable
   CrystalParameterList getParameterList();

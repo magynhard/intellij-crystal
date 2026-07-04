@@ -285,7 +285,7 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
         )
         println("ENV methods from methodByClass: ${envMethods.size}")
         for (m in envMethods) {
-            val childTypes = m.methodName?.node?.getChildren(null)?.map { "${it.elementType}(${it.psi.text})" }?.joinToString(", ") ?: "null"
+            val childTypes = m.node?.getChildren(null)?.map { "${it.elementType}(${it.psi.text})" }?.joinToString(", ") ?: "null"
             println("  ENV method: name=${m.name} isStatic=${CrystalCompletionHelper.isStaticMethod(m)} file=${m.containingFile?.name} methodNameChildren=[$childTypes]")
         }
 

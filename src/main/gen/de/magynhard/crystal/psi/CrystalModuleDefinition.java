@@ -13,9 +13,6 @@ public interface CrystalModuleDefinition extends CrystalNamedElement, StubBasedP
   CrystalClassBody getClassBody();
 
   @Nullable
-  CrystalTypeName getTypeName();
-
-  @Nullable
   CrystalTypeParameters getTypeParameters();
 
 }

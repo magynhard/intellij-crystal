@@ -11,11 +11,10 @@ import de.magynhard.crystal.stubs.*
 // ==================== Helper ====================
 
 private fun findNameIdentifierInTypeName(element: PsiElement): PsiElement? {
-    // type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
-    // We want the last CONSTANT token (the simple name)
-    val typeName = element.node.findChildByType(CrystalTypes.TYPE_NAME) ?: return null
+    // type_name is now private (inlined), CONSTANT tokens are direct children of the definition node.
+    // We want the last CONSTANT token (the simple name, e.g. the last part of Foo::Bar)
     var lastConstant: PsiElement? = null
-    var child = typeName.firstChildNode
+    var child = element.node.firstChildNode
     while (child != null) {
         if (child.elementType == CrystalTypes.CONSTANT) {
             lastConstant = child.psi
@@ -26,9 +25,10 @@ private fun findNameIdentifierInTypeName(element: PsiElement): PsiElement? {
 }
 
 private fun findNameIdentifierInMethodName(element: PsiElement): PsiElement? {
-    // method_name ::= IDENTIFIER | CONSTANT | operator_method_name | SELF DOT (IDENTIFIER | CONSTANT | ...)
-    val methodName = element.node.findChildByType(CrystalTypes.METHOD_NAME) ?: return null
-    var child = methodName.firstChildNode
+    // method_name is now private (inlined), IDENTIFIER/CONSTANT tokens are direct children of the definition node.
+    // We want the first IDENTIFIER or CONSTANT token (the method name).
+    // Skip SELF and DOT tokens for self.method definitions.
+    var child = element.node.firstChildNode
     while (child != null) {
         if (child.elementType == CrystalTypes.IDENTIFIER || child.elementType == CrystalTypes.CONSTANT) {
             return child.psi
@@ -48,13 +48,12 @@ private fun getNameFromMethodName(element: PsiElement): String? {
     if (identifier != null) return identifier.text
 
     // For operator methods (e.g. def self.[]), compose name from operator tokens
-    // method_name ::= SELF DOT (operator_method_name) — tokens like LBRACKET, RBRACKET, ASSIGN, QUESTION, etc.
-    val methodName = element.node.findChildByType(CrystalTypes.METHOD_NAME) ?: return null
+    // method_name is now private (inlined), tokens are direct children of the definition node.
+    // Skip SELF and DOT prefix tokens.
     val sb = StringBuilder()
-    var child = methodName.firstChildNode
+    var child = element.node.firstChildNode
     while (child != null) {
         val type = child.elementType
-        // Skip SELF and DOT prefix tokens
         if (type != CrystalTypes.SELF && type != CrystalTypes.DOT) {
             sb.append(child.psi.text)
         }
@@ -85,6 +84,7 @@ abstract class CrystalStubbedClassDefinitionImpl : StubBasedPsiElementBase<Cryst
 
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
     override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }
 
@@ -94,6 +94,7 @@ abstract class CrystalStubbedModuleDefinitionImpl : StubBasedPsiElementBase<Crys
 
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
     override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }
 
@@ -103,6 +104,7 @@ abstract class CrystalStubbedStructDefinitionImpl : StubBasedPsiElementBase<Crys
 
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
     override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }
 
@@ -112,6 +114,7 @@ abstract class CrystalStubbedEnumDefinitionImpl : StubBasedPsiElementBase<Crysta
 
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
     override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }
 
@@ -123,6 +126,7 @@ abstract class CrystalStubbedMethodDefinitionImpl : StubBasedPsiElementBase<Crys
 
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInMethodName(this)
     override fun getName(): String? = stub?.name ?: getNameFromMethodName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }
 
@@ -132,5 +136,6 @@ abstract class CrystalStubbedMacroDefinitionImpl : StubBasedPsiElementBase<Cryst
 
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInMethodName(this)
     override fun getName(): String? = stub?.name ?: getNameFromMethodName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }

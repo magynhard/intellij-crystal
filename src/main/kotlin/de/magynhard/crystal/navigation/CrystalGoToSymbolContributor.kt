@@ -59,22 +59,22 @@ class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
         private fun collectSymbols(element: PsiElement, symbols: MutableList<CrystalSymbol>, allKinds: Boolean) {
             when (element) {
                 is CrystalClassDefinition -> {
-                    val name = element.typeName?.text ?: return
+                    val name = element.name ?: return
                     symbols.add(CrystalSymbol(name, CrystalSymbolKind.CLASS, element))
                     element.classBody?.let { collectSymbols(it, symbols, allKinds) }
                 }
                 is CrystalModuleDefinition -> {
-                    val name = element.typeName?.text ?: return
+                    val name = element.name ?: return
                     symbols.add(CrystalSymbol(name, CrystalSymbolKind.MODULE, element))
                     element.classBody?.let { collectSymbols(it, symbols, allKinds) }
                 }
                 is CrystalStructDefinition -> {
-                    val name = element.typeName?.text ?: return
+                    val name = element.name ?: return
                     symbols.add(CrystalSymbol(name, CrystalSymbolKind.STRUCT, element))
                     element.classBody?.let { collectSymbols(it, symbols, allKinds) }
                 }
                 is CrystalEnumDefinition -> {
-                    val name = element.typeName?.text ?: return
+                    val name = element.name ?: return
                     symbols.add(CrystalSymbol(name, CrystalSymbolKind.ENUM, element))
                 }
                 is CrystalLibDefinition -> {
@@ -82,23 +82,23 @@ class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
                     symbols.add(CrystalSymbol(name, CrystalSymbolKind.LIB, element))
                 }
                 is CrystalAnnotationDefinition -> {
-                    val name = element.typeName?.text ?: return
+                    val name = element.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: return
                     symbols.add(CrystalSymbol(name, CrystalSymbolKind.ANNOTATION, element))
                 }
                 is CrystalMethodDefinition -> {
                     if (allKinds) {
-                        val name = element.methodName?.text ?: return
+                        val name = element.name ?: return
                         symbols.add(CrystalSymbol(name, CrystalSymbolKind.METHOD, element))
                     }
                 }
                 is CrystalMacroDefinition -> {
                     if (allKinds) {
-                        val name = element.methodName?.text ?: return
+                        val name = element.name ?: return
                         symbols.add(CrystalSymbol(name, CrystalSymbolKind.MACRO, element))
                     }
                 }
                 is CrystalAliasDefinition -> {
-                    val name = element.typeName?.text ?: return
+                    val name = element.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: return
                     symbols.add(CrystalSymbol(name, CrystalSymbolKind.ALIAS, element))
                 }
                 is CrystalConstantAssignment -> {

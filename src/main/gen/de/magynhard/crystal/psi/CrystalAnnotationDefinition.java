@@ -7,7 +7,4 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalAnnotationDefinition extends PsiElement {
 
-  @Nullable
-  CrystalTypeName getTypeName();
-
 }
