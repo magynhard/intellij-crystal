@@ -100,6 +100,9 @@ object CrystalTypeInference {
         val literalType = inferFromLiteral(expr)
         if (literalType != null) return literalType
 
+        // Array literal
+        if (text.startsWith("[")) return "Array"
+
         // Pattern: Klasse.new (handles multi-line args and bare args without parens)
         val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
         val newMatch = newPattern.find(text)

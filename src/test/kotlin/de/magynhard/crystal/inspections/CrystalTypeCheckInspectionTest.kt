@@ -442,4 +442,51 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Array Literal Inference ====================
+
+    fun testArrayLiteralOfTypeAnnotation() {
+        myFixture.configureByText("test.cr", """
+            def foo(a : Array(Int32))
+            end
+            foo([] of Int32)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArrayLiteralHomogeneousNoError() {
+        myFixture.configureByText("test.cr", """
+            def foo(a : Array(Int32))
+            end
+            foo([1, 2, 3])
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArrayLiteralHeterogeneousNoError() {
+        myFixture.configureByText("test.cr", """
+            def foo(a : Array(Int32 | String))
+            end
+            foo([1, "hi"])
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArrayLiteralTypeMismatch() {
+        myFixture.configureByText("test.cr", """
+            def foo(a : Array(Int32))
+            end
+            foo(<error descr="Type mismatch: expected 'Array(Int32)', got 'Array(String)'">["hello"]</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArrayLiteralWhereStringExpected() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo(<error descr="Type mismatch: expected 'String', got 'Array(Int32)'">[1, 2]</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

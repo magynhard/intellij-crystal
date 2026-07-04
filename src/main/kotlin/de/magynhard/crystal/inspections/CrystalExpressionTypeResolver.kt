@@ -60,6 +60,9 @@ object CrystalExpressionTypeResolver {
         if (expr is CrystalInstanceSizeofExpression) return ResolvedType("Int32")
         if (expr is CrystalOffsetofExpression) return ResolvedType("Int32")
 
+        // Array literal
+        if (expr is CrystalArrayLiteral) return resolveArrayLiteral(expr)
+
         // Variable references → delegate to existing type inference
         if (expr is CrystalVariableReference) {
             val name = expr.text
@@ -113,6 +116,31 @@ object CrystalExpressionTypeResolver {
             lower.endsWith("f32") -> ResolvedType("Float32")
             lower.endsWith("f64") -> ResolvedType("Float64")
             else -> ResolvedType("Float64", isUnsuffixedNumericLiteral = true)
+        }
+    }
+
+    private fun resolveArrayLiteral(expr: CrystalArrayLiteral): ResolvedType? {
+        // Check for "of Type" annotation
+        val typeRef = expr.typeReference
+        if (typeRef != null) {
+            val typeName = typeRef.text.trim().split("|").first().trim()
+                .replace(Regex("""\(.*\)"""), "").trim()
+            return ResolvedType("Array($typeName)")
+        }
+
+        // Infer from elements
+        val elements = expr.expressionList?.expressionList ?: emptyList()
+        if (elements.isEmpty()) return null
+
+        val elementTypes = elements.mapNotNull { resolveType(it) }
+        if (elementTypes.size != elements.size) return null
+
+        val firstType = elementTypes.first().typeName
+        return if (elementTypes.all { it.typeName == firstType }) {
+            ResolvedType("Array($firstType)")
+        } else {
+            val union = elementTypes.joinToString(" | ") { it.typeName }
+            ResolvedType("Array($union)")
         }
     }
 

@@ -82,4 +82,16 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)
         assertEquals("Nil", type)
     }
+
+    fun testInferArrayLiteralWithOfType() {
+        myFixture.configureByText("test.cr", "x = [] of Int32")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Array", type)
+    }
+
+    fun testInferArrayLiteralHomogeneous() {
+        myFixture.configureByText("test.cr", "x = [1, 2, 3]")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Array", type)
+    }
 }
