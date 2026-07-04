@@ -576,4 +576,33 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Operator Result Type Inference ====================
+
+    fun testIntegerAdditionType() {
+        myFixture.configureByText("test.cr", """
+            def foo(n : Int32)
+            end
+            foo(1 + 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testComparisonType() {
+        myFixture.configureByText("test.cr", """
+            def foo(b : Bool)
+            end
+            foo(1 == 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testStringConcatType() {
+        myFixture.configureByText("test.cr", """
+            def foo(s : String)
+            end
+            foo("a" + "b")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

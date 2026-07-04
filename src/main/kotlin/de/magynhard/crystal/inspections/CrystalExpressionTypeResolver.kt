@@ -111,6 +111,12 @@ object CrystalExpressionTypeResolver {
         // Expression wrapper — try first meaningful child
         if (expr is CrystalExpression) {
             val astChildren = expr.node.getChildren(null)
+
+            // Operator detection — binary operators like ==, +, etc.
+            val opResult = resolveOperatorType(astChildren)
+            if (opResult != null) return opResult
+
+            // Ternary expression: or_expression QUESTION expression COLON expression
             val questionIdx = astChildren.indexOfFirst { it.elementType == CrystalTypes.QUESTION }
             if (questionIdx >= 0) {
                 val colonIdx = astChildren.indexOfFirst { it.elementType == CrystalTypes.COLON }
@@ -291,6 +297,35 @@ object CrystalExpressionTypeResolver {
         if (branches.size == 1) return branches.first()
         val typeList = branches.joinToString(" | ") { it.typeName }
         return ResolvedType(typeList)
+    }
+
+    private fun resolveOperatorType(astChildren: Array<com.intellij.lang.ASTNode>): ResolvedType? {
+        val nonWhitespace = astChildren.filter { it.psi !is PsiWhiteSpace }
+        if (nonWhitespace.size < 3) return null
+
+        val opType = nonWhitespace[1].elementType
+
+        return when (opType) {
+            CrystalTypes.EQ, CrystalTypes.NEQ,
+            CrystalTypes.LT, CrystalTypes.LTE,
+            CrystalTypes.GT, CrystalTypes.GTE,
+            CrystalTypes.SPACESHIP, CrystalTypes.CASE_EQ,
+            CrystalTypes.MATCH_OP -> ResolvedType("Bool")
+
+            CrystalTypes.AND_AND, CrystalTypes.OR_OR -> ResolvedType("Bool")
+
+            CrystalTypes.PLUS, CrystalTypes.MINUS,
+            CrystalTypes.STAR, CrystalTypes.SLASH,
+            CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT,
+            CrystalTypes.DOUBLE_STAR -> {
+                val leftType = resolveType(nonWhitespace[0].psi)
+                val rightType = resolveType(nonWhitespace[2].psi)
+                if (leftType != null && leftType.typeName == rightType?.typeName) leftType
+                else null
+            }
+
+            else -> null
+        }
     }
 
     private fun resolveMethodCallReturnType(expr: PsiElement): ResolvedType? {
