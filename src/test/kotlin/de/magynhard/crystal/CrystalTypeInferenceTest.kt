@@ -94,4 +94,16 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)
         assertEquals("Array", type)
     }
+
+    fun testInferInstanceVariableFromAssignment() {
+        myFixture.configureByText("test.cr", "@x = \"hello\"")
+        val type = CrystalTypeInference.inferType("@x", myFixture.file, project)
+        assertEquals("String", type)
+    }
+
+    fun testInferInstanceVariableFromIntegerAssignment() {
+        myFixture.configureByText("test.cr", "@count = 42")
+        val type = CrystalTypeInference.inferType("@count", myFixture.file, project)
+        assertEquals("Int32", type)
+    }
 }
