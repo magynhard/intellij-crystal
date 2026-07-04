@@ -53,6 +53,12 @@ class CrystalAnnotator : Annotator {
             return
         }
 
+        // Validate regex escape sequences (lexer tokenizes them as STRING_ESCAPE)
+        if (elementType == CrystalTypes.STRING_ESCAPE && element.parent is CrystalRegexExpression) {
+            annotateInvalidRegexEscapeInRegex(element, holder)
+            return
+        }
+
         // Validate heredoc pairs: start must have matching end delimiter
         if (elementType == CrystalTypes.HEREDOC_START) {
             validateHeredocStart(element, holder)
@@ -304,6 +310,41 @@ class CrystalAnnotator : Annotator {
     }
 
     /**
+     * Validates a single STRING_ESCAPE token inside a regex expression.
+     * The lexer splits regex escapes into separate STRING_ESCAPE tokens,
+     * so we validate them individually here.
+     */
+    private fun annotateInvalidRegexEscapeInRegex(element: PsiElement, holder: AnnotationHolder) {
+        val text = element.text
+        val range = element.textRange
+        if (!isInvalidRegexEscape(text)) return
+
+        val message = when {
+            text.startsWith("\\u") -> {
+                val hexValue = if (text.startsWith("\\u{")) {
+                    text.removeSurrounding("\\u{", "}")
+                } else {
+                    text.removePrefix("\\u")
+                }
+                val codepoint = hexValue.toIntOrNull(16)
+                val suggestion = if (codepoint != null) "\\x{${codepoint.toString(16).uppercase()}}" else "\\x{CODEPOINT}"
+                "Invalid regex escape: PCRE2 does not support \\u. Use $suggestion instead."
+            }
+            text.startsWith("\\N{") && !text.startsWith("\\N{U+") -> {
+                "Invalid regex escape: PCRE2 does not support \\N{name}. Use \\x{CODEPOINT} instead."
+            }
+            text == "\\F" -> "Invalid regex escape: PCRE2 does not support \\F"
+            text == "\\L" -> "Invalid regex escape: PCRE2 does not support \\L"
+            text == "\\l" -> "Invalid regex escape: PCRE2 does not support \\l"
+            text == "\\U" -> "Invalid regex escape: PCRE2 does not support \\U"
+            else -> "Invalid regex escape: PCRE2 does not support $text"
+        }
+        holder.newAnnotation(HighlightSeverity.ERROR, message)
+            .range(range)
+            .create()
+    }
+
+    /**
      * Marks invalid PCRE2 escape sequences inside regex literals as errors.
      * PCRE2 does not support: \u, \F, \L, \l, \N{name}, \U
      * For \u and \N{U+...}, suggests the equivalent \x{CODEPOINT} alternative.
@@ -484,7 +525,14 @@ class CrystalAnnotator : Annotator {
         // Regex sub-pattern matching
         private val REGEX_ESCAPE = Regex("""\\[dDwWsSbtnr0aAfv]|\\[xXu]\{[0-9a-fA-F]+\}|\\[xX][0-9a-fA-F]{1,2}|\\u[0-9a-fA-F]{4}|\\p\{[^}]+\}|\\P\{[^}]+\}|\\k<[^>]+>|\\k'[^']+'|\\[KNRX]|\\[QHhvV]""")
         // Invalid PCRE2 escapes that Crystal's regex engine does not support
-        private val REGEX_INVALID_ESCAPE = Regex("""\\u[0-9a-fA-F]{4}|\\u\{[0-9a-fA-F]+\}|\\F(?!\w)|\\L(?!\w)|\\l(?!\w)|\\N\{[^}]*\}|\\U(?!\w)""")
+        private val REGEX_INVALID_ESCAPE = Regex("""\\u[0-9a-fA-F]{4}|\\u\{[0-9a-fA-F]+\}|\\F(?!\w)|\\L(?!\w)|\\l(?!\w)|\\N\{(?!U\+)[^}]*\}|\\U(?!\w)""")
+
+        /** Check if a STRING_ESCAPE token text is an invalid PCRE2 regex escape. */
+        private fun isInvalidRegexEscape(text: String): Boolean {
+            return text in setOf("\\F", "\\L", "\\l", "\\U") ||
+                   text.startsWith("\\u") ||
+                   (text.startsWith("\\N{") && !text.startsWith("\\N{U+"))
+        }
         private val REGEX_QUANTIFIER = Regex("""[+\*?]\+[?+]?|[+\*?][?+]?|\{[0-9]+\}|\{[0-9]+,?\}|\{[0-9]+,[0-9]+\}|\{[0-9]+,\}|\{,?[0-9]+\}""")
         private val REGEX_CHAR_CLASS = Regex("""\[(?:\\.|[^\[\]])*\]""")
         private val REGEX_ALTERNATION = Regex("""\|""")

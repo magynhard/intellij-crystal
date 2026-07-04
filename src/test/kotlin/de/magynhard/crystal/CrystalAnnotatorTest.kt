@@ -240,14 +240,20 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         assertTrue("Should report error for \\l escape", errors.isNotEmpty())
     }
 
-    fun testInvalidRegexEscapeN() {
+    fun testValidRegexEscapeNNotReported() {
+        myFixture.configureByText("test.cr", "r = /\\N/")
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+        val regexErrors = errors.filter { it.description?.contains("Invalid regex escape") == true }
+        assertTrue("\\N is valid PCRE2 and should not produce errors", regexErrors.isEmpty())
+    }
+
+    fun testValidRegexEscapeNUCodepointNotReported() {
         myFixture.configureByText("test.cr", "r = /\\N{U+0041}/")
         val highlights = myFixture.doHighlighting()
         val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
-        assertTrue("Should report error for \\N{name} escape", errors.isNotEmpty())
-        val error = errors.find { it.description?.contains("Invalid regex escape") == true }
-        assertNotNull("Should have 'Invalid regex escape' message", error)
-        assertTrue("Should suggest \\x{41} for \\N{U+0041}", error!!.description!!.contains("\\x{41}"))
+        val regexErrors = errors.filter { it.description?.contains("Invalid regex escape") == true }
+        assertTrue("\\N{U+...} is valid PCRE2 and should not produce errors", regexErrors.isEmpty())
     }
 
     fun testInvalidRegexEscapeUpperU() {
