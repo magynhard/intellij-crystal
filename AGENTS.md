@@ -106,3 +106,18 @@ All extensions are registered in `src/main/resources/META-INF/plugin.xml`. When 
 ## External Dependencies
 
 - Crystal compiler at `/usr/bin/crystal` (used by formatter, run configs)
+
+## IntelliJ Platform API Research Sources
+
+When researching IntelliJ Platform APIs, use these sources in descending priority:
+
+1. **IntelliJ Platform SDK Docs** — https://plugins.jetbrains.com/docs/intellij/ (official, canonical)
+   - Features reference: `additional-minor-features.html` (e.g. "Recognizing Complex Multi-Block Expressions" for `CodeBlockSupportHandler`)
+   - Extension Point List: `intellij-platform-extension-point-list.html`
+2. **GitHub source code** — `intellij-community` repo on GitHub
+   - `CodeBlockSupportHandler.java`: `platform/lang-impl/src/com/intellij/codeInsight/highlighting/CodeBlockSupportHandler.java`
+   - `AbstractCodeBlockSupportHandler.java`: `platform/lang-impl/src/com/intellij/codeInsight/highlighting/AbstractCodeBlockSupportHandler.java`
+   - Resolve the correct branch for the target build version (e.g. `261` → `master` branch, or version tags like `idea/261.25134.95`)
+3. **IntelliJ API Doc (community-maintained)** — https://dploeger.github.io/intellij-api-doc/ (broader API coverage but unofficial)
+
+For build-version-specific questions, check the `build.gradle.kts` `intellijIdea()` version and look up the corresponding tag in the intellij-community repo.
