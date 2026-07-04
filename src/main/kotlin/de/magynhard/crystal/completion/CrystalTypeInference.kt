@@ -76,7 +76,7 @@ object CrystalTypeInference {
             if (varName != name && varName != "@$name") continue
 
             // Only consider assignments that appear before our context
-            if (assignment.textOffset >= context.textOffset) continue
+            if (assignment.textOffset > context.textOffset) continue
 
             // Analyze the right-hand side expression
             val expr = assignment.expression ?: continue
@@ -95,6 +95,10 @@ object CrystalTypeInference {
      */
     private fun inferTypeFromExpression(expr: PsiElement, project: Project): String? {
         val text = expr.text.trim()
+
+        // Scalar literals
+        val literalType = inferFromLiteral(expr)
+        if (literalType != null) return literalType
 
         // Pattern: Klasse.new (handles multi-line args and bare args without parens)
         val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
@@ -160,5 +164,61 @@ object CrystalTypeInference {
         val simple = typeText.split("|").first().trim()
         val withoutGenerics = simple.replace(Regex("""\(.*\)"""), "").trim()
         return withoutGenerics
+    }
+
+    private fun inferFromLiteral(expr: PsiElement): String? {
+        val text = expr.text.trim()
+
+        // String literal: "..."
+        if (text.startsWith("\"")) return "String"
+
+        // Char literal: 'x' (single character)
+        if (text.startsWith("'") && text.length == 3) return "Char"
+
+        // Symbol literal: :name
+        if (text.startsWith(":") && !text.startsWith("::")) return "Symbol"
+
+        // Boolean literals
+        if (text == "true" || text == "false") return "Bool"
+
+        // Nil literal
+        if (text == "nil") return "Nil"
+
+        // Float literal with suffix: 1_f32, 1.0_f64
+        if (text.contains("_f32") || text.contains("_f64")) return resolveFloatLiteralType(text)
+
+        // Float literal with decimal point: 1.0, -1.5e10
+        if (text.matches(Regex("""-?\d[\d_]*\.\d[\d_]*((?:[eE][+-]?\d+))?"""))) return resolveFloatLiteralType(text)
+
+        // Integer literal: 1, 1_i64, 1_u128
+        if (text.matches(Regex("""-?\d[\d_]*(?:_?[iu](?:8|16|32|64|128))?"""))) return resolveIntegerLiteralType(text)
+
+        return null
+    }
+
+    private fun resolveIntegerLiteralType(text: String): String {
+        val lower = text.lowercase().replace("_", "")
+        return when {
+            lower.endsWith("i8") -> "Int8"
+            lower.endsWith("i16") -> "Int16"
+            lower.endsWith("i32") -> "Int32"
+            lower.endsWith("i64") -> "Int64"
+            lower.endsWith("i128") -> "Int128"
+            lower.endsWith("u8") -> "UInt8"
+            lower.endsWith("u16") -> "UInt16"
+            lower.endsWith("u32") -> "UInt32"
+            lower.endsWith("u64") -> "UInt64"
+            lower.endsWith("u128") -> "UInt128"
+            else -> "Int32"
+        }
+    }
+
+    private fun resolveFloatLiteralType(text: String): String {
+        val lower = text.lowercase().replace("_", "")
+        return when {
+            lower.endsWith("f32") -> "Float32"
+            lower.endsWith("f64") -> "Float64"
+            else -> "Float64"
+        }
     }
 }
