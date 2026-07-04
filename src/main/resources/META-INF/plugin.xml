@@ -214,6 +214,10 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalBraceMatcher"/>
 
+        <codeBlockSupportHandler
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.CrystalCodeBlockSupportHandler"/>
+
         <lang.foldingBuilder
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalFoldingBuilder"/>
