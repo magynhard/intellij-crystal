@@ -103,6 +103,12 @@ object CrystalTypeInference {
         // Array literal
         if (text.startsWith("[")) return "Array"
 
+        // Hash literal: { key => value } or { key: value }
+        if (text.startsWith("{") && (text.contains("=>") || text.contains(Regex("\\w+:")))) return "Hash"
+
+        // Tuple literal: { value1, value2 } (no => or : after identifiers)
+        if (text.startsWith("{")) return "Tuple"
+
         // Pattern: Klasse.new (handles multi-line args and bare args without parens)
         val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
         val newMatch = newPattern.find(text)

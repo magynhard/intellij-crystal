@@ -135,8 +135,10 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     }
 
     private fun isVariableIdentifier(element: PsiElement): Boolean {
-        // An IDENTIFIER token that is NOT inside a definition/parameter
-        if (element.node?.elementType != CrystalTypes.IDENTIFIER) return false
+        // An IDENTIFIER token or CrystalVariableReference that is NOT inside a definition/parameter
+        val isIdent = element.node?.elementType == CrystalTypes.IDENTIFIER
+        val isVarRef = element is CrystalVariableReference
+        if (!isIdent && !isVarRef) return false
         var current: PsiElement? = element.parent
         var depth = 0
         while (current != null && depth < 5) {
@@ -298,7 +300,13 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     private fun buildVariableDocumentation(target: PsiElement): String {
         val project = target.project
-        val name = target.text ?: return ""
+        // Extract variable name: for CrystalVariableReference, find the IDENTIFIER child
+        val name = when {
+            target is CrystalVariableReference -> {
+                target.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: target.text
+            }
+            else -> target.text
+        } ?: return ""
 
         val sb = StringBuilder()
         sb.append("<div class='definition'><pre>")

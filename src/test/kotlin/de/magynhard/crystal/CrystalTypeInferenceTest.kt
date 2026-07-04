@@ -106,4 +106,22 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         val type = CrystalTypeInference.inferType("@count", myFixture.file, project)
         assertEquals("Int32", type)
     }
+
+    fun testInferHashLiteral() {
+        myFixture.configureByText("test.cr", "x = {\"a\" => 1}")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Hash", type)
+    }
+
+    fun testInferHashLiteralShorthand() {
+        myFixture.configureByText("test.cr", "x = {a: 1}")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Hash", type)
+    }
+
+    fun testInferTupleLiteral() {
+        myFixture.configureByText("test.cr", "x = {1, \"hi\"}")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Tuple", type)
+    }
 }
