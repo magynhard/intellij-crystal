@@ -56,9 +56,9 @@ object CrystalExpressionTypeResolver {
         if (expr is CrystalCommandExpression) return ResolvedType("String")
         if (expr is CrystalHeredocLiteral) return ResolvedType("String")
         if (expr is CrystalSymbolStringExpression) return ResolvedType("Symbol")
-        if (expr is CrystalSizeofExpression) return ResolvedType("UInt64")
-        if (expr is CrystalInstanceSizeofExpression) return ResolvedType("UInt64")
-        if (expr is CrystalOffsetofExpression) return ResolvedType("UInt64")
+        if (expr is CrystalSizeofExpression) return ResolvedType("Int32")
+        if (expr is CrystalInstanceSizeofExpression) return ResolvedType("Int32")
+        if (expr is CrystalOffsetofExpression) return ResolvedType("Int32")
 
         // Variable references → delegate to existing type inference
         if (expr is CrystalVariableReference) {

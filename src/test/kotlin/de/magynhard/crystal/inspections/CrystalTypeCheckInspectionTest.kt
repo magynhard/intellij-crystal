@@ -425,9 +425,9 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testSizeofExpressionMatchesUInt64Type() {
+    fun testSizeofExpressionMatchesInt32Type() {
         myFixture.configureByText("test.cr", """
-            def foo(n : UInt64)
+            def foo(n : Int32)
             end
             foo(sizeof(Int32))
         """.trimIndent())
@@ -438,7 +438,7 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def foo(s : String)
             end
-            foo(<error descr="Type mismatch: expected 'String', got 'UInt64'">sizeof(Int32)</error>)
+            foo(<error descr="Type mismatch: expected 'String', got 'Int32'">sizeof(Int32)</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
