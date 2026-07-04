@@ -5,6 +5,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.inspections.CrystalExpressionTypeResolver
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalMethodIndex
 
@@ -103,10 +104,24 @@ object CrystalTypeInference {
         // Array literal
         if (text.startsWith("[")) return "Array"
 
-        // Hash literal: { key => value } or { key: value }
-        if (text.startsWith("{") && (text.contains("=>") || text.contains(Regex("\\w+:")))) return "Hash"
+        // Hash literal: extract from CrystalExpression wrapper
+        if (expr is CrystalExpression) {
+            val hashLiterals = expr.hashLiteralList
+            if (hashLiterals.isNotEmpty()) {
+                val resolved = CrystalExpressionTypeResolver.resolveType(hashLiterals[0])
+                if (resolved != null) return resolved.typeName
+                return "Hash"
+            }
+            val tupleLiterals = expr.tupleLiteralList
+            if (tupleLiterals.isNotEmpty()) {
+                val resolved = CrystalExpressionTypeResolver.resolveType(tupleLiterals[0])
+                if (resolved != null) return resolved.typeName
+                return "Tuple"
+            }
+        }
 
-        // Tuple literal: { value1, value2 } (no => or : after identifiers)
+        // Fallback text-based detection for hash/tuple
+        if (text.startsWith("{") && (text.contains("=>") || text.contains(Regex("\\w+:")))) return "Hash"
         if (text.startsWith("{")) return "Tuple"
 
         // Pattern: Klasse.new (handles multi-line args and bare args without parens)

@@ -110,18 +110,18 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
     fun testInferHashLiteral() {
         myFixture.configureByText("test.cr", "x = {\"a\" => 1}")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)
-        assertEquals("Hash", type)
+        assertEquals("Hash(String, Int32)", type)
     }
 
     fun testInferHashLiteralShorthand() {
         myFixture.configureByText("test.cr", "x = {a: 1}")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)
-        assertEquals("Hash", type)
+        assertEquals("Hash(Symbol, Int32)", type)
     }
 
     fun testInferTupleLiteral() {
         myFixture.configureByText("test.cr", "x = {1, \"hi\"}")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)
-        assertEquals("Tuple", type)
+        assertEquals("Tuple(Int32, String)", type)
     }
 }
