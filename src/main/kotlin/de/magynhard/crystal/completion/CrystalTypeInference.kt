@@ -101,6 +101,12 @@ object CrystalTypeInference {
         val literalType = inferFromLiteral(expr)
         if (literalType != null) return literalType
 
+        // Ternary / control-flow: delegate to CrystalExpressionTypeResolver
+        if (expr is CrystalExpression) {
+            val resolved = CrystalExpressionTypeResolver.resolveType(expr)
+            if (resolved != null) return resolved.typeName
+        }
+
         // Array literal
         if (text.startsWith("[")) return "Array"
 

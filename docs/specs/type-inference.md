@@ -314,7 +314,8 @@ the initial implementation. Only built-in type rules are supported.
 ### Existing Code to Extend
 
 - `CrystalTypeInference.inferTypeFromExpression` (line 96) — add literal pattern matching
-  before the existing method-call regex patterns.
+  before the existing method-call regex patterns. Delegates to `CrystalExpressionTypeResolver`
+  for ternary/control-flow expressions (QUESTION/COLON detection).
 - `CrystalExpressionTypeResolver.resolveType` (line 29) — add cases for collection,
   control-flow, and trivial expression PSI types in the `when` block.
 
