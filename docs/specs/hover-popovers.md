@@ -174,6 +174,7 @@ unknown_var
 - The inferred type is hyperlinked if resolvable via `CrystalClassIndex`.
 - Union types have each type name hyperlinked independently.
 - Hash/tuple types show detailed type parameters (e.g. `Hash(String, Int32)`).
+- Array types deduplicate element types (e.g. `[1, 2, 3, "lol"]` → `Array(Int32 | String)`).
 - Instance variables (`@var`) work the same as local variables.
 - The `(Variable)` label is styled with `color:gray` (muted).
 
