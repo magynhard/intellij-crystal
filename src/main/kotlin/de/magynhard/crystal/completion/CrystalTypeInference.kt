@@ -62,24 +62,15 @@ object CrystalTypeInference {
      * - x = method_name → check return type of top-level/enclosing method
      */
     private fun inferFromAssignment(name: String, context: PsiElement, project: Project): String? {
-        // Walk backwards through siblings and parent scope to find assignment
         val containingFile = context.containingFile ?: return null
-
-        // Collect all assignments in the file (simple approach)
         val assignments = PsiTreeUtil.collectElementsOfType(containingFile, CrystalAssignment::class.java)
-
-        // Search in reverse — last assignment before cursor wins
         for (assignment in assignments.reversed()) {
-            // Check if this assignment assigns to our variable
             val identNode = assignment.node.findChildByType(CrystalTypes.IDENTIFIER)
+                ?: assignment.firstChild?.node?.findChildByType(CrystalTypes.IDENTIFIER)
             val instanceVarAccess = assignment.instanceVarAccess
             val varName = identNode?.text ?: instanceVarAccess?.text
             if (varName != name && varName != "@$name") continue
-
-            // Only consider assignments that appear before our context
             if (assignment.textOffset > context.textOffset) continue
-
-            // Analyze the right-hand side expression
             val expr = assignment.expression ?: continue
             val inferredType = inferTypeFromExpression(expr, project)
             if (inferredType != null) return inferredType
@@ -165,12 +156,15 @@ object CrystalTypeInference {
     /**
      * Finds the return type annotation of a method by name.
      * If className is provided, searches within that class; otherwise project-wide.
+     * When no explicit return type is annotated, infers from the method body:
+     * - return statement → type of the return value
+     * - implicit return (last expression) → type of last expression
      */
     private fun inferReturnTypeOfMethod(methodName: String, className: String?, project: Project): String? {
         val scope = GlobalSearchScope.allScope(project)
         val methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
-        )
+        ).toMutableList()
 
         for (method in methods) {
             if (className != null) {
@@ -181,6 +175,48 @@ object CrystalTypeInference {
             if (returnType != null) {
                 return extractTypeName(returnType)
             }
+            // No explicit return type — infer from method body
+            val inferred = inferReturnTypeFromBody(method)
+            if (inferred != null) return inferred
+        }
+        return null
+    }
+
+    /**
+     * Infers the return type from a method body when no explicit return type is annotated.
+     * Checks for return statements first, then falls back to the last expression (implicit return).
+     */
+    private fun inferReturnTypeFromBody(method: CrystalMethodDefinition): String? {
+        val body = method.methodBody
+        if (body == null) return null
+        val statements = body.statementList.statementList
+        if (statements.isEmpty()) return null
+
+        // Check each statement for return statements
+        for (stmt in statements) {
+            val returnStmt = stmt.returnStatement
+            if (returnStmt != null) {
+                val returnExpr = returnStmt.expression
+                if (returnExpr != null) {
+                    val resolved = CrystalExpressionTypeResolver.resolveType(returnExpr)
+                    if (resolved != null) return resolved.typeName
+                }
+            }
+        }
+
+        // Implicit return: last expression in body
+        val lastStmt = statements.lastOrNull()
+        if (lastStmt != null) {
+            val exprStmt = lastStmt.expressionStatement
+            if (exprStmt != null) {
+                val innerExpr = exprStmt.expressionList.firstOrNull()
+                if (innerExpr != null) {
+                    val resolved = CrystalExpressionTypeResolver.resolveType(innerExpr)
+                    if (resolved != null) return resolved.typeName
+                }
+            }
+            val resolved = CrystalExpressionTypeResolver.resolveType(lastStmt)
+            if (resolved != null) return resolved.typeName
         }
         return null
     }

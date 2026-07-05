@@ -296,10 +296,57 @@ the initial implementation. Only built-in type rules are supported.
 
 ---
 
+## Priority Tier 7 — Method Return Type Inference from Body
+
+**Affects:** `CrystalTypeInference.inferReturnTypeOfMethod`
+**Complexity:** Medium
+
+When a method has no explicit return type annotation, infer the return type from the
+method body. This enables variable hover to show the correct type when a variable
+holds a method's return value.
+
+| Crystal Code | Inferred Type | Strategy |
+|---|---|---|
+| `def foo; return "hi"; end` | `String` | First `return` statement's expression type |
+| `def bar(x : Int32); x + 1; end` | `Int32` | Last expression (implicit return) |
+| `def baz; end` | `Nil` | Empty body defaults to Nil |
+
+### Resolution Strategy
+
+1. **Return statements:** Scan all statements in the method body for `CrystalReturnStatement`.
+   Resolve the type of the return value expression via `CrystalExpressionTypeResolver`.
+   Use the first match found.
+2. **Implicit return (fallback):** If no `return` statement is found, resolve the type
+   of the last expression in the body (`CrystalExpressionStatement` → first expression).
+3. **Empty body:** If the body has no statements, return `null` (unknown).
+
+### Limitations
+
+- Only the **first** `return` statement is checked — multi-path return inference
+  (union of all return types) is not yet implemented.
+- The return expression must be resolvable by `CrystalExpressionTypeResolver` —
+  complex or deeply nested expressions may return `null`.
+
+### Integration with `inferFromAssignment`
+
+`inferFromAssignment` resolves variable types by finding the assignment whose LHS
+matches the variable name, then calling `inferTypeFromExpression` on the RHS. When
+the RHS is a bare method call (e.g. `ret = sahne "gogo"`), `inferTypeFromExpression`
+delegates to `inferReturnTypeOfMethod`, which now checks the method body when no
+explicit return type annotation exists.
+
+The LHS variable is identified by looking for `CrystalTypes.IDENTIFIER` as a direct
+child of `CrystalAssignment`, with a fallback to `assignment.firstChild` for cases
+where the variable is wrapped in `CrystalVariableReference`.
+
+---
+
 ## What This Spec Does NOT Cover
 
-- **Full method body return type inference** — inferring return type from all code paths
-  in a method body (only annotation-based return types are supported now).
+- **Full multi-path method body return type inference** — inferring a union type from
+  all code paths in a method body (e.g. `def foo; if cond; 1; else; "hi"; end; end` →
+  `Int32 | String`). Only single-path inference is supported now (first `return` found,
+  or last expression).
 - **Generic type parameter resolution** — `Array(T)` where `T` is a type parameter.
 - **Module/mixin type composition** — resolving types from included modules.
 - **Nil-check narrowing** — `if x` narrowing `x` from `Int32?` to `Int32` inside the block.

@@ -149,4 +149,30 @@ puts a
         val type = CrystalTypeInference.inferType("a", elementAtOffset!!, project)
         assertEquals("Int32", type)
     }
+
+    fun testInferMethodReturnTypeFromReturn() {
+        myFixture.configureByText("test.cr", """
+def sahne(bonbon : String)
+  return bonbon
+end
+ret = sahne "gogo"
+""".trimIndent())
+        val retOffset = myFixture.file.text.indexOf("ret =")
+        val contextElement = myFixture.file.findElementAt(retOffset)
+        val type = CrystalTypeInference.inferType("ret", contextElement!!, project)
+        assertEquals("String", type)
+    }
+
+    fun testInferMethodReturnTypeFromImplicitReturn() {
+        myFixture.configureByText("test.cr", """
+def bohne(age : Int32)
+  7 + age
+end
+bet = bohne 22
+""".trimIndent())
+        val betOffset = myFixture.file.text.indexOf("bet =")
+        val contextElement = myFixture.file.findElementAt(betOffset)
+        val type = CrystalTypeInference.inferType("bet", contextElement!!, project)
+        assertEquals("Int32", type)
+    }
 }
