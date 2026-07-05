@@ -189,7 +189,7 @@ object CrystalExpressionTypeResolver {
         return if (elementTypes.all { it.typeName == firstType }) {
             ResolvedType("Array($firstType)")
         } else {
-            val union = elementTypes.joinToString(" | ") { it.typeName }
+            val union = elementTypes.distinctBy { it.typeName }.joinToString(" | ") { it.typeName }
             ResolvedType("Array($union)")
         }
     }
