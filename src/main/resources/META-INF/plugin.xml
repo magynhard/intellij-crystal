@@ -44,10 +44,12 @@
 
 <h2>Code Intelligence</h2>
 <ul>
-  <li><b>Go to Definition</b> (Ctrl+B / Ctrl+Click) — jump to classes, modules, structs, enums, and method definitions across the entire project</li>
-  <li><b>Code Completion</b> (Ctrl+Space) — context-aware dot-completion with type inference, free-text completion for classes/methods/locals, type completion in annotations and generics</li>
-  <li><b>Parameter Info</b> (Ctrl+P) — method signatures at call sites, supports parenthesized calls, bare calls, dot-calls, and overloads</li>
-  <li><b>Quick Documentation</b> (Ctrl+Q) — rendered doc comments with syntax-highlighted signature and Markdown support</li>
+  <li><b>Go to Definition</b> (Ctrl+B / Ctrl+Click) — jump to classes, modules, structs, enums, method definitions, and DOT-call methods (<code>obj.method</code>, <code>Class.method</code>) across the entire project</li>
+  <li><b>Namespace Access</b> — Go to Definition and hover for intermediate namespace segments (e.g. <code>Inner</code> in <code>Outer::Inner.method</code>)</li>
+  <li><b>Code Completion</b> (Ctrl+Space) — context-aware dot-completion with type inference, free-text completion for classes/methods/locals, type completion in annotations and generics, overloaded methods as separate entries, record macro support, and <code>::</code> auto-completion</li>
+  <li><b>Parameter Info</b> (Ctrl+P) — method signatures at call sites, supports parenthesized calls, bare calls, DOT-calls, <code>ClassName.new(...)</code>, and overloads</li>
+  <li><b>Hover Type Info</b> — hovering over a variable shows the inferred type; method return types inferred from body when no annotation exists</li>
+  <li><b>Quick Documentation</b> (Ctrl+Q) — rendered doc comments with syntax-highlighted signature, Markdown support, and clickable type names</li>
   <li><b>Find Usages</b> (Alt+F7) — locate all references to a symbol across the project</li>
   <li><b>Go to Symbol / Class</b> (Ctrl+N, Ctrl+Alt+Shift+N) — project-wide instant navigation via StubIndex</li>
   <li><b>Structure View</b> — PSI-based tree showing classes, modules, methods, macros, and nested definitions</li>
@@ -60,17 +62,21 @@
   <li><b>Unused Variable Detection</b> — warns on local variables that are assigned but never read</li>
   <li><b>Lib Fun Type Annotation</b> — reports missing type annotations in lib function definitions</li>
   <li><b>Empty Collection Inspection</b> — suggests using typed empty literals</li>
+  <li><b>Colon Spacing</b> — reports missing space after <code>:</code> in type annotations</li>
+  <li><b>Instance Variable Type</b> — validates instance variable types against declarations</li>
+  <li><b>Invalid Single-Quote String</b> — reports non-ASCII characters in single-quote strings</li>
 </ul>
 
 <h2>Editor Features</h2>
 <ul>
   <li><b>Syntax Highlighting</b> — 60+ keywords, operators, strings with interpolation, regex, symbols, heredocs, percent literals, annotations, macros</li>
   <li><b>Semantic Highlighting</b> — PSI-based annotator distinguishes variables, methods, types, parameters, and macro fresh vars</li>
+  <li><b>Keyword Block Highlighting</b> — cursor on block keywords highlights all related structural keywords of the enclosing block</li>
   <li><b>Code Formatting</b> — reformat via <code>crystal tool format</code> (Ctrl+Alt+L)</li>
   <li><b>Rename Refactoring</b> (Shift+F6) — in-place rename with preview dialog and automatic compiler verification</li>
   <li><b>Live Templates</b> — 21 code snippets for common Crystal patterns (def, class, module, spec, etc.)</li>
   <li><b>Smart Enter</b> — automatically inserts <code>end</code> after def/class/module/if/do and handles indentation</li>
-  <li><b>Code Folding</b> — collapse methods, classes, blocks, comments, and heredocs</li>
+  <li><b>Code Folding</b> — collapse methods, classes, blocks, comments, heredocs, arrays, and hashes</li>
   <li><b>Brace Matching</b> — highlights matching pairs for parentheses, brackets, braces, and do/end</li>
   <li><b>TODO Indexing</b> — Crystal TODO/FIXME comments appear in the TODO tool window</li>
 </ul>
@@ -87,7 +93,9 @@
   The plugin ships a full GrammarKit BNF parser covering classes, modules, structs, enums, methods, macros,
   control flow, generics (variadic, defaults, bounds), union types, blocks, proc/lambda literals, pattern matching,
   lib blocks (fun, union, struct, enum, external vars, varargs), annotations, heredocs, percent literals,
-  string interpolation, and more. The parser is error-tolerant and works with incomplete code while typing.
+  string interpolation in percent/regex/backtick literals, implicit object bracket access (<code>&amp;.[]</code>),
+  rescue clauses with typed rescue and union types, ranges with omitted start, namespace access (<code>::Foo</code>),
+  and more. The parser is error-tolerant and works with incomplete code while typing.
 </p>
 
 <h2>Requirements</h2>
@@ -98,6 +106,28 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.1.17</h3>
+<ul>
+  <li><b>Keyword block highlighting</b> — cursor on structural keywords highlights all related keywords of the enclosing block</li>
+  <li><b>Variable hover type info</b> — hovering over a variable shows the inferred type in a two-line popup</li>
+  <li><b>Method return type inference</b> — methods without explicit return type annotations have their return type inferred from body</li>
+  <li><b>Hash/tuple type inference</b> — detailed type parameters in hover popups for hash and tuple literals</li>
+  <li><b>Ternary type inference</b> — ternary expressions correctly infer union types for variable hover</li>
+  <li><b>Namespace access Go to Definition and hover</b> — hover and navigate on intermediate namespace segments</li>
+  <li><b>DOT-call Go to Definition and hover</b> — <code>obj.method</code> resolves to target method; hovering shows documentation</li>
+  <li><b>Parameter/Definition hover popups</b> — parameter names and definition names show context-specific popups</li>
+  <li><b>Overloaded methods in completion</b> — multiple overloads appear as separate entries with signatures</li>
+  <li><b><code>::</code> auto-completion</b> — typing <code>::</code> after a CONSTANT triggers completion popup</li>
+  <li><b>Colon spacing inspection</b> — reports missing space after <code>:</code> in type annotations</li>
+  <li><b>Instance variable type inspection</b> — validates instance variable types</li>
+  <li><b>String interpolation in percent/regex/backtick literals</b> — <code>%(hello #{name})</code>, <code>/pattern #{expr}/</code>, <code>`echo #{name}`</code> now parse correctly</li>
+  <li><b>Rescue clause improvements</b> — typed rescue with union types and variable binding</li>
+  <li><b>Implicit object bracket access</b> — <code>&amp;.[1]</code>, <code>&amp;[]</code> now parse correctly</li>
+  <li><b>Bug fix</b> — Go to Definition no longer freezes on bare method calls</li>
+  <li><b>Bug fix</b> — false positive type mismatches on DOT-calls fixed</li>
+  <li><b>Bug fix</b> — false "Value assigned never used" with conditional reassignment fixed</li>
+</ul>
+
 <h3>0.1.16</h3>
 <ul>
   <li><b>Colon spacing inspection</b> — reports missing space after <code>:</code> in type annotations (e.g. <code>x:Int32</code> → warning)</li>

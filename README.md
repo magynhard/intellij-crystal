@@ -4,7 +4,7 @@
 
 # Crystal Language Plugin for JetBrains IDEs
 
-[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.16-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/32180-crystal-language)
+[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.1.17-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/32180-crystal-language)
 [![IntelliJ Platform](https://img.shields.io/badge/Platform-2026.1+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
 [![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=darkslategray&label=Crystal)](https://crystal-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg?style=plastic&logo=mit&labelColor=beige)](LICENSE)
@@ -28,10 +28,12 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ### Syntax & Editing
 
-- **Syntax Highlighting** — 60+ keywords, operators, strings with interpolation, numbers, symbols, regex, percent literals, heredocs
+- **Syntax Highlighting** — 60+ keywords, operators, strings with interpolation, numbers, symbols, regex, percent literals, heredocs, annotations, macros
+- **Semantic Highlighting** — PSI-based annotator distinguishes variables, methods, types, parameters, and macro fresh vars
+- **Keyword Block Highlighting** — cursor on `if`, `else`, `elsif`, `end`, `begin`, `rescue`, `ensure`, `case`, `when`, `def`, `class`, `module` etc. highlights all related structural keywords of the enclosing block
 - **Color Settings Page** — customizable colors for all token types
-- **Code Folding** — collapse blocks, methods, classes, multi-line comments
-- **Brace Matching** — parentheses, brackets, braces, percent literal delimiters
+- **Code Folding** — collapse blocks, methods, classes, multi-line comments, arrays, hashes
+- **Brace Matching** — parentheses, brackets, braces, percent literal delimiters, `do`/`end` pairs
 - **Auto-Insert** — automatic closing quotes, brackets, `end` after block keywords, auto-indentation after block openers
 - **Line Commenter** — toggle `#` comments
 - **Postfix Control Flow** — parser recognizes `expr if condition`, `expr unless condition`, `expr while condition`
@@ -39,13 +41,25 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ### Navigation
 
-- **Go to Definition** (Ctrl+Click / Ctrl+B) — jump to class, module, struct, enum, method definitions, and instance/class variable declarations (`@name`, `@@name`)
+- **Go to Definition** (Ctrl+Click / Ctrl+B) — jump to class, module, struct, enum, method definitions, instance/class variable declarations (`@name`, `@@name`), and DOT-call methods (`obj.method`, `Class.method`)
+- **Namespace Access** — hovering and Go to Definition for intermediate namespace segments (e.g. `Inner` in `Outer::Inner.method`)
 - **Go to Symbol** (Ctrl+Alt+Shift+N) — find any symbol in the project
 - **Go to Class** (Ctrl+N) — find classes, modules, structs, enums
 - **Find Usages** (Alt+F7) — find all usages of methods, classes, instance variables (`@name`), and class variables (`@@name`) within the enclosing class
 - **Structure View** — PSI-based tree with nested types, methods, macros, constants
-- **Parameter Info** (Ctrl+P) — shows method signature at call site, project-wide via StubIndex
-- **Code Completion** (Ctrl+Space) — context-aware: dot-completion on classes (static methods) and variables (instance methods via type inference), free-text completion for classes/methods/locals/stdlib types, type completion after `:` in annotations, inside generics (`Array(<caret>)`), and in union types (`String | <caret>`)
+- **Parameter Info** (Ctrl+P) — shows method signature at call site for parenthesized calls, bare calls, DOT-calls, `ClassName.new(...)`, and overloads; project-wide via StubIndex
+- **Quick Documentation** (Ctrl+Q) — rendered doc comments with syntax-highlighted signature and Markdown support; clicking type names navigates to their documentation
+- **Hover Type Info** — hovering over a variable shows the inferred type in a two-line popup (`String (Variable)` / `my_variable`), including local variables, instance variables, and method arguments; method return types inferred from body when no annotation exists
+- **Parameter Hover** — hovering over a parameter name shows a parameter-specific popup with type (hyperlinked) and name
+- **Definition Hover** — hovering over a definition name (e.g. `def butter`) shows the documentation popup
+
+### Code Completion
+
+- **Context-aware completion** (Ctrl+Space) — dot-completion on classes (static methods) and variables (instance methods via type inference), free-text completion for classes/methods/locals/stdlib types, type completion after `:` in annotations, inside generics (`Array(<caret>)`), and in union types (`String | <caret>`)
+- **Overloaded methods** — multiple overloads of the same method appear as separate entries, each showing its parameter signature
+- **Record macro completion** — completion, parameter info, and argument inspections for record macros
+- **Auto-completion for `::`** — typing `::` after a CONSTANT triggers the completion popup automatically
+- **Parameter priority boost** — parameters appear higher in the completion popup with bold styling
 
 ### Refactoring
 
@@ -70,15 +84,18 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ### Inspections
 
-- **Type checking** — validates argument types against parameter annotations
-- **Argument count** — validates number of arguments against method signature
+- **Type checking** — validates argument types against parameter annotations (supports numeric autocasting, union types, nilable types, overloads)
+- **Argument count** — validates number of arguments against method signature (supports named args, splat, double-splat, default values)
 - **Unused variables** — reports assigned-but-never-read local variables
 - **Empty collection literals** — reports `[] of T` / `{} of K => V` style issues
 - **Missing type in lib fun** — reports parameters without type annotations in lib fun definitions
+- **Colon spacing** — reports missing space after `:` in type annotations (e.g. `x:Int32`)
+- **Instance variable type** — validates instance variable types against declarations
+- **Invalid single-quote string** — reports non-ASCII characters in single-quote strings
 
 ### Parser
 
-- **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, postfix if/unless/while/until/rescue, typed declarations, expressions with operator precedence, type references with generics (variadic `*T`, defaults `T = X`), union types, blocks, literals, percent literals (`%w[]`, `%i[]`, `%x()`), lib blocks (fun, union, struct, enum, external vars, varargs), top-level fun, wrapping operators, `previous_def`, `out` parameters, pattern matching (pin `^var`, guards), annotations on parameters, rescue in method body, condition assignments (`while x = expr`), metaclass types (`T.class`), backslash line continuation, method chaining across newlines, trailing commas, `&.method` shorthand with operators, external parameter names, command literals, `$?` global variable
+- **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, postfix if/unless/while/until/rescue, typed declarations, expressions with operator precedence, type references with generics (variadic `*T`, defaults `T = X`), union types, blocks, literals, percent literals (`%w[]`, `%i[]`, `%x()`) with string interpolation, regex with string interpolation, backtick command literals with string interpolation, lib blocks (fun, union, struct, enum, external vars, varargs), top-level fun, wrapping operators, `previous_def`, `out` parameters, pattern matching (pin `^var`, guards), annotations on parameters, rescue in method body with typed rescue (union types, variable binding), condition assignments (`while x = expr`), metaclass types (`T.class`), backslash line continuation, method chaining across newlines, trailing commas, `&.method` shorthand with operators and bracket access (`&.[]`, `&.[1]`), `::Foo` global namespace prefix, external parameter names, command literals, `$?` global variable, range with omitted start in bracket access (`arr[..2]`, `arr[1..]`), postfix `?`/`!` after macro interpolation
 - **StubIndex** — project-wide index for classes and methods (instant navigation even in large projects)
 - **Error-tolerant** — pin/recovery rules ensure the parser works with incomplete code while typing
 
