@@ -15,7 +15,7 @@ import org.intellij.lang.regexp.psi.*
 class CrystalRegExpLanguageHost : RegExpLanguageHost {
 
     override fun supportsPerl5EmbeddedComments(): Boolean = true
-    override fun supportsPossessiveQuantifiers(): Boolean = true
+    override fun supportsPossessiveQuantifiers(element: RegExpElement): Boolean = true
     override fun supportsPythonConditionalRefs(): Boolean = false
 
     override fun supportsNamedGroupSyntax(group: RegExpGroup): Boolean = true
