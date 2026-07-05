@@ -60,7 +60,17 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         //    CrystalVariableReference).
         val ref = unwrapped.reference ?: unwrapped.parent?.reference
         val resolved = ref?.resolve()
-        if (resolved != null) return resolved
+        if (resolved != null) {
+            // If resolved element is a definition/parameter, return it directly
+            if (resolved is CrystalMethodDefinition || resolved is CrystalClassDefinition
+                || resolved is CrystalModuleDefinition || resolved is CrystalStructDefinition
+                || resolved is CrystalEnumDefinition || resolved is CrystalParameter) {
+                return resolved
+            }
+            // If resolved element is a variable identifier, return it for type info
+            if (isVariableIdentifier(resolved)) return resolved
+            // Otherwise, resolved to something like an assignment — continue to next steps
+        }
 
         // 3. Fallback for DOT-call identifiers (Apfel.tanzen, a.essen, Senf.new) —
         //    these have no PsiReference today. Delegate to the GotoDeclarationHandler,
