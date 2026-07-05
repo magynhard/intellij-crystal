@@ -402,6 +402,10 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
      * it is wrapped with an `<a>` tag pointing to the class documentation.
      * Uses a word-boundary match (no letter/digit/underscore before or after) to prevent
      * partial matches like `Foo` inside `FooBar`.
+     *
+     * Special case: Integer types (Int8, Int32, UInt64, etc.) and Float types
+     * (Float32, Float64) are linked to their parent type (`Int` or `Float`) since
+     * they don't have individual documentation pages.
      */
     private fun wrapTypeLinks(highlightedHtml: String, project: Project): String {
         // Find all potential type names (uppercase identifiers) in the HTML
@@ -410,23 +414,66 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             .map { it.value }
             .distinct()
             .filter { name ->
-                StubIndex.getElements(
-                    CrystalClassIndex.KEY, name, project,
-                    GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
-                ).isNotEmpty()
+                isResolvableType(name, project)
             }
             .toList()
 
         var result = highlightedHtml
         for (name in typeNames) {
-            // Match type name only at word boundaries — no letter/digit/underscore before or after
-            // to prevent matching `Foo` inside `FooBar` or `Foo_Bar`
-            result = result.replace(
-                Regex("""(?<![a-zA-Z0-9_])${Regex.escape(name)}(?![a-zA-Z0-9_])"""),
-                "<a href=\"psi_element://class:$name\">$name</a>"
-            )
+            val linkTarget = resolveTypeLinkTarget(name, project)
+            if (linkTarget != null) {
+                // Match type name only at word boundaries — no letter/digit/underscore before or after
+                // to prevent matching `Foo` inside `FooBar` or `Foo_Bar`
+                result = result.replace(
+                    Regex("""(?<![a-zA-Z0-9_])${Regex.escape(name)}(?![a-zA-Z0-9_])"""),
+                    "<a href=\"psi_element://class:$linkTarget\">$name</a>"
+                )
+            }
         }
         return result
+    }
+
+    /**
+     * Checks if a type name can be resolved (either directly in the class index,
+     * or via the numeric type fallback mapping).
+     */
+    private fun isResolvableType(name: String, project: Project): Boolean {
+        if (StubIndex.getElements(
+                CrystalClassIndex.KEY, name, project,
+                GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
+            ).isNotEmpty()) return true
+        return resolveNumericTypeLink(name) != null
+    }
+
+    /**
+     * Returns the link target for a type name. For numeric types, returns the
+     * parent type name (e.g. "Int32" → "Int", "Float64" → "Float").
+     * Returns null if the type should not be linked.
+     */
+    private fun resolveTypeLinkTarget(name: String, project: Project): String? {
+        // Check direct class index first
+        if (StubIndex.getElements(
+                CrystalClassIndex.KEY, name, project,
+                GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
+            ).isNotEmpty()) return name
+
+        // Check numeric type fallback
+        return resolveNumericTypeLink(name)
+    }
+
+    /**
+     * Maps numeric types to their parent type for documentation linking.
+     * Int8/Int16/Int32/Int64/Int128 → "Int"
+     * UInt8/UInt16/UInt32/UInt64/UInt128 → "Int"
+     * Float32/Float64 → "Float"
+     */
+    private fun resolveNumericTypeLink(name: String): String? {
+        return when {
+            name.startsWith("Int") && name.length in 4..6 -> "Int"
+            name.startsWith("UInt") && name.length in 5..7 -> "Int"
+            name.startsWith("Float") && name.length in 6..7 -> "Float"
+            else -> null
+        }
     }
 
     // ==================== Doc Comment Collection ====================
