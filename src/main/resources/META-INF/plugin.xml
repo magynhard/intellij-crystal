@@ -373,7 +373,7 @@
         <testLocator
                 implementation="de.magynhard.crystal.run.CrystalTestLocator"/>
 
-        <defaultLiveTemplates implementation="de.magynhard.crystal.CrystalLiveTemplateProvider"/>
+        <defaultLiveTemplates file="/liveTemplates/Crystal.xml"/>
 
         <liveTemplateContext
                 contextId="CRYSTAL"
