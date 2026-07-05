@@ -45,7 +45,7 @@ class CrystalNewProjectStep(parent: NewProjectWizardStep) : AbstractNewProjectWi
             "Select Crystal Executable",
             "Path to the Crystal compiler executable",
             null,
-            FileChooserDescriptorFactory.createSingleFileDescriptor()
+            FileChooserDescriptorFactory.singleFile()
         )
 
         val detected = CrystalSdkDetector.detect()

@@ -100,9 +100,7 @@ class CrystalProjectGeneratorPeer : GeneratorPeerImpl<CrystalProjectSettings>() 
         return settings
     }
 
-    @Suppress("DEPRECATION")
-    @Deprecated("Deprecated in Java")
-    override fun getComponent(): JComponent {
+    override fun getComponent(myLocationField: TextFieldWithBrowseButton, checkValid: Runnable): JComponent {
         if (panel == null) {
             val app = JBRadioButton("Application", true)
             val lib = JBRadioButton("Library", false)
@@ -115,7 +113,7 @@ class CrystalProjectGeneratorPeer : GeneratorPeerImpl<CrystalProjectSettings>() 
                 "Select Crystal Executable",
                 "Path to the Crystal compiler executable",
                 null,
-                FileChooserDescriptorFactory.createSingleFileDescriptor()
+                FileChooserDescriptorFactory.singleFile()
             )
 
             val detected = CrystalSdkDetector.detect()
@@ -157,10 +155,5 @@ class CrystalProjectGeneratorPeer : GeneratorPeerImpl<CrystalProjectSettings>() 
             }
         }
         return panel!!
-    }
-
-    @Suppress("DEPRECATION")
-    override fun getComponent(myLocationField: TextFieldWithBrowseButton, checkValid: Runnable): JComponent {
-        return getComponent()
     }
 }

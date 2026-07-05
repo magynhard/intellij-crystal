@@ -24,13 +24,13 @@ class CrystalFindUsagesHandler(element: PsiElement) : FindUsagesHandler(element)
         options: FindUsagesOptions
     ): Boolean {
         var result = true
-        ReadAction.run<RuntimeException> {
+        ReadAction.runBlocking<RuntimeException> {
             val scope = options.searchScope
             val refs = ReferencesSearch.search(element, scope, false).findAll()
             for (ref in refs) {
                 if (!processor.process(UsageInfo(ref))) {
                     result = false
-                    return@run
+                    return@runBlocking
                 }
             }
         }

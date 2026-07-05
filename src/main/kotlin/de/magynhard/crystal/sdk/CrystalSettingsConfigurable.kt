@@ -33,7 +33,7 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
             "Select Crystal Executable",
             "Path to the Crystal compiler executable",
             project,
-            FileChooserDescriptorFactory.createSingleFileDescriptor()
+            FileChooserDescriptorFactory.singleFile()
         )
 
         return panel {

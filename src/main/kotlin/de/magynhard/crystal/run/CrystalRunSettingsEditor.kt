@@ -21,7 +21,7 @@ class CrystalRunSettingsEditor(private val project: Project) : SettingsEditor<Cr
     init {
         fileField.addBrowseFolderListener(
             "Select Crystal File", null, project,
-            FileChooserDescriptorFactory.createSingleFileDescriptor("cr")
+            FileChooserDescriptorFactory.singleFile().withExtensionFilter("cr")
         )
         workDirField.addBrowseFolderListener(
             "Select Working Directory", null, project,

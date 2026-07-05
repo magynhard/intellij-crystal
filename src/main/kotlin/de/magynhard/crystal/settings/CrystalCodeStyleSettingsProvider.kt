@@ -10,14 +10,12 @@ class CrystalCodeStyleSettingsProvider : LanguageCodeStyleSettingsProvider() {
 
     override fun getLanguage(): Language = CrystalLanguage
 
-    override fun getDefaultCommonSettings(): CommonCodeStyleSettings {
-        return CommonCodeStyleSettings(CrystalLanguage).apply {
-            initIndentOptions().apply {
-                INDENT_SIZE = 2
-                CONTINUATION_INDENT_SIZE = 2
-                TAB_SIZE = 2
-                USE_TAB_CHARACTER = false
-            }
+    override fun customizeDefaults(settings: CommonCodeStyleSettings, indentOptions: CommonCodeStyleSettings.IndentOptions) {
+        indentOptions.apply {
+            INDENT_SIZE = 2
+            CONTINUATION_INDENT_SIZE = 2
+            TAB_SIZE = 2
+            USE_TAB_CHARACTER = false
         }
     }
 
