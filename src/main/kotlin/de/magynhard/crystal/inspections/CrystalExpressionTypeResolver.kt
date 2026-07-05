@@ -112,11 +112,8 @@ object CrystalExpressionTypeResolver {
         if (expr is CrystalExpression) {
             val astChildren = expr.node.getChildren(null)
 
-            // Operator detection — binary operators like ==, +, etc.
-            val opResult = resolveOperatorType(astChildren)
-            if (opResult != null) return opResult
-
             // Ternary expression: or_expression QUESTION expression COLON expression
+            // Check FIRST — QUESTION always indicates ternary, takes priority over operators
             val questionIdx = astChildren.indexOfFirst { it.elementType == CrystalTypes.QUESTION }
             if (questionIdx >= 0) {
                 val colonIdx = astChildren.indexOfFirst { it.elementType == CrystalTypes.COLON }
@@ -134,6 +131,11 @@ object CrystalExpressionTypeResolver {
                     return null
                 }
             }
+
+            // Operator detection — binary operators like ==, +, etc.
+            val opResult = resolveOperatorType(astChildren)
+            if (opResult != null) return opResult
+
             val firstChild = expr.firstChild
             if (firstChild != null) return resolveType(firstChild)
         }
