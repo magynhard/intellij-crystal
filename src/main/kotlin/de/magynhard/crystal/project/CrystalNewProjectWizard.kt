@@ -6,6 +6,7 @@ import com.intellij.ide.wizard.language.LanguageGeneratorNewProjectWizard
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.ui.TextBrowseFolderListener
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootModificationUtil
@@ -42,10 +43,11 @@ class CrystalNewProjectStep(parent: NewProjectWizardStep) : AbstractNewProjectWi
         group.add(libRadio)
 
         crystalPathField.addBrowseFolderListener(
-            "Select Crystal Executable",
-            "Path to the Crystal compiler executable",
-            null,
-            FileChooserDescriptorFactory.singleFile()
+            TextBrowseFolderListener(
+                FileChooserDescriptorFactory.singleFile()
+                    .withTitle("Select Crystal Executable")
+                    .withDescription("Path to the Crystal compiler executable")
+            )
         )
 
         val detected = CrystalSdkDetector.detect()

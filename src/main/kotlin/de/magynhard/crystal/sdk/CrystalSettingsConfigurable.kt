@@ -4,6 +4,7 @@ import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.ui.TextBrowseFolderListener
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -30,10 +31,12 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     override fun createComponent(): JComponent {
         crystalPathField = TextFieldWithBrowseButton()
         crystalPathField.addBrowseFolderListener(
-            "Select Crystal Executable",
-            "Path to the Crystal compiler executable",
-            project,
-            FileChooserDescriptorFactory.singleFile()
+            TextBrowseFolderListener(
+                FileChooserDescriptorFactory.singleFile()
+                    .withTitle("Select Crystal Executable")
+                    .withDescription("Path to the Crystal compiler executable"),
+                project
+            )
         )
 
         return panel {

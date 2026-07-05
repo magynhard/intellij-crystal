@@ -1,6 +1,7 @@
 package de.magynhard.crystal.run
 
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.ui.TextBrowseFolderListener
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
@@ -20,12 +21,18 @@ class CrystalRunSettingsEditor(private val project: Project) : SettingsEditor<Cr
 
     init {
         fileField.addBrowseFolderListener(
-            "Select Crystal File", null, project,
-            FileChooserDescriptorFactory.singleFile().withExtensionFilter("cr")
+            TextBrowseFolderListener(
+                FileChooserDescriptorFactory.singleFile().withExtensionFilter("cr")
+                    .withTitle("Select Crystal File"),
+                project
+            )
         )
         workDirField.addBrowseFolderListener(
-            "Select Working Directory", null, project,
-            FileChooserDescriptorFactory.createSingleFolderDescriptor()
+            TextBrowseFolderListener(
+                FileChooserDescriptorFactory.singleDir()
+                    .withTitle("Select Working Directory"),
+                project
+            )
         )
     }
 
