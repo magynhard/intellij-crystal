@@ -136,4 +136,17 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)
         assertEquals("Int32 | Nil", type)
     }
+
+    fun testInferTernaryWithVariableElement() {
+        val file = myFixture.configureByText("test.cr", """
+a = true ? 1 : 2
+puts a
+""".trimIndent())
+        // Find the variable reference 'a' in 'puts a' (mimics hover context)
+        val putsOffset = file.text.indexOf("puts")
+        val aOffset = file.text.indexOf("a", putsOffset)
+        val elementAtOffset = file.findElementAt(aOffset)
+        val type = CrystalTypeInference.inferType("a", elementAtOffset!!, project)
+        assertEquals("Int32", type)
+    }
 }
