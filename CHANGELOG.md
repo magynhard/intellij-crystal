@@ -12,7 +12,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Replace deprecated `addBrowseFolderListener(title, desc, project, descriptor)`** — migrated to `TextBrowseFolderListener(descriptor.withTitle(...).withDescription(...), project)` pattern.
 - **Replace deprecated `ReadAction.run()`** — migrated to `ReadAction.runBlocking()` in Find Usages handler.
 - **Replace deprecated `GeneratorPeerImpl.getComponent()`** — moved panel construction logic into `getComponent(TextFieldWithBrowseButton, Runnable)`.
-- **Replace deprecated `getDefaultCommonSettings()`** — migrated to `customizeDefaults()` in code style settings provider.
+- **Remove code style settings page** — `crystal tool format` is the canonical Crystal formatter with zero configurable options; a Code Style page with inert settings would mislead users. Removed the `langCodeStyleSettingsProvider` EP registration, `CrystalCodeStyleSettingsProvider`, and all associated tests and specs. The `CrystalFormattingService` (Ctrl+Alt+L → `crystal tool format`) remains unchanged.
 
 ## [0.1.17] — 2026-07-05
 

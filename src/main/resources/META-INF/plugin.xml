@@ -356,10 +356,6 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.structure.CrystalStructureViewFactory"/>
 
-        <lang.codeStyleSettingsProvider
-                language="Crystal"
-                implementationClass="de.magynhard.crystal.settings.CrystalCodeStyleSettingsProvider"/>
-
         <configurationType
                 implementation="de.magynhard.crystal.run.CrystalRunConfigurationType"/>
 
