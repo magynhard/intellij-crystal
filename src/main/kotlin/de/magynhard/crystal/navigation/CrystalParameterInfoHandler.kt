@@ -187,6 +187,14 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
         val methodName = findMethodNameForArgs(argsHolder) ?: return null
 
         val project = context.project
+
+        // Special case: "new" on a class → resolve directly to "initialize" parameters
+        // via CrystalMethodByClassIndex (O(1)) instead of searching CrystalMethodIndex
+        // for ALL methods named "new" across the entire stdlib (expensive + causes freezes).
+        if (methodName == "new") {
+            return findNewParameterInfo(argsHolder, context)
+        }
+
         val scope = GlobalSearchScope.allScope(project)
 
         var methods = StubIndex.getElements(
@@ -206,36 +214,44 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
             }.toTypedArray()
         }
 
-        // Special case: "new" on a class → resolve to "initialize" parameters
-        if (methods.isEmpty() && methodName == "new") {
-            val className = findClassNameBeforeNew(argsHolder)
-            if (className != null) {
-                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsHolder.containingFile)
-                if (initMethod != null) {
-                    methods = arrayOf(initMethod)
-                }
-            }
-        }
-
-        // Fallback: "record Name, ..." macro — extract parameters from record fields
-        if (methods.isEmpty() && methodName == "new") {
-            val className = findClassNameBeforeNew(argsHolder)
-            if (className != null) {
-                val file = argsHolder.containingFile ?: return null
-                val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file)
-                if (recordDef != null) {
-                    val recordParams = extractRecordParameterList(recordDef)
-                    if (recordParams != null) {
-                        context.itemsToShow = arrayOf(recordParams)
-                        return argsHolder
-                    }
-                }
-            }
-        }
-
         if (methods.isEmpty()) return null
         context.itemsToShow = methods
         return argsHolder
+    }
+
+    /**
+     * Resolves parameter info for ClassName.new(...) calls.
+     * Skips the expensive CrystalMethodIndex search for "new" (which would load ALL
+     * stdlib .new methods) and goes directly to initialize resolution via
+     * CrystalMethodByClassIndex (O(1) lookup).
+     */
+    private fun findNewParameterInfo(
+        argsHolder: PsiElement,
+        context: CreateParameterInfoContext
+    ): PsiElement? {
+        val className = findClassNameBeforeNew(argsHolder) ?: return null
+
+        // 1. Try initialize method (most common case)
+        val project = context.project
+        val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsHolder.containingFile)
+        if (initMethod != null) {
+            context.itemsToShow = arrayOf(initMethod)
+            return argsHolder
+        }
+
+        // 2. Try record macro (record Foo, bar : String, baz : Int32)
+        val file = argsHolder.containingFile ?: return null
+        val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file)
+        if (recordDef != null) {
+            val recordParams = extractRecordParameterList(recordDef)
+            if (recordParams != null) {
+                context.itemsToShow = arrayOf(recordParams)
+                return argsHolder
+            }
+        }
+
+        // No initialize method, no record → no parameter info
+        return null
     }
 
     override fun findElementForUpdatingParameterInfo(context: UpdateParameterInfoContext): PsiElement? {
@@ -711,6 +727,15 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
 
             var receiver = beforeDot.prevSibling
             while (receiver is PsiWhiteSpace) receiver = receiver.prevSibling
+            // Walk across the dot_call_access composite boundary (DOT is first child of CrystalDotCallAccess)
+            if (receiver == null) {
+                val dotParent = beforeDot.parent
+                if (dotParent is CrystalDotCallAccess) {
+                    var prev = dotParent.prevSibling
+                    while (prev is PsiWhiteSpace) prev = prev.prevSibling
+                    receiver = prev
+                }
+            }
             if (receiver == null) return null
 
             if (receiver.node?.elementType == CrystalTypes.CONSTANT) return receiver.text

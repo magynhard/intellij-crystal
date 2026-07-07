@@ -424,6 +424,49 @@ class CrystalParameterInfoHandlerTest : BasePlatformTestCase() {
         assertEquals("initialize should have 2 params", 2, params.size)
     }
 
+    fun testBareNewWithoutInitialize() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+            end
+            a = Foo.new <caret>
+        """.trimIndent())
+        val file = myFixture.file
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for bare Foo.new", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("new", name)
+
+        // The early .new short-circuit should resolve to initialize via getInitializeMethod
+        // For Foo without initialize, it should return null (no stdlib "new" methods loaded)
+        val initMethod = de.magynhard.crystal.completion.CrystalCompletionHelper.getInitializeMethod(
+            "Foo", myFixture.project, argsHolder.containingFile
+        )
+        assertNull("Should not find initialize for Foo without one", initMethod)
+    }
+
+    fun testBareNewWithInitialize() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(name : String, count : Int32)
+              end
+            end
+            a = Foo.new <caret>
+        """.trimIndent())
+        val file = myFixture.file
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull("Should find args holder for bare Foo.new", argsHolder)
+        val name = handler.findMethodNameForArgs(argsHolder!!)
+        assertEquals("new", name)
+
+        // Should resolve to Foo's initialize method directly
+        val initMethod = de.magynhard.crystal.completion.CrystalCompletionHelper.getInitializeMethod(
+            "Foo", myFixture.project, argsHolder.containingFile
+        )
+        assertNotNull("Should find initialize method for Foo", initMethod)
+        val params = initMethod!!.parameterList?.parameterList ?: emptyList()
+        assertEquals("initialize should have 2 params", 2, params.size)
+    }
+
     // ==================== DOT-call after method call (regression tests) ====================
 
     fun testFindArgsDotCallAfterMethodCallWithSpace() {
