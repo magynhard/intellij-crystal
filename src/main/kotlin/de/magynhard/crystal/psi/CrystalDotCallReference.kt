@@ -4,6 +4,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodIndex
@@ -29,10 +30,10 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
  *    - If the type is **unknown** (untyped parameter, untyped return chain, …),
  *      return `null` — no jump, no false-positive popup.
  *
- * 4. `.new` constructor on a class — the IDENTIFIER `new` is NOT in
- *    [CrystalMethodByClassIndex] for the default constructor. This returns `null`
- *    here; `CrystalGotoDeclarationHandler` and `CrystalDocumentationProvider`
- *    still handle `.new` via the dedicated `findNewTargets` path.
+ * 4. `.new` constructor on a class — resolved via [CrystalMethodByClassIndex] for
+ *    `def self.new` if it exists. If not found, falls through to `record` macro,
+ *    then to `def initialize` via [CrystalCompletionHelper.getInitializeMethod].
+ *    This makes Find Usages on both `.new` and `initialize` work correctly.
  *
  * The receiver is found by walking `prevSibling` (skipping whitespace/NLS) from
  * this element — the DOT is the first child of [CrystalDotCallAccess], so the
@@ -49,27 +50,21 @@ class CrystalDotCallReference(
 
     override fun resolve(): PsiElement? {
         val info = receiverInfo ?: return null
-
-        // Don't resolve `.new` here — the dedicated constructor path handles it.
-        if (methodName == "new") return null
-
         val project = element.project
         val scope = GlobalSearchScope.allScope(project)
 
         val className = info.className ?: return null
         val qualifiedName = info.qualifiedName
 
-        // Resolve via CrystalMethodByClassIndex — exact, no name-only guessing.
+        // 1. Search for exact method name (catches def self.new for .new, plus all other DOT-calls)
         val methods = StubIndex.getElements(
             CrystalMethodByClassIndex.KEY, className, project, scope,
             CrystalMethodDefinition::class.java
         )
-
-        // Filter by method name
         val matchingByName = methods.filter { it.name == methodName }
 
         // Filter by qualified class name if available (for namespace disambiguation)
-        return if (qualifiedName != null) {
+        val result = if (qualifiedName != null) {
             matchingByName.filter { method ->
                 val enclosing = CrystalPsiUtils.getEnclosingType(method)
                 enclosing != null && CrystalPsiUtils.buildQualifiedName(enclosing) == qualifiedName
@@ -77,6 +72,18 @@ class CrystalDotCallReference(
         } else {
             matchingByName.firstOrNull()
         }
+        if (result != null) return result
+
+        // 2. For .new: fall through to record → initialize resolution
+        //    (matches CrystalGotoDeclarationHandler priority: def self.new > record > initialize)
+        if (methodName == "new") {
+            val file = element.containingFile ?: return null
+            val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file)
+            if (recordDef != null) return recordDef
+            return CrystalCompletionHelper.getInitializeMethod(className, project, file)
+        }
+
+        return null
     }
 
     override fun handleElementRename(newElementName: String): PsiElement {

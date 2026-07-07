@@ -127,12 +127,10 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         assertNull("Should return null for unknown method on a known class", resolved)
     }
 
-    // ==================== .new constructor (delegated) ====================
+    // ==================== .new constructor ====================
 
-    fun testDotNewReturnsNullFromReference() {
-        // The reference path returns null for `.new` — the dedicated constructor
-        // resolution path (CrystalGotoDeclarationHandler.findNewTargets and
-        // CrystalDocumentationProvider) handles self.new > record > initialize.
+    fun testDotNewResolvesToInitialize() {
+        // .new resolves to initialize (Crystal's constructor: def self.new > record > initialize)
         val resolved = resolveAtCaret("""
             class Senf
               def initialize(x : Int32)
@@ -140,6 +138,9 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
             end
             Senf.n<caret>ew
         """.trimIndent())
-        assertNull(".new should NOT resolve via CrystalDotCallReference (delegated to handler)", resolved)
+        assertNotNull(".new should resolve via CrystalDotCallReference", resolved)
+        assertTrue("Should resolve to a method named 'initialize'",
+            resolved is de.magynhard.crystal.psi.CrystalMethodDefinition
+                && resolved.name == "initialize")
     }
 }
