@@ -20,16 +20,6 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain Aprikose", names.contains("Aprikose"))
     }
 
-    fun testCompletesMethodNames() {
-        myFixture.addFileToProject("lib.cr", "def tanzen\nend\ndef tauchen\nend\n")
-        myFixture.configureByText("main.cr", "ta<caret>")
-        val lookups = myFixture.complete(CompletionType.BASIC)
-        assertNotNull("Should return completions (multiple matches)", lookups)
-        val names = lookups.map { it.lookupString }
-        assertTrue("Should contain tanzen", names.contains("tanzen"))
-        assertTrue("Should contain tauchen", names.contains("tauchen"))
-    }
-
     fun testCompletesLocalVariables() {
         myFixture.configureByText("main.cr", """
             def foo
@@ -253,10 +243,10 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             x.<caret>
         """.trimIndent())
         val lookups = myFixture.complete(CompletionType.BASIC)
-        // Should not crash, and should show all methods as fallback
-        assertNotNull("Should return completions", lookups)
-        val names = lookups.map { it.lookupString }
-        assertTrue("Should contain hello as fallback", names.contains("hello"))
+        // When type inference fails, no methods are suggested (no fallback)
+        // This may return null (no completions) or empty array
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain hello when type inference fails", names.contains("hello"))
     }
 
     // ==================== Parameter type-annotated inference ====================
@@ -832,5 +822,92 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             assertTrue("name (index $nameIndex) should appear before nil (index $nilIndex)",
                 nameIndex < nilIndex)
         }
+    }
+
+    // ==================== Instance variable free-text completion ====================
+
+    fun testInstanceVarFreeTextCompletion() {
+        myFixture.configureByText("main.cr", """
+            class Foo
+              def initialize
+                @name = "hello"
+              end
+
+              def greet
+                @<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain @name: $names", names.contains("@name"))
+    }
+
+    // ==================== Class method priority ====================
+
+    fun testClassMethodPriority() {
+        myFixture.configureByText("main.cr", """
+            class MyClass
+              def my_class_method
+              end
+
+              def greet
+                my_local = 1
+                m<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain 'my_class_method': $names", names.contains("my_class_method"))
+        assertTrue("Should contain 'my_local': $names", names.contains("my_local"))
+    }
+
+    // ==================== Inherited method completion ====================
+
+    fun testInheritedMethodCompletion() {
+        myFixture.addFileToProject("base.cr", """
+            class Base
+              def base_method
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            class Derived < Base
+              def test
+                base_local = 1
+                b<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain inherited 'base_method': $names", names.contains("base_method"))
+        assertTrue("Should contain 'base_local': $names", names.contains("base_local"))
+    }
+
+    // ==================== Scope-aware local variables ====================
+
+    fun testScopeAwareLocalVariables() {
+        myFixture.configureByText("main.cr", """
+            def other_method
+              other_var = 1
+            end
+
+            def my_method
+              my_var = 2
+              my_second = 3
+              m<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain 'my_var': $names", names.contains("my_var"))
+        assertTrue("Should contain 'my_second': $names", names.contains("my_second"))
+        assertFalse("Should NOT contain 'other_var' from other method: $names", names.contains("other_var"))
     }
 }

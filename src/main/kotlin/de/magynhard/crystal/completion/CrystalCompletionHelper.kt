@@ -332,17 +332,6 @@ object CrystalCompletionHelper {
     }
 
     /**
-     * Returns all method names from the project-wide StubIndex.
-     */
-    fun getAllMethods(project: Project): Collection<CrystalMethodDefinition> {
-        val scope = GlobalSearchScope.allScope(project)
-        val allKeys = StubIndex.getInstance().getAllKeys(CrystalMethodIndex.KEY, project)
-        return allKeys.flatMap { key ->
-            StubIndex.getElements(CrystalMethodIndex.KEY, key, project, scope, CrystalMethodDefinition::class.java)
-        }
-    }
-
-    /**
      * Returns all class/module/struct/enum names from the project-wide StubIndex.
      */
     fun getAllClassNames(project: Project): Collection<String> {

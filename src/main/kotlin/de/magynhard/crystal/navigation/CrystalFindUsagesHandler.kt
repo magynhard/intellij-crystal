@@ -5,15 +5,18 @@ import com.intellij.find.findUsages.FindUsagesHandler
 import com.intellij.find.findUsages.FindUsagesOptions
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.search.PsiSearchHelper
-import com.intellij.psi.search.TextOccurenceProcessor
 import com.intellij.psi.search.searches.ReferencesSearch
+import com.intellij.psi.stubs.StubIndex
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.usageView.UsageInfo
 import com.intellij.util.Processor
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalMethodDefinition
+import de.magynhard.crystal.psi.CrystalNamedElement
+import de.magynhard.crystal.stubs.CrystalClassIndex
 
 /**
  * Find Usages handler for Crystal definition elements (class, module, struct,
@@ -42,37 +45,64 @@ class CrystalFindUsagesHandler(element: PsiElement) : FindUsagesHandler(element)
                 }
             }
 
-            // 2. For initialize: also find .new call sites on the same class
-            //    ReferencesSearch.search(initialize) only finds references containing
-            //    the word "initialize", but .new call sites contain the word "new".
-            //    Use PsiSearchHelper to find "new" in the word index, then check
-            //    if .new references resolve to our initialize.
+            // 2. For initialize: also find .new call sites on the same class.
+            //    Instead of searching for "new" in ALL files (slow), we search for
+            //    references to the ENCLOSING CLASS (fast, specific name) and check
+            //    if the next sibling is a .new call that resolves to initialize.
             if (element is CrystalMethodDefinition && element.name == "initialize") {
                 val project = element.project
-                val searchScope = GlobalSearchScope.projectScope(project)
+                val scope = GlobalSearchScope.projectScope(project)
                 val targetElement = element
-                PsiSearchHelper.getInstance(project).processElementsWithWord(
-                    object : TextOccurenceProcessor {
-                        override fun execute(psiElement: PsiElement, offsetInElement: Int): Boolean {
-                            if (psiElement.text != "new") return true
-                            val dotCallAccess = psiElement.parent
-                            if (dotCallAccess !is CrystalDotCallAccess) return true
-                            val ref = dotCallAccess.reference ?: return true
-                            val resolved = ref.resolve() ?: return true
-                            if (resolved === targetElement) {
-                                if (!processor.process(UsageInfo(ref))) return false
-                            }
-                            return true
-                        }
-                    },
-                    searchScope,
-                    "new",
-                    1.toShort(),  // normal priority
-                    true    // caseSensitive
+                val enclosingClassName = CrystalCompletionHelper.getEnclosingClassName(element)
+                    ?: return@runBlocking
+
+                // Find the class definition via CrystalClassIndex
+                val classElements = StubIndex.getElements(
+                    CrystalClassIndex.KEY, enclosingClassName, project, scope,
+                    CrystalNamedElement::class.java
                 )
+                if (classElements.isEmpty()) return@runBlocking
+
+                val classDefinition = classElements.first()
+                val classRefs = ReferencesSearch.search(classDefinition, scope, false).findAll()
+                for (ref in classRefs) {
+                    val refElement = ref.element
+                    // Find the .new call: walk nextSibling (skipping whitespace/NLS)
+                    val nextSibling = findNextNonWhitespace(refElement)
+                    if (nextSibling is CrystalDotCallAccess) {
+                        // Check that the dot-call is "new" and resolves to our initialize
+                        val methodName = nextSibling.node?.findChildByType(
+                            de.magynhard.crystal.psi.CrystalTypes.IDENTIFIER
+                        )?.text
+                        if (methodName == "new") {
+                            val dotRef = nextSibling.reference
+                            val resolved = dotRef?.resolve()
+                            if (resolved === targetElement) {
+                                if (!processor.process(UsageInfo(dotRef))) {
+                                    result = false
+                                    return@runBlocking
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         return result
+    }
+
+    /**
+     * Finds the next sibling that is not whitespace or NLS (newline).
+     * Used to find CrystalDotCallAccess after a class reference.
+     */
+    private fun findNextNonWhitespace(element: PsiElement): PsiElement? {
+        var sibling = element.nextSibling
+        while (sibling != null && (sibling is PsiWhiteSpace
+                    || sibling.node?.elementType.toString() == "WHITE_SPACE"
+                    || sibling.node?.elementType.toString() == "NLS")) {
+            sibling = sibling.nextSibling
+        }
+        return sibling
     }
 
     override fun getFindUsagesDialog(

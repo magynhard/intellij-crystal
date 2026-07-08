@@ -6,10 +6,15 @@ import com.intellij.icons.AllIcons
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 
 /**
  * Code completion contributor for Crystal.
@@ -128,10 +133,6 @@ class CrystalCompletionContributor : CompletionContributor() {
                                 result.addElement(lookup)
                             }
                         }
-                        // Even without type inference, show all project methods as fallback
-                        if (inferredType == null) {
-                            addAllMethods(project, result)
-                        }
                         return
                     }
                 }
@@ -151,13 +152,20 @@ class CrystalCompletionContributor : CompletionContributor() {
                 }
             }
 
-            // Case 3: Free-text completion — classes + methods + local vars/params + stdlib types
-            for (lookup in CrystalTypeCompletionProvider.getStdlibTypeLookups()) {
-                result.addElement(lookup)
+            // Case 3: Free-text completion — scope items + classes (uppercase only)
+            val prefix = result.prefixMatcher.prefix
+            val isUppercase = prefix.isNotEmpty() && prefix[0].isUpperCase()
+
+            addLocalCompletions(position, result)
+
+            // Only suggest classes and stdlib types when prefix starts with uppercase
+            // (Crystal class names start with uppercase, e.g. Int32, String, Array)
+            if (prefix.isEmpty() || isUppercase) {
+                for (lookup in CrystalTypeCompletionProvider.getStdlibTypeLookups()) {
+                    result.addElement(lookup)
+                }
+                addAllClasses(project, result)
             }
-            addAllClasses(project, result)
-            addAllMethods(project, result)
-            addLocalVariablesAndParameters(position, result)
         }
 
         private fun addAllClasses(project: com.intellij.openapi.project.Project, result: CompletionResultSet) {
@@ -166,45 +174,149 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
         }
 
-        private fun addAllMethods(project: com.intellij.openapi.project.Project, result: CompletionResultSet) {
-            for (method in CrystalCompletionHelper.getAllMethods(project)) {
-                result.addElement(CrystalCompletionHelper.buildMethodLookup(method))
-            }
-        }
+        private fun addLocalCompletions(position: PsiElement, result: CompletionResultSet) {
+            val seen = mutableSetOf<String>()
 
-        private fun addLocalVariablesAndParameters(position: PsiElement, result: CompletionResultSet) {
-            // Find enclosing method and collect parameter names (highest priority)
-            val method = PsiTreeUtil.getParentOfType(position, CrystalMethodDefinition::class.java)
-            if (method != null) {
-                val paramList = method.parameterList
+            // 1. Block parameters (highest priority) — from all enclosing blocks
+            var currentBlock = PsiTreeUtil.getParentOfType(position, CrystalBlock::class.java)
+            while (currentBlock != null) {
+                val paramList = currentBlock.parameterList
                 if (paramList != null) {
                     for (param in paramList.parameterList) {
-                        val name = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param) ?: continue
-                        val lookup = LookupElementBuilder.create(name)
-                            .withIcon(AllIcons.Nodes.Parameter)
-                            .withTypeText("parameter", true)
-                            .withBoldness(true)
-                        result.addElement(PrioritizedLookupElement.withPriority(lookup, 100.0))
+                        val name = CrystalCompletionHelper.extractParameterName(param) ?: continue
+                        if (seen.add(name)) {
+                            result.addElement(prioritizedLookup(name, AllIcons.Nodes.Parameter, "parameter", 120.0))
+                        }
+                    }
+                }
+                currentBlock = PsiTreeUtil.getParentOfType(currentBlock.parent, CrystalBlock::class.java)
+            }
+
+            // 2. For-loop variables — collect IDENTIFIERs before IN keyword
+            val forStmt = PsiTreeUtil.getParentOfType(position, CrystalForStatement::class.java)
+            if (forStmt != null) {
+                for (child in forStmt.children) {
+                    if (child.node?.elementType == CrystalTypes.IDENTIFIER) {
+                        if (seen.add(child.text)) {
+                            result.addElement(prioritizedLookup(child.text, AllIcons.Nodes.Variable, "for variable", 90.0))
+                        }
                     }
                 }
             }
 
-            // Collect local variable assignments before the cursor position
-            val containingFile = position.containingFile ?: return
-            val assignments = PsiTreeUtil.collectElementsOfType(containingFile, CrystalAssignment::class.java)
-            val seen = mutableSetOf<String>()
-            for (assignment in assignments) {
-                if (assignment.textOffset >= position.textOffset) continue
-                val identNode = assignment.node.findChildByType(CrystalTypes.IDENTIFIER)
-                val name = identNode?.text ?: continue
-                if (seen.add(name)) {
-                    val lookup = LookupElementBuilder.create(name)
-                        .withIcon(AllIcons.Nodes.Variable)
-                        .withTypeText("local", true)
-                        .withBoldness(true)
-                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 50.0))
+            // 3. Method parameters (priority 100)
+            val method = PsiTreeUtil.getParentOfType(position, CrystalMethodDefinition::class.java)
+            if (method != null) {
+                for (param in method.parameterList?.parameterList ?: emptyList()) {
+                    val name = CrystalCompletionHelper.extractParameterName(param) ?: continue
+                    if (seen.add(name)) {
+                        result.addElement(prioritizedLookup(name, AllIcons.Nodes.Parameter, "parameter", 100.0))
+                    }
                 }
             }
+
+            // 4. Local variables + instance/class variables (scope-aware)
+            //    Scope: method → block → file (Crystal is method-scoped)
+            val scope = findCompletionScope(position)
+            if (scope != null) {
+                val assignments = PsiTreeUtil.findChildrenOfType(scope, CrystalAssignment::class.java)
+                for (assignment in assignments) {
+                    if (assignment.textOffset >= position.textOffset) continue
+                    val child = assignment.firstChild ?: continue
+                    // Handle raw IDENTIFIER tokens (local variables)
+                    if (child.node?.elementType == CrystalTypes.IDENTIFIER) {
+                        val text = child.text ?: continue
+                        if (seen.add(text)) {
+                            result.addElement(prioritizedLookup(text, AllIcons.Nodes.Variable, "local", 50.0))
+                        }
+                    }
+                    // Handle INSTANCE_VAR inside CrystalInstanceVarAccess composite
+                    if (child is CrystalInstanceVarAccess) {
+                        val name = child.name
+                        if (name != null && seen.add(name)) {
+                            result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, "instance variable", 40.0))
+                        }
+                    }
+                    // Handle CLASS_VAR inside CrystalClassVarAccess composite
+                    if (child is CrystalClassVarAccess) {
+                        val name = child.name
+                        if (name != null && seen.add(name)) {
+                            result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, "class variable", 40.0))
+                        }
+                    }
+                }
+            }
+
+            // 5. Class methods of enclosing class (priority 30) + inherited (priority 20)
+            if (method != null) {
+                val enclosingClassName = CrystalCompletionHelper.getEnclosingClassName(method)
+                if (enclosingClassName != null) {
+                    val project = position.project
+                    val searchScope = GlobalSearchScope.allScope(project)
+                    addClassMethods(enclosingClassName, 30.0, searchScope, project, seen, result)
+
+                    // Inherited: direct superclass
+                    val enclosingClass = PsiTreeUtil.getParentOfType(method, CrystalClassDefinition::class.java)
+                    val superClassName = enclosingClass?.superclassClause?.typeReference?.text
+                    if (superClassName != null && superClassName != enclosingClassName) {
+                        addClassMethods(superClassName, 20.0, searchScope, project, seen, result)
+                    }
+                }
+            }
+        }
+
+        /**
+         * Adds methods of a specific class (via CrystalMethodByClassIndex) to the result.
+         */
+        private fun addClassMethods(
+            className: String,
+            priority: Double,
+            scope: GlobalSearchScope,
+            project: com.intellij.openapi.project.Project,
+            seen: MutableSet<String>,
+            result: CompletionResultSet
+        ) {
+            val methods = StubIndex.getElements(
+                CrystalMethodByClassIndex.KEY, className, project, scope,
+                CrystalMethodDefinition::class.java
+            )
+            for (method in methods) {
+                val name = method.name ?: continue
+                if (name != "initialize" && seen.add(name)) {
+                    val lookup = LookupElementBuilder.create(name)
+                        .withIcon(AllIcons.Nodes.Method)
+                        .withTypeText("method", true)
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, priority))
+                }
+            }
+        }
+
+        /**
+         * Finds the scope element for local variable completion.
+         * Crystal uses method-scoped local variables (like Ruby).
+         */
+        private fun findCompletionScope(element: PsiElement): PsiElement? {
+            // Inside a method — scan the method body
+            val method = PsiTreeUtil.getParentOfType(element, CrystalMethodDefinition::class.java)
+            if (method != null) return method
+            // Inside a block without method — scan the block
+            val block = PsiTreeUtil.getParentOfType(element, CrystalBlock::class.java)
+            if (block != null) return block
+            // Top level — scan the file
+            return element.containingFile
+        }
+
+        private fun prioritizedLookup(
+            name: String,
+            icon: javax.swing.Icon,
+            typeText: String,
+            priority: Double
+        ): com.intellij.codeInsight.lookup.LookupElement {
+            val lookup = LookupElementBuilder.create(name)
+                .withIcon(icon)
+                .withTypeText(typeText, true)
+                .withBoldness(true)
+            return PrioritizedLookupElement.withPriority(lookup, priority)
         }
 
         /**
