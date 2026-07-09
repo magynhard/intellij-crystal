@@ -17,6 +17,25 @@ import de.magynhard.crystal.stubs.CrystalClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 
 /**
+ * Computes the completion prefix from the raw document text before the caret,
+ * treating a leading `@` or `@@` as part of the variable name.
+ *
+ * Examples (text before caret → returned prefix):
+ *   "@"       → "@"
+ *   "@@"      → "@@"
+ *   "@@vari"  → "@@vari"
+ *   "@foo"    → "@foo"
+ *   "mein"    → "mein"
+ *   "Str"     → "Str"
+ *   "foo.bar" → "bar"
+ */
+internal fun computeCompletionPrefix(editor: com.intellij.openapi.editor.Editor, offset: Int): String {
+    val text = editor.document.charsSequence.subSequence(0, offset).toString()
+    val match = "([@]@?[A-Za-z0-9_]*)$".toRegex().find(text)
+    return match?.groupValues?.get(1) ?: ""
+}
+
+/**
  * Code completion contributor for Crystal.
  *
  * Provides 3 completion modes:
@@ -153,18 +172,26 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
 
             // Case 3: Free-text completion — scope items + classes (uppercase only)
-            val prefix = result.prefixMatcher.prefix
-            val isUppercase = prefix.isNotEmpty() && prefix[0].isUpperCase()
+            // Treat a leading @ / @@ as part of the variable name so instance (@foo)
+            // and class (@@bar) variables are suggested even when only the sigil is typed.
+            val actualPrefix = computeCompletionPrefix(parameters.editor, parameters.offset)
+            val isVarPrefix = actualPrefix.startsWith("@")
+            val effectiveResult = if (isVarPrefix) {
+                result.withPrefixMatcher(result.prefixMatcher.cloneWithPrefix(actualPrefix))
+            } else {
+                result
+            }
+            val isUppercase = actualPrefix.isNotEmpty() && actualPrefix[0].isUpperCase()
 
-            addLocalCompletions(position, result)
+            addLocalCompletions(position, parameters, effectiveResult)
 
-            // Only suggest classes and stdlib types when prefix starts with uppercase
-            // (Crystal class names start with uppercase, e.g. Int32, String, Array)
-            if (prefix.isEmpty() || isUppercase) {
+            // Only suggest classes and stdlib types when prefix starts with uppercase.
+            // When the prefix is a variable sigil (@ / @@), skip classes entirely.
+            if (actualPrefix.isEmpty() || isUppercase) {
                 for (lookup in CrystalTypeCompletionProvider.getStdlibTypeLookups()) {
-                    result.addElement(lookup)
+                    effectiveResult.addElement(lookup)
                 }
-                addAllClasses(project, result)
+                addAllClasses(project, effectiveResult)
             }
         }
 
@@ -174,7 +201,7 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
         }
 
-        private fun addLocalCompletions(position: PsiElement, result: CompletionResultSet) {
+        private fun addLocalCompletions(position: PsiElement, parameters: CompletionParameters, result: CompletionResultSet) {
             val seen = mutableSetOf<String>()
 
             // 1. Block parameters (highest priority) — from all enclosing blocks
@@ -215,8 +242,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                 }
             }
 
-            // 4. Local variables + instance/class variables (scope-aware)
-            //    Scope: method → block → file (Crystal is method-scoped)
+            // 4. Local variables (method/block scoped, forward-reference excluded)
             val scope = findCompletionScope(position)
             if (scope != null) {
                 val assignments = PsiTreeUtil.findChildrenOfType(scope, CrystalAssignment::class.java)
@@ -230,20 +256,39 @@ class CrystalCompletionContributor : CompletionContributor() {
                             result.addElement(prioritizedLookup(text, AllIcons.Nodes.Variable, "local", 50.0))
                         }
                     }
-                    // Handle INSTANCE_VAR inside CrystalInstanceVarAccess composite
-                    if (child is CrystalInstanceVarAccess) {
-                        val name = child.name
-                        if (name != null && seen.add(name)) {
-                            result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, "instance variable", 40.0))
-                        }
-                    }
-                    // Handle CLASS_VAR inside CrystalClassVarAccess composite
-                    if (child is CrystalClassVarAccess) {
-                        val name = child.name
-                        if (name != null && seen.add(name)) {
-                            result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, "class variable", 40.0))
-                        }
-                    }
+                }
+            }
+
+            // 4b. Instance + class variables of the enclosing class (all methods).
+            //     These are class fields, available throughout the class regardless
+            //     of which method defines them or the caret position.
+            //     Derive the enclosing class from the method first — the synthetic
+            //     completion position does not always resolve CrystalClassDefinition
+            //     directly, but the enclosing method does (same mechanism as locals).
+            // Resolve the enclosing class for instance/class variable completion.
+            // A bare `@` sigil is lexed as a loose AT token that the parser attaches
+            // directly to the file (not nested in the class body), so getParentOfType
+            // cannot reach the class. Instead find the class whose text range contains
+            // the caret offset — the innermost (most deeply nested) such class wins.
+            // The class range is extended to include trailing whitespace/newlines so a
+            // caret right after the closing `end` still counts as inside the class.
+            val enclosingClass = run {
+                val document = parameters.originalFile.viewProvider.document
+                val textLen = document.textLength
+                fun classContainsOffset(cls: CrystalClassDefinition): Boolean {
+                    if (parameters.offset < cls.textRange.startOffset) return false
+                    var end = cls.textRange.endOffset
+                    while (end < textLen && document.charsSequence[end].isWhitespace()) end++
+                    return parameters.offset <= end
+                }
+                val classes = PsiTreeUtil.findChildrenOfType(parameters.originalFile, CrystalClassDefinition::class.java)
+                classes.filter { classContainsOffset(it) }
+                    .maxByOrNull { it.textRange.startOffset }
+            }
+            val varScope = enclosingClass ?: position.containingFile
+            collectClassVariables(varScope, enclosingClass != null) { name, typeText ->
+                if (seen.add(name)) {
+                    result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, typeText, 40.0))
                 }
             }
 
@@ -304,6 +349,39 @@ class CrystalCompletionContributor : CompletionContributor() {
             if (block != null) return block
             // Top level — scan the file
             return element.containingFile
+        }
+
+        /**
+         * Collects `@instance` and `@@class` variables from [root].
+         *
+         * When [rootIsClass] is true, recursion stops at nested class/module/struct/enum
+         * definitions so that variables of an inner class don't leak into the outer class.
+         */
+        private fun collectClassVariables(
+            root: PsiElement,
+            rootIsClass: Boolean,
+            add: (name: String, typeText: String) -> Unit
+        ) {
+            fun visit(element: PsiElement) {
+                // Stop at nested class-defining elements (but always process the root class)
+                if (rootIsClass && element !== root &&
+                    (element is CrystalClassDefinition || element is CrystalModuleDefinition ||
+                     element is CrystalStructDefinition || element is CrystalEnumDefinition)) {
+                    return
+                }
+                when (element) {
+                    is CrystalInstanceVarAccess -> {
+                        val name = element.name
+                        if (name != null) add(name, "instance variable")
+                    }
+                    is CrystalClassVarAccess -> {
+                        val name = element.name
+                        if (name != null) add(name, "class variable")
+                    }
+                }
+                for (child in element.children) visit(child)
+            }
+            for (child in root.children) visit(child)
         }
 
         private fun prioritizedLookup(
@@ -431,24 +509,32 @@ class CrystalCompletionContributor : CompletionContributor() {
          * Returns true if completion should be suppressed.
          */
         private fun isInsideStringLiteral(position: PsiElement): Boolean {
-            // If the dummy identifier is placed inside a STRING_LITERAL token context
-            val tokenType = position.node?.elementType
-            if (tokenType == CrystalTypes.STRING_LITERAL) return true
-
-            // Check if parent is a string_expression — we might be between string parts
-            val parent = position.parent
-            if (parent?.node?.elementType == CrystalTypes.STRING_EXPRESSION) {
-                // If we're inside interpolation (between INTERPOLATION_BEGIN and END), allow completion
-                var sibling = position.prevSibling
-                while (sibling != null) {
-                    val sibType = sibling.node?.elementType
-                    if (sibType == CrystalTypes.STRING_INTERPOLATION_BEGIN) return false
-                    if (sibType == CrystalTypes.STRING_INTERPOLATION_END) break
-                    sibling = sibling.prevSibling
-                }
-                return true
-            }
-            return false
+            return de.magynhard.crystal.completion.isInsideStringLiteral(position)
         }
     }
+}
+
+/**
+ * Checks if the position is inside a string literal (not inside interpolation).
+ * Returns true if completion should be suppressed.
+ */
+internal fun isInsideStringLiteral(position: PsiElement): Boolean {
+    // If the dummy identifier is placed inside a STRING_LITERAL token context
+    val tokenType = position.node?.elementType
+    if (tokenType == CrystalTypes.STRING_LITERAL) return true
+
+    // Check if parent is a string_expression — we might be between string parts
+    val parent = position.parent
+    if (parent?.node?.elementType == CrystalTypes.STRING_EXPRESSION) {
+        // If we're inside interpolation (between INTERPOLATION_BEGIN and END), allow completion
+        var sibling = position.prevSibling
+        while (sibling != null) {
+            val sibType = sibling.node?.elementType
+            if (sibType == CrystalTypes.STRING_INTERPOLATION_BEGIN) return false
+            if (sibType == CrystalTypes.STRING_INTERPOLATION_END) break
+            sibling = sibling.prevSibling
+        }
+        return true
+    }
+    return false
 }

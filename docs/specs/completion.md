@@ -141,18 +141,31 @@ end
 
 #### Instance and Class Variables
 
-Instance variables (`@var`) and class variables (`@@var`) are suggested when assigned in the current scope.
+Instance variables (`@var`) and class variables (`@@var`) of the **enclosing class** are suggested as soon as `@` (or `@@`) is typed — not only after a name character. They are collected from **all methods of the enclosing class** (e.g. `@name` defined in `initialize` is offered inside `greet`), because they are class fields available throughout the class.
+
+- Typing `@`  → both `@instance` and `@@class` variables are offered.
+- Typing `@@` → only `@@class` variables are offered.
+- Typing `@na` → only `@name` (and any `@@name`-style) matches the prefix.
+
+The auto-popup appears on `@` (via `CrystalAtCompletionConfidence`). String literals and `@[` annotation context are excluded.
 
 ```crystal
-def initialize
-  @name = "hello"
-  @age = 42
-end
+class Foo
+  def initialize
+    @name = "hello"
+    @@count = 0
+  end
 
-def greet
-  @  # ← @name, @age are suggested
+  def greet
+    @  # ← @name, @@count suggested (both)
+    @@ # ← @@count suggested (class vars only)
+  end
 end
 ```
+
+Nested classes are isolated: an inner class's `@vars` are not offered in the outer class.
+
+> **Note on a bare sigil:** A standalone `@` with nothing typed after it is lexed as a loose `AT` token that the parser attaches directly to the file, which can truncate the enclosing class node in the PSI. As soon as a name character follows (`@n`), the token parses as a proper `INSTANCE_VAR` inside the class and scope resolution works normally. Completion of `@name` and `@@name` is therefore fully reliable once any name character is present; the bare-sigil case is best-effort (class scope resolved by caret offset).
 
 **Priority:** 40
 

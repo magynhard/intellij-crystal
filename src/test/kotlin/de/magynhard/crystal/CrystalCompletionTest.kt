@@ -831,6 +831,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             class Foo
               def initialize
                 @name = "hello"
+                @age = 1
               end
 
               def greet
@@ -842,6 +843,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain @name: $names", names.contains("@name"))
+        assertTrue("Should contain @age: $names", names.contains("@age"))
     }
 
     // ==================== Class method priority ====================
@@ -909,5 +911,108 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain 'my_var': $names", names.contains("my_var"))
         assertTrue("Should contain 'my_second': $names", names.contains("my_second"))
         assertFalse("Should NOT contain 'other_var' from other method: $names", names.contains("other_var"))
+    }
+
+    // ==================== Instance/class variable @ completion ====================
+
+    fun testAtPrefixSuggestsClassInstanceAndClassVars() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def initialize
+                @name = "x"
+                @@count = 1
+              end
+
+              def foo
+                @<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain instance var @name: $names", names.contains("@name"))
+        assertTrue("Should contain class var @@count: $names", names.contains("@@count"))
+    }
+
+    fun testAtAtPrefixSuggestsOnlyClassVars() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def initialize
+                @name = "x"
+                @@count = 1
+                @@total = 0
+              end
+
+              def foo
+                @@<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain class var @@count: $names", names.contains("@@count"))
+        assertTrue("Should contain class var @@total: $names", names.contains("@@total"))
+        assertFalse("Should NOT contain instance var @name for @@ prefix: $names", names.contains("@name"))
+    }
+
+    fun testAtPrefixWithNamePartMatchesClassVar() {
+        myFixture.configureByText("main.cr", """
+            class Apfel
+              def initialize
+                @@variata = 1
+              end
+
+              def foo
+                @<caret>var
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain @@variata: $names", names.contains("@@variata"))
+    }
+
+    fun testAtPrefixExcludesClassNames() {
+        myFixture.addFileToProject("apfel.cr", "class Apfel\nend\n")
+        myFixture.configureByText("main.cr", """
+            class Birne
+              def foo
+                @<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT suggest class names for @ prefix: $names", names.contains("Apfel"))
+    }
+
+    fun testAtPrefixDoesNotLeakNestedClassVars() {
+        myFixture.configureByText("main.cr", """
+            class Outer
+              def initialize
+                @outer_var = 1
+                @outer_other = 2
+              end
+
+              class Inner
+                def initialize
+                  @inner_var = 3
+                end
+              end
+
+              def foo
+                @outer<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain @outer_var: $names", names.contains("@outer_var"))
+        assertTrue("Should contain @outer_other: $names", names.contains("@outer_other"))
+        assertFalse("Should NOT contain nested @inner_var: $names", names.contains("@inner_var"))
     }
 }
