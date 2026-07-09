@@ -76,7 +76,7 @@ class CrystalReference(
                 if (assignment != null) return assignment
                 sibling = sibling.prevSibling
             }
-            // Check parameters if we're inside a method
+            // Check parameters if we're inside a method or macro
             if (scope is CrystalMethodDefinition || scope is CrystalMacroDefinition) {
                 val paramList = when (scope) {
                     is CrystalMethodDefinition -> scope.parameterList
@@ -88,6 +88,14 @@ class CrystalReference(
                     if (paramIdent?.text == name) return paramIdent.psi
                 }
                 break // Don't look beyond method boundaries for locals
+            }
+            // Check block parameters (e.g., |ola| in each do |ola| ... end)
+            if (scope is CrystalBlock) {
+                val paramList = scope.parameterList
+                paramList?.parameterList?.forEach { param ->
+                    val paramIdent = param.node.findChildByType(CrystalTypes.IDENTIFIER)
+                    if (paramIdent?.text == name) return paramIdent.psi
+                }
             }
             scope = scope.parent
         }

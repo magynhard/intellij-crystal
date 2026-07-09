@@ -14,6 +14,10 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Replace deprecated `GeneratorPeerImpl.getComponent()`** — moved panel construction logic into `getComponent(TextFieldWithBrowseButton, Runnable)`.
 - **Remove code style settings page** — `crystal tool format` is the canonical Crystal formatter with zero configurable options; a Code Style page with inert settings would mislead users. Removed the `langCodeStyleSettingsProvider` EP registration, `CrystalCodeStyleSettingsProvider`, and all associated tests and specs. The `CrystalFormattingService` (Ctrl+Alt+L → `crystal tool format`) remains unchanged.
 
+### Fixed
+
+- **Block parameter rename/reference resolution** — block parameters (e.g. `|ola|` in `each do |ola| ... end`) are now resolved as references, so Rename (from definition or usage site), Go to Definition, and Find Usages work and stay in sync across the block body. Previously they were only highlighted (Annotator) and suggested (Completion) but had no reference link, so renaming one occurrence did not rename the other. Fixed by teaching `CrystalReference.resolveLocal()` to check `CrystalBlock.parameterList`, mirroring the existing method/macro parameter resolution.
+
 ## [0.1.17] — 2026-07-05
 
 ### Enhancements

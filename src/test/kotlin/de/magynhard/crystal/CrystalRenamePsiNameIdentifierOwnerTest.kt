@@ -468,6 +468,121 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
 
     // ==================== Rename processor availability ====================
 
+    // ==================== Block Parameter Rename Tests ====================
+
+    fun testRenameBlockParameterFromDefinition() {
+        val file = myFixture.configureByText("test.cr", """
+            [1, 2, 3].each do |<caret>ola|
+              puts ola
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("element")
+        myFixture.checkResult("""
+            [1, 2, 3].each do |element|
+              puts element
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameBlockParameterFromUsage() {
+        val file = myFixture.configureByText("test.cr", """
+            [1, 2, 3].each do |ola|
+              puts <caret>ola
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("element")
+        myFixture.checkResult("""
+            [1, 2, 3].each do |element|
+              puts element
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameBlockParameterMultipleParams() {
+        val file = myFixture.configureByText("test.cr", """
+            [1, 2].each_with_index do |<caret>elem, idx|
+              puts elem
+              puts idx
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("item")
+        myFixture.checkResult("""
+            [1, 2].each_with_index do |item, idx|
+              puts item
+              puts idx
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameBlockParameterCurlyBrace() {
+        val file = myFixture.configureByText("test.cr", """
+            [1, 2, 3].map { |<caret>n| n * 2 }
+        """.trimIndent())
+        myFixture.renameElementAtCaret("num")
+        myFixture.checkResult("""
+            [1, 2, 3].map { |num| num * 2 }
+        """.trimIndent())
+    }
+
+    fun testRenameBlockParameterNestedBlocks() {
+        val file = myFixture.configureByText("test.cr", """
+            [1, 2].each do |outer|
+              [3, 4].each do |<caret>inner|
+                puts outer
+                puts inner
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("x")
+        myFixture.checkResult("""
+            [1, 2].each do |outer|
+              [3, 4].each do |x|
+                puts outer
+                puts x
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameBlockParameterNestedBlocksUsage() {
+        val file = myFixture.configureByText("test.cr", """
+            [1, 2].each do |outer|
+              [3, 4].each do |inner|
+                puts outer
+                puts <caret>inner
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("x")
+        myFixture.checkResult("""
+            [1, 2].each do |outer|
+              [3, 4].each do |x|
+                puts outer
+                puts x
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testResolveBlockParameter() {
+        val file = myFixture.configureByText("test.cr", """
+            [1, 2, 3].each do |ola|
+              puts <caret>ola
+            end
+        """.trimIndent())
+        val element = file.findElementAt(myFixture.caretOffset) ?: error("No element at caret")
+        val varRef = element.parent as? CrystalVariableReference
+            ?: error("Expected CrystalVariableReference, got ${element.parent?.javaClass?.simpleName}")
+        val ref = varRef.references.filterIsInstance<CrystalReference>().firstOrNull()
+            ?: error("Should have CrystalReference")
+        val resolved = ref.resolve()
+        assertNotNull("Should resolve to block parameter", resolved)
+        assertTrue("Should resolve to CrystalParameter (PsiNameIdentifierOwner)",
+            resolved is CrystalParameter)
+        assertTrue("Resolved element should be PsiNameIdentifierOwner",
+            resolved is PsiNameIdentifierOwner)
+    }
+
     fun testRenameUsesDefaultProcessorForAllElements() {
         // Without a custom renamePsiElementProcessor, all Crystal elements
         // use the DEFAULT processor. This is the current design: leaf tokens
