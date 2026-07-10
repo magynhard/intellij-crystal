@@ -343,9 +343,6 @@ class CrystalCompletionContributor : CompletionContributor() {
             file: PsiElement,
             add: (name: String, typeText: String) -> Unit
         ) {
-            // Track whether we've entered the enclosing type (the first one we encounter).
-            // Until then (file-level), recurse into everything to find loose methods.
-            // Once inside, skip nested type definitions.
             var enteredEnclosing = false
             fun visit(element: PsiElement) {
                 if (enteredEnclosing &&
@@ -362,6 +359,14 @@ class CrystalCompletionContributor : CompletionContributor() {
                         val name = element.name ?: return
                         add(name, "class variable")
                     }
+                }
+                // Handle raw INSTANCE_VAR/CLASS_VAR tokens (e.g. after a parse error
+                // where the parser didn't wrap them in CrystalInstanceVarAccess composites)
+                val tokenType = element.node?.elementType
+                if (tokenType == CrystalTypes.INSTANCE_VAR) {
+                    add(element.text, "instance variable")
+                } else if (tokenType == CrystalTypes.CLASS_VAR) {
+                    add(element.text, "class variable")
                 }
                 if (!enteredEnclosing &&
                     (element is CrystalClassDefinition || element is CrystalModuleDefinition ||
