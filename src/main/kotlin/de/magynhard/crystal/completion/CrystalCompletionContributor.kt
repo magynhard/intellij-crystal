@@ -395,38 +395,43 @@ class CrystalCompletionContributor : CompletionContributor() {
         /**
          * Collects `@instance` and `@@class` variables from the enclosing class
          * using source-range-based filtering. Walks the FILE's PSI children (which
-         * include all methods, even those after a parse error) and filters by the
-         * enclosing class's source range, excluding nested type definitions.
+         * include all methods, even those after a parse error) and accepts variables
+         * whose source offset falls within [enclosingRange]. Nested type definitions
+         * (classes, modules, structs, enums) are skipped to prevent variable leakage.
+         *
+         * Unlike the previous insideEnclosing-flag approach, this correctly handles
+         * loose file-level elements (e.g. methods after a bare `@` parse error) that
+         * fall outside the truncated class PSI node but within the source range.
          */
         private fun collectClassVariablesByRange(
             file: PsiElement,
             enclosingRange: IntRange,
             add: (name: String, typeText: String) -> Unit
         ) {
-            fun visit(element: PsiElement, insideEnclosing: Boolean) {
-                // When we haven't yet entered the enclosing class, recurse into everything
-                // until we find it (by matching its start offset). Once inside, stop at
-                // nested class/module/struct/enum boundaries.
-                if (insideEnclosing &&
-                    (element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-                     element is CrystalStructDefinition || element is CrystalEnumDefinition)) {
-                    return
-                }
+            val enclosingStart = enclosingRange.first
+            fun visit(element: PsiElement, insideNestedType: Boolean) {
+                if (insideNestedType) return
                 when (element) {
                     is CrystalInstanceVarAccess -> {
-                        if (!insideEnclosing) return
                         val name = element.name ?: return
-                        add(name, "instance variable")
+                        if (element.textRange.startOffset in enclosingRange) {
+                            add(name, "instance variable")
+                        }
                     }
                     is CrystalClassVarAccess -> {
-                        if (!insideEnclosing) return
                         val name = element.name ?: return
-                        add(name, "class variable")
+                        if (element.textRange.startOffset in enclosingRange) {
+                            add(name, "class variable")
+                        }
                     }
                 }
-                val nowInside = insideEnclosing || (element is CrystalClassDefinition &&
-                    element.textRange.startOffset == enclosingRange.first)
-                for (child in element.children) visit(child, nowInside)
+                val isNestedType = (element is CrystalClassDefinition ||
+                    element is CrystalModuleDefinition ||
+                    element is CrystalStructDefinition ||
+                    element is CrystalEnumDefinition) &&
+                    element.textRange.startOffset != enclosingStart &&
+                    element.textRange.startOffset in enclosingRange
+                for (child in element.children) visit(child, isNestedType)
             }
             for (child in file.children) visit(child, false)
         }
