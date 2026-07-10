@@ -16,7 +16,9 @@ interface CrystalNamedStub {
 class CrystalClassDefinitionStub(
     parent: StubElement<*>?,
     elementType: IStubElementType<*, *>,
-    override val name: String?
+    override val name: String?,
+    /** For qualified names like `class Foo::Bar`, stores the namespace prefix ("Foo"). */
+    val enclosingNamespace: String? = null
 ) : StubBase<CrystalClassDefinition>(parent, elementType), CrystalNamedStub
 
 // ==================== Module Stub ====================
@@ -24,7 +26,9 @@ class CrystalClassDefinitionStub(
 class CrystalModuleDefinitionStub(
     parent: StubElement<*>?,
     elementType: IStubElementType<*, *>,
-    override val name: String?
+    override val name: String?,
+    /** For qualified names like `module Foo::Bar`, stores the namespace prefix ("Foo"). */
+    val enclosingNamespace: String? = null
 ) : StubBase<CrystalModuleDefinition>(parent, elementType), CrystalNamedStub
 
 // ==================== Struct Stub ====================
@@ -32,7 +36,9 @@ class CrystalModuleDefinitionStub(
 class CrystalStructDefinitionStub(
     parent: StubElement<*>?,
     elementType: IStubElementType<*, *>,
-    override val name: String?
+    override val name: String?,
+    /** For qualified names like `struct Foo::Bar`, stores the namespace prefix ("Foo"). */
+    val enclosingNamespace: String? = null
 ) : StubBase<CrystalStructDefinition>(parent, elementType), CrystalNamedStub
 
 // ==================== Enum Stub ====================
@@ -40,7 +46,9 @@ class CrystalStructDefinitionStub(
 class CrystalEnumDefinitionStub(
     parent: StubElement<*>?,
     elementType: IStubElementType<*, *>,
-    override val name: String?
+    override val name: String?,
+    /** For qualified names like `enum Foo::Bar`, stores the namespace prefix ("Foo"). */
+    val enclosingNamespace: String? = null
 ) : StubBase<CrystalEnumDefinition>(parent, elementType), CrystalNamedStub
 
 // ==================== Method Stub ====================

@@ -1015,4 +1015,64 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain @outer_other: $names", names.contains("@outer_other"))
         assertFalse("Should NOT contain nested @inner_var: $names", names.contains("@inner_var"))
     }
+
+    // ==================== Namespace (double-colon) completion ====================
+
+    fun testDoubleColonSuggestsNestedType() {
+        myFixture.configureByText("main.cr", """
+            class Apfelsaft
+              def initialize(@cool : String, other : Int32)
+              end
+            end
+
+            class Apfelsaft::Tools
+              def self.dance(count : Int32)
+                return count + 87
+              end
+            end
+
+            Apfelsaft::<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions for Foo::", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain nested type 'Tools': $names", names.contains("Tools"))
+    }
+
+    fun testDoubleColonSuggestsMultipleNestedTypes() {
+        myFixture.configureByText("main.cr", """
+            class Foo
+            end
+
+            class Foo::Bar
+            end
+
+            class Foo::Baz
+            end
+
+            Foo::<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain 'Bar': $names", names.contains("Bar"))
+        assertTrue("Should contain 'Baz': $names", names.contains("Baz"))
+    }
+
+    fun testDoubleColonCrossFileNestedType() {
+        myFixture.addFileToProject("apfelsaft.cr", """
+            class Apfelsaft
+            end
+
+            class Apfelsaft::Tools
+              def self.dance
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Apfelsaft::<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain 'Tools' from cross-file: $names", names.contains("Tools"))
+    }
 }
