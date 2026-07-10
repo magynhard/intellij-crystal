@@ -186,6 +186,14 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
         sibling = sibling.prevSibling
         while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+        // If DOT is the first child of dot_call_access, walk up to find the receiver
+        if (sibling == null) {
+            val dotCallAccess = methodNameNode.parent
+            if (dotCallAccess is CrystalDotCallAccess) {
+                sibling = dotCallAccess.prevSibling
+                while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+            }
+        }
         val receiverName = sibling?.text ?: return null
 
         return Pair(receiverName, methodName)
@@ -539,6 +547,14 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
         sibling = sibling.prevSibling
         while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+        // If DOT is the first child of dot_call_access, walk up to find the receiver
+        if (sibling == null) {
+            val dotCallAccess = methodNameNode.parent
+            if (dotCallAccess is CrystalDotCallAccess) {
+                sibling = dotCallAccess.prevSibling
+                while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
+            }
+        }
         return extractClassNameFromElement(sibling)
     }
 
