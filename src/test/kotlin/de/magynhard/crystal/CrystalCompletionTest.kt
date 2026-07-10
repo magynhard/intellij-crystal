@@ -1075,4 +1075,45 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain 'Tools' from cross-file: $names", names.contains("Tools"))
     }
+
+    // ==================== Dot completion on namespace path ====================
+
+    fun testDotCompletionOnNamespacePathShowsStaticMethods() {
+        myFixture.configureByText("main.cr", """
+            class Apfelsaft
+              def initialize(@cool : String, other : Int32)
+              end
+            end
+
+            class Apfelsaft::Tools
+              def self.dance(count : Int32)
+                return count + 87
+              end
+            end
+
+            Apfelsaft::Tools.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain 'dance' from Apfelsaft::Tools: $names", names.contains("dance"))
+    }
+
+    fun testDotCompletionOnNamespacePathCrossFile() {
+        myFixture.addFileToProject("apfelsaft.cr", """
+            class Apfelsaft::Tools
+              def self.dance(count : Int32)
+                return count + 87
+              end
+              def self.sing
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Apfelsaft::Tools.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain 'dance': $names", names.contains("dance"))
+        assertTrue("Should contain 'sing': $names", names.contains("sing"))
+    }
 }

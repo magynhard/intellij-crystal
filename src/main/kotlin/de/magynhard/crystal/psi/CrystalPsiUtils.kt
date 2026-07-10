@@ -24,12 +24,14 @@ object CrystalPsiUtils {
         val parts = mutableListOf<String>()
         var current: PsiElement? = element
         while (current != null) {
-            when (current) {
-                is CrystalClassDefinition -> current.name?.let { parts.add(0, it) }
-                is CrystalModuleDefinition -> current.name?.let { parts.add(0, it) }
-                is CrystalStructDefinition -> current.name?.let { parts.add(0, it) }
-                is CrystalEnumDefinition -> current.name?.let { parts.add(0, it) }
+            val name = when (current) {
+                is CrystalClassDefinition -> extractQualifiedTypeName(current) ?: current.name
+                is CrystalModuleDefinition -> extractQualifiedTypeName(current) ?: current.name
+                is CrystalStructDefinition -> extractQualifiedTypeName(current) ?: current.name
+                is CrystalEnumDefinition -> extractQualifiedTypeName(current) ?: current.name
+                else -> null
             }
+            if (name != null) parts.add(0, name)
             current = current.parent
         }
         return if (parts.isNotEmpty()) parts.joinToString("::") else null
@@ -104,5 +106,28 @@ object CrystalPsiUtils {
         }
 
         return parts.joinToString("::")
+    }
+
+    /**
+     * Extracts the fully-qualified type name from a type definition's PSI children.
+     * For `class Foo::Bar`, returns "Foo::Bar". For `class Baz`, returns null.
+     *
+     * Works by scanning the PSI children for CONSTANT tokens (type_name is inlined as
+     * direct children of the definition node) and joining them with "::" if there are
+     * multiple CONSTANTS before the class_body.
+     */
+    private fun extractQualifiedTypeName(element: PsiElement): String? {
+        val constants = mutableListOf<String>()
+        var child = element.node.firstChildNode
+        while (child != null) {
+            if (child.elementType == CrystalTypes.CONSTANT) {
+                constants.add(child.text)
+            }
+            // Stop at class_body — CONSTANTS inside the body are not part of the type_name
+            if (child.elementType == CrystalTypes.CLASS_BODY) break
+            child = child.treeNext
+        }
+        // If there are multiple CONSTANTS (e.g. Foo::Bar), return the full qualified name
+        return if (constants.size >= 2) constants.joinToString("::") else null
     }
 }
