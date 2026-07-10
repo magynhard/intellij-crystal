@@ -260,35 +260,24 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
 
             // 4b. Instance + class variables of the enclosing class (all methods).
-            //     These are class fields, available throughout the class regardless
-            //     of which method defines them or the caret position.
-            //     Derive the enclosing class from the method first — the synthetic
-            //     completion position does not always resolve CrystalClassDefinition
-            //     directly, but the enclosing method does (same mechanism as locals).
-            // Resolve the enclosing class for instance/class variable completion.
-            // A bare `@` sigil is lexed as a loose AT token that the parser attaches
-            // directly to the file (not nested in the class body), so getParentOfType
-            // cannot reach the class. Instead find the class whose text range contains
-            // the caret offset — the innermost (most deeply nested) such class wins.
-            // The class range is extended to include trailing whitespace/newlines so a
-            // caret right after the closing `end` still counts as inside the class.
-            val enclosingClass = run {
-                val document = parameters.originalFile.viewProvider.document
-                val textLen = document.textLength
-                fun classContainsOffset(cls: CrystalClassDefinition): Boolean {
-                    if (parameters.offset < cls.textRange.startOffset) return false
-                    var end = cls.textRange.endOffset
-                    while (end < textLen && document.charsSequence[end].isWhitespace()) end++
-                    return parameters.offset <= end
+            //     Source-range-based: scan the file for all @/@@ variable accesses,
+            //     filter by the enclosing class's source range, exclude nested classes.
+            //     This handles the bare `@` parse error where methods after the caret
+            //     become loose file-level tokens outside the truncated class PSI node.
+            val enclosingClassRange = findEnclosingClassRange(parameters.originalFile, parameters.offset)
+            if (enclosingClassRange != null) {
+                collectClassVariablesByRange(
+                    parameters.originalFile, enclosingClassRange
+                ) { name, typeText ->
+                    if (seen.add(name)) {
+                        result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, typeText, 40.0))
+                    }
                 }
-                val classes = PsiTreeUtil.findChildrenOfType(parameters.originalFile, CrystalClassDefinition::class.java)
-                classes.filter { classContainsOffset(it) }
-                    .maxByOrNull { it.textRange.startOffset }
-            }
-            val varScope = enclosingClass ?: position.containingFile
-            collectClassVariables(varScope, enclosingClass != null) { name, typeText ->
-                if (seen.add(name)) {
-                    result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, typeText, 40.0))
+            } else {
+                collectAllVariables(parameters.originalFile) { name, typeText ->
+                    if (seen.add(name)) {
+                        result.addElement(prioritizedLookup(name, AllIcons.Nodes.Variable, typeText, 40.0))
+                    }
                 }
             }
 
@@ -352,36 +341,118 @@ class CrystalCompletionContributor : CompletionContributor() {
         }
 
         /**
-         * Collects `@instance` and `@@class` variables from [root].
+         * Finds the enclosing class range for the given caret offset.
          *
-         * When [rootIsClass] is true, recursion stops at nested class/module/struct/enum
-         * definitions so that variables of an inner class don't leak into the outer class.
+         * Uses source-range-based scanning: finds the innermost class whose range
+         * contains the offset, then scans forward through file-level PSI children
+         * to find the matching `end` keyword (balanced block counting). This handles
+         * the bare `@` parse error where the class PSI node is truncated.
          */
-        private fun collectClassVariables(
-            root: PsiElement,
-            rootIsClass: Boolean,
+        private fun findEnclosingClassRange(file: PsiElement, offset: Int): IntRange? {
+            val classes = PsiTreeUtil.findChildrenOfType(file, CrystalClassDefinition::class.java)
+            // Find innermost class that actually contains the offset (start <= offset < end)
+            val enclosing = classes
+                .filter { offset >= it.textRange.startOffset && offset < it.textRange.endOffset }
+                .maxByOrNull { it.textRange.startOffset }
+                ?: return null
+            val start = enclosing.textRange.startOffset
+            val endOffset = findMatchingEndOffset(file, start)
+            return start until endOffset
+        }
+
+        /**
+         * Finds the source offset of the matching `end` keyword for a block
+         * starting at [blockStartOffset]. Scans file-level PSI children using
+         * balanced block-starting keyword counting.
+         */
+        private fun findMatchingEndOffset(file: PsiElement, blockStartOffset: Int): Int {
+            var balance = 0
+            for (child in file.children) {
+                if (child.textRange.startOffset < blockStartOffset) continue
+                val type = child.node?.elementType ?: continue
+                if (isBlockStart(type)) {
+                    balance++
+                } else if (type == CrystalTypes.END) {
+                    balance--
+                    if (balance == 0) return child.textRange.startOffset
+                }
+            }
+            return file.textLength
+        }
+
+        /** Returns true if the token type starts a block that requires a matching `end`. */
+        private fun isBlockStart(type: com.intellij.psi.tree.IElementType): Boolean {
+            return type == CrystalTypes.DEF || type == CrystalTypes.CLASS ||
+                type == CrystalTypes.MODULE || type == CrystalTypes.STRUCT ||
+                type == CrystalTypes.ENUM || type == CrystalTypes.IF ||
+                type == CrystalTypes.UNLESS || type == CrystalTypes.WHILE ||
+                type == CrystalTypes.UNTIL || type == CrystalTypes.CASE ||
+                type == CrystalTypes.BEGIN || type == CrystalTypes.DO ||
+                type == CrystalTypes.FOR || type == CrystalTypes.MACRO ||
+                type == CrystalTypes.LIB || type == CrystalTypes.ANNOTATION
+        }
+
+        /**
+         * Collects `@instance` and `@@class` variables from the enclosing class
+         * using source-range-based filtering. Walks the FILE's PSI children (which
+         * include all methods, even those after a parse error) and filters by the
+         * enclosing class's source range, excluding nested type definitions.
+         */
+        private fun collectClassVariablesByRange(
+            file: PsiElement,
+            enclosingRange: IntRange,
             add: (name: String, typeText: String) -> Unit
         ) {
-            fun visit(element: PsiElement) {
-                // Stop at nested class-defining elements (but always process the root class)
-                if (rootIsClass && element !== root &&
+            fun visit(element: PsiElement, insideEnclosing: Boolean) {
+                // When we haven't yet entered the enclosing class, recurse into everything
+                // until we find it (by matching its start offset). Once inside, stop at
+                // nested class/module/struct/enum boundaries.
+                if (insideEnclosing &&
                     (element is CrystalClassDefinition || element is CrystalModuleDefinition ||
                      element is CrystalStructDefinition || element is CrystalEnumDefinition)) {
                     return
                 }
                 when (element) {
                     is CrystalInstanceVarAccess -> {
-                        val name = element.name
-                        if (name != null) add(name, "instance variable")
+                        if (!insideEnclosing) return
+                        val name = element.name ?: return
+                        add(name, "instance variable")
                     }
                     is CrystalClassVarAccess -> {
-                        val name = element.name
-                        if (name != null) add(name, "class variable")
+                        if (!insideEnclosing) return
+                        val name = element.name ?: return
+                        add(name, "class variable")
+                    }
+                }
+                val nowInside = insideEnclosing || (element is CrystalClassDefinition &&
+                    element.textRange.startOffset == enclosingRange.first)
+                for (child in element.children) visit(child, nowInside)
+            }
+            for (child in file.children) visit(child, false)
+        }
+
+        /**
+         * Collects ALL `@instance` and `@@class` variables from the entire file.
+         * Used as fallback when no enclosing class can be identified.
+         */
+        private fun collectAllVariables(
+            file: PsiElement,
+            add: (name: String, typeText: String) -> Unit
+        ) {
+            fun visit(element: PsiElement) {
+                when (element) {
+                    is CrystalInstanceVarAccess -> {
+                        val name = element.name ?: return
+                        add(name, "instance variable")
+                    }
+                    is CrystalClassVarAccess -> {
+                        val name = element.name ?: return
+                        add(name, "class variable")
                     }
                 }
                 for (child in element.children) visit(child)
             }
-            for (child in root.children) visit(child)
+            for (child in file.children) visit(child)
         }
 
         private fun prioritizedLookup(

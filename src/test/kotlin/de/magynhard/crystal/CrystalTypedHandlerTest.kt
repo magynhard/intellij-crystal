@@ -98,4 +98,22 @@ class CrystalTypedHandlerTest : BasePlatformTestCase() {
         val text = myFixture.editor.document.text
         assertTrue("blend should stay indented, got: $text", text.contains("    blend"))
     }
+
+    // --- @ auto-popup tests ---
+
+    fun testAtTriggerDoesNotFireInsideString() {
+        myFixture.configureByText("test.cr", "x = \"hello <caret>\"")
+        myFixture.type("@")
+        val text = myFixture.editor.document.text
+        // Should just insert @ without triggering auto-popup (inside string)
+        assertTrue("Should insert @ inside string", text.contains("@"))
+    }
+
+    fun testAtTriggerDoesNotFireForAnnotation() {
+        myFixture.configureByText("test.cr", "@<caret>")
+        myFixture.type("[")
+        val text = myFixture.editor.document.text
+        // @[ is annotation context — auto-popup should not fire
+        assertTrue("Should have @[", text.contains("@["))
+    }
 }

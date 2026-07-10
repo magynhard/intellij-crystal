@@ -449,9 +449,6 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.completion.CrystalCompletionContributor"/>
 
-        <completion.confidence
-                implementation="de.magynhard.crystal.completion.CrystalAtCompletionConfidence"/>
-
         <!-- Icons -->
         <iconProvider
                 implementation="de.magynhard.crystal.CrystalIconProvider"/>

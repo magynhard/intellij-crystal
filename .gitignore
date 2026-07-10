@@ -11,3 +11,4 @@ build/
 bin/
 /.env
 /test.cr
+.mimocode/
