@@ -12,3 +12,4 @@ bin/
 /.env
 /test.cr
 .mimocode/
+/playground
