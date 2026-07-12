@@ -25,6 +25,7 @@ dependencies {
     intellijPlatform {
         intellijIdea("2026.1.3")
         bundledModule("intellij.platform.dap")
+        bundledPlugin("HtmlTools")
         testFramework(TestFrameworkType.Platform)
     }
 
@@ -71,6 +72,18 @@ tasks {
         targetRootOutputDir.set(file("src/main/gen"))
         pathToParser.set("de/magynhard/crystal/parser/CrystalParser.java")
         pathToPsiRoot.set("de/magynhard/crystal/psi")
+    }
+
+    generateLexer {
+        sourceFile.set(file("src/main/kotlin/de/magynhard/crystal/ecr/lexer/EmbeddedCrystal.flex"))
+        targetOutputDir.set(file("src/main/gen/de/magynhard/crystal/ecr/lexer"))
+    }
+
+    generateParser {
+        sourceFile.set(file("src/main/kotlin/de/magynhard/crystal/ecr/parser/EmbeddedCrystal.bnf"))
+        targetRootOutputDir.set(file("src/main/gen"))
+        pathToParser.set("de/magynhard/crystal/ecr/parser/EmbeddedCrystalParser.java")
+        pathToPsiRoot.set("de/magynhard/crystal/ecr/psi")
     }
 
     compileKotlin {

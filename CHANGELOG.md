@@ -4,6 +4,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ## [0.1.18] — 2026-xx-yy
 
+### Added
+
+- **Embedded Crystal (ECR) support** — first-class `.ecr` and `.html.ecr` template language support, mirroring RubyMine's ERB handling:
+  - **JFlex outer-splitter lexer** splits ECR files into `ECR_OUTER` (HTML/text), `ECR_TAG_BEGIN`/`ECR_TAG_END` (tag delimiters), and `ECR_RAW` (Crystal code inside tags)
+  - **BNF parser** builds ECR PSI tree (`ecrFile → ecrPart → ecrText | ecrTag`)
+  - **Layered editor highlighter** (`LayeredLexerEditorHighlighter`) with 3 layers: ECR tag delimiters (base), Crystal syntax highlighting inside `ECR_RAW` (`CrystalSyntaxHighlighter`), HTML syntax highlighting in `ECR_OUTER` (`HtmlFileHighlighter` from bundled HtmlTools plugin)
+  - **Template language infrastructure**: `EmbeddedCrystalLanguage` implements `TemplateLanguage` marker interface; `EcrHtmlFile` uses `TemplateDataElementType` with `EmbeddedCrystalLanguage` as lexer-source to re-parse HTML regions with the HTML parser
+  - **3-section Structure View** via `StructureViewComposite`: **ECR** (all `<% %>` tag snippets), **HTML** (full HTML element hierarchy), **Crystal** (all `@instance_variables` with navigation to first occurrence)
+  - **HTML always activated** — every `.ecr` file gets implicit HTML as template data language (not just `.html.ecr`), matching RubyMine ERB behaviour
+  - **`<%>` file icon** — custom SVG glyph for `.ecr` and `.html.ecr` files
+  - **Lexer fix for `%` in tag content** — `([^%]|"%"[^>])+` pattern matches everything up to `%>` as a single `ECR_RAW` token, so Crystal strings like `"%Y-%m-%d"` no longer trigger parser errors
+
 ### Changed
 
 - **Replace deprecated `DefaultLiveTemplatesProvider`** — replaced the deprecated `DefaultLiveTemplatesProvider` class-based implementation with the declarative `<defaultLiveTemplates file="..."/>` extension point, aligning with current IntelliJ Platform API conventions.

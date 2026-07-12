@@ -212,6 +212,7 @@
 ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>HtmlTools</depends>
 
     <incompatible-with>net.kenro.ji.jin.intellij.crystal-2</incompatible-with>
 
@@ -227,6 +228,33 @@
                 language="Crystal"
                 extensions="cr"
                 patterns="*.cr"/>
+
+        <fileType
+                name="Embedded Crystal"
+                implementationClass="de.magynhard.crystal.ecr.EmbeddedCrystalFileType"
+                fieldName="INSTANCE"
+                language="EmbeddedCrystal"
+                extensions="ecr"/>
+
+        <lang.fileViewProviderFactory
+                language="EmbeddedCrystal"
+                implementationClass="de.magynhard.crystal.ecr.EmbeddedCrystalFileViewProviderFactory"/>
+
+        <editorHighlighterProvider
+                filetype="Embedded Crystal"
+                implementationClass="de.magynhard.crystal.ecr.highlighting.EcrEditorHighlighterProvider"/>
+
+        <lang.parserDefinition
+                language="EmbeddedCrystal"
+                implementationClass="de.magynhard.crystal.ecr.EmbeddedCrystalParserDefinition"/>
+
+        <lang.syntaxHighlighterFactory
+                language="EmbeddedCrystal"
+                implementationClass="de.magynhard.crystal.ecr.EmbeddedCrystalSyntaxHighlighterFactory"/>
+
+        <lang.psiStructureViewFactory
+                language="EmbeddedCrystal"
+                implementationClass="de.magynhard.crystal.ecr.EcrStructureViewFactory"/>
 
         <lang.parserDefinition
                 language="Crystal"

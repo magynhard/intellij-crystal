@@ -307,11 +307,10 @@ The plugin registers the following file extensions as the **Embedded Crystal** f
 
 | Extension | Example Filenames | Description |
 | :--- | :--- | :--- |
-| `.ecr` | `template.ecr`, `layout.ecr`, `footer.ecr` | Standalone ECR template file. The base language is Crystal; if the file name does not end in `.html.ecr` or `.ecr.html`, no implicit template data language is assigned. |
+| `.ecr` | `template.ecr`, `layout.ecr`, `footer.ecr` | Standalone ECR template file. The base language is Crystal; if the file name does not end in `.html.ecr`, no implicit template data language is assigned. |
 | `.html.ecr` | `index.html.ecr`, `show.html.ecr`, `users.html.ecr` | HTML template with embedded Crystal. The Crystal language engine handles `<% %>` tags while the template data language is set to **HTML**, enabling HTML syntax highlighting, completion, and structure view. |
-| `.ecr.html` | `index.ecr.html`, `about.ecr.html` | Alternative naming convention — same semantics as `.html.ecr`. The template data language is set to **HTML**. |
 
-All three extensions are registered under a single `EmbeddedCrystal` language and `EmbeddedCrystalFileType`.
+Both extensions are registered under a single `EmbeddedCrystal` language and `EmbeddedCrystalFileType`.
 
 **Extension detection behavior:**
 
@@ -319,7 +318,6 @@ All three extensions are registered under a single `EmbeddedCrystal` language an
 | :--- | :--- |
 | `*.ecr` | Caught by `extensions="ecr"` — `.ecr` is the final extension. |
 | `*.html.ecr` | Caught by `extensions="ecr"` — IntelliJ uses the last dot-separated component as the extension, so `.html.ecr` resolves to extension `.ecr`. No special handling needed. |
-| `*.ecr.html` | **Not** caught by `extensions="ecr"` — the final extension is `.html`. Must be associated programmatically via `FileTypeManager.getInstance().associatePattern()` on plugin initialization, or via a custom `FileTypeDetector`. |
 
 #### Implementation Sketch — `plugin.xml` Registration for `.ecr` and `.html.ecr`
 
@@ -332,18 +330,6 @@ All three extensions are registered under a single `EmbeddedCrystal` language an
     extensions="ecr"/>
 ```
 
-#### Implementation Sketch — Programmatic Association for `.ecr.html`
-
-```kotlin
-// In a postStartupActivity or the plugin's constructor:
-FileTypeManager.getInstance().associatePattern(
-    EmbeddedCrystalFileType.INSTANCE,
-    "*.ecr.html"
-)
-```
-
-This associates files ending in `.ecr.html` with the Embedded Crystal file type despite their `.html` final extension.
-
 #### Dedicated Language Definition
 
 ECR templates get their own `EmbeddedCrystalLanguage` (distinct from the `Crystal` language). The parser for this language is purpose-built — it only understands the ECR tag syntax (`<%`, `<%=`, `<%-`, `-%>`, `<%#`, `<%%`). Inside raw text regions between tags, the lexer delegates to a **template data language lexer** (e.g., HTML) when configured, or treats the text as plain text otherwise.
@@ -352,11 +338,11 @@ This mirrors how RubyMine defines `ERBLanguage` (not the same as `RubyLanguage`)
 
 ### 6.2 File Icon
 
-Files matching the `.ecr`, `.html.ecr`, and `.ecr.html` extensions receive the **`<%>` icon**, analogous to RubyMine's ERB file icon.
+Files matching the `.ecr` and `.html.ecr` extensions receive the **`<%>` icon**, analogous to RubyMine's ERB file icon.
 
 | File Type | Icon Source | Visual |
 | :--- | :--- | :--- |
-| `.ecr` / `.html.ecr` / `.ecr.html` | `EmbeddedCrystalIcons.FILE` — custom `<%>` glyph | `<%>` |
+| `.ecr` / `.html.ecr` | `EmbeddedCrystalIcons.FILE` — custom `<%>` glyph | `<%>` |
 
 The icon is a triangular `<%>` glyph that mirrors the ERB icon used by RubyMine for `.erb` files. It conveys "this is a template file with embedded code tags" at a glance.
 
@@ -377,7 +363,7 @@ class CrystalIconProvider : IconProvider() {
         if (element is PsiFile) {
             val name = element.name
             return when {
-                name.endsWith(".html.ecr") || name.endsWith(".ecr.html") || name.endsWith(".ecr") -> EmbeddedCrystalIcons.FILE
+                name.endsWith(".html.ecr") || name.endsWith(".ecr") -> EmbeddedCrystalIcons.FILE
                 name.endsWith("_spec.cr") -> CrystalIcons.SPEC_FILE
                 else -> null
             }
@@ -391,7 +377,7 @@ Or alternatively registered directly in `plugin.xml` via an `<iconProvider>` ext
 
 ### 6.3 Template Data Language — Implicit HTML Parser
 
-For `.html.ecr` and `.ecr.html` files, the IDE must implicitly activate the **HTML parser** as the template data language. This means:
+For `.html.ecr` files, the IDE must implicitly activate the **HTML parser** as the template data language. This means:
 
 - HTML tags inside the ECR template receive full HTML syntax highlighting (elements, attributes, attribute values, entities, etc.)
 - HTML code completion works inside tag regions (attribute names, tag names, CSS class completion with configured framework support)
@@ -400,7 +386,7 @@ For `.html.ecr` and `.ecr.html` files, the IDE must implicitly activate the **HT
 - The `<% %>` and `<%= %>` ECR tags are highlighted using the Crystal/ECR highlighting rules within their respective tag boundaries
 - Code folding for HTML elements works between ECR tags
 
-This is achieved by registering **`TemplateDataLanguagePatterns`** that associate the file name patterns `*.html.ecr` and `*.ecr.html` with the HTML language:
+This is achieved by registering **`TemplateDataLanguagePatterns`** that associate the file name pattern `*.html.ecr` with the HTML language:
 
 #### Implementation Sketch — `TemplateDataLanguagePatterns` Registration
 
@@ -410,13 +396,8 @@ This is achieved by registering **`TemplateDataLanguagePatterns`** that associat
     <pattern
         language="HTML"
         pattern="*.html.ecr"/>
-    <pattern
-        language="HTML"
-        pattern="*.ecr.html"/>
 </templatesDataLanguage>
 ```
-
-> **Note:** The `*.html.ecr` pattern uses a double glob — it matches files whose name (after extension stripping) ends in `.html`. For `.ecr.html`, the pattern matches files whose final extension is `.html` and whose prior extension is `.ecr`. Both patterns must be registered explicitly; IntelliJ does not automatically chain extensions.
 
 #### Behavior Summary
 
@@ -424,7 +405,6 @@ This is achieved by registering **`TemplateDataLanguagePatterns`** that associat
 | :--- | :--- | :--- | :--- |
 | `*.ecr` | Embedded Crystal | *(none — plain text)* | `footer.ecr` |
 | `*.html.ecr` | Embedded Crystal | HTML | `index.html.ecr` |
-| `*.ecr.html` | Embedded Crystal | HTML | `index.ecr.html` |
 
 For `.plain.ecr` or other future template data languages (.xml, .json, .css), additional `<pattern>` entries can be added following the same scheme.
 
@@ -459,10 +439,10 @@ The following extension points in `plugin.xml` are required:
 
 | Extension Point | Registration | Purpose |
 | :--- | :--- | :--- |
-| `com.intellij.fileType` | `EmbeddedCrystalFileType` with `extensions="ecr"`; `.ecr.html` via `FileTypeManager.associatePattern()` | Associates `.ecr`, `.html.ecr`, `.ecr.html` with the Embedded Crystal file type |
+| `com.intellij.fileType` | `EmbeddedCrystalFileType` with `extensions="ecr"` | Associates `.ecr` and `.html.ecr` with the Embedded Crystal file type |
 | `com.intellij.lang.parserDefinition` | `EmbeddedCrystalParserDefinition` for `EmbeddedCrystalLanguage` | Provides the ECR lexer and parser to the IDE |
 | `com.intellij.lang.syntaxHighlighterFactory` | `EmbeddedCrystalSyntaxHighlighterFactory` for `EmbeddedCrystalLanguage` | Provides ECR syntax highlighting (ECR tags + template data language delegation) |
-| `com.intellij.templateDataLanguagePatterns` | Patterns `*.html.ecr` → HTML, `*.ecr.html` → HTML | Enables HTML support inside ECR templates |
+| `com.intellij.templateDataLanguagePatterns` | Pattern `*.html.ecr` → HTML | Enables HTML support inside ECR templates |
 | `com.intellij.iconProvider` | `CrystalIconProvider` (extended) or new `EmbeddedCrystalIconProvider` | Returns the `<%>` icon for `.ecr` file variants |
 
 This architecture mirrors how RubyMine handles `.erb` files: a dedicated template language (`ERBLanguage`), a file type (`ERBFileType`), template data language patterns mapping `.html.erb` → HTML, and a recognizable `<%>` icon.

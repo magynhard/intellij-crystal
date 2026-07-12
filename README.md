@@ -47,6 +47,10 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 - **Go to Class** (Ctrl+N) — find classes, modules, structs, enums
 - **Find Usages** (Alt+F7) — find all usages of methods, classes, instance variables (`@name`), and class variables (`@@name`) within the enclosing class
 - **Structure View** — PSI-based tree with nested types, methods, macros, constants
+- **Embedded Crystal (ECR) Templates** — `.ecr` and `.html.ecr` files with full template language support:
+  - `<% %>` tag parsing with Crystal syntax highlighting inside tags, HTML highlighting outside
+  - 3-section Structure View: ECR tag snippets, HTML element tree, Crystal `@instance_variables` with navigation
+  - `<%>` file icon, HTML code folding, `LayeredLexerEditorHighlighter` with Crystal + HTML layers
 - **Parameter Info** (Ctrl+P) — shows method signature at call site for parenthesized calls, bare calls, DOT-calls, `ClassName.new(...)`, and overloads; project-wide via StubIndex
 - **Quick Documentation** (Ctrl+Q) — rendered doc comments with syntax-highlighted signature and Markdown support; clicking type names navigates to their documentation
 - **Hover Type Info** — hovering over a variable shows the inferred type in a two-line popup (`String (Variable)` / `my_variable`), including local variables, instance variables, and method arguments; method return types inferred from body when no annotation exists

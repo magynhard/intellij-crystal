@@ -1,0 +1,17 @@
+{
+  parserClass="de.magynhard.crystal.ecr.parser.EmbeddedCrystalParser"
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+  psiClassPrefix="CrystalEcr"
+  psiImplClassSuffix="Impl"
+  psiPackage="de.magynhard.crystal.ecr.psi"
+  psiImplPackage="de.magynhard.crystal.ecr.psi.impl"
+  elementTypeHolderClass="de.magynhard.crystal.ecr.EmbeddedCrystalTypes"
+  elementTypeClass="de.magynhard.crystal.ecr.EmbeddedCrystalElementType"
+  tokenTypeClass="de.magynhard.crystal.ecr.EmbeddedCrystalTokenType"
+}
+
+ecrFile ::= ecrPart*
+ecrPart ::= ecrText | ecrTag
+ecrText ::= ECR_OUTER
+ecrTag ::= ECR_TAG_BEGIN ecrBody ECR_TAG_END
+ecrBody ::= ECR_RAW
