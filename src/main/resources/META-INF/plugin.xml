@@ -460,10 +460,6 @@
         <additionalLibraryRootsProvider
                 implementation="de.magynhard.crystal.sdk.CrystalStdlibLibraryProvider"/>
 
-        <!-- Add Crystal stdlib as library source root on project open (triggers indexing) -->
-        <postStartupActivity
-                implementation="de.magynhard.crystal.sdk.CrystalStdlibSourceRootConfigurator"/>
-
         <!-- Debugger -->
         <xdebugger.breakpointType
                 implementation="de.magynhard.crystal.debugger.CrystalLineBreakpointType"/>

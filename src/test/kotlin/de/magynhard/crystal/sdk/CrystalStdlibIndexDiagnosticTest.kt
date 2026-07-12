@@ -2,6 +2,8 @@ package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.roots.OrderRootType
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -17,8 +19,14 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
 
     private fun setupStdlib() {
         myFixture.addFileToProject("main.cr", "puts 1")
-        val configurator = CrystalStdlibSourceRootConfigurator()
-        runBlocking { configurator.execute(project) }
+        val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
+        val module = com.intellij.openapi.module.ModuleManager.getInstance(project).modules.first()
+        ModuleRootModificationUtil.updateModel(module) { model ->
+            val library = model.moduleLibraryTable.createLibrary("Crystal StdLib")
+            val libraryModel = library.modifiableModel
+            libraryModel.addRoot(stdlibRoot, OrderRootType.SOURCES)
+            libraryModel.commit()
+        }
     }
 
     fun testStdlibPathResolves() {
@@ -333,7 +341,4 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
         println("=== END ENV DIAGNOSIS ===")
     }
 
-    private fun runBlocking(block: suspend () -> Unit) {
-        kotlinx.coroutines.runBlocking { block() }
-    }
 }
