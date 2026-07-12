@@ -14,4 +14,6 @@ ecrFile ::= ecrPart*
 ecrPart ::= ecrText | ecrTag
 ecrText ::= ECR_OUTER
 ecrTag ::= ECR_TAG_BEGIN ecrBody ECR_TAG_END
-ecrBody ::= ECR_RAW
+ecrBody ::= ECR_RAW {
+  mixin = "de.magynhard.crystal.ecr.psi.impl.EcrBodyInjectionHost"
+}

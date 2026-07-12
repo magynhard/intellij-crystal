@@ -15,6 +15,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   - **HTML always activated** — every `.ecr` file gets implicit HTML as template data language (not just `.html.ecr`), matching RubyMine ERB behaviour
   - **`<%>` file icon** — custom SVG glyph for `.ecr` and `.html.ecr` files
   - **Lexer fix for `%` in tag content** — `([^%]|"%"[^>])+` pattern matches everything up to `%>` as a single `ECR_RAW` token, so Crystal strings like `"%Y-%m-%d"` no longer trigger parser errors
+  - **Crystal language injection inside `<% %>` tags** — full Crystal code intelligence is now available inside ECR tags in both `.ecr` and `.html.ecr` files: code completion (class names like `Int32`, methods, locals, dot-completion), syntax highlighting (keywords, strings, numbers — no longer gray/comment-colored), Go to Definition, Parameter Info, hover type info, Quick Documentation, Find Usages, and inspections. Implemented via `MultiHostInjector` (`CrystalEcrInjector`) injecting `CrystalLanguage` into `ecrBody` PSI elements, which implement `PsiLanguageInjectionHost` via the `EcrBodyInjectionHost` mixin. This fixes the highlighting disparity where `.ecr` files showed Crystal code inside `<% %>` as gray while `.html.ecr` files showed proper Crystal colors.
 
 ### Changed
 

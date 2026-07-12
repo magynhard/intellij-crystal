@@ -453,5 +453,49 @@ The following extension points in `plugin.xml` are required:
 | `com.intellij.lang.fileViewProviderFactory` | `EmbeddedCrystalFileViewProviderFactory` for `EmbeddedCrystal` | Provides the multi-language `FileViewProvider` (ECR + HTML) |
 | `com.intellij.lang.psiStructureViewFactory` | `EcrStructureViewFactory` for `EmbeddedCrystal` | Provides 3-section Structure View (ECR + HTML + Crystal) |
 | `com.intellij.iconProvider` | `CrystalIconProvider` (extended) or new `EmbeddedCrystalIconProvider` | Returns the `<%>` icon for `.ecr` file variants |
+| `com.intellij.multiHostInjector` | `CrystalEcrInjector` | Injects `CrystalLanguage` into `ecrBody` PSI elements, enabling full Crystal code intelligence (completion, navigation, highlighting, inspections) inside `<% %>` tags |
 
 This architecture mirrors how RubyMine handles `.erb` files: a dedicated template language (`ERBLanguage`), a file type (`ERBFileType`), a template data language mechanism (`TemplateDataElementType` + `TemplateLanguageStructureViewBuilder`), and a recognizable `<%>` icon.
+
+### 6.5 Crystal Language Injection into `<% %>` Tags
+
+The Crystal code inside `<% %>` tags is not parsed as Crystal by default — the ECR parser treats it as a single `ECR_RAW` token. To provide full Crystal code intelligence inside tags, the plugin uses IntelliJ's **language injection** mechanism.
+
+#### Architecture
+
+1. **`EcrBodyInjectionHost`** (mixin on `ecrBody` BNF rule) — implements `PsiLanguageInjectionHost`, making each `ecrBody` PSI element a valid injection host.
+2. **`CrystalEcrInjector`** (registered via `<multiHostInjector>`) — a `MultiHostInjector` that injects `CrystalLanguage` into every `CrystalEcrEcrBody` element, using `LiteralTextEscaper.createSimple()` since the body content is raw Crystal code with no escaping.
+3. IntelliJ creates an **injected Crystal PSI** inside each `<% %>` tag, which enables:
+   - **Syntax highlighting** — Crystal keywords, strings, numbers, operators, etc. are properly highlighted (no longer gray/comment-colored)
+   - **Code completion** (Ctrl+Space) — class names (`Int32`, `String`), methods, local variables, dot-completion, type annotations
+   - **Go to Definition** (Ctrl+B) — jump to classes, methods, variables referenced inside tags
+   - **Parameter Info** (Ctrl+P) — method signatures at call sites
+   - **Hover Type Info** — variable types and method return types
+   - **Quick Documentation** (Ctrl+Q) — rendered doc comments
+   - **Find Usages** (Alt+F7) — locate references across the project
+   - **Inspections** — type checking, unused variables, etc.
+
+#### BNF Rule
+
+```
+ecrBody ::= ECR_RAW {
+  mixin = "de.magynhard.crystal.ecr.psi.impl.EcrBodyInjectionHost"
+}
+```
+
+#### Injector Registration
+
+```xml
+<multiHostInjector
+    implementation="de.magynhard.crystal.ecr.CrystalEcrInjector"/>
+```
+
+#### Behavior
+
+| File Pattern | ECR Tag | Crystal Features Active |
+| :--- | :--- | :--- |
+| `*.ecr` | `<% code %>` | Full Crystal code intelligence via language injection |
+| `*.html.ecr` | `<%= expr %>` | Full Crystal code intelligence via language injection |
+| `*.ecr` | `<%# comment %>` | No injection (comment tag — content is not Crystal code) |
+
+The injection works identically for both `.ecr` and `.html.ecr` files — the file extension does not affect the Crystal code intelligence inside `<% %>` tags.

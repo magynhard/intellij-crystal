@@ -49,6 +49,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 - **Structure View** — PSI-based tree with nested types, methods, macros, constants
 - **Embedded Crystal (ECR) Templates** — `.ecr` and `.html.ecr` files with full template language support:
   - `<% %>` tag parsing with Crystal syntax highlighting inside tags, HTML highlighting outside
+  - **Full Crystal code intelligence inside `<% %>` tags** — code completion, Go to Definition, Parameter Info, hover, Find Usages, and inspections work inside ECR tags via language injection
   - 3-section Structure View: ECR tag snippets, HTML element tree, Crystal `@instance_variables` with navigation
   - `<%>` file icon, HTML code folding, `LayeredLexerEditorHighlighter` with Crystal + HTML layers
 - **Parameter Info** (Ctrl+P) — shows method signature at call site for parenthesized calls, bare calls, DOT-calls, `ClassName.new(...)`, and overloads; project-wide via StubIndex

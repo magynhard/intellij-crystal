@@ -256,6 +256,9 @@
                 language="EmbeddedCrystal"
                 implementationClass="de.magynhard.crystal.ecr.EcrStructureViewFactory"/>
 
+        <multiHostInjector
+                implementation="de.magynhard.crystal.ecr.CrystalEcrInjector"/>
+
         <lang.parserDefinition
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalParserDefinition"/>

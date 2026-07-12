@@ -8,12 +8,11 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.ecr.EmbeddedCrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.ecr.psi.*;
 
-public class CrystalEcrEcrBodyImpl extends ASTWrapperPsiElement implements CrystalEcrEcrBody {
+public class CrystalEcrEcrBodyImpl extends EcrBodyInjectionHost implements CrystalEcrEcrBody {
 
-  public CrystalEcrEcrBodyImpl(@NotNull ASTNode node) {
+  public CrystalEcrEcrBodyImpl(ASTNode node) {
     super(node);
   }
 

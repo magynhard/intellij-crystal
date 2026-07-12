@@ -6,7 +6,6 @@ import com.intellij.openapi.editor.ex.util.LayerDescriptor
 import com.intellij.openapi.editor.ex.util.LayeredLexerEditorHighlighter
 import com.intellij.openapi.fileTypes.SyntaxHighlighter
 import de.magynhard.crystal.ecr.EmbeddedCrystalTypes
-import de.magynhard.crystal.highlighting.CrystalSyntaxHighlighter
 
 class EcrEditorHighlighter(
     baseHighlighter: SyntaxHighlighter,
@@ -16,7 +15,7 @@ class EcrEditorHighlighter(
     init {
         registerLayer(
             EmbeddedCrystalTypes.ECR_RAW,
-            LayerDescriptor(CrystalSyntaxHighlighter(), "")
+            LayerDescriptor(EcrCrystalSyntaxHighlighter(), "")
         )
         registerLayer(
             EmbeddedCrystalTypes.ECR_OUTER,
