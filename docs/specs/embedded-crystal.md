@@ -307,7 +307,7 @@ The plugin registers the following file extensions as the **Embedded Crystal** f
 
 | Extension | Example Filenames | Description |
 | :--- | :--- | :--- |
-| `.ecr` | `template.ecr`, `layout.ecr`, `footer.ecr` | Standalone ECR template file. The base language is Crystal; if the file name does not end in `.html.ecr`, no implicit template data language is assigned. |
+| `.ecr` | `template.ecr`, `layout.ecr`, `footer.ecr` | Standalone ECR template file. The base language is Crystal; **HTML is always assigned as the template data language** (implicit HTML parser activation). |
 | `.html.ecr` | `index.html.ecr`, `show.html.ecr`, `users.html.ecr` | HTML template with embedded Crystal. The Crystal language engine handles `<% %>` tags while the template data language is set to **HTML**, enabling HTML syntax highlighting, completion, and structure view. |
 
 Both extensions are registered under a single `EmbeddedCrystal` language and `EmbeddedCrystalFileType`.
@@ -316,7 +316,7 @@ Both extensions are registered under a single `EmbeddedCrystal` language and `Em
 
 | Pattern | How it matches |
 | :--- | :--- |
-| `*.ecr` | Caught by `extensions="ecr"` — `.ecr` is the final extension. |
+| `*.ecr` | Caught by `extensions="ecr"` — `.ecr` is the final extension. **HTML template data language is active.** |
 | `*.html.ecr` | Caught by `extensions="ecr"` — IntelliJ uses the last dot-separated component as the extension, so `.html.ecr` resolves to extension `.ecr`. No special handling needed. |
 
 #### Implementation Sketch — `plugin.xml` Registration for `.ecr` and `.html.ecr`
@@ -377,7 +377,7 @@ Or alternatively registered directly in `plugin.xml` via an `<iconProvider>` ext
 
 ### 6.3 Template Data Language — Implicit HTML Parser
 
-For `.html.ecr` files, the IDE must implicitly activate the **HTML parser** as the template data language. This means:
+For **all `.ecr` files** (both `.ecr` and `.html.ecr`), the IDE implicitly activates the **HTML parser** as the template data language. This means:
 
 - HTML tags inside the ECR template receive full HTML syntax highlighting (elements, attributes, attribute values, entities, etc.)
 - HTML code completion works inside tag regions (attribute names, tag names, CSS class completion with configured framework support)
@@ -386,27 +386,34 @@ For `.html.ecr` files, the IDE must implicitly activate the **HTML parser** as t
 - The `<% %>` and `<%= %>` ECR tags are highlighted using the Crystal/ECR highlighting rules within their respective tag boundaries
 - Code folding for HTML elements works between ECR tags
 
-This is achieved by registering **`TemplateDataLanguagePatterns`** that associate the file name pattern `*.html.ecr` with the HTML language:
+This is achieved via the **Template Language** infrastructure: `EmbeddedCrystalLanguage` implements the `TemplateLanguage` marker interface; `EcrHtmlFile` uses a `TemplateDataElementType` with `EmbeddedCrystalLanguage` as the lexer source to re-parse HTML regions with the HTML parser; and `TemplateLanguageStructureViewBuilder` automatically combines the base language (ECR tags) and template data language (HTML) into a unified Structure View.
 
-#### Implementation Sketch — `TemplateDataLanguagePatterns` Registration
+#### Implementation Sketch — `TemplateDataElementType`
 
-```xml
-<!-- Registered via com.intellij.templateDataLanguagePatterns extension point -->
-<templatesDataLanguage>
-    <pattern
-        language="HTML"
-        pattern="*.html.ecr"/>
-</templatesDataLanguage>
+```kotlin
+object EmbeddedCrystalTemplateDataElementType :
+    TemplateDataElementType(
+        "ECR_TEMPLATE_DATA",
+        EmbeddedCrystalLanguage,
+        EmbeddedCrystalTypes.ECR_OUTER,
+        OuterLanguageElementType("ECR_OUTER", EmbeddedCrystalLanguage)
+    )
 ```
+
+The `TemplateDataElementType` constructor takes:
+1. Debug name (`"ECR_TEMPLATE_DATA"`)
+2. **Template language** (`EmbeddedCrystalLanguage`) — whose lexer splits the file into `ECR_OUTER` (data) and ECR tag regions
+3. **Template element type** (`ECR_OUTER`) — token marking data regions in the template's token stream
+4. **Outer element type** (`OuterLanguageElementType("ECR_OUTER", EmbeddedCrystalLanguage)`) — wraps Crystal content when it appears inside data regions
 
 #### Behavior Summary
 
-| File Pattern | File Type | Template Data Language | RGB Example |
+| File Pattern | File Type | Template Data Language | Example |
 | :--- | :--- | :--- | :--- |
-| `*.ecr` | Embedded Crystal | *(none — plain text)* | `footer.ecr` |
-| `*.html.ecr` | Embedded Crystal | HTML | `index.html.ecr` |
+| `*.ecr` | Embedded Crystal | **HTML** | `footer.ecr` |
+| `*.html.ecr` | Embedded Crystal | **HTML** | `index.html.ecr` |
 
-For `.plain.ecr` or other future template data languages (.xml, .json, .css), additional `<pattern>` entries can be added following the same scheme.
+For future template data languages (.xml, .json, .css), additional patterns can be added to the `FileViewProvider` logic or a `TemplateDataLanguagePatterns` registration can be introduced following the same scheme.
 
 #### Visual Structure Example — `index.html.ecr`
 
@@ -442,7 +449,9 @@ The following extension points in `plugin.xml` are required:
 | `com.intellij.fileType` | `EmbeddedCrystalFileType` with `extensions="ecr"` | Associates `.ecr` and `.html.ecr` with the Embedded Crystal file type |
 | `com.intellij.lang.parserDefinition` | `EmbeddedCrystalParserDefinition` for `EmbeddedCrystalLanguage` | Provides the ECR lexer and parser to the IDE |
 | `com.intellij.lang.syntaxHighlighterFactory` | `EmbeddedCrystalSyntaxHighlighterFactory` for `EmbeddedCrystalLanguage` | Provides ECR syntax highlighting (ECR tags + template data language delegation) |
-| `com.intellij.templateDataLanguagePatterns` | Pattern `*.html.ecr` → HTML | Enables HTML support inside ECR templates |
+| `com.intellij.editorHighlighterProvider` | `EcrEditorHighlighterProvider` for filetype="Embedded Crystal" implementationClass="...EcrEditorHighlighterProvider" | Provides layered editor highlighter (ECR tags + Crystal + HTML layers) |
+| `com.intellij.lang.fileViewProviderFactory` | `EmbeddedCrystalFileViewProviderFactory` for `EmbeddedCrystal` | Provides the multi-language `FileViewProvider` (ECR + HTML) |
+| `com.intellij.lang.psiStructureViewFactory` | `EcrStructureViewFactory` for `EmbeddedCrystal` | Provides 3-section Structure View (ECR + HTML + Crystal) |
 | `com.intellij.iconProvider` | `CrystalIconProvider` (extended) or new `EmbeddedCrystalIconProvider` | Returns the `<%>` icon for `.ecr` file variants |
 
-This architecture mirrors how RubyMine handles `.erb` files: a dedicated template language (`ERBLanguage`), a file type (`ERBFileType`), template data language patterns mapping `.html.erb` → HTML, and a recognizable `<%>` icon.
+This architecture mirrors how RubyMine handles `.erb` files: a dedicated template language (`ERBLanguage`), a file type (`ERBFileType`), a template data language mechanism (`TemplateDataElementType` + `TemplateLanguageStructureViewBuilder`), and a recognizable `<%>` icon.
