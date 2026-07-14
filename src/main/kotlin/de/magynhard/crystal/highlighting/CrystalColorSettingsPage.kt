@@ -1,5 +1,6 @@
 package de.magynhard.crystal.highlighting
 
+import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.fileTypes.SyntaxHighlighter
 import com.intellij.openapi.options.colors.AttributesDescriptor
@@ -11,7 +12,12 @@ import javax.swing.Icon
 class CrystalColorSettingsPage : ColorSettingsPage {
 
     companion object {
+        val CRYSTAL_INJECTED_LANGUAGE = TextAttributesKey.createTextAttributesKey(
+            "CRYSTAL_INJECTED_LANGUAGE"
+        )
+
         private val DESCRIPTORS = arrayOf(
+            AttributesDescriptor("Injected language fragment", CRYSTAL_INJECTED_LANGUAGE),
             AttributesDescriptor("Keyword", CrystalSyntaxHighlighter.KEYWORD),
             AttributesDescriptor("Number", CrystalSyntaxHighlighter.NUMBER),
             AttributesDescriptor("String", CrystalSyntaxHighlighter.STRING),
