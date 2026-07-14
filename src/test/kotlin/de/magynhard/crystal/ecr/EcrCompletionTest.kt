@@ -46,4 +46,18 @@ class EcrCompletionTest : BasePlatformTestCase() {
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain User, got: $names", names.contains("User"))
     }
+
+    fun testCompletesAcrossMultipleTags() {
+        myFixture.configureByText("multi.ecr", "<% x = 1 %>\n<% y = x<caret> %>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions across multiple tags", lookups)
+    }
+
+    fun testCompletesWithTrimModifier() {
+        myFixture.configureByText("trim.ecr", "<%- x = Int<caret> -%>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions with trim modifier tags", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Int32, got: $names", names.contains("Int32"))
+    }
 }

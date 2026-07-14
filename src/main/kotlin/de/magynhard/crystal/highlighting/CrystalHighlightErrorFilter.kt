@@ -26,6 +26,19 @@ class CrystalHighlightErrorFilter : HighlightErrorFilter() {
         // Suppress parser errors caused by missing heredoc end delimiters
         if (isCausedByMissingHeredocEnd(element)) return false
 
+        // Suppress Crystal parser errors in ECR-injected code.
+        // In ECR templates, Crystal code is split across multiple <% %> tags and injected
+        // as a virtual Crystal file. The parser sees incomplete snippets (e.g. `if` without
+        // `end`) and reports errors. These errors are in the virtual (injected) file, not
+        // in the actual ECR file on disk — so we suppress them.
+        val file = element.containingFile
+        if (file !is de.magynhard.crystal.ecr.EmbeddedCrystalFile) {
+            val vf = file.virtualFile
+            if (vf != null && !vf.isInLocalFileSystem) {
+                return false
+            }
+        }
+
         // Keep all other parser errors visible
         return true
     }

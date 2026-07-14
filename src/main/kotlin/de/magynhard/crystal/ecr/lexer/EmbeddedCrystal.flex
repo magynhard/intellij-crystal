@@ -18,12 +18,15 @@ import de.magynhard.crystal.ecr.EmbeddedCrystalTypes;
 
 %%
 <YYINITIAL> {
-  "<%" / ("=" | "-" | "#" | "%")? { yybegin(IN_TAG); return EmbeddedCrystalTypes.ECR_TAG_BEGIN; }
+  "<%%"                      { return EmbeddedCrystalTypes.ECR_OUTER; }
+  "<%="                      { yybegin(IN_TAG); return EmbeddedCrystalTypes.ECR_TAG_BEGIN; }
+  "<%-"                      { yybegin(IN_TAG); return EmbeddedCrystalTypes.ECR_TAG_BEGIN; }
+  "<%#"                      { yybegin(IN_TAG); return EmbeddedCrystalTypes.ECR_TAG_BEGIN; }
   "<%"                       { yybegin(IN_TAG); return EmbeddedCrystalTypes.ECR_TAG_BEGIN; }
   [^<]+ | "<"               { return EmbeddedCrystalTypes.ECR_OUTER; }
 }
 
 <IN_TAG> {
-  "%>"                      { yybegin(YYINITIAL); return EmbeddedCrystalTypes.ECR_TAG_END; }
+  "%>"                       { yybegin(YYINITIAL); return EmbeddedCrystalTypes.ECR_TAG_END; }
   ([^%]|"%"[^>])+           { return EmbeddedCrystalTypes.ECR_RAW; }
 }

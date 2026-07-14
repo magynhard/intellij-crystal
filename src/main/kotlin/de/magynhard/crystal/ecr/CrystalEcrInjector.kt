@@ -17,6 +17,9 @@ import de.magynhard.crystal.ecr.psi.CrystalEcrEcrBody
  * and provide full code intelligence: syntax highlighting, code completion,
  * go-to-definition, parameter info, hover, inspections, etc.
  *
+ * The trailing `-` from `-%>` closing tag modifiers is stripped from the
+ * injected content, since it is part of the tag syntax, not Crystal code.
+ *
  * Registered in `plugin.xml` via `<multiHostInjector>`.
  */
 class CrystalEcrInjector : MultiHostInjector {
@@ -30,7 +33,10 @@ class CrystalEcrInjector : MultiHostInjector {
         val text = context.text
         if (text.isBlank()) return
 
-        val textRange = TextRange(0, text.length)
+        // Strip trailing '-' from ECR_RAW content — it's part of the '-%>' closing tag modifier,
+        // not Crystal code. The lexer captures it because '([^%]|"%"[^>])+' includes '-' as [^%].
+        val trimmedText = text.trimEnd('-')
+        val textRange = TextRange(0, trimmedText.length)
         registrar
             .startInjecting(CrystalLanguage)
             .addPlace(null, null, host, textRange)

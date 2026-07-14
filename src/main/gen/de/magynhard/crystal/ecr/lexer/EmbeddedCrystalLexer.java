@@ -92,10 +92,11 @@ class EmbeddedCrystalLexer implements FlexLexer {
   private static final int [] ZZ_ACTION = zzUnpackAction();
 
   private static final String ZZ_ACTION_PACKED_0 =
-    "\2\0\2\1\1\2\1\0\1\3\1\0\1\4\1\3";
+    "\2\0\2\1\1\2\1\0\1\3\1\0\1\4\1\3"+
+    "\1\1";
 
   private static int [] zzUnpackAction() {
-    int [] result = new int[10];
+    int [] result = new int[11];
     int offset = 0;
     offset = zzUnpackAction(ZZ_ACTION_PACKED_0, offset, result);
     return result;
@@ -121,10 +122,10 @@ class EmbeddedCrystalLexer implements FlexLexer {
 
   private static final String ZZ_ROWMAP_PACKED_0 =
     "\0\0\0\5\0\12\0\17\0\24\0\31\0\36\0\43"+
-    "\0\50\0\50";
+    "\0\50\0\50\0\50";
 
   private static int [] zzUnpackRowMap() {
-    int [] result = new int[10];
+    int [] result = new int[11];
     int offset = 0;
     offset = zzUnpackRowMap(ZZ_ROWMAP_PACKED_0, offset, result);
     return result;
@@ -149,7 +150,7 @@ class EmbeddedCrystalLexer implements FlexLexer {
   private static final String ZZ_TRANS_PACKED_0 =
     "\3\3\1\4\1\3\2\5\1\6\2\5\3\3\1\0"+
     "\1\3\2\0\1\7\2\0\2\5\1\10\6\5\1\11"+
-    "\1\0\2\12\2\0\4\5\6\0";
+    "\1\0\1\12\1\13\2\0\4\5\6\0";
 
   private static int [] zzUnpacktrans() {
     int [] result = new int[45];
@@ -190,10 +191,10 @@ class EmbeddedCrystalLexer implements FlexLexer {
   private static final int [] ZZ_ATTRIBUTE = zzUnpackAttribute();
 
   private static final String ZZ_ATTRIBUTE_PACKED_0 =
-    "\2\0\3\1\1\0\1\1\1\0\2\11";
+    "\2\0\3\1\1\0\1\1\1\0\3\11";
 
   private static int [] zzUnpackAttribute() {
-    int [] result = new int[10];
+    int [] result = new int[11];
     int offset = 0;
     offset = zzUnpackAttribute(ZZ_ATTRIBUTE_PACKED_0, offset, result);
     return result;
@@ -525,9 +526,6 @@ class EmbeddedCrystalLexer implements FlexLexer {
           // fall through
           case 6: break;
           case 3:
-            // lookahead expression with fixed base length
-            zzMarkedPos = Character.offsetByCodePoints
-                (zzBufferL, zzStartRead, 2);
             { yybegin(IN_TAG); return EmbeddedCrystalTypes.ECR_TAG_BEGIN;
             }
           // fall through
