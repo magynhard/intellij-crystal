@@ -306,10 +306,7 @@ class CrystalCompletionContributor : CompletionContributor() {
             for (method in methods) {
                 val name = method.name ?: continue
                 if (name != "initialize" && seen.add(name)) {
-                    val lookup = LookupElementBuilder.create(name)
-                        .withIcon(AllIcons.Nodes.Method)
-                        .withTypeText("method", true)
-                    result.addElement(PrioritizedLookupElement.withPriority(lookup, priority))
+                    result.addElement(CrystalCompletionHelper.buildMethodLookup(method, priority))
                 }
             }
         }

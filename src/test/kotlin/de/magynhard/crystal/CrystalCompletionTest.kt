@@ -915,6 +915,29 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain 'my_local': $names", names.contains("my_local"))
     }
 
+    fun testClassMethodCompletionShowsParameterSignature() {
+        myFixture.configureByText("main.cr", """
+            class Apfelsaft
+              def essen(speed : String, anders : Int)
+                speed
+              end
+
+              def testen(what : String)
+                e<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val essenLookup = lookups.firstOrNull { it.lookupString == "essen" }
+        assertNotNull("Should contain 'essen'", essenLookup)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        essenLookup!!.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("essen should show parameter signature, got tailText: '$tailText'",
+            tailText.contains("speed") && tailText.contains("anders"))
+    }
+
     // ==================== Inherited method completion ====================
 
     fun testInheritedMethodCompletion() {
