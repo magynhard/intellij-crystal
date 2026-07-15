@@ -164,12 +164,6 @@ object CrystalCompletionHelper {
         val typeResult = findTypeByName(typeName, project) ?: return emptyList()
         val hierarchy = collectFullHierarchy(typeResult).toMutableList()
 
-        // In Crystal, all classes implicitly inherit from Object.
-        // collectFullHierarchy only traverses explicit parents, so add Object if missing.
-        if (typeResult.kind == TypeKind.CLASS && "Object" !in hierarchy) {
-            hierarchy.add("Object")
-        }
-
         val scope = GlobalSearchScope.allScope(project)
         val result = mutableListOf<LookupElement>()
         val seen = mutableSetOf<String>()

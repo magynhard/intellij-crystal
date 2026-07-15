@@ -210,6 +210,8 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain werfen", names.contains("werfen"))
         assertFalse("Should NOT contain schaelen from Birne (inference should narrow)", names.contains("schaelen"))
         assertFalse("Should NOT contain waschen from Birne (inference should narrow)", names.contains("waschen"))
+        assertFalse("Should NOT contain to_s from Object", names.contains("to_s"))
+        assertFalse("Should NOT contain inspect from Object", names.contains("inspect"))
     }
 
     fun testDotCompletionWithBareArguments() {
@@ -303,6 +305,52 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain essen", names.contains("essen"))
         assertTrue("Should contain werfen", names.contains("werfen"))
         assertFalse("Should NOT contain schaelen from Birne", names.contains("schaelen"))
+        assertFalse("Should NOT contain to_s from Object", names.contains("to_s"))
+        assertFalse("Should NOT contain inspect from Object", names.contains("inspect"))
+    }
+
+    fun testDotCompletionExcludesObjectMethods() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def essen
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            a = Apfel.new
+            a.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertTrue("Should contain essen", names.contains("essen"))
+        assertFalse("Should NOT contain to_s from Object", names.contains("to_s"))
+        assertFalse("Should NOT contain inspect from Object", names.contains("inspect"))
+        assertFalse("Should NOT contain hash from Object", names.contains("hash"))
+        assertFalse("Should NOT contain nil? from Object", names.contains("nil?"))
+    }
+
+    fun testDotCompletionWithExplicitParentIncludesParentMethods() {
+        myFixture.addFileToProject("frucht.cr", """
+            class Frucht
+              def schaelen
+              end
+            end
+        """.trimIndent())
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel < Frucht
+              def essen
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            a = Apfel.new
+            a.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertTrue("Should contain essen (own class)", names.contains("essen"))
+        assertTrue("Should contain schaelen (explicit parent)", names.contains("schaelen"))
+        assertFalse("Should NOT contain to_s from Object", names.contains("to_s"))
     }
 
     // ==================== Type annotation completion ====================
