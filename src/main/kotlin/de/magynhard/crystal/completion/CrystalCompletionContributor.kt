@@ -192,12 +192,26 @@ class CrystalCompletionContributor : CompletionContributor() {
                     effectiveResult.addElement(lookup)
                 }
                 addAllClasses(project, effectiveResult)
+                addFileLevelConstants(parameters.originalFile, effectiveResult)
             }
         }
 
         private fun addAllClasses(project: com.intellij.openapi.project.Project, result: CompletionResultSet) {
             for (className in CrystalCompletionHelper.getAllClassNames(project)) {
                 result.addElement(CrystalCompletionHelper.buildClassLookup(className))
+            }
+        }
+
+        private fun addFileLevelConstants(file: com.intellij.psi.PsiFile, result: CompletionResultSet) {
+            val constants = PsiTreeUtil.findChildrenOfType(file, CrystalConstantAssignment::class.java)
+            for (constant in constants) {
+                val constantToken = constant.node.findChildByType(CrystalTypes.CONSTANT)
+                if (constantToken != null) {
+                    val lookup = LookupElementBuilder.create(constantToken.text)
+                        .withIcon(AllIcons.Nodes.Field)
+                        .withTypeText("constant", true)
+                    result.addElement(lookup)
+                }
             }
         }
 

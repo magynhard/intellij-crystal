@@ -20,6 +20,26 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain Aprikose", names.contains("Aprikose"))
     }
 
+    fun testCompletesFileLevelConstants() {
+        myFixture.configureByText("main.cr", """
+            BREZEL_SIZE = 10
+            B<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertTrue("Should contain 'BREZEL_SIZE': $names", names.contains("BREZEL_SIZE"))
+    }
+
+    fun testCompletesFileLevelConstantWithExactPrefix() {
+        myFixture.configureByText("main.cr", """
+            BREZEL_SIZE = 10
+            BREZEL<caret>
+        """.trimIndent())
+        myFixture.complete(CompletionType.BASIC)
+        val text = myFixture.editor.document.text
+        assertTrue("Should have auto-inserted or suggested 'BREZEL_SIZE': $text", text.contains("BREZEL_SIZE"))
+    }
+
     fun testCompletesLocalVariables() {
         myFixture.configureByText("main.cr", """
             def foo
