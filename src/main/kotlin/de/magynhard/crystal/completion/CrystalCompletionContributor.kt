@@ -305,7 +305,7 @@ class CrystalCompletionContributor : CompletionContributor() {
             )
             for (method in methods) {
                 val name = method.name ?: continue
-                if (name != "initialize" && seen.add(name)) {
+                if (seen.add(name)) {
                     result.addElement(CrystalCompletionHelper.buildMethodLookup(method, priority))
                 }
             }

@@ -938,6 +938,27 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             tailText.contains("speed") && tailText.contains("anders"))
     }
 
+    fun testClassMethodCompletionSuggestsInitialize() {
+        myFixture.configureByText("main.cr", """
+            class Apfelsaft
+              def initialize
+              end
+
+              def testen(what : String)
+                ini<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        if (lookups != null) {
+            assertTrue("Should contain 'initialize': $names", names.contains("initialize"))
+        } else {
+            val text = myFixture.editor.document.text
+            assertTrue("Should have auto-inserted 'initialize': $text", text.contains("initialize"))
+        }
+    }
+
     // ==================== Inherited method completion ====================
 
     fun testInheritedMethodCompletion() {
