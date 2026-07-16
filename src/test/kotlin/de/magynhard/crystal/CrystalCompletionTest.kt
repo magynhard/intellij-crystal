@@ -1188,6 +1188,23 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain 'Tools' from cross-file: $names", names.contains("Tools"))
     }
 
+    fun testDoubleColonSuggestsClassConstants() {
+        myFixture.addFileToProject("hamster.cr", """
+            class Hamster
+              WEIGHT = 60
+              class Inner
+              end
+              def dance(power : Int32)
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Hamster::<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertTrue("Should contain 'WEIGHT': $names", names.contains("WEIGHT"))
+        assertTrue("Should contain 'Inner': $names", names.contains("Inner"))
+    }
+
     // ==================== Dot completion on namespace path ====================
 
     fun testDotCompletionOnNamespacePathShowsStaticMethods() {

@@ -157,7 +157,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                 }
             }
 
-            // Case 1b: Double-colon after CONSTANT (Foo::<caret>) — show nested types only
+            // Case 1b: Double-colon after CONSTANT (Foo::<caret>) — show nested types and class constants
             if (prevLeaf != null && prevLeaf.text == "::") {
                 val beforeDoubleColon = getPreviousNonWhitespaceLeaf(prevLeaf)
                 if (beforeDoubleColon != null) {
@@ -166,6 +166,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                         for (lookup in CrystalTypeCompletionProvider.getEnclosingTypeLookups(beforeText, project)) {
                             result.addElement(lookup)
                         }
+                        addClassConstants(beforeText, project, result)
                         return
                     }
                 }
@@ -210,6 +211,26 @@ class CrystalCompletionContributor : CompletionContributor() {
                     val lookup = LookupElementBuilder.create(constantToken.text)
                         .withIcon(AllIcons.Nodes.Field)
                         .withTypeText("constant", true)
+                    result.addElement(lookup)
+                }
+            }
+        }
+
+        private fun addClassConstants(className: String, project: com.intellij.openapi.project.Project, result: CompletionResultSet) {
+            val typeResult = CrystalCompletionHelper.findTypeByName(className, project) ?: return
+            val classBody = when (val element = typeResult.element) {
+                is CrystalClassDefinition -> element.classBody
+                is CrystalStructDefinition -> element.classBody
+                is CrystalModuleDefinition -> element.classBody
+                else -> null
+            } ?: return
+            val constants = PsiTreeUtil.findChildrenOfType(classBody, CrystalConstantAssignment::class.java)
+            for (constant in constants) {
+                val constantToken = constant.node.findChildByType(CrystalTypes.CONSTANT)
+                if (constantToken != null) {
+                    val lookup = LookupElementBuilder.create(constantToken.text)
+                        .withIcon(AllIcons.Nodes.Field)
+                        .withTypeText("constant in $className", true)
                     result.addElement(lookup)
                 }
             }

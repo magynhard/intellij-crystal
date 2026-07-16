@@ -29,6 +29,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Show parameter signatures for class methods in free-text completion** — typing inside a class method now shows parameter signatures (e.g. `essen(speed, anders)`) in the autocomplete popup for sibling methods, matching the behavior of dot-completion.
 - **Suggest `initialize` in class method completion** — typing inside a class method now also suggests the constructor method `initialize`, which was previously filtered out.
 - **Suggest file-level constants in free-text completion** — typing with an uppercase prefix at the top level (e.g. `B<caret>`) now also suggests file-level constants like `BREZEL_SIZE`, alongside class names and stdlib types.
+- **Suggest class constants after `::`** — typing `ClassName::<caret>` now shows class-level constants (e.g. `WEIGHT`) alongside nested types.
 
 ### Fixed
 
