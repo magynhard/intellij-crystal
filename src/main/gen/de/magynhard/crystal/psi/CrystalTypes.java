@@ -21,9 +21,11 @@ public interface CrystalTypes {
   IElementType ASSIGNMENT = new CrystalElementType("ASSIGNMENT");
   IElementType BARE_ARGUMENT = new CrystalElementType("BARE_ARGUMENT");
   IElementType BARE_ARGUMENT_LIST = new CrystalElementType("BARE_ARGUMENT_LIST");
+  IElementType BARE_COMMAND_EXPRESSION = new CrystalElementType("BARE_COMMAND_EXPRESSION");
   IElementType BARE_METHOD_CALL_EXPRESSION = new CrystalElementType("BARE_METHOD_CALL_EXPRESSION");
   IElementType BEGIN_STATEMENT = new CrystalElementType("BEGIN_STATEMENT");
   IElementType BLOCK = new CrystalElementType("BLOCK");
+  IElementType BREAK_EXPRESSION = new CrystalElementType("BREAK_EXPRESSION");
   IElementType BREAK_STATEMENT = new CrystalElementType("BREAK_STATEMENT");
   IElementType CALL_ARGS = new CrystalElementType("CALL_ARGS");
   IElementType CASE_STATEMENT = new CrystalElementType("CASE_STATEMENT");
@@ -32,7 +34,7 @@ public interface CrystalTypes {
   IElementType CLASS_VAR_ACCESS = new CrystalElementType("CLASS_VAR_ACCESS");
   IElementType COMMAND_EXPRESSION = new CrystalElementType("COMMAND_EXPRESSION");
   IElementType CONDITION = new CrystalElementType("CONDITION");
-  IElementType CONSTANT_ASSIGNMENT = new CrystalElementType("CONSTANT_ASSIGNMENT");
+  IElementType CONSTANT_ASSIGNMENT = CrystalStubElementTypeFactory.create("CONSTANT_ASSIGNMENT");
   IElementType DOT_CALL_ACCESS = new CrystalElementType("DOT_CALL_ACCESS");
   IElementType ELSE_CLAUSE = new CrystalElementType("ELSE_CLAUSE");
   IElementType ELSIF_CLAUSE = new CrystalElementType("ELSIF_CLAUSE");
@@ -75,6 +77,7 @@ public interface CrystalTypes {
   IElementType MULTI_ASSIGNMENT = new CrystalElementType("MULTI_ASSIGNMENT");
   IElementType MULTI_ASSIGN_TARGET = new CrystalElementType("MULTI_ASSIGN_TARGET");
   IElementType NAMESPACE_ACCESS = new CrystalElementType("NAMESPACE_ACCESS");
+  IElementType NEXT_EXPRESSION = new CrystalElementType("NEXT_EXPRESSION");
   IElementType NEXT_STATEMENT = new CrystalElementType("NEXT_STATEMENT");
   IElementType OFFSETOF_EXPRESSION = new CrystalElementType("OFFSETOF_EXPRESSION");
   IElementType PARAMETER = new CrystalElementType("PARAMETER");
@@ -84,9 +87,13 @@ public interface CrystalTypes {
   IElementType POSTFIX_MODIFIER = new CrystalElementType("POSTFIX_MODIFIER");
   IElementType PROC_LITERAL = new CrystalElementType("PROC_LITERAL");
   IElementType PROPERTY_DECLARATION = new CrystalElementType("PROPERTY_DECLARATION");
+  IElementType PROPERTY_MACRO = new CrystalElementType("PROPERTY_MACRO");
+  IElementType RECORD_DEFINITION = new CrystalElementType("RECORD_DEFINITION");
+  IElementType RECORD_FIELD = new CrystalElementType("RECORD_FIELD");
   IElementType REGEX_EXPRESSION = new CrystalElementType("REGEX_EXPRESSION");
   IElementType REQUIRE_STATEMENT = new CrystalElementType("REQUIRE_STATEMENT");
   IElementType RESCUE_CLAUSE = new CrystalElementType("RESCUE_CLAUSE");
+  IElementType RETURN_EXPRESSION = new CrystalElementType("RETURN_EXPRESSION");
   IElementType RETURN_STATEMENT = new CrystalElementType("RETURN_STATEMENT");
   IElementType SELECT_STATEMENT = new CrystalElementType("SELECT_STATEMENT");
   IElementType SELECT_WHEN_CLAUSE = new CrystalElementType("SELECT_WHEN_CLAUSE");
@@ -104,6 +111,7 @@ public interface CrystalTypes {
   IElementType TYPE_ARGUMENTS = new CrystalElementType("TYPE_ARGUMENTS");
   IElementType TYPE_PARAMETERS = new CrystalElementType("TYPE_PARAMETERS");
   IElementType TYPE_PATH = new CrystalElementType("TYPE_PATH");
+  IElementType TYPE_RECEIVER_EXPRESSION = new CrystalElementType("TYPE_RECEIVER_EXPRESSION");
   IElementType TYPE_REFERENCE = new CrystalElementType("TYPE_REFERENCE");
   IElementType UNINITIALIZED_EXPRESSION = new CrystalElementType("UNINITIALIZED_EXPRESSION");
   IElementType UNLESS_STATEMENT = new CrystalElementType("UNLESS_STATEMENT");
@@ -123,6 +131,7 @@ public interface CrystalTypes {
   IElementType AND_AND = new CrystalTokenType("AND_AND");
   IElementType AND_AND_ASSIGN = new CrystalTokenType("AND_AND_ASSIGN");
   IElementType ANNOTATION = new CrystalTokenType("ANNOTATION");
+  IElementType ANY_TOKEN = new CrystalTokenType("ANY_TOKEN");
   IElementType ARROW = new CrystalTokenType("ARROW");
   IElementType AS = new CrystalTokenType("AS");
   IElementType ASM = new CrystalTokenType("ASM");
@@ -230,6 +239,7 @@ public interface CrystalTypes {
   IElementType QUESTION = new CrystalTokenType("QUESTION");
   IElementType RBRACE = new CrystalTokenType("RBRACE");
   IElementType RBRACKET = new CrystalTokenType("RBRACKET");
+  IElementType RECORD = new CrystalTokenType("RECORD");
   IElementType REGEX_BEGIN = new CrystalTokenType("REGEX_BEGIN");
   IElementType REGEX_END = new CrystalTokenType("REGEX_END");
   IElementType REGEX_LITERAL = new CrystalTokenType("REGEX_LITERAL");
@@ -260,6 +270,7 @@ public interface CrystalTypes {
   IElementType THEN = new CrystalTokenType("THEN");
   IElementType TILDE = new CrystalTokenType("TILDE");
   IElementType TRUE = new CrystalTokenType("TRUE");
+  IElementType TYPE = new CrystalTokenType("TYPE");
   IElementType TYPEOF = new CrystalTokenType("TYPEOF");
   IElementType UNDERSCORE = new CrystalTokenType("UNDERSCORE");
   IElementType UNINITIALIZED = new CrystalTokenType("UNINITIALIZED");
@@ -316,6 +327,9 @@ public interface CrystalTypes {
       else if (type == BARE_ARGUMENT_LIST) {
         return new CrystalBareArgumentListImpl(node);
       }
+      else if (type == BARE_COMMAND_EXPRESSION) {
+        return new CrystalBareCommandExpressionImpl(node);
+      }
       else if (type == BARE_METHOD_CALL_EXPRESSION) {
         return new CrystalBareMethodCallExpressionImpl(node);
       }
@@ -324,6 +338,9 @@ public interface CrystalTypes {
       }
       else if (type == BLOCK) {
         return new CrystalBlockImpl(node);
+      }
+      else if (type == BREAK_EXPRESSION) {
+        return new CrystalBreakExpressionImpl(node);
       }
       else if (type == BREAK_STATEMENT) {
         return new CrystalBreakStatementImpl(node);
@@ -478,6 +495,9 @@ public interface CrystalTypes {
       else if (type == NAMESPACE_ACCESS) {
         return new CrystalNamespaceAccessImpl(node);
       }
+      else if (type == NEXT_EXPRESSION) {
+        return new CrystalNextExpressionImpl(node);
+      }
       else if (type == NEXT_STATEMENT) {
         return new CrystalNextStatementImpl(node);
       }
@@ -505,6 +525,15 @@ public interface CrystalTypes {
       else if (type == PROPERTY_DECLARATION) {
         return new CrystalPropertyDeclarationImpl(node);
       }
+      else if (type == PROPERTY_MACRO) {
+        return new CrystalPropertyMacroImpl(node);
+      }
+      else if (type == RECORD_DEFINITION) {
+        return new CrystalRecordDefinitionImpl(node);
+      }
+      else if (type == RECORD_FIELD) {
+        return new CrystalRecordFieldImpl(node);
+      }
       else if (type == REGEX_EXPRESSION) {
         return new CrystalRegexExpressionImpl(node);
       }
@@ -513,6 +542,9 @@ public interface CrystalTypes {
       }
       else if (type == RESCUE_CLAUSE) {
         return new CrystalRescueClauseImpl(node);
+      }
+      else if (type == RETURN_EXPRESSION) {
+        return new CrystalReturnExpressionImpl(node);
       }
       else if (type == RETURN_STATEMENT) {
         return new CrystalReturnStatementImpl(node);
@@ -564,6 +596,9 @@ public interface CrystalTypes {
       }
       else if (type == TYPE_PATH) {
         return new CrystalTypePathImpl(node);
+      }
+      else if (type == TYPE_RECEIVER_EXPRESSION) {
+        return new CrystalTypeReceiverExpressionImpl(node);
       }
       else if (type == TYPE_REFERENCE) {
         return new CrystalTypeReferenceImpl(node);

@@ -16,4 +16,7 @@ public interface CrystalCondition extends PsiElement {
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
 }

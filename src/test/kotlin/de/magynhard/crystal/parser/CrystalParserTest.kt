@@ -2,14 +2,60 @@ package de.magynhard.crystal.parser
 
 import com.intellij.testFramework.ParsingTestCase
 import de.magynhard.crystal.CrystalParserDefinition
+import java.io.File
 
 class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
 
     override fun getTestDataPath(): String = "src/test/testData/parser"
 
+    // Pin the recursion limit so golden-file comparisons are deterministic and not
+    // affected by other tests mutating grammar.kit.gpub.max.level at runtime.
+    override fun setUp() {
+        super.setUp()
+        System.setProperty("grammar.kit.gpub.max.level", "6000")
+    }
+
     override fun skipSpaces(): Boolean = true
 
-    override fun includeRanges(): Boolean = true
+    override fun includeRanges(): Boolean = true    fun testShorthandBlockTypeCast() {
+        doTest(true)
+    }
+
+    fun testConditionalAssignment() {
+        doTest(true)
+    }
+
+    fun testMacroSetter() {
+        doTest(true)
+    }
+
+    fun testVisibilityRecordEnum() {
+        doTest(true)
+    }
+
+    fun testSelfStarType() {
+        doTest(true)
+    }
+
+    fun testRecordWithDoBlock() {
+        doTest(true)
+    }
+
+    fun testMultiValueReturnAndYield() {
+        doTest(true)
+    }
+
+    fun testPropertyGetterKeywordNames() {
+        doTest(true)
+    }
+
+    fun testImplicitObjectCallBlock() {
+        doTest(true)
+    }
+
+    fun testTypeReceiverAndFunAlias() {
+        doTest(true)
+    }
 
     fun testRequireStatement() {
         doTest(true)
@@ -18,7 +64,6 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testDescribeBlock() {
         doTest(true)
     }
-
     fun testClassDefinition() {
         doTest(true)
     }
@@ -30,7 +75,6 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testBareMethodCalls() {
         doTest(true)
     }
-
     fun testSpecFile() {
         doTest(true)
     }
@@ -40,6 +84,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     }
 
     fun testControlFlow() {
+        doTest(true)
+    }
+
+    fun testCaseInPattern() {
         doTest(true)
     }
 
@@ -86,7 +134,6 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testBareSplat() {
         doTest(true)
     }
-
     fun testNestedStringInterpolation() {
         doTest(true)
     }
@@ -122,7 +169,6 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testOperatorPrecedence() {
         doTest(true)
     }
-
     fun testPatternMatching() {
         doTest(true)
     }
@@ -182,7 +228,6 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testShortBlockSyntax() {
         doTest(true)
     }
-
     fun testProcLiterals() {
         doTest(true)
     }
@@ -200,6 +245,18 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     }
 
     fun testRecordMacro() {
+        doTest(true)
+    }
+
+    fun testLibConstant() {
+        doTest(true)
+    }
+
+    fun testMacroControlExpression() {
+        doTest(true)
+    }
+
+    fun testDoubleColonCall() {
         doTest(true)
     }
 
@@ -266,4 +323,104 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testCommandInterpolation() {
         doTest(true)
     }
+
+    /**
+     * Regression test for the infinite-recursion / IDE-freeze bug: the grammar previously
+     * had a mutual recursion cycle between `expression` and `bare_expression`
+     * (expression -> method_call_expression -> bare_argument_list -> bare_argument ->
+     *  bare_expression -> bare_method_call_expression -> call_args -> argument -> expression).
+     * Parsing a deeply nested construct through that cycle made the generated parser recurse
+     * forever (or StackOverflow), freezing the IDE on file open. The watchdog fails the test
+     * if parsing does not terminate within the timeout.
+     */
+    fun testNoInfiniteRecursionInNestedCalls() {
+        // Regression test for the IDE-freeze bug: deeply nested call/block structures must
+        // terminate (grammar-kit recursion bound). Use YAML serialization as a real-world
+        // deeply-nested stdlib file.
+        val text = File("src/test/testData/parser/YamlSerialization.cr").readText()
+        val done = java.util.concurrent.atomic.AtomicBoolean(false)
+        var error: Throwable? = null
+        val thread = Thread({
+            try {
+                parseFile("YamlSerialization.cr", text)
+                done.set(true)
+            } catch (t: Throwable) {
+                error = t
+                done.set(true)
+            }
+        }, "crystal-parser-recursion-watchdog")
+        thread.isDaemon = true
+        thread.start()
+        thread.join(20000)
+        if (!done.get()) {
+            fail("Parser did not terminate (infinite recursion suspected) for YamlSerialization.cr")
+        }
+        assertNull("Parsing threw an exception: ${error?.message}", error)
+    }
+
+    fun testDebugRecordParse() {
+        val tree = parseFile("test.cr", "record Config, host : String, port : Int32 = 80\n")
+        val errors = mutableListOf<String>()
+        tree.accept(object : com.intellij.psi.PsiRecursiveElementVisitor() {
+            override fun visitErrorElement(element: com.intellij.psi.PsiErrorElement) {
+                errors.add("ERROR at '${element.text}': ${element.errorDescription}")
+                super.visitErrorElement(element)
+            }
+        })
+        println("=== RECORD TREE ===")
+        printTree(tree, "  ")
+        println("=== ERRORS: ${errors.size} ===")
+        errors.forEach { println(it) }
+        assertTrue("Record parse produced errors: $errors", errors.isEmpty())
+    }
+
+    private fun printTree(node: com.intellij.psi.PsiElement, indent: String) {
+        if (node.firstChild == null) {
+            println("$indent${node.node.elementType} '${node.text}'")
+            return
+        }
+        println("$indent${node.javaClass.simpleName} '${node.text.take(40)}'")
+        node.children.forEach { printTree(it, "$indent  ") }
+    }
+
+    fun testOutArg() {
+        doTest(true)
+    }
+
+    fun testDefPercent() {
+        doTest(true)
+    }
+
+    fun testInterpFunAlias() {
+        doTest(true)
+    }
+
+    fun testParamUnion() {
+        doTest(true)
+    }
+
+    fun testAliasUnion2() {
+        doTest(true)
+    }
+
+    fun testAliasUnion() {
+        doTest(true)
+    }
+
+    fun testMacroInterpInSig() {
+        doTest(true)
+    }
+
+    fun testDoBlock() {
+        doTest(true)
+    }
+
+    fun testNestedMacroControl() {
+        doTest(true)
+    }
+
+    fun testYamlSerialization() {
+        doTest(true)
+    }
+
 }

@@ -33,4 +33,10 @@ public class CrystalArgumentImpl extends ASTWrapperPsiElement implements Crystal
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
+  }
+
 }

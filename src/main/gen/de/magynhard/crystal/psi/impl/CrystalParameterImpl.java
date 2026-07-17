@@ -34,6 +34,12 @@ public class CrystalParameterImpl extends CrystalParameterMixin implements Cryst
 
   @Override
   @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
@@ -48,6 +54,12 @@ public class CrystalParameterImpl extends CrystalParameterMixin implements Cryst
   @NotNull
   public List<CrystalMacroControl> getMacroControlList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
   }
 
   @Override

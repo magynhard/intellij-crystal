@@ -7,4 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalInstanceVarAccess extends CrystalNamedElement {
 
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
 }

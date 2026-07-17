@@ -14,3 +14,5 @@ bin/
 .mimocode/
 /playground
 /docs/plans/
+docs/superpowers/plans/
+stdlib-graph/

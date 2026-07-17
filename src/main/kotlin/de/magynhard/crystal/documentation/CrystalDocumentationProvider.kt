@@ -18,6 +18,7 @@ import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalMethodIndex
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
@@ -97,6 +98,23 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         if (isVariableIdentifier(unwrapped)) {
             return unwrapped
         }
+
+        // 6. Last resort: direct StubIndex lookup for classes/methods without resolving through handler
+        val project = unwrapped.project
+        val scope = GlobalSearchScope.allScope(project)
+        val name = unwrapped.text
+
+        val classes = StubIndex.getElements(
+            CrystalClassIndex.KEY, name, project, scope,
+            CrystalNamedElement::class.java
+        )
+        if (classes.isNotEmpty()) return classes.firstOrNull()
+
+        val methods = StubIndex.getElements(
+            CrystalMethodIndex.KEY, name, project, scope,
+            CrystalMethodDefinition::class.java
+        )
+        if (methods.isNotEmpty()) return methods.firstOrNull()
 
         return null
     }
@@ -222,9 +240,9 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         return when (target) {
             is CrystalMethodDefinition -> buildMethodSignatureHtml(target, project)
             is CrystalClassDefinition -> buildClassSignatureHtml(target, project)
-            is CrystalModuleDefinition -> buildModuleSignatureHtml(target, project)
+            is CrystalModuleDefinition -> buildModuleSignatureHtml(target)
             is CrystalStructDefinition -> buildStructSignatureHtml(target, project)
-            is CrystalEnumDefinition -> buildEnumSignatureHtml(target, project)
+            is CrystalEnumDefinition -> buildEnumSignatureHtml(target)
             is CrystalParameter -> buildParameterSignatureHtml(target, project)
             else -> highlightCrystalCode(target.text.lines().first(), target)
                 ?: escapeHtml(target.text.lines().first())
@@ -285,7 +303,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         return sb.toString()
     }
 
-    private fun buildModuleSignatureHtml(moduleDef: CrystalModuleDefinition, project: Project): String {
+    private fun buildModuleSignatureHtml(moduleDef: CrystalModuleDefinition): String {
         return "${highlightCrystalCode("module ", moduleDef) ?: escapeHtml("module ")}${escapeHtml(moduleDef.name ?: "Unknown")}"
     }
 
@@ -305,7 +323,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         return sb.toString()
     }
 
-    private fun buildEnumSignatureHtml(enumDef: CrystalEnumDefinition, project: Project): String {
+    private fun buildEnumSignatureHtml(enumDef: CrystalEnumDefinition): String {
         val sb = StringBuilder()
         sb.append(highlightCrystalCode("enum ", enumDef) ?: escapeHtml("enum "))
         sb.append(escapeHtml(enumDef.name ?: "Unknown"))
@@ -364,9 +382,10 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     private fun buildVariableSignatureHtml(target: PsiElement, name: String, project: Project): String {
         val sb = StringBuilder()
 
-        // Line 1: inferred type (linked) + muted "(Variable)"
-        val inferredType = CrystalTypeInference.inferType(name, target, project)
-        if (inferredType != null) {
+        // Line 1: inferred type(s) (linked) + muted "(Variable)". Unions shown as "A | B".
+        val inferredTypes = CrystalTypeInference.inferTypeList(name, target, project)
+        if (inferredTypes.isNotEmpty()) {
+            val inferredType = inferredTypes.joinToString(" | ")
             val highlighted = highlightCrystalCode(inferredType, target) ?: escapeHtml(inferredType)
             sb.append(wrapTypeLinks(highlighted, project))
         } else {

@@ -52,6 +52,12 @@ public class CrystalAssignmentImpl extends CrystalAssignmentMixin implements Cry
 
   @Override
   @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalPostfixModifier getPostfixModifier() {
     return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
   }

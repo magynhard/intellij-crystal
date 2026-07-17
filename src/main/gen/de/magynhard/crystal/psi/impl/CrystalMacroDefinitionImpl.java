@@ -50,4 +50,10 @@ public class CrystalMacroDefinitionImpl extends CrystalStubbedMacroDefinitionImp
     return PsiTreeUtil.getChildOfType(this, CrystalParameterList.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalTypePath getTypePath() {
+    return PsiTreeUtil.getChildOfType(this, CrystalTypePath.class);
+  }
+
 }

@@ -22,13 +22,24 @@ abstract class CrystalDotCallAccessMixin(node: ASTNode) :
     ASTWrapperPsiElement(node), CrystalDotCallAccess {
 
     override fun getReference(): PsiReference? {
-        val identNode = node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.IDENTIFIER)
-            ?: node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.CONSTANT)
-            ?: return null
-        val name = identNode.text
+        // The method-name token is the child immediately after the DOT. It may be an
+        // IDENTIFIER (`tanzen`), a CONSTANT, or a keyword used as a method name
+        // (`next`, `yield`, … via `keyword_as_method`).
+        val dot = node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.DOT) ?: return null
+        var nameNode = dot.treeNext
+        while (nameNode != null &&
+            (nameNode.elementType == com.intellij.psi.TokenType.WHITE_SPACE ||
+                nameNode.elementType == de.magynhard.crystal.psi.CrystalTypes.NEWLINE)) {
+            nameNode = nameNode.treeNext
+        }
+        if (nameNode == null) return null
+        val name = nameNode.text
         if (name.isBlank()) return null
-        val startOffset = identNode.startOffset - node.startOffset
-        return CrystalDotCallReference(this, name, startOffset, identNode.textLength)
+        // Setter call (`obj.foo = bar` => `foo=`): a trailing ASSIGN token is part of the call.
+        val setter = node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.ASSIGN) != null
+        val methodName = if (setter) "$name=" else name
+        val startOffset = nameNode.startOffset - node.startOffset
+        return CrystalDotCallReference(this, methodName, startOffset, nameNode.textLength)
     }
 
     override fun getReferences(): Array<PsiReference> =

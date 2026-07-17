@@ -7,7 +7,10 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalAliasDefinition extends PsiElement {
 
-  @Nullable
-  CrystalTypeReference getTypeReference();
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
+  @NotNull
+  List<CrystalTypeReference> getTypeReferenceList();
 
 }

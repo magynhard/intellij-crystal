@@ -20,6 +20,10 @@ import com.intellij.psi.TokenType;
   private char percentCloseChar = 0;
   private IElementType percentTokenType = null;
   private boolean percentInterpolation = false;
+  // After `def`/`macro` the next `%` is the modulo operator (e.g. `def %(other)`),
+  // not a percent literal (`%(...)`). Set on DEF/MACRO, cleared on signature terminators
+  // (LPAREN/COLON/ASSIGN/SEMICOLON/NEWLINE/END) or when the `%` is lexed.
+  private boolean afterDef = false;
   private String heredocId = "";
   private boolean heredocIndented = false;
   private boolean heredocRaw = false;
@@ -107,8 +111,11 @@ GLOBAL_VAR = "$" ({IDENTIFIER} | {DIGIT}+ | "~" | "?")
 CHAR_ESCAPE = "\\" ( [abefnrtv\\'0] | "x" {HEX_DIGIT}{2} | "u" "{" {HEX_DIGIT}+ "}" | "u" {HEX_DIGIT}{4} | {OCT_DIGIT}{1,3} )
 CHAR_LITERAL = "'" ( [^'\\] | {CHAR_ESCAPE} ) "'"
 
-// Symbol (simple forms only — :"string" handled separately for interpolation support)
-SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
+// Symbol (simple forms only — :"string" handled separately for interpolation support).
+// Crystal symbol names may carry a method-suffix operator: `:foo?`, `:foo!`, `:foo=`,
+// `:[]`, `:[]=`, `:()`. The trailing `?`/`!`/`=` and bracket forms are common in stdlib
+// (e.g. `delegate :pos=, :closed?`, `getter :foo?`).
+SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) ( [?!=] | "[]" | "()" )?
 
 %state STRING INTERPOLATION REGEX BACKTICK PERCENT_LITERAL HEREDOC_BODY HEREDOC_START_LINE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
 
@@ -118,7 +125,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   // Whitespace and comments
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   "\\" (\r\n | \r | \n) { return TokenType.WHITE_SPACE; }
-  {NEWLINE}            { if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); } return CrystalTypes.NEWLINE; }
+  {NEWLINE}            { afterDef = false; if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); } return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
 
   // Keywords (longest match first for keywords with ? suffix)
@@ -132,11 +139,11 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "break"              { return CrystalTypes.BREAK; }
   "case"               { return CrystalTypes.CASE; }
   "class"              { return CrystalTypes.CLASS; }
-  "def"                { return CrystalTypes.DEF; }
+  "def"                { afterDef = true; return CrystalTypes.DEF; }
   "do"                 { return CrystalTypes.DO; }
   "else"               { return CrystalTypes.ELSE; }
   "elsif"              { return CrystalTypes.ELSIF; }
-  "end"                { return CrystalTypes.END; }
+  "end"                { afterDef = false; return CrystalTypes.END; }
   "ensure"             { return CrystalTypes.ENSURE; }
   "enum"               { return CrystalTypes.ENUM; }
   "extend"             { return CrystalTypes.EXTEND; }
@@ -149,7 +156,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "instance_sizeof"    { return CrystalTypes.INSTANCE_SIZEOF; }
   "is_a?"              { return CrystalTypes.IS_A; }
   "lib"                { return CrystalTypes.LIB; }
-  "macro"              { macroHeaderSeen = true; return CrystalTypes.MACRO; }
+  "macro"              { macroHeaderSeen = true; afterDef = true; return CrystalTypes.MACRO; }
   "module"             { return CrystalTypes.MODULE; }
   "next"               { return CrystalTypes.NEXT; }
   "nil?"               { return CrystalTypes.NIL_QUESTION; }
@@ -171,6 +178,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "sizeof"             { return CrystalTypes.SIZEOF; }
   "struct"             { return CrystalTypes.STRUCT; }
   "super"              { return CrystalTypes.SUPER; }
+  "record"             { return CrystalTypes.RECORD; }
   "then"               { return CrystalTypes.THEN; }
   "true"               { return CrystalTypes.TRUE; }
   "typeof"             { return CrystalTypes.TYPEOF; }
@@ -285,7 +293,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
                        }
   "%" [\(\[\{<|]      {
-                         char c = yycharat(yylength() - 1);
+                          if (afterDef) { afterDef = false; yypushback(1); return CrystalTypes.PERCENT; }
+                          char c = yycharat(yylength() - 1);
                          percentOpenChar = c;
                          percentCloseChar = closingChar(c);
                          percentDepth = 1;
@@ -360,16 +369,16 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   ">"                  { return CrystalTypes.GT; }
   "!"                  { return CrystalTypes.BANG; }
   "=~"                 { return CrystalTypes.MATCH_OP; }
-  "="                  { return CrystalTypes.ASSIGN; }
+  "="                  { afterDef = false; return CrystalTypes.ASSIGN; }
   "."                  { return CrystalTypes.DOT; }
   "?"                  { return CrystalTypes.QUESTION; }
-  ":"                  { return CrystalTypes.COLON; }
-  ";"                  { return CrystalTypes.SEMICOLON; }
+  ":"                  { afterDef = false; return CrystalTypes.COLON; }
+  ";"                  { afterDef = false; return CrystalTypes.SEMICOLON; }
   ","                  { return CrystalTypes.COMMA; }
   "@"                  { return CrystalTypes.AT; }
 
   // Delimiters
-  "("                  { return CrystalTypes.LPAREN; }
+  "("                  { afterDef = false; return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
   "["                  { return CrystalTypes.LBRACKET; }
   "]"                  { return CrystalTypes.RBRACKET; }
@@ -448,6 +457,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   "."                  { return CrystalTypes.DOT; }
   "("                  { return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
@@ -544,6 +554,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 }
 
 <MACRO_BODY> {
+  "\\" "{{"            { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
+  "\\" "{%"            { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT; }
   "{{"                 { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN; }
   "{%"                 { pushState(MACRO_CONTROL); return CrystalTypes.MACRO_CONTROL_BEGIN; }
   "#{"                 { return CrystalTypes.MACRO_BODY_CONTENT; }
@@ -576,6 +588,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "}}?"                { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   "}}!"                { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   "}}"                 { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
+  "`"                  { pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
+  "//"                 { return CrystalTypes.DOUBLE_SLASH; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
@@ -584,6 +598,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   "."                  { return CrystalTypes.DOT; }
   "("                  { return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
@@ -593,7 +608,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
-   "/"                  { return CrystalTypes.SLASH; }
+  "**"                 { return CrystalTypes.DOUBLE_STAR; }
+  "/"                  { return CrystalTypes.SLASH; }
    "::"                 { return CrystalTypes.DOUBLE_COLON; }
    ":"                  { return CrystalTypes.COLON; }
    "=="                 { return CrystalTypes.EQ; }
@@ -609,8 +625,12 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   [^]                  { return TokenType.BAD_CHARACTER; }
 }
 
-<MACRO_CONTROL> {
+ <MACRO_CONTROL> {
   "%}"                 { popState(); return CrystalTypes.MACRO_CONTROL_END; }
+  "{%"                 { pushState(MACRO_CONTROL); return CrystalTypes.MACRO_CONTROL_BEGIN; }
+  "{{"                 { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN; }
+  "//"                 { return CrystalTypes.DOUBLE_SLASH; }
+  "\n"                 { return CrystalTypes.NEWLINE; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
@@ -632,7 +652,9 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  "`"                  { pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   "("                  { return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
   "["                  { return CrystalTypes.LBRACKET; }
@@ -654,6 +676,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
+  "**"                 { return CrystalTypes.DOUBLE_STAR; }
   "/"                  { return CrystalTypes.SLASH; }
   "?"                  { return CrystalTypes.QUESTION; }
   "!"                  { return CrystalTypes.BANG; }
@@ -661,6 +684,55 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "..."                { return CrystalTypes.DOTDOTDOT; }
   "::"                 { return CrystalTypes.DOUBLE_COLON; }
   "%"                  { return CrystalTypes.PERCENT; }
+  "{"                  { return CrystalTypes.LBRACE; }
+  "}"                  { return CrystalTypes.RBRACE; }
+  "do"                 { return CrystalTypes.DO; }
+  "def"                { return CrystalTypes.DEF; }
+  "class"              { return CrystalTypes.CLASS; }
+  "module"             { return CrystalTypes.MODULE; }
+  "struct"             { return CrystalTypes.STRUCT; }
+  "enum"               { return CrystalTypes.ENUM; }
+  "macro"              { return CrystalTypes.MACRO; }
+  "return"             { return CrystalTypes.RETURN; }
+  "break"              { return CrystalTypes.BREAK; }
+  "next"               { return CrystalTypes.NEXT; }
+  "then"               { return CrystalTypes.THEN; }
+  "when"               { return CrystalTypes.WHEN; }
+  "case"               { return CrystalTypes.CASE; }
+  "while"              { return CrystalTypes.WHILE; }
+  "until"              { return CrystalTypes.UNTIL; }
+  "rescue"             { return CrystalTypes.RESCUE; }
+  "ensure"             { return CrystalTypes.ENSURE; }
+  "fun"                { return CrystalTypes.FUN; }
+  "lib"                { return CrystalTypes.LIB; }
+  "type"               { return CrystalTypes.TYPE; }
+  "alias"              { return CrystalTypes.ALIAS; }
+  "as"                 { return CrystalTypes.AS; }
+  "of"                 { return CrystalTypes.OF; }
+  "is_a?"              { return CrystalTypes.IS_A; }
+  "nil?"               { return CrystalTypes.NIL_QUESTION; }
+  "responds_to?"       { return CrystalTypes.RESPONDS_TO; }
+  "abstract"           { return CrystalTypes.ABSTRACT; }
+  "protected"          { return CrystalTypes.PROTECTED; }
+  "private"            { return CrystalTypes.PRIVATE; }
+  "select"             { return CrystalTypes.SELECT; }
+  "super"              { return CrystalTypes.SUPER; }
+  "previous_def"       { return CrystalTypes.PREVIOUS_DEF; }
+  "with"               { return CrystalTypes.WITH; }
+  "union"              { return CrystalTypes.UNION; }
+  "extend"             { return CrystalTypes.EXTEND; }
+  "include"            { return CrystalTypes.INCLUDE; }
+  "require"            { return CrystalTypes.REQUIRE; }
+  "typeof"             { return CrystalTypes.TYPEOF; }
+  "self"               { return CrystalTypes.SELF; }
+  "asm"                { return CrystalTypes.ASM; }
+  "forall"             { return CrystalTypes.FORALL; }
+  "out"                { return CrystalTypes.OUT; }
+  "pointerof"          { return CrystalTypes.POINTEROF; }
+  "sizeof"             { return CrystalTypes.SIZEOF; }
+  "uninitialized"      { return CrystalTypes.UNINITIALIZED; }
+  "instance_sizeof"    { return CrystalTypes.INSTANCE_SIZEOF; }
+  "offsetof"           { return CrystalTypes.OFFSETOF; }
   [^]                  { return TokenType.BAD_CHARACTER; }
 }
 

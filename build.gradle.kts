@@ -95,6 +95,23 @@ tasks {
     }
 }
 
+val defaultTest = tasks.named<Test>("test")
+fun Test.stdlibTool(name: String) {
+    group = "stdlib"
+    val dt = defaultTest.get()
+    testClassesDirs = dt.testClassesDirs
+    classpath = dt.classpath
+    jvmArgs(dt.allJvmArgs.filterNot { it.startsWith("-Xmx") } + "-Xmx4g" + "-Dgrammar.kit.gpub.max.level=6000")
+    filter.includeTestsMatching("*StdlibGraphToolTest.$name")
+}
+tasks.register<Test>("stdlibParseErrors") { stdlibTool("testAggregateParseErrors") }
+tasks.register<Test>("stdlibBuildGraph") { stdlibTool("testBuildGraph") }
+tasks.register<Test>("stdlibStructure") { stdlibTool("testBuildStructureJson") }
+tasks.register<Test>("stdlibCheckFile") {
+    stdlibTool("testCheckSingleFile")
+    systemProperty("graph.file", System.getProperty("graph.file") ?: "")
+}
+
 kotlin {
     jvmToolchain(21)
 }

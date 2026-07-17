@@ -13,6 +13,9 @@ public interface CrystalMultiAssignTarget extends PsiElement {
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
   @NotNull
   List<CrystalMultiAssignTarget> getMultiAssignTargetList();
 

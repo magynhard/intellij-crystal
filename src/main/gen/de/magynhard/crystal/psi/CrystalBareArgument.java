@@ -20,7 +20,7 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalBareMethodCallExpression> getBareMethodCallExpressionList();
 
   @NotNull
-  List<CrystalCallArgs> getCallArgsList();
+  List<CrystalBreakExpression> getBreakExpressionList();
 
   @NotNull
   List<CrystalClassVarAccess> getClassVarAccessList();
@@ -59,6 +59,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalNamespaceAccess> getNamespaceAccessList();
 
   @NotNull
+  List<CrystalNextExpression> getNextExpressionList();
+
+  @NotNull
   List<CrystalOffsetofExpression> getOffsetofExpressionList();
 
   @NotNull
@@ -74,6 +77,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalRegexExpression> getRegexExpressionList();
 
   @NotNull
+  List<CrystalReturnExpression> getReturnExpressionList();
+
+  @NotNull
   List<CrystalSizeofExpression> getSizeofExpressionList();
 
   @NotNull
@@ -84,6 +90,9 @@ public interface CrystalBareArgument extends PsiElement {
 
   @NotNull
   List<CrystalTupleLiteral> getTupleLiteralList();
+
+  @NotNull
+  List<CrystalTypeReceiverExpression> getTypeReceiverExpressionList();
 
   @NotNull
   List<CrystalTypeReference> getTypeReferenceList();

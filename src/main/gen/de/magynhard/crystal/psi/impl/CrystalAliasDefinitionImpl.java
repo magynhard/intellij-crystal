@@ -28,9 +28,15 @@ public class CrystalAliasDefinitionImpl extends ASTWrapperPsiElement implements 
   }
 
   @Override
-  @Nullable
-  public CrystalTypeReference getTypeReference() {
-    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalTypeReference> getTypeReferenceList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeReference.class);
   }
 
 }

@@ -18,4 +18,7 @@ public interface CrystalMacroDefinition extends CrystalNamedElement, StubBasedPs
   @Nullable
   CrystalParameterList getParameterList();
 
+  @Nullable
+  CrystalTypePath getTypePath();
+
 }

@@ -28,9 +28,15 @@ public class CrystalMacroInterpolationImpl extends ASTWrapperPsiElement implemen
   }
 
   @Override
-  @NotNull
+  @Nullable
+  public CrystalBareCommandExpression getBareCommandExpression() {
+    return PsiTreeUtil.getChildOfType(this, CrystalBareCommandExpression.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
-    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpression.class));
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
 }

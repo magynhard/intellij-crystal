@@ -29,6 +29,12 @@ public class CrystalCaseStatementImpl extends ASTWrapperPsiElement implements Cr
 
   @Override
   @Nullable
+  public CrystalAssignment getAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalElseClause getElseClause() {
     return PsiTreeUtil.getChildOfType(this, CrystalElseClause.class);
   }

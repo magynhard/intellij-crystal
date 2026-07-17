@@ -13,7 +13,6 @@ import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodIndex
 
 /**
  * Helper for building completion lookup elements from Crystal PSI.
@@ -58,71 +57,46 @@ object CrystalCompletionHelper {
     }
 
     /**
-     * Checks whether a class name is defined via the `record` macro in the given file.
-     * Returns the record's `CrystalMethodCallExpression` if found, null otherwise.
+     * A single field of a `record` definition.
      */
-    fun findRecordDefinition(className: String, file: PsiFile): CrystalMethodCallExpression? {
-        val recordCalls = PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java)
-        for (call in recordCalls) {
-            val methodName = call.firstChild
-            if (methodName?.text != "record") continue
-            val bareArgList = call.bareArgumentList ?: continue
-            val firstArg = bareArgList.bareArgumentList.firstOrNull() ?: continue
-            val firstName = firstArg.firstChild
-            // The CONSTANT may be wrapped in a VARIABLE_REFERENCE node
-            val nameText = if (firstName?.node?.elementType == CrystalTypes.CONSTANT) {
-                firstName.text
-            } else {
-                firstName?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
-            }
-            if (nameText == className) {
-                return call
-            }
+    data class RecordFieldInfo(val name: String, val typeText: String?, val defaultText: String?)
+
+    /**
+     * Checks whether a class name is defined via a `record` definition in the given file.
+     * Returns the [CrystalRecordDefinition] if found, null otherwise.
+     */
+    fun findRecordDefinition(className: String, file: PsiFile): CrystalRecordDefinition? {
+        val records = PsiTreeUtil.findChildrenOfType(file, CrystalRecordDefinition::class.java)
+        for (rec in records) {
+            val nameNode = rec.node.findChildByType(CrystalTypes.CONSTANT) ?: continue
+            if (nameNode.text == className) return rec
         }
         return null
     }
 
     /**
-     * Extracts the parameter signature from a `record` macro call.
+     * Extracts the field list from a `record` definition. Each field yields its name,
+     * optional type text, and optional default-value text.
+     */
+    fun extractRecordFields(rec: CrystalRecordDefinition): List<RecordFieldInfo> {
+        return rec.recordFieldList.mapNotNull { field ->
+            val nameNode = field.node.findChildByType(CrystalTypes.IDENTIFIER) ?: return@mapNotNull null
+            RecordFieldInfo(nameNode.text, field.typeReference?.text, field.expression?.text)
+        }
+    }
+
+    /**
+     * Extracts the parameter signature from a `record` definition.
      * Returns a string like "(host : String, port : Int32 = 80, ssl : Bool = false)".
      */
-    fun getRecordSignature(recordCall: CrystalMethodCallExpression): String {
-        val bareArgList = recordCall.bareArgumentList ?: return "()"
-        val args = bareArgList.bareArgumentList
-        if (args.size <= 1) return "()"
-
-        val paramStrings = mutableListOf<String>()
-        for (i in 1 until args.size) {
-            val arg = args[i]
-            val children = arg.node.getChildren(null)
-            var name: String? = null
-            var hasDefault = false
-            var typeText: String? = null
-            var defaultText: String? = null
-            var pastColon = false
-            var pastAssign = false
-            for (child in children) {
-                when (child.elementType) {
-                    CrystalTypes.IDENTIFIER -> name = child.text
-                    CrystalTypes.COLON -> pastColon = true
-                    CrystalTypes.ASSIGN -> { pastAssign = true; hasDefault = true }
-                    else -> {
-                        if (child.elementType == com.intellij.psi.TokenType.WHITE_SPACE) continue
-                        if (pastAssign) {
-                            defaultText = (defaultText ?: "") + child.text
-                        } else if (pastColon) {
-                            typeText = (typeText ?: "") + child.text
-                        }
-                    }
-                }
-            }
-            if (name != null) {
-                val param = buildString {
-                    append(name)
-                    if (typeText != null) append(" : ").append(typeText)
-                    if (defaultText != null) append(" = ").append(defaultText)
-                }
-                paramStrings.add(param)
+    fun getRecordSignature(rec: CrystalRecordDefinition): String {
+        val fields = extractRecordFields(rec)
+        if (fields.isEmpty()) return "()"
+        val paramStrings = fields.map { f ->
+            buildString {
+                append(f.name)
+                if (f.typeText != null) append(" : ").append(f.typeText)
+                if (f.defaultText != null) append(" = ").append(f.defaultText)
             }
         }
         return "(${paramStrings.joinToString(", ")})"
@@ -131,8 +105,8 @@ object CrystalCompletionHelper {
     /**
      * Builds a LookupElement for `new` on a record type.
      */
-    fun buildRecordNewLookup(recordCall: CrystalMethodCallExpression, className: String): LookupElementBuilder {
-        val signature = getRecordSignature(recordCall)
+    fun buildRecordNewLookup(rec: CrystalRecordDefinition, className: String): LookupElementBuilder {
+        val signature = getRecordSignature(rec)
         val tailText = if (signature == "()") "" else signature
         return LookupElementBuilder.create("new")
             .withIcon(AllIcons.Nodes.Method)
@@ -146,14 +120,6 @@ object CrystalCompletionHelper {
     fun getStaticMethods(typeName: String, project: Project): List<CrystalMethodDefinition> {
         val result = findTypeByName(typeName, project) ?: return emptyList()
         return getMethodsFromType(result).filter { isStaticMethod(it) }
-    }
-
-    /**
-     * Returns all instance methods (def xxx, not self.xxx) of a type definition.
-     */
-    fun getInstanceMethods(typeName: String, project: Project): List<CrystalMethodDefinition> {
-        val result = findTypeByName(typeName, project) ?: return emptyList()
-        return getMethodsFromType(result).filter { !isStaticMethod(it) }
     }
 
     /**
@@ -434,7 +400,7 @@ object CrystalCompletionHelper {
      * Builds a LookupElement for a method.
      */
     fun buildMethodLookup(method: CrystalMethodDefinition, priority: Double = 0.0): LookupElement {
-        val name = method.name ?: return LookupElementBuilder.create("")
+        method.name ?: return LookupElementBuilder.create("")
         val signature = getParameterSignature(method)
         val className = getEnclosingClassName(method)
         val returnType = getReturnType(method)

@@ -27,4 +27,10 @@ public class CrystalAnnotationDefinitionImpl extends ASTWrapperPsiElement implem
     else super.accept(visitor);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
 }

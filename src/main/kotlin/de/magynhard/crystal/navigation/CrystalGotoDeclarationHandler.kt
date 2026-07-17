@@ -3,9 +3,9 @@ package de.magynhard.crystal.navigation
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
-import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
@@ -25,6 +25,15 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         editor: Editor?
     ): Array<PsiElement>? {
         if (sourceElement == null) return null
+
+        // `require "..."` navigation: resolve the required path to its target .cr file.
+        val requireStatement = PsiTreeUtil.getParentOfType(
+            sourceElement, CrystalRequireStatement::class.java
+        )
+        if (requireStatement != null) {
+            val targets = CrystalRequireResolver.resolve(requireStatement, sourceElement.project)
+            return if (targets.isNotEmpty()) targets.toTypedArray() else null
+        }
 
         val elementType = sourceElement.node.elementType
 

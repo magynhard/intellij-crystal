@@ -1,11 +1,13 @@
 package de.magynhard.crystal.psi
 
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.completion.CrystalTypeInference
+import de.magynhard.crystal.inspections.CrystalExpressionTypeResolver
 import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodIndex
 
@@ -20,7 +22,7 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
  *
  * 2. Namespace receiver (e.g. `Foo::Sub.space`) — walks left through
  *    [CrystalNamespaceAccess] and [CrystalVariableReference] to reconstruct the
- *    full qualified name, resolves via [CrystalClassIndex], then filters methods
+ *    full qualified name, resolves via CrystalClassIndex, then filters methods
  *    by the enclosing class's qualified name to avoid ambiguity (Foo::Sub vs Bar::Sub).
  *
  * 3. IDENTIFIER receiver (e.g. `a.essen` where `a = Apfel.new`):
@@ -34,6 +36,11 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
  *    `def self.new` if it exists. If not found, falls through to `record` macro,
  *    then to `def initialize` via [CrystalCompletionHelper.getInitializeMethod].
  *    This makes Find Usages on both `.new` and `initialize` work correctly.
+ *
+ * 5. Project-scoped name-only fallback — when the receiver type is unknown (bare
+ *    untyped local/parameter), resolve by method name within the PROJECT ONLY
+ *    (never the stdlib) so local navigation works (`rule.auto_fixable?`) without
+ *    the cross-project false-positive popups the strict design otherwise forbids.
  *
  * The receiver is found by walking `prevSibling` (skipping whitespace/NLS) from
  * this element — the DOT is the first child of [CrystalDotCallAccess], so the
@@ -53,34 +60,70 @@ class CrystalDotCallReference(
         val project = element.project
         val scope = GlobalSearchScope.allScope(project)
 
-        val className = info.className ?: return null
         val qualifiedName = info.qualifiedName
+        val classNames = info.classNames
 
-        // 1. Search for exact method name (catches def self.new for .new, plus all other DOT-calls)
-        val methods = StubIndex.getElements(
-            CrystalMethodByClassIndex.KEY, className, project, scope,
-            CrystalMethodDefinition::class.java
-        )
-        val matchingByName = methods.filter { it.name == methodName }
+        // Iterate over every inferred member type (unions: `Int32 | Nil` resolve methods on
+        // both members). Namespace disambiguation via qualifiedName only applies when there is
+        // a single member type.
+        for (className in classNames) {
+            // 1. Exact class-based lookup (CONSTANT / namespace / inferred-type receivers).
+            val methods = StubIndex.getElements(
+                CrystalMethodByClassIndex.KEY, className, project, scope,
+                CrystalMethodDefinition::class.java
+            )
+            val matchingByName = methods.filter { it.name == methodName }
 
-        // Filter by qualified class name if available (for namespace disambiguation)
-        val result = if (qualifiedName != null) {
-            matchingByName.filter { method ->
-                val enclosing = CrystalPsiUtils.getEnclosingType(method)
-                enclosing != null && CrystalPsiUtils.buildQualifiedName(enclosing) == qualifiedName
-            }.firstOrNull()
-        } else {
-            matchingByName.firstOrNull()
+            // Filter by qualified class name if available (for namespace disambiguation)
+            val result = if (qualifiedName != null && classNames.size == 1) {
+                matchingByName.filter { method ->
+                    val enclosing = CrystalPsiUtils.getEnclosingType(method)
+                    enclosing != null && CrystalPsiUtils.buildQualifiedName(enclosing) == qualifiedName
+                }.firstOrNull()
+            } else {
+                matchingByName.firstOrNull()
+            }
+            if (result != null) return result
+
+            // 2. Stdlib fallback. StubIndex cannot resolve stdlib classes/methods (their roots
+            //    are stored under an internal scope no GlobalSearchScope intersects), so when the
+            //    index misses for a known receiver class, fall back to the cached stdlib scan.
+            //    Prefer the fully-qualified class name (e.g. `Crystal::System::Dir`) so nested
+            //    classes resolve to the right file instead of a same-named simple class.
+            val lookupClass = if (classNames.size == 1 && qualifiedName != null) qualifiedName else className
+            val stdlibMethod = CrystalReference.resolveStdlibMethod(project, lookupClass, methodName)
+            if (stdlibMethod != null) return stdlibMethod
+
+            // 4. For .new: fall through to record → initialize resolution
+            //    (matches CrystalGotoDeclarationHandler priority: def self.new > record > initialize)
+            if (methodName == "new") {
+                val file = element.containingFile ?: return null
+                val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file)
+                if (recordDef != null) return recordDef
+                val init = CrystalCompletionHelper.getInitializeMethod(className, project, file)
+                if (init != null) return init
+                val sym = CrystalReference.resolveStdlibSymbol(project, className)
+                if (sym != null) return sym
+            }
         }
-        if (result != null) return result
 
-        // 2. For .new: fall through to record → initialize resolution
-        //    (matches CrystalGotoDeclarationHandler priority: def self.new > record > initialize)
-        if (methodName == "new") {
-            val file = element.containingFile ?: return null
-            val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file)
-            if (recordDef != null) return recordDef
-            return CrystalCompletionHelper.getInitializeMethod(className, project, file)
+        // 3. Project-scoped name-only fallback for INSTANCE DOT-calls whose receiver type is
+        //    unknown (untyped local/parameter, e.g. `rule.auto_fixable?` where `rule` is a bare
+        //    parameter). Resolves by method name within the PROJECT ONLY (never the stdlib), so
+        //    we enable local navigation without the cross-project false-positive popups the
+        //    strict design otherwise forbids. Returns the first project match; ambiguity across
+        //    multiple same-named methods is acceptable for navigation (they are semantically
+        //    equivalent definitions of the same message).
+        if (classNames.isEmpty()) {
+            // CrystalMethodIndex (StubIndex) contains ONLY project methods — stdlib files are
+            // skipped by CrystalStubBuilder, so stdlib is never indexed. Querying it therefore
+            // cannot produce stdlib false positives; the only possible ambiguity is between
+            // same-named project methods, which is acceptable for local navigation.
+            val projectMethods = StubIndex.getElements(
+                CrystalMethodIndex.KEY, methodName, project,
+                scope, CrystalMethodDefinition::class.java
+            )
+            projectMethods.firstOrNull()?.let { return it }
         }
 
         return null
@@ -109,7 +152,7 @@ class CrystalDotCallReference(
      *   If no type can be inferred, className stays `null` and resolution aborts.
      */
     private data class ReceiverInfo(
-        val className: String?,        // simple name for CrystalMethodByClassIndex lookup
+        val classNames: List<String>, // inferred member type names (empty = unknown → no guessing)
         val isStatic: Boolean,
         val rawName: String,
         val qualifiedName: String? = null // full path for disambiguation, null if not a namespace path
@@ -135,20 +178,51 @@ class CrystalDotCallReference(
 
         // Direct CONSTANT token (e.g. `Apfel` in `Apfel.tanzen`)
         if (type == CrystalTypes.CONSTANT) {
-            return ReceiverInfo(prev.text, isStatic = true, rawName = prev.text)
+            return ReceiverInfo(listOf(prev.text), isStatic = true, rawName = prev.text)
         }
         // Composite wrapping a CONSTANT (e.g. variable_reference wrapping `Apfel`).
         val constantChild = prev.node?.findChildByType(CrystalTypes.CONSTANT)
         if (constantChild != null) {
-            return ReceiverInfo(constantChild.text, isStatic = true, rawName = constantChild.text)
+            return ReceiverInfo(listOf(constantChild.text), isStatic = true, rawName = constantChild.text)
         }
-        // IDENTIFIER receiver (e.g. `a` in `a.essen`) → infer type.
+        // IDENTIFIER receiver (e.g. `a` in `a.essen`) → infer type(s), including unions.
         if (type == CrystalTypes.IDENTIFIER ||
             prev.node?.findChildByType(CrystalTypes.IDENTIFIER) != null) {
             val varName = prev.text
-            // Infer the variable's type — no guessing if unknown.
-            val inferredType = CrystalTypeInference.inferType(varName, prev, element.project)
-            return ReceiverInfo(inferredType, isStatic = false, rawName = varName)
+            // Infer the variable's type(s) — empty list means unknown, no guessing.
+            val inferredTypes = CrystalTypeInference.inferTypeList(varName, prev, element.project)
+            return ReceiverInfo(inferredTypes, isStatic = false, rawName = varName)
+        }
+        // `self` receiver (e.g. `self.foo`) → resolve to the enclosing type. `self` is a keyword
+        // token (SELF), not an IDENTIFIER, so it was previously missed entirely and every
+        // `self.method` call returned null. Works for both instance (`self` = instance) and
+        // class (`def self.foo`, `self` = the class) methods.
+        if (type == CrystalTypes.SELF) {
+            val enclosing = CrystalPsiUtils.getEnclosingType(prev)
+            val className = enclosing?.let { CrystalPsiUtils.buildQualifiedName(it) }
+            if (className != null) return ReceiverInfo(listOf(className), isStatic = false, rawName = "self")
+            return null
+        }
+        // Literal / expression receiver (e.g. `1.foo`, `"s".upcase`, `[].size`, `{}.keys`)
+        // → infer the receiver's type via the expression type resolver. Placed last so it
+        // only runs for non-CONSTANT / non-IDENTIFIER / non-self receivers. Descends through
+        // any wrapper node (e.g. `primary_expression`) until it reaches a node resolveType
+        // understands, and strips generics (Array(Int32) → Array) so the class name matches
+        // the symbol-table key.
+        val typeName = inferReceiverTypeFromExpression(prev)
+        if (typeName != null) {
+            return ReceiverInfo(listOf(typeName), isStatic = false, rawName = prev.text)
+        }
+        return null
+    }
+
+    /** Descend through wrapper nodes until [CrystalExpressionTypeResolver] yields a type. */
+    private fun inferReceiverTypeFromExpression(expr: PsiElement): String? {
+        var current: PsiElement? = expr
+        while (current != null) {
+            val resolved = CrystalExpressionTypeResolver.resolveType(current)
+            if (resolved != null) return resolved.typeName.substringBefore("(")
+            current = current.children.firstOrNull { it !is PsiWhiteSpace }
         }
         return null
     }
@@ -188,6 +262,6 @@ class CrystalDotCallReference(
 
         val simpleName = pathParts.last()
         val qualifiedName = pathParts.joinToString("::")
-        return ReceiverInfo(simpleName, isStatic = true, rawName = simpleName, qualifiedName = qualifiedName)
+        return ReceiverInfo(listOf(simpleName), isStatic = true, rawName = simpleName, qualifiedName = qualifiedName)
     }
 }

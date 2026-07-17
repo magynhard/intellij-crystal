@@ -28,9 +28,21 @@ public class CrystalFunDefinitionImpl extends ASTWrapperPsiElement implements Cr
   }
 
   @Override
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
   @Nullable
   public CrystalParameterList getParameterList() {
     return PsiTreeUtil.getChildOfType(this, CrystalParameterList.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalStringExpression getStringExpression() {
+    return PsiTreeUtil.getChildOfType(this, CrystalStringExpression.class);
   }
 
   @Override

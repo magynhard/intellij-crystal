@@ -45,4 +45,10 @@ public class CrystalConditionImpl extends ASTWrapperPsiElement implements Crysta
     return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
 }

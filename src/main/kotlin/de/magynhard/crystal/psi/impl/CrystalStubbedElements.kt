@@ -45,18 +45,32 @@ private fun getNameFromTypeName(element: PsiElement): String? {
 private fun getNameFromMethodName(element: PsiElement): String? {
     // Try to find IDENTIFIER or CONSTANT first (regular method names)
     val identifier = findNameIdentifierInMethodName(element)
-    if (identifier != null) return identifier.text
+    if (identifier != null) {
+        // Setter methods (`def self.foo=(x)`) carry a trailing ASSIGN token in method_name;
+        // include it so the method is uniquely named `foo=` and resolvable from `obj.foo = y`.
+        val isSetter = element.node.getChildren(null).any { it.elementType == CrystalTypes.ASSIGN }
+        return identifier.text + if (isSetter) "=" else ""
+    }
 
-    // For operator methods (e.g. def self.[]), compose name from operator tokens
-    // method_name is now private (inlined), tokens are direct children of the definition node.
-    // Skip SELF and DOT prefix tokens.
+    // Keyword / operator method names (e.g. `def self.next`, `def ==`, `def []`, `def {{m}}`):
+    // method_name is inlined, so the name tokens are direct children of the definition node,
+    // between the DEF/SELF/DOT prefix and the parameter list / return type. Collect only those
+    // tokens; stop at the parameter list (LPAREN), return type (COLON), FORALL, END, or newline.
     val sb = StringBuilder()
     var child = element.node.firstChildNode
     while (child != null) {
         val type = child.elementType
-        if (type != CrystalTypes.SELF && type != CrystalTypes.DOT) {
-            sb.append(child.psi.text)
+        if (type == CrystalTypes.DEF || type == CrystalTypes.SELF || type == CrystalTypes.DOT ||
+            type == com.intellij.psi.TokenType.WHITE_SPACE || type == CrystalTypes.NEWLINE) {
+            child = child.treeNext
+            continue
         }
+        if (type == CrystalTypes.LPAREN || type == CrystalTypes.COLON ||
+            type == CrystalTypes.FORALL || type == CrystalTypes.END ||
+            type == CrystalTypes.NEWLINE) {
+            break
+        }
+        sb.append(child.psi.text)
         child = child.treeNext
     }
     return sb.toString().takeIf { it.isNotEmpty() }
@@ -136,6 +150,27 @@ abstract class CrystalStubbedMacroDefinitionImpl : StubBasedPsiElementBase<Cryst
 
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInMethodName(this)
     override fun getName(): String? = stub?.name ?: getNameFromMethodName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
+    override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
+}
+
+// ==================== Constant ====================
+
+abstract class CrystalStubbedConstantAssignmentImpl : StubBasedPsiElementBase<CrystalConstantAssignmentStub>, CrystalNamedElement {
+    constructor(node: ASTNode) : super(node)
+    constructor(stub: CrystalConstantAssignmentStub, nodeType: IStubElementType<*, *>) : super(stub, nodeType)
+
+    // The defined constant is the LAST CONSTANT token (e.g. `PI` in `Math::PI`).
+    override fun getNameIdentifier(): PsiElement? {
+        var lastConstant: PsiElement? = null
+        var child = node.firstChildNode
+        while (child != null) {
+            if (child.elementType == CrystalTypes.CONSTANT) lastConstant = child.psi
+            child = child.treeNext
+        }
+        return lastConstant
+    }
+    override fun getName(): String? = stub?.name ?: nameIdentifier?.text
     override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }

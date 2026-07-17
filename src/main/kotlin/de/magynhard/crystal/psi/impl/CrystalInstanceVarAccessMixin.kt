@@ -5,7 +5,6 @@ import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReference
 import de.magynhard.crystal.psi.CrystalInstanceVarAccess
-import de.magynhard.crystal.psi.CrystalNamedElement
 import de.magynhard.crystal.psi.CrystalInstanceVarReference
 import de.magynhard.crystal.psi.CrystalTypes
 
@@ -27,7 +26,8 @@ abstract class CrystalInstanceVarAccessMixin(node: ASTNode) : ASTWrapperPsiEleme
         return this
     }
 
-    override fun getNameIdentifier(): PsiElement? = node.findChildByType(CrystalTypes.INSTANCE_VAR)?.psi
+    override fun getNameIdentifier(): PsiElement? =
+        node.findChildByType(CrystalTypes.INSTANCE_VAR)?.psi ?: node.findChildByType(CrystalTypes.AT)?.psi
 
     override fun getReference(): PsiReference? = CrystalInstanceVarReference(this)
 

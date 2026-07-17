@@ -9,8 +9,7 @@ import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.ModuleRootModificationUtil
-import com.intellij.openapi.roots.OrderRootType
+
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.AlignX
@@ -124,34 +123,15 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     private fun forceReindex() {
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
         val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
-        val module = com.intellij.openapi.module.ModuleManager.getInstance(project).modules.firstOrNull() ?: return
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Re-indexing Crystal Stdlib", true) {
             override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
                 indicator.isIndeterminate = true
 
-                // Step 1: Remove module library
-                indicator.text = "Removing old Crystal Stdlib index..."
-                ModuleRootModificationUtil.updateModel(module) { model ->
-                    val existingLib = model.moduleLibraryTable.getLibraryByName(CrystalStdlibSourceRootConfigurator.LIBRARY_NAME)
-                    if (existingLib != null) {
-                        model.moduleLibraryTable.removeLibrary(existingLib)
-                    }
-                }
-
-                // Step 2: Re-add module library
-                indicator.text = "Adding Crystal Stdlib ($version)..."
-                ModuleRootModificationUtil.updateModel(module) { model ->
-                    val library = model.moduleLibraryTable.createLibrary(CrystalStdlibSourceRootConfigurator.LIBRARY_NAME)
-                    val libraryModel = library.modifiableModel
-                    libraryModel.addRoot(stdlibRoot, OrderRootType.SOURCES)
-                    libraryModel.commit()
-                }
-
-                // Step 3: Force re-index each stdlib file individually.
-                // This is necessary because StubUpdatingIndex caches by content hash —
-                // if the file content hasn't changed, the old stubs are reused even
-                // though the BNF grammar (and thus stub structure) may have changed.
+                // Force re-index each stdlib file individually.
+                // Necessary because StubUpdatingIndex caches by content hash —
+                // if file content hasn't changed, old stubs are reused even
+                // though BNF grammar (and thus stub structure) may have changed.
                 indicator.text = "Re-indexing Crystal Stdlib files ($version)..."
                 val stdlibFiles = collectCrystalFiles(stdlibRoot, indicator)
                 var processed = 0

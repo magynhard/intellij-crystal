@@ -7,8 +7,8 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalNextStatement extends PsiElement {
 
-  @Nullable
-  CrystalExpression getExpression();
+  @NotNull
+  List<CrystalExpression> getExpressionList();
 
   @Nullable
   CrystalPostfixModifier getPostfixModifier();

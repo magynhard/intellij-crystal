@@ -64,7 +64,7 @@ abstract class CrystalVariableReferenceMixin(node: ASTNode) : ASTWrapperPsiEleme
             CrystalTypes.CLASS_VAR -> "@@$bareName"
             else -> bareName
         }
-        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
+        val newNode = createLeafFromText(project, fixedName, tokenType) ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)
         return this
     }
@@ -81,6 +81,43 @@ abstract class CrystalBareMethodCallExpressionMixin(node: ASTNode) : ASTWrapperP
 }
 
 abstract class CrystalTypePathMixin(node: ASTNode) : ASTWrapperPsiElement(node) {
-    override fun getReference(): PsiReference? = createCrystalReference(this)
-    override fun getReferences(): Array<PsiReference> = reference?.let { arrayOf(it) } ?: PsiReference.EMPTY_ARRAY
+    override fun getReferences(): Array<PsiReference> = createCrystalTypeReferences(this)
+    override fun getReference(): PsiReference? = references.firstOrNull()
+}
+
+/**
+ * Reference for `type_path` elements (e.g. `IO::FileDescriptor`, `Bytes`, `MatchOptions::DotFiles`).
+ *
+ * Produces one reference per `::` segment, each resolved by its cumulative qualified name:
+ * `IO`, `IO::Class`, `IO::Class::FileDescriptor` are independently navigable, so clicking any
+ * segment lands on that segment's definition. This matches RubyMine, where every segment of a
+ * qualified constant is a separate navigable reference (rather than selecting the whole path).
+ * The reference is suppressed only when this type_path is a definition's own name
+ * (e.g. `class Foo` / `alias Bytes` / `module Foo::Bar`), to avoid self-references.
+ */
+private fun createCrystalTypeReferences(element: ASTWrapperPsiElement): Array<PsiReference> {
+    // Suppress the reference only when this type_path is the definition's own name
+    // (e.g. `class Foo` / `alias Bytes` / `module Foo::Bar`), so we never create a
+    // self-reference. Return-type annotations (`def foo : String`) and supertype
+    // clauses (`class Foo < Bar`) keep their reference and navigate normally.
+    val parent = element.parent
+    if (parent is CrystalNamedElement) return PsiReference.EMPTY_ARRAY
+
+    val text = element.text
+    if (text.isBlank()) return PsiReference.EMPTY_ARRAY
+
+    val segments = text.split("::")
+    if (segments.size == 1) {
+        return arrayOf(CrystalReference(element, text, 0, text.length))
+    }
+    // One reference per segment, keyed by the cumulative qualified name up to that segment.
+    val refs = ArrayList<PsiReference>(segments.size)
+    var offset = 0
+    for (i in segments.indices) {
+        val seg = segments[i]
+        val cumulative = segments.subList(0, i + 1).joinToString("::")
+        refs.add(CrystalReference(element, cumulative, offset, seg.length))
+        offset += seg.length + "::".length
+    }
+    return refs.toTypedArray()
 }

@@ -8,6 +8,12 @@ import com.intellij.psi.PsiElement;
 public interface CrystalLibBody extends PsiElement {
 
   @NotNull
+  List<CrystalAnnotationUsage> getAnnotationUsageList();
+
+  @NotNull
+  List<CrystalConstantAssignment> getConstantAssignmentList();
+
+  @NotNull
   List<CrystalEnumDefinition> getEnumDefinitionList();
 
   @NotNull
@@ -27,6 +33,9 @@ public interface CrystalLibBody extends PsiElement {
 
   @NotNull
   List<CrystalLibUnionDefinition> getLibUnionDefinitionList();
+
+  @NotNull
+  List<CrystalMacroControl> getMacroControlList();
 
   @NotNull
   List<CrystalTypeAliasLib> getTypeAliasLibList();

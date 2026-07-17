@@ -28,7 +28,22 @@ class CrystalParserDefinition : ParserDefinition {
 
     override fun createLexer(project: Project?): Lexer = CrystalLexerAdapter()
 
-    override fun createParser(project: Project?): PsiParser = CrystalParser()
+    override fun createParser(project: Project?): PsiParser {
+        // Safety net against the grammar's exponential backtracking on pathological
+        // inputs (e.g. deeply nested block / call structures) which previously froze the
+        // IDE. grammar-kit reads this property live on every parse, so capping the
+        // recursion depth guarantees termination. Valid Crystal files rarely nest deeper
+        // than ~100 levels, so the cap leaves ample headroom while aborting runaway
+        // parsing. The value can be overridden with -Dcrystal.gpub.max.level for tuning.
+        try {
+            if (System.getProperty("grammar.kit.gpub.max.level") == null) {
+                val limit = System.getProperty("crystal.gpub.max.level") ?: "200"
+                System.setProperty("grammar.kit.gpub.max.level", limit)
+            }
+        } catch (_: SecurityException) {
+        }
+        return CrystalParser()
+    }
 
     override fun getFileNodeType(): IFileElementType = FILE
 

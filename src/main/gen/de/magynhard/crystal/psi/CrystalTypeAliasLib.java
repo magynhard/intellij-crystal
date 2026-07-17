@@ -8,6 +8,6 @@ import com.intellij.psi.PsiElement;
 public interface CrystalTypeAliasLib extends PsiElement {
 
   @NotNull
-  CrystalTypeReference getTypeReference();
+  List<CrystalTypeReference> getTypeReferenceList();
 
 }

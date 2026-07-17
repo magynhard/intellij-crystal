@@ -468,7 +468,7 @@ class CrystalAnnotator : Annotator {
      * because interpolation splits a single logical line across multiple tokens.
      */
     private fun findMinContentIndent(parent: PsiElement, delimiter: String): Int? {
-        val nodeChildren = parent.node.getChildren(null) ?: return null
+        val nodeChildren = parent.node.getChildren(null)
         val contentBuilder = StringBuilder()
 
         for (node in nodeChildren) {
