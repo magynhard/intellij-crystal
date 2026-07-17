@@ -66,3 +66,11 @@ class CrystalMacroDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?
 ) : StubBase<CrystalMacroDefinition>(parent, elementType), CrystalNamedStub
+
+// ==================== Constant Stub ====================
+
+class CrystalConstantAssignmentStub(
+    parent: StubElement<*>?,
+    elementType: IStubElementType<*, *>,
+    override val name: String?
+) : StubBase<CrystalConstantAssignment>(parent, elementType), CrystalNamedStub

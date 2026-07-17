@@ -51,6 +51,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitBareCommandExpression(@NotNull CrystalBareCommandExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitBareMethodCallExpression(@NotNull CrystalBareMethodCallExpression o) {
     visitPsiElement(o);
   }
@@ -60,6 +64,10 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitBlock(@NotNull CrystalBlock o) {
+    visitPsiElement(o);
+  }
+
+  public void visitBreakExpression(@NotNull CrystalBreakExpression o) {
     visitPsiElement(o);
   }
 
@@ -96,7 +104,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitConstantAssignment(@NotNull CrystalConstantAssignment o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitDotCallAccess(@NotNull CrystalDotCallAccess o) {
@@ -267,6 +275,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitNextExpression(@NotNull CrystalNextExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitNextStatement(@NotNull CrystalNextStatement o) {
     visitPsiElement(o);
   }
@@ -303,6 +315,18 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitPropertyMacro(@NotNull CrystalPropertyMacro o) {
+    visitPsiElement(o);
+  }
+
+  public void visitRecordDefinition(@NotNull CrystalRecordDefinition o) {
+    visitPsiElement(o);
+  }
+
+  public void visitRecordField(@NotNull CrystalRecordField o) {
+    visitPsiElement(o);
+  }
+
   public void visitRegexExpression(@NotNull CrystalRegexExpression o) {
     visitPsiElement(o);
   }
@@ -312,6 +336,10 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitRescueClause(@NotNull CrystalRescueClause o) {
+    visitPsiElement(o);
+  }
+
+  public void visitReturnExpression(@NotNull CrystalReturnExpression o) {
     visitPsiElement(o);
   }
 
@@ -376,6 +404,10 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitTypePath(@NotNull CrystalTypePath o) {
+    visitPsiElement(o);
+  }
+
+  public void visitTypeReceiverExpression(@NotNull CrystalTypeReceiverExpression o) {
     visitPsiElement(o);
   }
 

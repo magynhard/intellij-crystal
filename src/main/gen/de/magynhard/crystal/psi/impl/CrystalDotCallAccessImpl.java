@@ -44,4 +44,10 @@ public class CrystalDotCallAccessImpl extends CrystalDotCallAccessMixin implemen
     return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalTypeReference getTypeReference() {
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
+  }
+
 }

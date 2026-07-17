@@ -44,6 +44,12 @@ public interface CrystalClassBody extends PsiElement {
   List<CrystalPropertyDeclaration> getPropertyDeclarationList();
 
   @NotNull
+  List<CrystalPropertyMacro> getPropertyMacroList();
+
+  @NotNull
+  List<CrystalRecordDefinition> getRecordDefinitionList();
+
+  @NotNull
   List<CrystalStatement> getStatementList();
 
   @NotNull

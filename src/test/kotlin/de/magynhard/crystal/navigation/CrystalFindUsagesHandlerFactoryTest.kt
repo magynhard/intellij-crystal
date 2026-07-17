@@ -1,6 +1,8 @@
 package de.magynhard.crystal.navigation
 
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.psi.CrystalConstantAssignment
 
 class CrystalFindUsagesHandlerFactoryTest : BasePlatformTestCase() {
 
@@ -67,5 +69,15 @@ class CrystalFindUsagesHandlerFactoryTest : BasePlatformTestCase() {
         val element = file.findElementAt(myFixture.caretOffset)!!
         val resolved = CrystalFindUsagesHandlerFactory.resolveNewToInitialize(element)
         assertNotNull("Bare .new should also resolve to initialize", resolved)
+    }
+
+    fun testCanFindUsagesForConstant() {
+        val file = myFixture.configureByText("test.cr", """
+            DEFAULT_CREATE_PERMISSIONS = 0o644
+        """.trimIndent())
+        val constDef = PsiTreeUtil.findChildOfType(file, CrystalConstantAssignment::class.java)!!
+        val factory = CrystalFindUsagesHandlerFactory()
+        assertTrue("Can find usages for CrystalConstantAssignment",
+            factory.canFindUsages(constDef))
     }
 }

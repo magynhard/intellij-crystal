@@ -11,7 +11,7 @@
   elementTypeHolderClass="de.magynhard.crystal.psi.CrystalTypes"
   elementTypeClass="de.magynhard.crystal.psi.CrystalElementType"
   tokenTypeClass="de.magynhard.crystal.lexer.CrystalTokenType"
-  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
+  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition|constant_assignment")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
 
   tokens = [
     // Keywords
@@ -204,6 +204,7 @@ private top_level_statement ::= NEWLINE
                               | module_definition
                               | struct_definition
                               | enum_definition
+                              | record_definition
                               | lib_definition
                               | top_level_fun
                               | annotation_definition
@@ -212,6 +213,7 @@ private top_level_statement ::= NEWLINE
                               | alias_definition
                               | visibility_modifier
                               | macro_control
+                              | property_macro
                               | statement
 
 // ==================== Require / Include / Extend ====================
@@ -256,33 +258,45 @@ enum_definition ::= ENUM type_name [COLON type_reference] enum_body END {
 
 lib_definition ::= LIB CONSTANT lib_body END {pin=1}
 
-annotation_definition ::= ANNOTATION type_name NEWLINE* END {pin=1}
+// `record` is a stdlib macro that expands to a class (e.g. `record Point(x : Int32, y : Int32)`).
+// It is parsed as a definition so stdlib files containing records (string.cr, array.cr, hash.cr,
+// ...) parse cleanly; otherwise the unparsed record breaks the whole file's StubIndex. Not stubbed
+// (record names are not separately indexed), but the body parses so enclosed methods/constants do.
+record_definition ::= RECORD type_name [type_parameters] [COMMA NLS record_field (COMMA NLS record_field)*] (block | class_body END)? {pin=1}
+
+record_field ::= IDENTIFIER [COLON type_reference] [ASSIGN expression] | STAR
+
+annotation_definition ::= ANNOTATION type_name (NEWLINE | SEMICOLON)* END {pin=1}
 
 annotation_usage ::= AT LBRACKET type_path [LPAREN NLS argument_list NLS RPAREN] RBRACKET
 
-alias_definition ::= ALIAS type_name ASSIGN type_reference {pin=1}
+// C-style function-pointer aliases may list comma-separated parameter types with an optional
+// return arrow: `alias AllocFunc = Void*, UInt, UInt -> Void*`.
+alias_definition ::= ALIAS type_name ASSIGN type_reference (COMMA NLS type_reference)* [ARROW NLS type_reference] {pin=1}
 
 // ==================== Type Bodies ====================
 
 class_body ::= class_member*
 
 private class_member ::= NEWLINE
-                        | SEMICOLON
-                        | annotation_usage
-                        | annotation_definition
-                        | method_definition
-                        | macro_definition
-                        | class_definition
-                        | module_definition
-                        | struct_definition
-                        | enum_definition
-                        | include_statement
-                        | extend_statement
-                        | alias_definition
-                        | visibility_modifier
-                        | property_declaration
-                        | macro_control
-                        | statement
+                       | SEMICOLON
+                       | annotation_usage
+                       | annotation_definition
+                       | method_definition
+                       | macro_definition
+                       | class_definition
+                       | module_definition
+                       | struct_definition
+                       | enum_definition
+                       | record_definition
+                       | include_statement
+                       | extend_statement
+                       | alias_definition
+                       | visibility_modifier
+                       | property_declaration
+                       | property_macro
+                       | macro_control
+                       | statement
 
 enum_body ::= enum_member*
 
@@ -292,65 +306,98 @@ enum_constant ::= CONSTANT [ASSIGN expression]
 
 lib_body ::= lib_member*
 
-private lib_member ::= NEWLINE | SEMICOLON | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
+private lib_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field | constant_assignment
 
-lib_field ::= IDENTIFIER COLON type_reference
+lib_field ::= (IDENTIFIER | CONSTANT | keyword_as_method) COLON type_reference
 
-lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
+lib_external_var ::= GLOBAL_VAR [ASSIGN primary_expression] COLON type_reference
 
-fun_definition ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+// `fun` in a `lib` block (external C binding). Supports:
+//  - stdcall name decoration: `fun MessageBox@16(...)`
+//  - aliasing:               `fun chown = __posix_chown(x0 : ..., ...) : Int`
+//  - keyword names:          `fun select(...)` (C names that are Crystal keywords)
+//  - PascalCase/CONSTANT names: `fun LocalFree(...)`, `fun FormatMessageA(...)` (Windows bindings)
+// The parameter list always sits in the same position (after the optional `= alias` name),
+// so the generated PSI exposes a single `parameterList`.
+fun_definition ::= FUN interpolated_name [AT INTEGER_LITERAL] [ASSIGN (interpolated_name | string_expression)] [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 
-top_level_fun ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
+private interpolated_name ::= (IDENTIFIER | CONSTANT | keyword_as_method) (macro_interpolation (IDENTIFIER | CONSTANT)?)*
 
-type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
+top_level_fun ::= FUN (IDENTIFIER | CONSTANT | keyword_as_method) [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
+
+// C function-pointer aliases can list comma-separated parameter types with an optional return:
+// `alias Handler = WCHAR*, WCHAR*, UInt -> Int`. Allow a comma-separated type list (function
+// pointer signature) in addition to a single type.
+type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference (COMMA NLS type_reference)* [ARROW NLS type_reference]
 
 lib_type_alias ::= IDENTIFIER CONSTANT ASSIGN type_reference
+                 | TYPE CONSTANT ASSIGN type_reference
 
 lib_struct_definition ::= STRUCT CONSTANT lib_body END
+                        | STRUCT CONSTANT NEWLINE
 
 lib_union_definition ::= UNION CONSTANT lib_body END
+                       | UNION CONSTANT NEWLINE
 
 // ==================== Methods ====================
 
 method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*]
-                    | DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*] method_body END {
+                    | DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*] [method_body END] {
   pin(".*")=2
   stubClass="de.magynhard.crystal.stubs.CrystalMethodDefinitionStub"
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMethodDefinitionImpl"
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-private method_name ::= IDENTIFIER
-              | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
-              | keyword_as_method
-              | operator_method_name
-              | macro_interpolation
+private method_name ::= IDENTIFIER [macro_interpolation] [BANG|QUESTION] [ASSIGN]
+                      | CONSTANT [macro_interpolation] [BANG|QUESTION] [ASSIGN]
+                      | type_path DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation) [BANG|QUESTION] [ASSIGN]
+                      | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation) [BANG|QUESTION] [ASSIGN]
+                      | macro_interpolation DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name) [BANG|QUESTION] [ASSIGN]
+                      | macro_interpolation [BANG|QUESTION] [ASSIGN]
+                      | keyword_as_method [ASSIGN]
+                      | operator_method_name
+                      | macro_interpolation
 
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
-                                | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
-                                | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET QUESTION | LBRACKET RBRACKET
+                               | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
+                               | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET QUESTION | LBRACKET RBRACKET
 
 method_body ::= statement_list rescue_clause* [else_clause] [ensure_clause]
 
 macro_body ::= macro_body_element*
+
 private macro_body_element ::= MACRO_BODY_CONTENT
                              | MACRO_FRESH_VAR
                              | macro_interpolation
                              | macro_control
                              | NEWLINE
-macro_interpolation ::= MACRO_INTERPOLATION_BEGIN expression MACRO_INTERPOLATION_END
-macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
+
+macro_interpolation ::= MACRO_INTERPOLATION_BEGIN (bare_command_expression | expression) MACRO_INTERPOLATION_END
+
+macro_control ::= MACRO_CONTROL_BEGIN macro_control_content* MACRO_CONTROL_END
+
+private macro_control_content ::= macro_control_token | macro_control | fun_definition | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field | constant_assignment | type_alias_lib | lib_type_alias | annotation_usage
+
 private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
-    | INTEGER_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
-    | SYMBOL_LITERAL | SYMBOL_COLON
-    | TRUE | FALSE | NIL
-    | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD | VERBATIM
-    | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
-    | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
-    | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
-    | DOUBLE_COLON | PERCENT
-    | NEWLINE | SEMICOLON | HASH | AT | ARROW | ANNOTATION
+                              | INTEGER_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
+                              | SYMBOL_LITERAL | SYMBOL_COLON
+                              | TRUE | FALSE | NIL
+                              | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD | VERBATIM
+                              | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
+                              | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
+                              | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
+                              | DOUBLE_COLON | PERCENT
+                              | NEWLINE | SEMICOLON | HASH | AT | ARROW | ANNOTATION
+                              | COMMAND_BEGIN | COMMAND_LITERAL | COMMAND_END
+                              | MACRO_INTERPOLATION_BEGIN | MACRO_INTERPOLATION_END
+                              | DO | DEF | CLASS | MODULE | STRUCT | ENUM | MACRO | RETURN | BREAK | NEXT
+                              | THEN | WHEN | CASE | WHILE | UNTIL | RESCUE | ENSURE | FUN | LIB | TYPE | ALIAS
+                              | AS | OF | IS_A | NIL_QUESTION | RESPONDS_TO | ABSTRACT | PROTECTED | PRIVATE
+                              | SELECT | SUPER | PREVIOUS_DEF | WITH | UNION | EXTEND | INCLUDE | REQUIRE
+                              | TYPEOF | SELF | ASM | FORALL | OUT | POINTEROF | SIZEOF | INSTANCE_SIZEOF
+                              | OFFSETOF | UNINITIALIZED
 
 macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] macro_body END {
   pin=1
@@ -362,27 +409,45 @@ macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] ma
 // ==================== Parameters ====================
 
 parameter_list ::= [parameter_item (COMMA NLS parameter_item)* [COMMA]]
+
 private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 
 private param_prefix ::= annotation_usage
                        | macro_control
-parameter ::= param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER IDENTIFIER [COLON type_reference] [ASSIGN expression]
+                       | OUT
+
+parameter ::= param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER instance_var_access [COLON type_reference] [ASSIGN expression]
+            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER IDENTIFIER [COLON type_reference] [ASSIGN expression]
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] class_var_access [COLON type_reference] [ASSIGN expression]
+            | param_prefix* AMPERSAND class_var_access [COLON type_reference]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | param_prefix* AMPERSAND [COLON type_reference]
-            | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN {
+            | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
+            | param_prefix* type_reference {
   mixin="de.magynhard.crystal.psi.impl.CrystalParameterMixin"
 }
+
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
 
 // ==================== Property Declarations ====================
+
+// Property-generating macros (`getter`, `setter`, `property`, `class_getter`, `class_property`,
+// `class_setter`, optionally with a `?`/`!` suffix) take bare arguments of the form
+// `name [: Type] [= default]`. They are method-call macros but written parenthesis-free, so they
+// need a dedicated rule (a general bare-command `=` arg would wrongly swallow real assignments).
+property_macro ::= property_macro_name (bare_property_arg (COMMA NLS bare_property_arg)* | bare_property_arg) [block] {pin=1}
+
+private property_macro_name ::= "getter" | "getter?" | "setter" | "setter?" | "property" | "property?" | "class_getter" | "class_setter" | "class_property"
+
+private bare_property_arg ::= [LPAREN] (IDENTIFIER | NEXT) [COLON type_reference] [RPAREN] [ASSIGN expression]
 
 property_declaration ::= (instance_var_access | class_var_access | IDENTIFIER | SELF DOT IDENTIFIER) COLON type_reference [ASSIGN expression]
 
 // ==================== Visibility ====================
 
-visibility_modifier ::= (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | constant_assignment | statement)
+visibility_modifier ::= (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | module_definition | struct_definition | enum_definition | record_definition | constant_assignment | property_macro | statement)
                       | (PRIVATE | PROTECTED) SELF DOT IDENTIFIER [call_args | bare_argument_list] [block]
                       | (PRIVATE | PROTECTED) &NEWLINE
 
@@ -411,13 +476,16 @@ statement ::= if_statement
             | assignment
             | constant_assignment
             | macro_control
+            | bare_command_expression
+            | method_definition
+            | macro_definition
             | expression_statement
 
 expression_statement ::= expression [expression_assign_suffix [postfix_modifier] | postfix_modifier]
 
-private expression_assign_suffix ::= assign_op NLS expression
+private expression_assign_suffix ::= assign_op NLS? (assignment | expression)
 
-postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) expression
+postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) expression [expression_assign_suffix]
 
 // ==================== Control Flow ====================
 
@@ -430,11 +498,12 @@ while_statement ::= WHILE condition then_clause statement_list END {pin=1}
 until_statement ::= UNTIL condition then_clause statement_list END {pin=1}
 
 condition ::= condition_assignment | expression
+
 private condition_assignment ::= variable ASSIGN NLS expression
 
 for_statement ::= FOR IDENTIFIER IN expression then_clause statement_list END {pin=1}
 
-case_statement ::= CASE [expression] NEWLINE* (when_clause | in_clause)+ [else_clause] END {pin=1}
+case_statement ::= CASE [assignment | expression] NEWLINE* (when_clause | in_clause)+ [else_clause] END {pin=1}
 
 begin_statement ::= BEGIN statement_list rescue_clause* [else_clause] [ensure_clause] END {pin=1}
 
@@ -458,52 +527,69 @@ rescue_clause ::= RESCUE [rescue_spec] then_clause statement_list
 // Order matters in PEG (longer alternative first for IDENTIFIER disambiguation).
 // type_reference supports unions (SomeError | OtherError) and namespaces (::Foo).
 private rescue_spec ::= IDENTIFIER COLON type_reference
-                       | IDENTIFIER
-                       | type_reference
+                      | IDENTIFIER
+                      | type_reference
 
 ensure_clause ::= ENSURE statement_list
 
 return_statement ::= RETURN postfix_modifier
-                   | RETURN expression [postfix_modifier]
+                   | RETURN expression? (COMMA NLS expression)* [postfix_modifier]
                    | RETURN {pin=1}
 
 break_statement ::= BREAK postfix_modifier
-                  | BREAK expression [postfix_modifier]
+                  | BREAK expression? (COMMA NLS expression)* [postfix_modifier]
                   | BREAK {pin=1}
 
 next_statement ::= NEXT postfix_modifier
-                 | NEXT expression [postfix_modifier]
+                 | NEXT expression? (COMMA NLS expression)* [postfix_modifier]
                  | NEXT {pin=1}
 
+// `return`/`break`/`next` are also valid expressions in Crystal (e.g. `x || return nil`,
+// `yield || break`). They appear as operands of `||`/`&&` and in argument position.
+return_expression ::= RETURN expression? (COMMA NLS expression)*
+
+break_expression ::= BREAK expression? (COMMA NLS expression)*
+
+next_expression ::= NEXT expression? (COMMA NLS expression)*
+
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
-yield_expression ::= YIELD expression {pin=1}
+
+yield_expression ::= YIELD [expression (COMMA NLS expression)*] {pin=1}
 
 with_yield_statement ::= WITH expression YIELD {pin=1}
 
 // ==================== Assignments ====================
 
-assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] {pin=2
+assignment ::= variable assign_op NLS? (assignment | expression) [postfix_modifier] {pin=2
   mixin="de.magynhard.crystal.psi.impl.CrystalAssignmentMixin"
 }
 
-multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values {pin=4}
+multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values
+
 private multi_assign_target_list ::= multi_assign_target (COMMA NLS multi_assign_target)*
+
 multi_assign_target ::= STAR variable
-                       | STAR UNDERSCORE
-                       | variable [COLON type_reference]
-                       | UNDERSCORE
-                       | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
+                      | STAR UNDERSCORE
+                      | variable [COLON type_reference]
+                      | UNDERSCORE
+                      | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
+
 private multi_assign_values ::= expression (COMMA expression)*
 
-constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {pin=2}
+constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {
+  pin=2
+  stubClass="de.magynhard.crystal.stubs.CrystalConstantAssignmentStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedConstantAssignmentImpl"
+  implements="de.magynhard.crystal.psi.CrystalNamedElement"
+}
 
-private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
+private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER macro_interpolation | IDENTIFIER
 
 private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
-                     | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
-                     | DOUBLE_STAR_ASSIGN | DOUBLE_SLASH_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
-                     | OR_OR_ASSIGN | AND_AND_ASSIGN
-                     | WRAP_PLUS_ASSIGN | WRAP_MINUS_ASSIGN | WRAP_STAR_ASSIGN | WRAP_DOUBLE_STAR_ASSIGN
+                    | OR_OR_ASSIGN | AND_AND_ASSIGN | CARET_ASSIGN | PERCENT_ASSIGN
+                    | AMPERSAND_ASSIGN | PIPE_ASSIGN | DOUBLE_STAR_ASSIGN | DOUBLE_SLASH_ASSIGN
+                    | LSHIFT_ASSIGN | RSHIFT_ASSIGN
+                    | WRAP_PLUS_ASSIGN | WRAP_MINUS_ASSIGN | WRAP_STAR_ASSIGN | WRAP_DOUBLE_STAR_ASSIGN
 
 // ==================== Expressions ====================
 
@@ -537,7 +623,7 @@ private multiplicative_expression ::= power_expression ((STAR | SLASH | DOUBLE_S
 private power_expression ::= unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS unary_expression)*
 
 private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET) unary_expression
-                            | postfix_expression
+                           | postfix_expression
 
 private postfix_expression ::= primary_expression postfix_op*
 
@@ -545,7 +631,6 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
                      | NLS dot_call_access [block]
                      | namespace_access
                      | LBRACKET argument_list RBRACKET [QUESTION]
-                     | call_args [block]
                      | NLS DOT IDENTIFIER assign_op expression
 
 // DOT-call access: the method-name + optional args part of a DOT-call (e.g. `.tanzen`,
@@ -554,7 +639,11 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // and hover for DOT-calls (Apfel.tanzen, a.essen) through the same PsiReference
 // mechanism as variable_reference. The DOT and method name are children of this composite;
 // the receiver is the prevSibling in the flattened postfix_expression sequence.
-dot_call_access ::= DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation) [call_args | bare_argument_list] {
+// Type-cast form: .as(T) / .as?(T) / .is_a?(T) take a *type*, not an expression argument.
+// Placed first so PEG prefers it over the generic call_args (which would try to parse T
+// as an expression and fail on pointer types like `self*`).
+dot_call_access ::= DOT (AS | AS_QUESTION | IS_A) LPAREN NLS type_reference NLS RPAREN [ASSIGN]
+                  | DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation | INSTANCE_VAR | CLASS_VAR) [ASSIGN] [call_args | !LBRACE bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
@@ -596,12 +685,14 @@ private keyword_as_method ::= ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
 // ==================== Primary Expressions ====================
 
 private primary_expression ::= grouped_expression
+                             | type_receiver_expression
                              | array_literal
                              | hash_literal
                              | tuple_literal
                              | proc_literal
                              | namespace_access
                              | method_call_expression
+                             | bare_command_expression
                              | implicit_object_call
                              | literal
                              | instance_var_access
@@ -610,25 +701,48 @@ private primary_expression ::= grouped_expression
                              | typeof_expression
                              | sizeof_expression
                              | instance_sizeof_expression
-                              | pointerof_expression
+                             | pointerof_expression
                              | offsetof_expression
-                                   | uninitialized_expression
-                                   | asm_expression
-                                   | macro_interpolation
-                              | yield_expression
-                              | macro_interpolation
-                              | if_statement
-                              | unless_statement
+                             | uninitialized_expression
+                             | asm_expression
+                             | macro_interpolation
+                             | yield_expression
+                             | macro_control
+                             | if_statement
+                             | unless_statement
                              | case_statement
                              | begin_statement
+                             | return_expression
+                             | break_expression
+                             | next_expression
 
 grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAREN
 
-method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-                         | (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !binary_op_lookahead bare_argument_list [block]
+// Bare (parenthesis-free) command calls such as `puts "x"`, `describe X do ... end`,
+// or `get "/path" do ... end` are intentionally NOT part of `method_call_expression`
+// (the recursive expression tower). A bare command's argument list is itself parsed by
+// the full expression tower, which previously let the backtracking parser explore an
+// exponential number of argument-groupings and hang on deeply nested inputs (IDE-freeze
+// bug). Keeping the bare-command form at the statement level only breaks that cycle: it
+// can no longer be reached from inside an expression, so no infinite/explosive mutual
+// recursion occurs. The `!LPAREN !DOT !LBRACKET !binary_op_lookahead` lookahead prevents
+// a parenthesised call like `add("x")` from being greedily consumed as a bare command
+// (the command `add` with the grouped-expression argument `("x")`).
+bare_command_expression ::= [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !LPAREN !DOT !LBRACKET !binary_op_lookahead !bare_assign_lookahead (bare_argument_list [block] | block) [postfix_modifier]
+                          | (SUPER | PREVIOUS_DEF) !LPAREN !bare_assign_lookahead (bare_argument_list | block) [postfix_modifier] {
+  mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
+}
+
+// A bare command (shell-style `cp a b`) never contains a top-level `=` assignment among its
+// arguments; method-call macros like `property name : Type = default` / `getter foo = bar` do.
+// Exclude the bare-command interpretation when such an `=` is present so def-macro calls win.
+private bare_assign_lookahead ::= &( (!ASSIGN !NEWLINE ANY_TOKEN)* ASSIGN )
+
+method_call_expression ::= type_path call_args [block]
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
                          | (IDENTIFIER | CONSTANT) block
-                         | (SUPER | PREVIOUS_DEF) call_args
-                         | (SUPER | PREVIOUS_DEF) bare_argument_list {
+                         | (SUPER | PREVIOUS_DEF) call_args [block]
+                         | (SUPER | PREVIOUS_DEF) block {
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
 
@@ -641,15 +755,16 @@ method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
 // literals, percent literals, heredocs, commands, regex, and macro interpolation.
 // Tradeoff: bare calls with splat like "add *args" need parentheses: "add(*args)".
 private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PERCENT | DOUBLE_STAR)
-    (IDENTIFIER | CONSTANT | STRING_LITERAL | INTEGER_LITERAL | FLOAT_LITERAL | CHAR_LITERAL
-     | SYMBOL_LITERAL | NIL | TRUE | FALSE | SELF | SUPER | PREVIOUS_DEF
-     | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
-     | LPAREN | LBRACKET | LBRACE
-     | PERCENT_LITERAL_BEGIN | PERCENT_SYMBOL_BEGIN
-     | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN)
+                               (IDENTIFIER | CONSTANT | STRING_LITERAL | INTEGER_LITERAL | FLOAT_LITERAL | CHAR_LITERAL
+                               | SYMBOL_LITERAL | NIL | TRUE | FALSE | SELF | SUPER | PREVIOUS_DEF
+                               | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+                               | LPAREN | LBRACKET | LBRACE
+                               | PERCENT_LITERAL_BEGIN | PERCENT_SYMBOL_BEGIN
+                               | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN)
 
 // Implicit object call: .method, .method(args), or .[index] (used in &.foo shorthand and case/when patterns)
-implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]
+implicit_object_call ::= DOT (AS | AS_QUESTION | IS_A) LPAREN NLS type_reference NLS RPAREN
+                       | DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | CASE_EQ | operator_method_name) [call_args] [block]
                        | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
 
 call_args ::= LPAREN NLS argument_list NLS RPAREN
@@ -660,7 +775,7 @@ argument_list ::= argument (NLS COMMA NLS argument)* [NLS COMMA]
 argument ::= STAR expression
            | DOUBLE_STAR expression
            | AMPERSAND expression
-           | OUT IDENTIFIER
+           | OUT (IDENTIFIER | instance_var_access)
            | named_argument
            | expression
 
@@ -678,7 +793,7 @@ bare_argument ::= named_bare_argument
                 | DOUBLE_STAR bare_expression
                 | AMPERSAND bare_expression
                 | bare_expression
-                | OUT IDENTIFIER
+                | OUT (IDENTIFIER | instance_var_access)
 
 // Named bare argument: requires both IDENTIFIER and COLON to match before committing.
 // Without pin=2, the optional [IDENTIFIER COLON] prefix would greedily consume
@@ -701,7 +816,7 @@ private bare_not_expression ::= BANG bare_not_expression | bare_comparison_expre
 private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
 
 private bare_range_expression ::= [bare_or_bitwise_expression] (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
-                               | bare_or_bitwise_expression
+                                | bare_or_bitwise_expression
 
 private bare_or_bitwise_expression ::= bare_xor_expression (PIPE NLS bare_xor_expression)*
 
@@ -723,13 +838,13 @@ private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR) bare
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
 private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
-                           | NLS dot_call_access
+                          | NLS dot_call_access
                           | namespace_access
                           | LBRACKET argument_list RBRACKET [QUESTION]
-                          | call_args
 
 // Bare primary: like primary but no blocks or method calls with bare args (to prevent ambiguity)
 private bare_primary_expression ::= grouped_expression
+                                  | type_receiver_expression
                                   | array_literal
                                   | hash_literal
                                   | tuple_literal
@@ -745,11 +860,14 @@ private bare_primary_expression ::= grouped_expression
                                   | instance_sizeof_expression
                                   | pointerof_expression
                                   | offsetof_expression
-                                   | uninitialized_expression
-                                   | asm_expression
-                                   | macro_interpolation
+                                  | uninitialized_expression
+                                  | asm_expression
+                                  | macro_interpolation
+                                  | return_expression
+                                  | break_expression
+                                  | next_expression
 
-bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
+bare_method_call_expression ::= [DOUBLE_COLON] (IDENTIFIER | CONSTANT) call_args {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 
@@ -781,14 +899,18 @@ private literal ::= INTEGER_LITERAL
                   | percent_literal
 
 string_expression ::= (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
+
 regex_expression ::= REGEX_BEGIN (REGEX_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* REGEX_END
+
 command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* COMMAND_END
 
 heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END?
 
 percent_literal ::= PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
                   | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
+
 private percent_literal_content ::= STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
+
 private percent_symbol_content ::= SYMBOL_LITERAL | NEWLINE
 
 symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
@@ -805,17 +927,17 @@ hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
 
 // ==================== Variable References ====================
 
-instance_var_access ::= INSTANCE_VAR {
+instance_var_access ::= AT macro_interpolation | INSTANCE_VAR {
   mixin="de.magynhard.crystal.psi.impl.CrystalInstanceVarAccessMixin"
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-class_var_access ::= CLASS_VAR {
+class_var_access ::= AT AT macro_interpolation | CLASS_VAR {
   mixin="de.magynhard.crystal.psi.impl.CrystalClassVarAccessMixin"
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT {
+variable_reference ::= GLOBAL_VAR | CONSTANT | IDENTIFIER macro_interpolation | IDENTIFIER {
   mixin="de.magynhard.crystal.psi.impl.CrystalVariableReferenceMixin"
 }
 
@@ -826,16 +948,25 @@ type_reference ::= type_union [ARROW [type_union]]
 
 private type_union ::= type_single (PIPE NLS type_single)*
 
-private type_single ::= STAR type_path [type_arguments] [QUESTION]
-                       | type_path [type_arguments] [DOT CLASS] [QUESTION] (STAR | DOUBLE_STAR)* [LBRACKET INTEGER_LITERAL RBRACKET]
-                       | SELF [QUESTION]
-                       | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN [QUESTION]
-                       | LPAREN type_reference (COMMA type_reference)* RPAREN
-                       | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
-                       | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
-                       | IDENTIFIER
+// A type with arguments used as a method-call receiver, e.g. `Hash(K, V).new` or
+// `Pointer(T*).malloc`. The `&DOT` lookahead keeps it from shadowing an ordinary
+// method call `Foo(x)` that is not followed by a member access.
+type_receiver_expression ::= type_path type_arguments &DOT
 
-type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
+private type_single ::= STAR type_path [type_arguments] [QUESTION]
+                      | type_path macro_interpolation [QUESTION]
+                      | type_path [type_arguments] [DOT CLASS] [QUESTION] (STAR | DOUBLE_STAR)* [LBRACKET (INTEGER_LITERAL | CONSTANT) RBRACKET]
+                      | SELF STAR [QUESTION]
+                      | SELF [QUESTION]
+                      | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN [QUESTION]
+                      | LPAREN type_reference (COMMA type_reference)* RPAREN [QUESTION]
+                      | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE [QUESTION]
+                      | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE [QUESTION]
+                      | macro_interpolation (DOT (CLASS | IDENTIFIER | CONSTANT))* [QUESTION]
+                      | macro_interpolation [QUESTION]
+                      | IDENTIFIER
+
+type_path ::= [DOUBLE_COLON] (CONSTANT | macro_interpolation) (DOUBLE_COLON (CONSTANT | macro_interpolation))* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"
 }
 
@@ -844,11 +975,12 @@ type_arguments ::= LPAREN NLS type_argument (NLS COMMA NLS type_argument)* [NLS 
 private type_argument ::= type_reference | INTEGER_LITERAL
 
 type_parameters ::= LPAREN NLS type_parameter_item (COMMA NLS type_parameter_item)* [COMMA] NLS RPAREN
+
 private type_parameter_item ::= [STAR] CONSTANT [ASSIGN type_reference]
 
 // ==================== Type Names ====================
 
-private type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
+private type_name ::= (CONSTANT | macro_interpolation) (DOUBLE_COLON (CONSTANT | macro_interpolation))*
 
 // ==================== Typeof / Sizeof ====================
 
@@ -858,7 +990,7 @@ sizeof_expression ::= SIZEOF LPAREN NLS type_reference NLS RPAREN {pin=1}
 
 instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN NLS type_reference NLS RPAREN {pin=1}
 
-pointerof_expression ::= POINTEROF LPAREN NLS (instance_var_access | class_var_access | variable_reference) NLS RPAREN {pin=1}
+pointerof_expression ::= POINTEROF LPAREN NLS (postfix_expression | instance_var_access | class_var_access | variable_reference) NLS RPAREN {pin=1}
 
 offsetof_expression ::= OFFSETOF LPAREN NLS type_reference COMMA NLS instance_var_access NLS RPAREN {pin=1}
 

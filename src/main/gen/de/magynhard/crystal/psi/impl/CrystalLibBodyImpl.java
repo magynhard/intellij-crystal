@@ -29,6 +29,18 @@ public class CrystalLibBodyImpl extends ASTWrapperPsiElement implements CrystalL
 
   @Override
   @NotNull
+  public List<CrystalAnnotationUsage> getAnnotationUsageList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAnnotationUsage.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalConstantAssignment> getConstantAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalConstantAssignment.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalEnumDefinition> getEnumDefinitionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalEnumDefinition.class);
   }
@@ -67,6 +79,12 @@ public class CrystalLibBodyImpl extends ASTWrapperPsiElement implements CrystalL
   @NotNull
   public List<CrystalLibUnionDefinition> getLibUnionDefinitionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalLibUnionDefinition.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalMacroControl> getMacroControlList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
   }
 
   @Override

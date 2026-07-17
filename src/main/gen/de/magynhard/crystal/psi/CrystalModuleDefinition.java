@@ -12,6 +12,9 @@ public interface CrystalModuleDefinition extends CrystalNamedElement, StubBasedP
   @Nullable
   CrystalClassBody getClassBody();
 
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
   @Nullable
   CrystalTypeParameters getTypeParameters();
 

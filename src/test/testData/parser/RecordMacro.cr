@@ -10,3 +10,5 @@ record User, name : String = "anonymous", age : Int32 = 0, admin : Bool = false
 record Vec3D, x : Float64 = 0.0, y : Float64 = 0.0, z : Float64 = 0.0
 
 record Options, flag : Bool = true, count : Int32 = 5
+
+record ToUnsignedInfo(T), value : T, negative : Bool, invalid : Bool

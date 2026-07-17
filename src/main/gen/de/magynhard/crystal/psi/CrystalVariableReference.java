@@ -7,4 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalVariableReference extends PsiElement {
 
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
 }

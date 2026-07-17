@@ -40,6 +40,12 @@ public class CrystalMultiAssignTargetImpl extends ASTWrapperPsiElement implement
   }
 
   @Override
+  @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
   @NotNull
   public List<CrystalMultiAssignTarget> getMultiAssignTargetList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMultiAssignTarget.class);

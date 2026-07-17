@@ -6,7 +6,6 @@ import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
-import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalMethodIndex
@@ -35,6 +34,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 when (element) {
                     is CrystalMethodCallExpression -> checkCall(element, holder)
                     is CrystalBareMethodCallExpression -> checkCall(element, holder)
+                    is CrystalBareCommandExpression -> checkCall(element, holder)
                     is CrystalCallArgs, is CrystalBareArgumentList -> {
                         val dotCallInfo = detectDotCall(element)
                         if (dotCallInfo != null) {
@@ -269,7 +269,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 CrystalTypes.STAR -> { hasSplat = true; continue }
                 CrystalTypes.DOUBLE_STAR -> { hasDoubleSplat = true; continue }
             }
-            val name = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param) ?: continue
+            val name = CrystalCompletionHelper.extractParameterName(param) ?: continue
             val hasDefault = param.expression != null
             regularParams.add(ParamInfo(name, hasDefault))
         }
@@ -319,7 +319,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
     private fun detectDotCall(argsElement: PsiElement): DotCallInfo? {
         val parent = argsElement.parent
-        if (parent is CrystalMethodCallExpression || parent is CrystalBareMethodCallExpression) return null
+        if (parent is CrystalMethodCallExpression || parent is CrystalBareMethodCallExpression || parent is CrystalBareCommandExpression) return null
 
         var sibling = argsElement.prevSibling
         while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
@@ -378,6 +378,8 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     }
                     return result
                 }
+            }
+            is CrystalBareCommandExpression -> {
                 val bareArgList = callExpr.bareArgumentList
                 if (bareArgList != null) {
                     for (bareArg in bareArgList.bareArgumentList) {
@@ -387,12 +389,10 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
             is CrystalBareMethodCallExpression -> {
                 val callArgs = callExpr.callArgs
-                if (callArgs != null) {
-                    val argList = callArgs.argumentList
-                    if (argList != null) {
-                        for (arg in argList.argumentList) {
-                            result.add(extractArgInfo(arg))
-                        }
+                val argList = callArgs.argumentList
+                if (argList != null) {
+                    for (arg in argList.argumentList) {
+                        result.add(extractArgInfo(arg))
                     }
                 }
             }
@@ -718,51 +718,10 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
      */
     private fun findRecordParameters(className: String, contextElement: PsiElement): List<ParamInfo>? {
         val file = contextElement.containingFile ?: return null
-        val recordCalls = PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java)
-        for (call in recordCalls) {
-            val methodName = call.firstChild
-            if (methodName?.text != "record") continue
-            // First bare argument should be the class name (CONSTANT, possibly wrapped in VARIABLE_REFERENCE)
-            val bareArgList = call.bareArgumentList ?: continue
-            val firstArg = bareArgList.bareArgumentList.firstOrNull() ?: continue
-            val firstName = firstArg.firstChild
-            // The CONSTANT may be wrapped in a VARIABLE_REFERENCE node
-            val nameText = if (firstName?.node?.elementType == CrystalTypes.CONSTANT) {
-                firstName.text
-            } else {
-                firstName?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
-            }
-            if (nameText == className) {
-                return extractRecordFields(bareArgList)
-            }
+        val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file) ?: return null
+        return CrystalCompletionHelper.extractRecordFields(recordDef).map {
+            ParamInfo(it.name, it.defaultText != null)
         }
-        return null
-    }
-
-    /**
-     * Extracts parameter infos from a record's bare argument list.
-     * Each record field like `host : String` or `port : Int32 = 80` becomes a ParamInfo.
-     */
-    private fun extractRecordFields(bareArgList: CrystalBareArgumentList): List<ParamInfo> {
-        val params = mutableListOf<ParamInfo>()
-        val args = bareArgList.bareArgumentList
-        // Skip the first argument (class name)
-        for (i in 1 until args.size) {
-            val arg = args[i]
-            val children = arg.node.getChildren(null)
-            var name: String? = null
-            var hasDefault = false
-            for (child in children) {
-                when (child.elementType) {
-                    CrystalTypes.IDENTIFIER -> name = child.text
-                    CrystalTypes.ASSIGN -> hasDefault = true
-                }
-            }
-            if (name != null) {
-                params.add(ParamInfo(name, hasDefault))
-            }
-        }
-        return params
     }
 
     /**

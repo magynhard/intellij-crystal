@@ -10,4 +10,7 @@ public interface CrystalArgument extends PsiElement {
   @Nullable
   CrystalExpression getExpression();
 
+  @Nullable
+  CrystalInstanceVarAccess getInstanceVarAccess();
+
 }

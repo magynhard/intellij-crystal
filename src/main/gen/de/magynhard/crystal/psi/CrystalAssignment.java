@@ -20,6 +20,9 @@ public interface CrystalAssignment extends PsiElement {
   CrystalInstanceVarAccess getInstanceVarAccess();
 
   @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
+  @Nullable
   CrystalPostfixModifier getPostfixModifier();
 
 }

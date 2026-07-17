@@ -28,12 +28,6 @@ public class CrystalMethodCallExpressionImpl extends CrystalMethodCallExpression
 
   @Override
   @Nullable
-  public CrystalBareArgumentList getBareArgumentList() {
-    return PsiTreeUtil.getChildOfType(this, CrystalBareArgumentList.class);
-  }
-
-  @Override
-  @Nullable
   public CrystalBlock getBlock() {
     return PsiTreeUtil.getChildOfType(this, CrystalBlock.class);
   }
@@ -42,6 +36,12 @@ public class CrystalMethodCallExpressionImpl extends CrystalMethodCallExpression
   @Nullable
   public CrystalCallArgs getCallArgs() {
     return PsiTreeUtil.getChildOfType(this, CrystalCallArgs.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalTypePath getTypePath() {
+    return PsiTreeUtil.getChildOfType(this, CrystalTypePath.class);
   }
 
 }

@@ -34,6 +34,7 @@ class CrystalFindUsagesProvider : FindUsagesProvider {
             is CrystalEnumDefinition -> "enum"
             is CrystalMethodDefinition -> "method"
             is CrystalMacroDefinition -> "macro"
+            is CrystalConstantAssignment -> "constant"
             else -> when (element.node?.elementType) {
                 CrystalTypes.CONSTANT -> "type"
                 CrystalTypes.IDENTIFIER -> "symbol"

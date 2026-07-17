@@ -2,6 +2,7 @@ package de.magynhard.crystal.highlighting
 
 import com.intellij.codeInsight.highlighting.HighlightErrorFilter
 import com.intellij.psi.PsiErrorElement
+import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.CrystalTypes
 
@@ -20,6 +21,12 @@ import de.magynhard.crystal.psi.CrystalTypes
 class CrystalHighlightErrorFilter : HighlightErrorFilter() {
 
     override fun shouldHighlightErrorElement(element: PsiErrorElement): Boolean {
+        // This filter is registered globally (no language restriction), so the platform
+        // invokes it for every error element in every file. Skip non-Crystal files
+        // immediately — otherwise the Crystal-specific tree walk below runs on every
+        // parse error in unrelated files (e.g. .groovy), which can stall highlighting.
+        if (element.containingFile?.language != CrystalLanguage) return true
+
         // Suppress parser errors caused by invalid single-quote strings (BAD_CHARACTER)
         if (isCausedByBadCharacter(element)) return false
 
@@ -40,7 +47,7 @@ class CrystalHighlightErrorFilter : HighlightErrorFilter() {
         // Traverse up to 3 levels looking for BAD_CHARACTER siblings
         repeat(3) {
             current = current?.parent ?: return false
-            var sibling = current?.firstChild
+            var sibling = current.firstChild
             while (sibling != null) {
                 if (sibling.node?.elementType == CrystalTokenTypes.BAD_CHARACTER) {
                     return true

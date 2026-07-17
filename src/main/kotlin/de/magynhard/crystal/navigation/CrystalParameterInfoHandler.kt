@@ -86,43 +86,17 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
     /**
      * Extracts a parameter list from a `record` macro call for parameter info display.
      */
-    private fun extractRecordParameterList(recordCall: CrystalMethodCallExpression): RecordParameterInfo? {
-        val bareArgList = recordCall.bareArgumentList ?: return null
-        val args = bareArgList.bareArgumentList
-        if (args.size <= 1) return RecordParameterInfo(emptyList())
+    private fun extractRecordParameterList(recordDef: CrystalRecordDefinition): RecordParameterInfo {
+        val fields = CrystalCompletionHelper.extractRecordFields(recordDef)
+        if (fields.isEmpty()) return RecordParameterInfo(emptyList())
 
-        val params = mutableListOf<RecordParam>()
-        for (i in 1 until args.size) {
-            val arg = args[i]
-            val children = arg.node.getChildren(null)
-            var name: String? = null
-            var typeText: String? = null
-            var defaultText: String? = null
-            var pastColon = false
-            var pastAssign = false
-            for (child in children) {
-                when (child.elementType) {
-                    CrystalTypes.IDENTIFIER -> name = child.text
-                    CrystalTypes.COLON -> pastColon = true
-                    CrystalTypes.ASSIGN -> pastAssign = true
-                    else -> {
-                        if (child.elementType == com.intellij.psi.TokenType.WHITE_SPACE) continue
-                        if (pastAssign) {
-                            defaultText = (defaultText ?: "") + child.text
-                        } else if (pastColon) {
-                            typeText = (typeText ?: "") + child.text
-                        }
-                    }
-                }
+        val params = fields.map { f ->
+            val param = buildString {
+                append(f.name)
+                if (f.typeText != null) append(" : ").append(f.typeText)
+                if (f.defaultText != null) append(" = ").append(f.defaultText)
             }
-            if (name != null) {
-                val param = buildString {
-                    append(name)
-                    if (typeText != null) append(" : ").append(typeText)
-                    if (defaultText != null) append(" = ").append(defaultText)
-                }
-                params.add(RecordParam(param))
-            }
+            RecordParam(param)
         }
         return RecordParameterInfo(params)
     }
@@ -156,26 +130,6 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
             CrystalTypes.ABSTRACT, CrystalTypes.STRUCT, CrystalTypes.ENUM,
             CrystalTypes.LIB, CrystalTypes.FUN, CrystalTypes.MACRO,
             CrystalTypes.ANNOTATION
-        )
-
-        /** Tokens allowed as "arguments" between method name and cursor in bare calls. */
-        private val BARE_ARG_TOKENS: TokenSet = TokenSet.create(
-            CrystalTypes.IDENTIFIER, CrystalTypes.CONSTANT,
-            CrystalTypes.INTEGER_LITERAL, CrystalTypes.FLOAT_LITERAL,
-            CrystalTypes.STRING_LITERAL,
-            CrystalTypes.STRING_INTERPOLATION_BEGIN, CrystalTypes.STRING_INTERPOLATION_END,
-            CrystalTypes.CHAR_LITERAL, CrystalTypes.SYMBOL_LITERAL,
-            CrystalTypes.TRUE, CrystalTypes.FALSE, CrystalTypes.NIL,
-            CrystalTypes.COMMA, CrystalTypes.COLON,
-            CrystalTypes.LPAREN, CrystalTypes.RPAREN,
-            CrystalTypes.LBRACKET, CrystalTypes.RBRACKET,
-            CrystalTypes.LBRACE, CrystalTypes.RBRACE,
-            CrystalTypes.PLUS, CrystalTypes.MINUS, CrystalTypes.STAR,
-            CrystalTypes.SLASH, CrystalTypes.PERCENT,
-            CrystalTypes.AMPERSAND, CrystalTypes.PIPE, CrystalTypes.CARET,
-            CrystalTypes.TILDE, CrystalTypes.DOUBLE_STAR, CrystalTypes.BANG,
-            CrystalTypes.QUESTION, CrystalTypes.DOT, CrystalTypes.DOUBLE_COLON,
-            CrystalTypes.HASH
         )
 
         /** Max tokens to scan backwards (performance limit). */
@@ -243,11 +197,8 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
         val file = argsHolder.containingFile ?: return null
         val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file)
         if (recordDef != null) {
-            val recordParams = extractRecordParameterList(recordDef)
-            if (recordParams != null) {
-                context.itemsToShow = arrayOf(recordParams)
-                return argsHolder
-            }
+            context.itemsToShow = arrayOf(extractRecordParameterList(recordDef))
+            return argsHolder
         }
 
         // No initialize method, no record → no parameter info
@@ -344,7 +295,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
             val nameToken = quickCheckAnchor.nameToken
             val prev = PsiTreeUtil.prevLeaf(nameToken)
             val prevNonWs = if (prev is PsiWhiteSpace || prev?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
-                PsiTreeUtil.prevLeaf(prev!!)
+                PsiTreeUtil.prevLeaf(prev)
             } else prev
             val prevType = prevNonWs?.node?.elementType
             // Use quick check for DOT-calls and bare calls (where the method name is at the start of a statement)
@@ -462,7 +413,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
                             // Verify not preceded by structural keyword (def, class, etc.)
                             val prev = PsiTreeUtil.prevLeaf(leafAtOffset)
                             val prevNonWs = if (prev is PsiWhiteSpace || prev?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
-                                PsiTreeUtil.prevLeaf(prev!!)
+                                PsiTreeUtil.prevLeaf(prev)
                             } else prev
                             val prevType = prevNonWs?.node?.elementType
                             if (prevType == null || (!STRUCTURAL_KEYWORDS.contains(prevType) && prevType != CrystalTypes.DOT)) {
@@ -790,7 +741,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
     fun computeCurrentParameterIndex(argsHolder: PsiElement, offset: Int): Int {
         // Case: synthetic anchor
         if (argsHolder is CrystalParameterInfoAnchor) {
-            val fileText = argsHolder.containingFile?.text ?: return 0
+            val fileText = argsHolder.containingFile.text ?: return 0
             val argsStart = if (argsHolder.lparenOffset >= 0) {
                 argsHolder.lparenOffset + 1 // skip '('
             } else {
@@ -867,7 +818,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
         var leaf = if (lparenOffset > 0) file.findElementAt(lparenOffset - 1) else return null
         // Skip whitespace
         while (leaf is PsiWhiteSpace || leaf?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
-            leaf = PsiTreeUtil.prevLeaf(leaf!!)
+            leaf = PsiTreeUtil.prevLeaf(leaf)
         }
         if (leaf == null) return null
         val type = leaf.node?.elementType
@@ -899,13 +850,13 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
         // Look backwards: newToken -> DOT -> CONSTANT
         var prev = PsiTreeUtil.prevLeaf(newToken)
         while (prev is PsiWhiteSpace || prev?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
-            prev = PsiTreeUtil.prevLeaf(prev!!)
+            prev = PsiTreeUtil.prevLeaf(prev)
         }
         if (prev?.node?.elementType != CrystalTypes.DOT) return null
 
-        prev = PsiTreeUtil.prevLeaf(prev!!)
+        prev = PsiTreeUtil.prevLeaf(prev)
         while (prev is PsiWhiteSpace || prev?.node?.elementType == CrystalTokenTypes.WHITE_SPACE) {
-            prev = PsiTreeUtil.prevLeaf(prev!!)
+            prev = PsiTreeUtil.prevLeaf(prev)
         }
         // Handle both raw CONSTANT tokens and wrapped elements (e.g. CrystalVariableReferenceImpl)
         if (prev?.node?.elementType == CrystalTypes.CONSTANT) {

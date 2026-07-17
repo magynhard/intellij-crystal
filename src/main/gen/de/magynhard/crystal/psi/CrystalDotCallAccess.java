@@ -16,4 +16,7 @@ public interface CrystalDotCallAccess extends PsiElement {
   @Nullable
   CrystalMacroInterpolation getMacroInterpolation();
 
+  @Nullable
+  CrystalTypeReference getTypeReference();
+
 }

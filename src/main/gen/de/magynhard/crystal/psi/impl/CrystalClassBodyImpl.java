@@ -101,6 +101,18 @@ public class CrystalClassBodyImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @NotNull
+  public List<CrystalPropertyMacro> getPropertyMacroList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalPropertyMacro.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalRecordDefinition> getRecordDefinitionList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalRecordDefinition.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalStatement> getStatementList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalStatement.class);
   }

@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 /**
  * Tests for Go to Definition (CrystalReference resolution) and CrystalNamedElement.
@@ -120,6 +121,48 @@ class CrystalReferenceTest : BasePlatformTestCase() {
             resolved is CrystalClassDefinition)
     }
 
+    // ==================== Return-type annotation navigation ====================
+
+    fun testReturnTypeAnnotationResolvesToClass() {
+        CrystalStdlibResolver.resolveStdlibPath(project)?.path
+            ?.let { com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(testRootDisposable, it) }
+        val file = myFixture.configureByText("test.cr", """
+            def foo : String
+              "x"
+            end
+        """.trimIndent())
+        val typePath = PsiTreeUtil.findChildOfType(file, CrystalTypePath::class.java)
+        assertNotNull("Should find return-type type_path", typePath)
+        val reference = findReference(typePath!!)
+        assertNotNull("Return-type should have a CrystalReference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve String to the stdlib class", resolved)
+        assertEquals("string.cr", resolved!!.containingFile.name)
+    }
+
+    fun testReturnTypeAnnotationResolvesToProjectClass() {
+        // A project-scoped class in a return-type annotation exercises the same
+        // type_path → CrystalReference → CrystalClassIndex resolution path as a stdlib
+        // type, deterministically (no dependency on the shared harness's stdlib VFS,
+        // whose alias PSI can be a detached cross-provider element under full-suite
+        // ordering).
+        val file = myFixture.configureByText("test.cr", """
+            class MeinTyp
+            end
+            def foo : MeinTyp
+              MeinTyp.new
+            end
+        """.trimIndent())
+        val typePath = PsiTreeUtil.findChildOfType(file, CrystalTypePath::class.java)
+        assertNotNull("Should find return-type type_path", typePath)
+        val reference = findReference(typePath!!)
+        assertNotNull("Return-type should have a CrystalReference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve MeinTyp to the project class", resolved)
+        assertTrue("Should resolve to a class definition", resolved is CrystalClassDefinition)
+        assertEquals("MeinTyp", (resolved as CrystalClassDefinition).name)
+    }
+
     // ==================== No self-reference ====================
 
     fun testDefinitionNameHasNoReference() {
@@ -196,5 +239,49 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         assertTrue("Should resolve to CrystalMethodDefinition",
             resolved is CrystalMethodDefinition)
         assertEquals("sahne", (resolved as CrystalMethodDefinition).name)
+    }
+
+    // ==================== Constants ====================
+
+    fun testConstantAssignmentIsNamedElement() {
+        val file = myFixture.configureByText("test.cr", "DEFAULT = 1")
+        val constDef = PsiTreeUtil.findChildOfType(file, CrystalConstantAssignment::class.java)
+        assertNotNull("Should find constant assignment", constDef)
+        assertTrue("Constant assignment should be a CrystalNamedElement", constDef is CrystalNamedElement)
+        assertEquals("DEFAULT", constDef!!.name)
+    }
+
+    fun testNamespacedConstantAssignmentIsNamedElement() {
+        val file = myFixture.configureByText("test.cr", "module Math\n  PI = 3.14\nend")
+        val constDef = PsiTreeUtil.findChildOfType(file, CrystalConstantAssignment::class.java)
+        assertNotNull("Should find constant assignment", constDef)
+        assertEquals("PI", constDef!!.name)
+    }
+
+    fun testConstantReferenceResolvesToDefinition() {
+        val file = myFixture.configureByText("test.cr", """
+            DEFAULT = 1
+            puts DEFAULT
+        """.trimIndent())
+        val varRefs = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+        val usage = varRefs.find { it.text == "DEFAULT" && it.parent?.parent !is CrystalConstantAssignment }
+        assertNotNull("Should find 'DEFAULT' usage reference", usage)
+        val reference = findReference(usage!!)
+        assertNotNull("variable_reference should have a CrystalReference", reference)
+        val resolved = reference!!.resolve()
+        assertNotNull("Should resolve to constant assignment", resolved)
+        assertTrue("Should resolve to CrystalConstantAssignment", resolved is CrystalConstantAssignment)
+        assertEquals("DEFAULT", (resolved as CrystalConstantAssignment).name)
+    }
+
+    fun testConstantFindUsages() {
+        val file = myFixture.configureByText("test.cr", """
+            DEFAULT_CREATE_PERMISSIONS = 0o644
+            puts DEFAULT_CREATE_PERMISSIONS
+        """.trimIndent())
+        val constDef = PsiTreeUtil.findChildOfType(file, CrystalConstantAssignment::class.java)!!
+        val usages = myFixture.findUsages(constDef)
+        assertNotNull("Find Usages should return results", usages)
+        assertTrue("Should find at least one usage of the constant", usages.isNotEmpty())
     }
 }

@@ -425,8 +425,11 @@
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMethodByClassIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalClassByEnclosingIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMacroIndex"/>
+        <stubIndex implementation="de.magynhard.crystal.stubs.CrystalConstantIndex"/>
 
         <stubElementTypeHolder class="de.magynhard.crystal.stubs.CrystalStubElementTypeHolder"/>
+
+        <languageStubDefinition language="Crystal" implementationClass="de.magynhard.crystal.stubs.CrystalLanguageStubDefinition"/>
 
         <additionalTextAttributes scheme="Default" file="colorSchemes/CrystalDefault.xml"/>
         <additionalTextAttributes scheme="Darcula" file="colorSchemes/CrystalDarcula.xml"/>
@@ -456,7 +459,15 @@
         <postStartupActivity
                 implementation="de.magynhard.crystal.CrystalSpecSourceRootConfigurator"/>
 
-        <!-- Crystal stdlib as indexed source library -->
+        <!-- Builds the stdlib symbol cache in the background after initial indexing -->
+        <postStartupActivity
+                implementation="de.magynhard.crystal.CrystalStdlibCacheWarmup"/>
+
+        <!-- Crystal stdlib as indexed source library.
+             NOTE: getAdditionalProjectLibraries must NOT read the workspace model
+             (ModuleManager/ModuleRootManager) — doing so re-enters the model under the
+             write-intent lock and caused an infinite save loop. The provider detects
+             Crystal projects with model-free checks only. -->
         <additionalLibraryRootsProvider
                 implementation="de.magynhard.crystal.sdk.CrystalStdlibLibraryProvider"/>
 

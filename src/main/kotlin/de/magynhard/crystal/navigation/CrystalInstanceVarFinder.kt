@@ -72,8 +72,11 @@ object CrystalInstanceVarFinder {
                 }
             }
 
-            // Method calls (with or without parens): getter name, setter name, property name
-            if (child is CrystalMethodCallExpression || child is CrystalBareMethodCallExpression) {
+            // Method calls (with or without parens): getter name, setter name, property name.
+            // Bare commands (getter name : String) also parse as CrystalBareCommandExpression.
+            // property_macro (getter name : Type) is its own PSI element since the grammar fix.
+            if (child is CrystalMethodCallExpression || child is CrystalBareMethodCallExpression ||
+                child is CrystalBareCommandExpression || child is CrystalPropertyMacro) {
                 val callName = child.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
                 if (callName in PROPERTY_MACROS) {
                     val argText = getFirstArgumentTextGeneric(child)
@@ -182,14 +185,6 @@ object CrystalInstanceVarFinder {
             child = child.treeNext
         }
         return null
-    }
-
-    private fun skipWhitespace(element: PsiElement?): PsiElement? {
-        var current = element
-        while (current != null && current.node.elementType.toString() == "WHITE_SPACE") {
-            current = current.nextSibling
-        }
-        return current
     }
 
     private val PROPERTY_MACROS = setOf(

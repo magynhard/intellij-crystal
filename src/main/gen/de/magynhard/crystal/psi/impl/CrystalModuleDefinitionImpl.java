@@ -39,6 +39,12 @@ public class CrystalModuleDefinitionImpl extends CrystalStubbedModuleDefinitionI
   }
 
   @Override
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
   @Nullable
   public CrystalTypeParameters getTypeParameters() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypeParameters.class);

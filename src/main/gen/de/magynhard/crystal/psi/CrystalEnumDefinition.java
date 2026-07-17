@@ -12,6 +12,9 @@ public interface CrystalEnumDefinition extends CrystalNamedElement, StubBasedPsi
   @Nullable
   CrystalEnumBody getEnumBody();
 
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
   @Nullable
   CrystalTypeReference getTypeReference();
 

@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalCaseStatement extends PsiElement {
 
   @Nullable
+  CrystalAssignment getAssignment();
+
+  @Nullable
   CrystalElseClause getElseClause();
 
   @Nullable

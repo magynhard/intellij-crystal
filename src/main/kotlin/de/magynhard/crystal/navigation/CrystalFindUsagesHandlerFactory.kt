@@ -64,7 +64,7 @@ class CrystalFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
 
             // DOT is the first child of CrystalDotCallAccess, so prevSibling is null.
             // Cross the composite boundary to find the receiver.
-            var receiver = prev!!.prevSibling
+            var receiver = prev.prevSibling
             while (receiver != null && (receiver is com.intellij.psi.PsiWhiteSpace || receiver.node?.elementType == CrystalTokenTypes.WHITE_SPACE)) {
                 receiver = receiver.prevSibling
             }

@@ -7,8 +7,14 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalFunDefinition extends PsiElement {
 
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
   @Nullable
   CrystalParameterList getParameterList();
+
+  @Nullable
+  CrystalStringExpression getStringExpression();
 
   @Nullable
   CrystalTypeReference getTypeReference();

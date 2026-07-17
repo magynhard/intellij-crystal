@@ -6,41 +6,43 @@ import com.intellij.openapi.roots.SyntheticLibrary
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 
-/**
- * Provides the Crystal standard library as an indexed synthetic library.
- * This allows Go to Definition, Parameter Info, and Code Completion
- * to work for stdlib symbols like ENV.fetch, Array#push, HTTP::Client, etc.
- */
 class CrystalStdlibLibraryProvider : AdditionalLibraryRootsProvider() {
+    companion object {
+        // Per-project cache of the resolved stdlib library. Keyed by Project; the
+        // reference is held strongly, which is acceptable for a dev plugin (one entry
+        // per opened project). Exposed for tests.
+        private val libCache = java.util.concurrent.ConcurrentHashMap<Project, CrystalStdlibLibrary>()
+        private val lock = Any()
+
+        @Suppress("unused")
+        internal fun clearCache() = libCache.clear()
+    }
 
     override fun getAdditionalProjectLibraries(project: Project): Collection<SyntheticLibrary> {
-        // Only provide stdlib if this looks like a Crystal project
-        if (!isCrystalProject(project)) return emptyList()
-
-        val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return emptyList()
-        val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
-        return listOf(CrystalStdlibLibrary(stdlibRoot, version))
+        // Computed at most once per project. MUST NOT touch the workspace model
+        // (ModuleManager / ModuleRootManager): this callback is invoked by the platform
+        // under the write-intent lock while the model is being (re)computed, and reading
+        // module roots from inside it re-enters the model, causing an infinite
+        // "workspace model save" loop. Detection stays limited to lightweight, model-free
+        // checks (shard.yml / a .cr child in the project base path).
+        val cached = libCache[project]
+        if (cached != null) return listOf(cached)
+        val lib = synchronized(lock) {
+            libCache[project] ?: run {
+                if (!isCrystalProject(project)) return@run null
+                val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return@run null
+                val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
+                CrystalStdlibLibrary(stdlibRoot, version).also { libCache[project] = it }
+            }
+        }
+        return listOfNotNull(lib)
     }
 
     private fun isCrystalProject(project: Project): Boolean {
         val basePath = project.basePath ?: return false
-
-        // Check 1: shard.yml on real filesystem
-        val baseDir = LocalFileSystem.getInstance().findFileByPath(basePath)
-        if (baseDir?.findChild("shard.yml") != null) return true
-
-        // Check 2: .cr files on real filesystem
-        if (baseDir?.children?.any { it.extension == "cr" } == true) return true
-
-        // Check 3: .cr files in any module's content roots (works with light virtual files in tests)
-        val modules = com.intellij.openapi.module.ModuleManager.getInstance(project).modules
-        for (module in modules) {
-            val moduleManager = com.intellij.openapi.roots.ModuleRootManager.getInstance(module)
-            for (contentRoot in moduleManager.contentRoots) {
-                if (contentRoot.children?.any { it.extension == "cr" } == true) return true
-            }
-        }
-
+        val baseDir = LocalFileSystem.getInstance().findFileByPath(basePath) ?: return false
+        if (baseDir.findChild("shard.yml") != null) return true
+        if (baseDir.children?.any { it.extension == "cr" } == true) return true
         return false
     }
 }
@@ -54,13 +56,17 @@ private class CrystalStdlibLibrary(
 
     override fun getBinaryRoots(): Collection<VirtualFile> = emptyList()
 
+    override fun getExcludedRoots(): Set<VirtualFile> = emptySet()
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is CrystalStdlibLibrary) return false
-        return root == other.root && crystalVersion == other.crystalVersion
+        // Compare by URL (stable string), not VirtualFile identity, so the platform never
+        // sees the library as "changed" between model recomputations.
+        return root.url == other.root.url && crystalVersion == other.crystalVersion
     }
 
-    override fun hashCode(): Int = root.hashCode() * 31 + crystalVersion.hashCode()
+    override fun hashCode(): Int = root.url.hashCode() * 31 + crystalVersion.hashCode()
 
-    override fun toString(): String = "CrystalStdlibLibrary(${root.path}, $crystalVersion)"
+    override fun toString(): String = "CrystalStdlibLibrary(${root.url}, $crystalVersion)"
 }

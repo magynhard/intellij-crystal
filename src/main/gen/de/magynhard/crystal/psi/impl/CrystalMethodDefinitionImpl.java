@@ -52,6 +52,12 @@ public class CrystalMethodDefinitionImpl extends CrystalStubbedMethodDefinitionI
 
   @Override
   @Nullable
+  public CrystalTypePath getTypePath() {
+    return PsiTreeUtil.getChildOfType(this, CrystalTypePath.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalTypeReference getTypeReference() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }

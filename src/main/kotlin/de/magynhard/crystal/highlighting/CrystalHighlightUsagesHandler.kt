@@ -25,8 +25,8 @@ class CrystalHighlightUsagesHandler(
     override fun getTargets(): MutableList<CrystalNamedElement> = mutableListOf(target)
 
     override fun selectTargets(
-        targets: MutableList<out CrystalNamedElement>,
-        selectionConsumer: Consumer<in MutableList<out CrystalNamedElement>>
+        targets: List<CrystalNamedElement>,
+        selectionConsumer: Consumer<in List<CrystalNamedElement>>
     ) {
         selectionConsumer.accept(targets)
     }

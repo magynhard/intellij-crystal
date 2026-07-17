@@ -169,7 +169,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     private fun detectDotCall(argsElement: PsiElement): Pair<String, String>? {
         // Skip if inside a method_call_expression (already handled)
         val parent = argsElement.parent
-        if (parent is CrystalMethodCallExpression || parent is CrystalBareMethodCallExpression) return null
+        if (parent is CrystalMethodCallExpression || parent is CrystalBareMethodCallExpression || parent is CrystalBareCommandExpression) return null
 
         // Look backwards through siblings: expect IDENTIFIER/CONSTANT, then DOT, then receiver
         var sibling = argsElement.prevSibling
@@ -346,7 +346,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     }
                     return result
                 }
-                // Try bare_argument_list
+            }
+            is CrystalBareCommandExpression -> {
+                // Bare (parenthesis-free) command calls such as `record Foo, host : String`.
                 val bareArgList = callExpr.bareArgumentList
                 if (bareArgList != null) {
                     for (bareArg in bareArgList.bareArgumentList) {
@@ -355,13 +357,10 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 }
             }
             is CrystalBareMethodCallExpression -> {
-                val callArgs = callExpr.callArgs
-                if (callArgs != null) {
-                    val argList = callArgs.argumentList
-                    if (argList != null) {
-                        for (arg in argList.argumentList) {
-                            extractArgumentInfo(arg)?.let { result.add(it) }
-                        }
+                val argList = callExpr.callArgs.argumentList
+                if (argList != null) {
+                    for (arg in argList.argumentList) {
+                        extractArgumentInfo(arg)?.let { result.add(it) }
                     }
                 }
             }
@@ -585,45 +584,15 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     data class RecordParamInfo(val name: String, val typeText: String?, val hasDefault: Boolean)
 
     /**
-     * Extracts parameter info from a `record` macro call for type checking.
+     * Extracts parameter info from a `record` definition for type checking.
      * Returns list of (name, typeText, hasDefault) or null if not a record.
      */
     private fun extractRecordParamInfo(className: String, contextElement: PsiElement): List<RecordParamInfo>? {
         val file = contextElement.containingFile ?: return null
         val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file) ?: return null
-        val bareArgList = recordDef.bareArgumentList ?: return null
-        val args = bareArgList.bareArgumentList
-        if (args.size <= 1) return emptyList()
-
-        val params = mutableListOf<RecordParamInfo>()
-        for (i in 1 until args.size) {
-            val arg = args[i]
-            val children = arg.node.getChildren(null)
-            var name: String? = null
-            var typeText: String? = null
-            var hasDefault = false
-            var pastColon = false
-            var pastAssign = false
-            for (child in children) {
-                when (child.elementType) {
-                    CrystalTypes.IDENTIFIER -> name = child.text
-                    CrystalTypes.COLON -> pastColon = true
-                    CrystalTypes.ASSIGN -> pastAssign = true
-                    else -> {
-                        if (child.elementType == com.intellij.psi.TokenType.WHITE_SPACE) continue
-                        if (pastAssign) {
-                            hasDefault = true
-                        } else if (pastColon) {
-                            typeText = (typeText ?: "") + child.text
-                        }
-                    }
-                }
-            }
-            if (name != null) {
-                params.add(RecordParamInfo(name, typeText, hasDefault))
-            }
+        return CrystalCompletionHelper.extractRecordFields(recordDef).map {
+            RecordParamInfo(it.name, it.typeText, it.defaultText != null)
         }
-        return params
     }
 
     /**

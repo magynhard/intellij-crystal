@@ -7,7 +7,10 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalPostfixModifier extends PsiElement {
 
+  @Nullable
+  CrystalAssignment getAssignment();
+
   @NotNull
-  CrystalExpression getExpression();
+  List<CrystalExpression> getExpressionList();
 
 }

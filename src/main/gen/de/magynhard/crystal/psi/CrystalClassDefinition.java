@@ -12,6 +12,9 @@ public interface CrystalClassDefinition extends CrystalNamedElement, StubBasedPs
   @Nullable
   CrystalClassBody getClassBody();
 
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
   @Nullable
   CrystalSuperclassClause getSuperclassClause();
 

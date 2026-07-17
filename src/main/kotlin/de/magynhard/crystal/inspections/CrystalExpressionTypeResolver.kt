@@ -2,7 +2,6 @@ package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
-import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.psi.*
 
@@ -88,12 +87,12 @@ object CrystalExpressionTypeResolver {
         if (expr is CrystalIfStatement) return resolveIfExpression(expr)
         if (expr is CrystalCaseStatement) return resolveCaseExpression(expr)
 
-        // Variable references → delegate to existing type inference
+        // Variable references → delegate to existing type inference (unions preserved as "A | B")
         if (expr is CrystalVariableReference) {
             val name = expr.text
             val project = expr.project
-            val inferred = CrystalTypeInference.inferType(name, expr, project)
-            if (inferred != null) return ResolvedType(inferred)
+            val inferred = CrystalTypeInference.inferTypeList(name, expr, project)
+            if (inferred.isNotEmpty()) return ResolvedType(inferred.joinToString(" | "))
             return null
         }
 
@@ -388,7 +387,7 @@ object CrystalExpressionTypeResolver {
             val elemType = child.node?.elementType
             if (elemType == CrystalTypes.IDENTIFIER || elemType == CrystalTypes.COLON
                 || elemType == CrystalTypes.STAR || elemType == CrystalTypes.DOUBLE_STAR
-                || child is com.intellij.psi.PsiWhiteSpace) {
+                || child is PsiWhiteSpace) {
                 child = child.nextSibling
                 continue
             }

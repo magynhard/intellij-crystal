@@ -17,13 +17,16 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalAsmExpression> getAsmExpressionList();
 
   @NotNull
+  List<CrystalBareCommandExpression> getBareCommandExpressionList();
+
+  @NotNull
   List<CrystalBeginStatement> getBeginStatementList();
 
   @NotNull
   List<CrystalBlock> getBlockList();
 
   @NotNull
-  List<CrystalCallArgs> getCallArgsList();
+  List<CrystalBreakExpression> getBreakExpressionList();
 
   @NotNull
   List<CrystalCaseStatement> getCaseStatementList();
@@ -62,6 +65,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalInstanceVarAccess> getInstanceVarAccessList();
 
   @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
+  @NotNull
   List<CrystalMacroInterpolation> getMacroInterpolationList();
 
   @NotNull
@@ -69,6 +75,9 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalNamespaceAccess> getNamespaceAccessList();
+
+  @NotNull
+  List<CrystalNextExpression> getNextExpressionList();
 
   @NotNull
   List<CrystalOffsetofExpression> getOffsetofExpressionList();
@@ -86,6 +95,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalRegexExpression> getRegexExpressionList();
 
   @NotNull
+  List<CrystalReturnExpression> getReturnExpressionList();
+
+  @NotNull
   List<CrystalSizeofExpression> getSizeofExpressionList();
 
   @NotNull
@@ -96,6 +108,9 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalTupleLiteral> getTupleLiteralList();
+
+  @NotNull
+  List<CrystalTypeReceiverExpression> getTypeReceiverExpressionList();
 
   @NotNull
   List<CrystalTypeReference> getTypeReferenceList();

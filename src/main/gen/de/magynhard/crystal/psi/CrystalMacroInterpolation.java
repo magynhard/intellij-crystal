@@ -7,7 +7,10 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalMacroInterpolation extends PsiElement {
 
-  @NotNull
+  @Nullable
+  CrystalBareCommandExpression getBareCommandExpression();
+
+  @Nullable
   CrystalExpression getExpression();
 
 }

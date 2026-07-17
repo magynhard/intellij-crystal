@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalLibStructDefinition extends PsiElement {
 
-  @NotNull
+  @Nullable
   CrystalLibBody getLibBody();
 
 }

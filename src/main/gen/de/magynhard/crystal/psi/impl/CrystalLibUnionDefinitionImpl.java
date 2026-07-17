@@ -28,9 +28,9 @@ public class CrystalLibUnionDefinitionImpl extends ASTWrapperPsiElement implemen
   }
 
   @Override
-  @NotNull
+  @Nullable
   public CrystalLibBody getLibBody() {
-    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalLibBody.class));
+    return PsiTreeUtil.getChildOfType(this, CrystalLibBody.class);
   }
 
 }

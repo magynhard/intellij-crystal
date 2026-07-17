@@ -35,6 +35,12 @@ public class CrystalTypeReferenceImpl extends ASTWrapperPsiElement implements Cr
 
   @Override
   @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalTypeArguments> getTypeArgumentsList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeArguments.class);
   }

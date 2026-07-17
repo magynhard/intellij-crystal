@@ -172,6 +172,7 @@ class CrystalMethodDefinitionElementType(debugName: String) :
 
         // Also index by enclosing class/module/struct/enum name for O(1) class→methods lookups
         val className = findEnclosingParentName(stub)
+
         className?.let { sink.occurrence(CrystalMethodByClassIndex.KEY, it) }
     }
 
@@ -207,6 +208,35 @@ class CrystalMacroDefinitionElementType(debugName: String) :
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
 }
 
+class CrystalConstantAssignmentElementType(debugName: String) :
+    IStubElementType<CrystalConstantAssignmentStub, CrystalConstantAssignment>(debugName, CrystalLanguage) {
+
+    override fun getExternalId(): String = "crystal.CONSTANT_ASSIGNMENT"
+
+    override fun serialize(stub: CrystalConstantAssignmentStub, dataStream: StubOutputStream) {
+        dataStream.writeName(stub.name)
+    }
+
+    override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalConstantAssignmentStub {
+        val name = dataStream.readNameString()
+        return CrystalConstantAssignmentStub(parentStub, this, name)
+    }
+
+    override fun createStub(psi: CrystalConstantAssignment, parentStub: StubElement<out PsiElement>?): CrystalConstantAssignmentStub {
+        return CrystalConstantAssignmentStub(parentStub, this, psi.name)
+    }
+
+    override fun createPsi(stub: CrystalConstantAssignmentStub): CrystalConstantAssignment {
+        return CrystalConstantAssignmentImpl(stub, this)
+    }
+
+    override fun indexStub(stub: CrystalConstantAssignmentStub, sink: IndexSink) {
+        stub.name?.let { sink.occurrence(CrystalConstantIndex.KEY, it) }
+    }
+
+    override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
 /**
  * Walks up the stub tree from [stub] to find the name of the immediate enclosing
  * class/module/struct/enum. Returns `null` if no enclosing type is found.
@@ -217,7 +247,7 @@ class CrystalMacroDefinitionElementType(debugName: String) :
 private fun findEnclosingParentName(stub: StubElement<*>): String? {
     var parent = stub.parentStub
     while (parent != null) {
-        if (parent is com.intellij.psi.stubs.PsiFileStub<*>) break
+        if (parent is PsiFileStub<*>) break
         val name = (parent as? CrystalNamedStub)?.name
         if (name != null && parent is CrystalClassDefinitionStub) return name
         if (name != null && parent is CrystalModuleDefinitionStub) return name

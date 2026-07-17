@@ -20,34 +20,42 @@ object CrystalTypeInference {
      * Returns null if the type cannot be determined.
      */
     fun inferType(variableName: String, context: PsiElement, project: Project): String? {
-        // 1. Check if it's a parameter with type annotation
+        val types = inferTypeList(variableName, context, project)
+        return if (types.isEmpty()) null else types.joinToString(" | ")
+    }
+
+    /**
+     * All candidate types for [variableName], including union members (e.g. `Int32 | Nil`)
+     * and receiver-derived types (e.g. `x = obj.foo` where `obj`'s type is known). Used by
+     * Go-to-Definition and completion so a union-typed variable resolves methods across every
+     * member type, not just the first.
+     */
+    fun inferTypeList(variableName: String, context: PsiElement, project: Project, depth: Int = 0): List<String> {
+        if (depth > 5) return emptyList()
         val paramType = inferFromParameter(variableName, context)
         if (paramType != null) return paramType
-
-        // 2. Check assignments in scope: x = Klasse.new or x = method_call
-        val assignType = inferFromAssignment(variableName, context, project)
-        if (assignType != null) return assignType
-
-        return null
+        val assignTypes = inferFromAssignmentList(variableName, context, project, depth)
+        if (assignTypes.isNotEmpty()) return assignTypes
+        return emptyList()
     }
 
     /**
      * Check if the variable is a parameter with a type annotation.
-     * e.g. def foo(x : Apfel) → type of x is "Apfel"
+     * e.g. def foo(x : Apfel) → type of x is "Apfel"; `x : Int32 | Nil` → ["Int32", "Nil"].
      */
-    private fun inferFromParameter(name: String, context: PsiElement): String? {
+    private fun inferFromParameter(name: String, context: PsiElement): List<String>? {
         // Find enclosing method
         val method = PsiTreeUtil.getParentOfType(context, CrystalMethodDefinition::class.java)
             ?: return null
 
         val paramList = method.parameterList ?: return null
         for (param in paramList.parameterList) {
-            val paramName = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param)
+            val paramName = CrystalCompletionHelper.extractParameterName(param)
             if (paramName == name) {
                 // Has type annotation?
                 val typeRef = param.typeReference
                 if (typeRef != null) {
-                    return extractTypeName(typeRef.text)
+                    return splitTypeNames(typeRef.text)
                 }
             }
         }
@@ -58,12 +66,15 @@ object CrystalTypeInference {
      * Search for assignments to this variable in the current scope.
      * Patterns recognized:
      * - x = Klasse.new → type is "Klasse"
-     * - x = Klasse.method_name → check return type of method_name
-     * - x = method_name → check return type of top-level/enclosing method
+     * - x = Klasse.method_name → return type (union) of method_name
+     * - x = receiver.method → return type of method on the inferred receiver type
+     * - x = method_name → return type (union) of top-level/enclosing method
+     * Reassigned variables accumulate all candidate types (unions are preserved).
      */
-    private fun inferFromAssignment(name: String, context: PsiElement, project: Project): String? {
-        val containingFile = context.containingFile ?: return null
+    private fun inferFromAssignmentList(name: String, context: PsiElement, project: Project, depth: Int): List<String> {
+        val containingFile = context.containingFile ?: return emptyList()
         val assignments = PsiTreeUtil.collectElementsOfType(containingFile, CrystalAssignment::class.java)
+        val results = mutableListOf<String>()
         for (assignment in assignments.reversed()) {
             val identNode = assignment.node.findChildByType(CrystalTypes.IDENTIFIER)
                 ?: assignment.firstChild?.node?.findChildByType(CrystalTypes.IDENTIFIER)
@@ -72,100 +83,107 @@ object CrystalTypeInference {
             if (varName != name && varName != "@$name") continue
             if (assignment.textOffset > context.textOffset) continue
             val expr = assignment.expression ?: continue
-            val inferredType = inferTypeFromExpression(expr, project)
-            if (inferredType != null) return inferredType
+            results.addAll(inferTypeFromExpressionList(expr, project, depth))
         }
-        return null
+        return results.distinct()
     }
 
     /**
-     * Infers the type from an expression.
-     * Recognizes patterns like:
-     * - Klasse.new → "Klasse"
-     * - Klasse.method → return type of that method
-     * - method_call → return type of that method
+     * Infers the type(s) from an expression, returning every candidate (union members
+     * preserved). Recognizes:
+     * - Klasse.new → ["Klasse"]
+     * - Klasse.method → return type union of that static method
+     * - receiver.method → return type union of the method on the inferred receiver type
+     * - method_call → return type union of that method
      */
-    private fun inferTypeFromExpression(expr: PsiElement, project: Project): String? {
+    private fun inferTypeFromExpressionList(expr: PsiElement, project: Project, depth: Int): List<String> {
         val text = expr.text.trim()
 
         // Scalar literals
         val literalType = inferFromLiteral(expr)
-        if (literalType != null) return literalType
+        if (literalType != null) return listOf(literalType)
 
-        // Ternary / control-flow: delegate to CrystalExpressionTypeResolver
+        // Ternary / control-flow: delegate to CrystalExpressionTypeResolver (may be a union)
         if (expr is CrystalExpression) {
             val resolved = CrystalExpressionTypeResolver.resolveType(expr)
-            if (resolved != null) return resolved.typeName
+            if (resolved != null) return splitTypeNames(resolved.typeName)
         }
 
         // Array literal
-        if (text.startsWith("[")) return "Array"
+        if (text.startsWith("[")) return listOf("Array")
 
-        // Hash literal: extract from CrystalExpression wrapper
+        // Hash / tuple literal: extract from CrystalExpression wrapper
         if (expr is CrystalExpression) {
             val hashLiterals = expr.hashLiteralList
             if (hashLiterals.isNotEmpty()) {
                 val resolved = CrystalExpressionTypeResolver.resolveType(hashLiterals[0])
-                if (resolved != null) return resolved.typeName
-                return "Hash"
+                if (resolved != null) return listOf(resolved.typeName)
+                return listOf("Hash")
             }
             val tupleLiterals = expr.tupleLiteralList
             if (tupleLiterals.isNotEmpty()) {
                 val resolved = CrystalExpressionTypeResolver.resolveType(tupleLiterals[0])
-                if (resolved != null) return resolved.typeName
-                return "Tuple"
+                if (resolved != null) return listOf(resolved.typeName)
+                return listOf("Tuple")
             }
         }
 
         // Fallback text-based detection for hash/tuple
-        if (text.startsWith("{") && (text.contains("=>") || text.contains(Regex("\\w+:")))) return "Hash"
-        if (text.startsWith("{")) return "Tuple"
+        if (text.startsWith("{") && (text.contains("=>") || text.contains(Regex("\\w+:")))) return listOf("Hash")
+        if (text.startsWith("{")) return listOf("Tuple")
 
         // Pattern: Klasse.new (handles multi-line args and bare args without parens)
-        val newPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
-        val newMatch = newPattern.find(text)
-        if (newMatch != null) {
-            return newMatch.groupValues[1]
-        }
+        val newMatch = Regex("""^([A-Z]\w*(?:::\w+)*)\.new(?:\([\s\S]*\)|\s+[\s\S]+)?$""").find(text)
+        if (newMatch != null) return listOf(newMatch.groupValues[1])
 
         // Pattern: Klasse.method_name(...) (handles multi-line args and bare args)
-        val classMethodPattern = Regex("""^([A-Z]\w*(?:::\w+)*)\.(\w+)(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
-        val classMethodMatch = classMethodPattern.find(text)
+        val classMethodMatch = Regex("""^([A-Z]\w*(?:::\w+)*)\.(\w+)(?:\([\s\S]*\)|\s+[\s\S]+)?$""").find(text)
         if (classMethodMatch != null) {
             val className = classMethodMatch.groupValues[1]
             val methodName = classMethodMatch.groupValues[2]
-            if (methodName == "new") return className
-            // Try to find return type of the static method
-            return inferReturnTypeOfMethod(methodName, className, project)
+            if (methodName == "new") return listOf(className)
+            return inferReturnTypeOfMethodList(methodName, className, project)
+        }
+
+        // Pattern: receiver.method where receiver is a variable (e.g. x = obj.foo).
+        // Infer the receiver's type, then the method's return type across that type.
+        val recvMethodMatch = Regex("""^([a-z]\w*)\.(\w+)(?:\([\s\S]*\)|\s+[\s\S]+)?$""").find(text)
+        if (recvMethodMatch != null) {
+            val recv = recvMethodMatch.groupValues[1]
+            val meth = recvMethodMatch.groupValues[2]
+            val recvTypes = inferTypeList(recv, expr, project, depth + 1)
+            val results = mutableListOf<String>()
+            for (rt in recvTypes) results.addAll(inferReturnTypeOfMethodList(meth, rt, project))
+            if (results.isNotEmpty()) return results
+            // Receiver type unknown — no guess; fall through (no bare-call match for `a.b`).
+            return emptyList()
         }
 
         // Pattern: bare method_call (no dot) (handles multi-line args and bare args)
-        val bareCallPattern = Regex("""^(\w+)(?:\([\s\S]*\)|\s+[\s\S]+)?$""")
-        val bareCallMatch = bareCallPattern.find(text)
+        val bareCallMatch = Regex("""^(\w+)(?:\([\s\S]*\)|\s+[\s\S]+)?$""").find(text)
         if (bareCallMatch != null) {
             val methodName = bareCallMatch.groupValues[1]
             // Only if it starts with lowercase (method, not class)
             if (methodName[0].isLowerCase()) {
-                return inferReturnTypeOfMethod(methodName, null, project)
+                return inferReturnTypeOfMethodList(methodName, null, project)
             }
         }
 
-        return null
+        return emptyList()
     }
 
     /**
-     * Finds the return type annotation of a method by name.
-     * If className is provided, searches within that class; otherwise project-wide.
-     * When no explicit return type is annotated, infers from the method body:
-     * - return statement → type of the return value
-     * - implicit return (last expression) → type of last expression
+     * Finds the return type(s) of a method by name. If [className] is provided, searches
+     * within that class; otherwise project-wide. When no explicit return type is annotated,
+     * infers from the method body. Union return annotations are preserved.
      */
-    private fun inferReturnTypeOfMethod(methodName: String, className: String?, project: Project): String? {
+    private fun inferReturnTypeOfMethodList(methodName: String, className: String?, project: Project): List<String> {
         val scope = GlobalSearchScope.allScope(project)
         val methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toMutableList()
 
+        val results = mutableListOf<String>()
         for (method in methods) {
             if (className != null) {
                 val enclosing = CrystalCompletionHelper.getEnclosingClassName(method)
@@ -173,13 +191,14 @@ object CrystalTypeInference {
             }
             val returnType = method.typeReference?.text
             if (returnType != null) {
-                return extractTypeName(returnType)
+                results.addAll(splitTypeNames(returnType))
+            } else {
+                // No explicit return type — infer from method body
+                val inferred = inferReturnTypeFromBody(method)
+                if (inferred != null) results.addAll(splitTypeNames(inferred))
             }
-            // No explicit return type — infer from method body
-            val inferred = inferReturnTypeFromBody(method)
-            if (inferred != null) return inferred
         }
-        return null
+        return results.distinct()
     }
 
     /**
@@ -196,7 +215,7 @@ object CrystalTypeInference {
         for (stmt in statements) {
             val returnStmt = stmt.returnStatement
             if (returnStmt != null) {
-                val returnExpr = returnStmt.expression
+                val returnExpr = returnStmt.expressionList.firstOrNull()
                 if (returnExpr != null) {
                     val resolved = CrystalExpressionTypeResolver.resolveType(returnExpr)
                     if (resolved != null) return resolved.typeName
@@ -222,14 +241,34 @@ object CrystalTypeInference {
     }
 
     /**
-     * Extracts the simple type name from a type reference text.
-     * e.g. "Array(String)" → "Array", "Int32 | Nil" → "Int32"
+     * Splits a union type annotation into its member type names, preserving
+     * generics (e.g. `Array(String)` stays intact). Does NOT split on `|`
+     * nested inside parentheses.
+     * e.g. "Int32 | Nil" → ["Int32", "Nil"]; "Slice(UInt8) | Nil" → ["Slice(UInt8)", "Nil"]
      */
-    private fun extractTypeName(typeText: String): String {
-        // Take first type before any | (union), strip generics
-        val simple = typeText.split("|").first().trim()
-        val withoutGenerics = simple.replace(Regex("""\(.*\)"""), "").trim()
-        return withoutGenerics
+    private fun splitTypeNames(typeText: String): List<String> {
+        val parts = mutableListOf<String>()
+        var depth = 0
+        var current = StringBuilder()
+        for (ch in typeText) {
+            when (ch) {
+                '(' -> { depth++; current.append(ch) }
+                ')' -> { depth = maxOf(0, depth - 1); current.append(ch) }
+                '|' -> {
+                    if (depth == 0) {
+                        val piece = current.toString().trim()
+                        if (piece.isNotEmpty()) parts.add(piece)
+                        current = StringBuilder()
+                    } else {
+                        current.append(ch)
+                    }
+                }
+                else -> current.append(ch)
+            }
+        }
+        val last = current.toString().trim()
+        if (last.isNotEmpty()) parts.add(last)
+        return parts
     }
 
     private fun inferFromLiteral(expr: PsiElement): String? {
@@ -254,7 +293,7 @@ object CrystalTypeInference {
         if (text.contains("_f32") || text.contains("_f64")) return resolveFloatLiteralType(text)
 
         // Float literal with decimal point: 1.0, -1.5e10
-        if (text.matches(Regex("""-?\d[\d_]*\.\d[\d_]*((?:[eE][+-]?\d+))?"""))) return resolveFloatLiteralType(text)
+        if (text.matches(Regex("""-?\d[\d_]*\.\d[\d_]*([eE][+-]?\d+)?"""))) return resolveFloatLiteralType(text)
 
         // Integer literal: 1, 1_i64, 1_u128
         if (text.matches(Regex("""-?\d[\d_]*(?:_?[iu](?:8|16|32|64|128))?"""))) return resolveIntegerLiteralType(text)
