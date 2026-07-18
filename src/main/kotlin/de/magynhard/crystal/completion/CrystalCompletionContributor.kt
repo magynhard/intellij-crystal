@@ -4,6 +4,7 @@ import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
+import com.intellij.openapi.project.DumbService
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
@@ -66,11 +67,48 @@ class CrystalCompletionContributor : CompletionContributor() {
             val position = parameters.position
             val project = position.project
 
+            // Require path-completion: caret inside the string of a `require "..."`.
+            // Bypasses the global string-literal suppression below.
+            val requirePathPrefix = CrystalRequireCompletionProvider.getPathPrefixInsideRequireString(
+                position, parameters.editor, parameters.offset
+            )
+            if (requirePathPrefix != null) {
+                val pathLookups = CrystalRequireCompletionProvider.getPathLookups(
+                    position, project, requirePathPrefix, parameters.originalFile
+                )
+                if (pathLookups.isEmpty()) return
+                // Use an empty-prefix matcher so our pre-filtered lookups pass
+                // through. IntelliJ's CamelHumpMatcher would compute a prefix
+                // like "src/" from the document text and reject lookups like
+                // "main" / "test" that don't start with "src/". The custom
+                // InsertHandler then rewrites the whole require-path content
+                // to the full path (e.g. "./src/"), restoring path indicators.
+                val pathResult = result.withPrefixMatcher(
+                    result.prefixMatcher.cloneWithPrefix("")
+                )
+                for (lookup in pathLookups) {
+                    pathResult.addElement(lookup)
+                }
+                return
+            }
+
             // Suppress completion inside string literals (but not inside interpolation)
             if (isInsideStringLiteral(position)) return
 
             // Suppress completion after numeric literals (user is typing a number, not a name)
             if (isAfterNumericLiteral(position)) return
+
+            // `require` keyword synthesis: typing `req…` at a top-level
+            // statement position offers the `require` pseudo-keyword (no `def
+            // require` exists in stdlib). Selecting it inserts `require ""`
+            // and schedules the path-completion popup. See docs/specs/require.md.
+            val requirePrefix = computeCompletionPrefix(parameters.editor, parameters.offset)
+            val lowercaseRPrefix = requirePrefix.isEmpty() || requirePrefix[0].isLowerCase()
+            if (lowercaseRPrefix && CrystalRequireCompletionProvider.isAtTopLevel(position) &&
+                result.prefixMatcher.prefixMatches("require")
+            ) {
+                result.addElement(CrystalRequireCompletionProvider.getKeywordLookup())
+            }
 
             // Case 4: After `def ` inside a class/struct body — offer override methods
             if (isAfterDefKeywordInClassBody(position)) {
@@ -319,6 +357,77 @@ class CrystalCompletionContributor : CompletionContributor() {
                     if (superClassName != null && superClassName != enclosingClassName) {
                         addClassMethods(superClassName, 20.0, searchScope, project, seen, result)
                     }
+                }
+            }
+
+            // 6. Top-level (global) methods — priority 0.
+            //    Includes stdlib helpers (puts, pp, p, print, …) and project top-level defs.
+            //    Offered in every context (top-level or inside a method/class body).
+            addTopLevelMethods(position, position.project, seen, result)
+        }
+
+        /**
+         * Adds all top-level `def` methods to the result.
+         *
+         * Two sources are merged (dedup via [seen]):
+         * 1. **Current file PSI** — scanned immediately so that just-typed / unsaved
+         *    top-level defs are suggested even before the stub index is built or
+         *    updated. Top-level defs are hoisted in Crystal (callable above their
+         *    definition site within the file), so the entire file is scanned without
+         *    the forward-reference restriction that applies to local variables.
+         * 2. **Stub index** (`CrystalTopLevelMethodIndex`) — cross-file project
+         *    defs plus stdlib top-level helpers (puts, pp, …). Filtered by the
+         *    result's prefix matcher before loading any PSI to keep the popup
+         *    responsive.
+         *
+         * Methods already present in [seen] are skipped.
+         */
+        private fun addTopLevelMethods(
+            position: PsiElement,
+            project: com.intellij.openapi.project.Project,
+            seen: MutableSet<String>,
+            result: CompletionResultSet
+        ) {
+            // 1. Current file — immediate, no index dependency.
+            val file = position.containingFile
+            if (file != null) {
+                for (method in PsiTreeUtil.findChildrenOfType(file, CrystalMethodDefinition::class.java)) {
+                    // Skip methods inside a class/module/struct/enum — those are class methods,
+                    // not top-level. They are reached via dot-completion on their enclosing type.
+                    if (CrystalCompletionHelper.getEnclosingClassName(method) != null) continue
+                    val name = method.name ?: continue
+                    if (!seen.add(name)) continue
+                    result.addElement(CrystalCompletionHelper.buildMethodLookup(method, 0.0))
+                }
+            }
+
+            // 2. Cross-file + stdlib via stub index.
+            //    Pre-filter by the prefix matcher (in-memory string match) before loading
+            //    any PSI from the index, so non-matching names are skipped cheaply.
+            //
+            //    Skip the stub-index query entirely while the index is still
+            //    being built (DumbService.isDumb). During a plugin update or
+            //    project open, this avoids blocking the EDT on a synchronous
+            //    StubIndex build; the user still gets step 1 (current-file
+            //    top-level methods) immediately, and the cross-file/stdlib
+            //    lookups resume once indexing finishes. Without this gate,
+            //    typing a single character during indexing can trigger a
+            //    "Analyzing project..." modal that hangs for minutes when
+            //    the stdlib root is over-broad (Crystal 1.20's flat layout
+            //    includes compiler/, lib_c/, llvm/ in the distribution).
+            if (DumbService.isDumb(project)) return
+            val matcher = result.prefixMatcher
+            for (methodName in CrystalCompletionHelper.getAllTopLevelMethodNames(project)) {
+                if (methodName in seen) continue
+                if (!matcher.prefixMatches(methodName)) continue
+                try {
+                    val methods = CrystalCompletionHelper.getTopLevelMethodsByName(methodName, project)
+                    val method = methods.firstOrNull() ?: continue
+                    seen.add(methodName)
+                    result.addElement(CrystalCompletionHelper.buildMethodLookup(method, 0.0))
+                } catch (_: Throwable) {
+                    // Skip a single broken element — don't let it abort the whole completion
+                    // (which would fall back to word completion with no icons/signatures).
                 }
             }
         }

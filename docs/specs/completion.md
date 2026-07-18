@@ -23,9 +23,9 @@ class are suggested.
 
 Free-text completion distinguishes between lowercase and uppercase prefixes:
 
-- **Lowercase prefix** → only scope items (parameters, local variables, @vars, class methods). No classes or stdlib types.
+- **Lowercase prefix** → scope items (parameters, local variables, @vars, class methods) + top-level (global) methods. No classes or stdlib types.
 - **Uppercase prefix** → scope items + classes + stdlib types.
-- **Empty prefix** → scope items + classes + stdlib types.
+- **Empty prefix** → scope items + classes + stdlib types + top-level methods.
 
 This prevents hundreds of class names from polluting the popup when typing lowercase identifiers.
 
@@ -50,6 +50,8 @@ No completion is offered in these contexts:
 42          # ← no completion after 42
 3.14        # ← no completion after 3.14
 ```
+
+**Exception — `require` path completion:** the caret inside a `require "...<caret>"` string IS offered completion, even though it is inside a string literal. Dispatch and lookup construction are specified in [`require.md`](require.md).
 
 ---
 
@@ -185,6 +187,39 @@ end
 ```
 
 **Priority:** 30 (own class methods), 20 (inherited class methods), 0 (global methods)
+
+#### Global (Top-Level) Methods
+
+Top-level `def` definitions (methods defined outside any class/module/struct/enum) are suggested in **every** context — at the top level, inside a class method, or inside a block.
+
+Two sources are merged:
+
+1. **Current file (immediate)** — the live PSI of the file being edited is scanned for top-level `def`s, so just-typed or unsaved methods appear immediately without waiting for the stub index to be built or updated. Top-level defs are hoisted in Crystal (callable above their definition site within the file), so the entire file is scanned without the forward-reference restriction that applies to local variables.
+2. **Stub index (`CrystalTopLevelMethodIndex`)** — cross-file project defs plus stdlib top-level helpers (`puts`, `pp`, `p`, `print`, `exit`, …), mirroring how class name completion includes stdlib types like `String`/`Int32`. The result's prefix matcher pre-filters names in-memory before loading any PSI from the index, keeping the popup responsive.
+
+The lookup shows the full parameter signature:
+
+```crystal
+def kung(foo : String)
+  foo
+end
+
+kung(  # ← shows (foo : String)
+```
+
+```crystal
+class Foo
+  def bar
+    ku   # ← kung (top-level) and bar (own class method) are both suggested
+  end
+end
+```
+
+Class methods (`def self.xxx`) are **not** indexed as top-level methods — they only appear via dot-completion on their enclosing class. A bare `kung` call will not resolve to `def self.kung` inside a class.
+
+Local variables, parameters, and class methods of the enclosing class all take priority over (and dedup against) global methods of the same name. Only one lookup entry per name appears in the popup.
+
+**Priority:** 0
 
 #### Inherited Methods
 

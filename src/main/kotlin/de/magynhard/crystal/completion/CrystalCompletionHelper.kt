@@ -14,6 +14,7 @@ import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
 import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.CrystalTopLevelMethodIndex
 
 /**
  * Helper for building completion lookup elements from Crystal PSI.
@@ -330,6 +331,29 @@ object CrystalCompletionHelper {
      */
     fun getAllClassNames(project: Project): Collection<String> {
         return StubIndex.getInstance().getAllKeys(CrystalClassIndex.KEY, project)
+    }
+
+    /**
+     * Returns all top-level `def` method names (methods defined outside any
+     * class/module/struct/enum) from the project-wide StubIndex.
+     *
+     * Includes stdlib top-level helpers (puts, pp, p, print, …) once they are
+     * present in the stdlib StubIndex, mirroring how [getAllClassNames] includes
+     * stdlib types like String/Int32.
+     */
+    fun getAllTopLevelMethodNames(project: Project): Collection<String> {
+        return StubIndex.getInstance().getAllKeys(CrystalTopLevelMethodIndex.KEY, project)
+    }
+
+    /**
+     * Returns all top-level method definitions matching [name] across the project
+     * (and stdlib, if indexed). Used for free-text completion of global functions.
+     */
+    fun getTopLevelMethodsByName(name: String, project: Project): Collection<CrystalMethodDefinition> {
+        val scope = GlobalSearchScope.allScope(project)
+        return StubIndex.getElements(
+            CrystalTopLevelMethodIndex.KEY, name, project, scope, CrystalMethodDefinition::class.java
+        )
     }
 
     /**

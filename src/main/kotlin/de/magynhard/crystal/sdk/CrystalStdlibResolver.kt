@@ -1,6 +1,7 @@
 package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
@@ -8,10 +9,25 @@ import java.io.File
 /**
  * Resolves the Crystal standard library path by running `crystal env CRYSTAL_PATH`.
  * Returns the VirtualFile pointing to the stdlib src/ directory, or null if unavailable.
+ *
+ * The resolved path is cached project-scoped (via a `UserData` key on the
+ * `Project` instance) so repeated calls — e.g. once per completion invocation
+ * inside `require "..."` — do not spawn a `crystal env` subprocess each time.
+ * The cache is invalidated lazily: a `null` result is never cached (so a
+ * transient failure to run `crystal` is retried on the next call); a cached
+ * `VirtualFile` that no longer exists is dropped. The cache is reset whenever
+ * the user changes the Crystal SDK path in settings (via
+ * [clearCachedStdlibPath]).
  */
 object CrystalStdlibResolver {
 
+    private val STDLIB_PATH_KEY = Key.create<VirtualFile>("crystal.stdlib.path.cache")
+
     fun resolveStdlibPath(project: Project): VirtualFile? {
+        // Fast path: cached value, validated for existence.
+        val cached = project.getUserData(STDLIB_PATH_KEY)
+        if (cached != null && cached.isValid) return cached
+
         val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
         val crystalEnv = runCrystalEnv(crystalPath) ?: return null
 
@@ -28,7 +44,20 @@ object CrystalStdlibResolver {
         val srcDir = File(stdlibDir, "src")
         val root = if (srcDir.isDirectory) srcDir else stdlibDir
 
-        return LocalFileSystem.getInstance().findFileByPath(root.absolutePath)
+        val resolved = LocalFileSystem.getInstance().findFileByPath(root.absolutePath)
+        if (resolved != null) {
+            project.putUserData(STDLIB_PATH_KEY, resolved)
+        }
+        return resolved
+    }
+
+    /**
+     * Clears the cached stdlib path. Call when the configured Crystal SDK
+     * path changes (e.g. from `CrystalSettingsConfigurable.apply`), so the
+     * next call to [resolveStdlibPath] re-runs `crystal env CRYSTAL_PATH`.
+     */
+    fun clearCachedStdlibPath(project: Project) {
+        project.putUserData(STDLIB_PATH_KEY, null)
     }
 
     fun resolveCrystalVersion(project: Project): String? {

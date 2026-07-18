@@ -168,11 +168,18 @@ class CrystalMethodDefinitionElementType(debugName: String) :
     }
 
     override fun indexStub(stub: CrystalMethodDefinitionStub, sink: IndexSink) {
-        stub.name?.let { sink.occurrence(CrystalMethodIndex.KEY, it) }
+        val name = stub.name
+        if (name != null) sink.occurrence(CrystalMethodIndex.KEY, name)
 
-        // Also index by enclosing class/module/struct/enum name for O(1) class→methods lookups
+        // Index by enclosing class/module/struct/enum name for O(1) class→methods lookups.
+        // Top-level defs (no enclosing type) go into a dedicated index so free-text
+        // completion can retrieve them without scanning all methods.
         val className = findEnclosingParentName(stub)
-        className?.let { sink.occurrence(CrystalMethodByClassIndex.KEY, it) }
+        if (className != null) {
+            sink.occurrence(CrystalMethodByClassIndex.KEY, className)
+        } else if (name != null) {
+            sink.occurrence(CrystalTopLevelMethodIndex.KEY, name)
+        }
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true

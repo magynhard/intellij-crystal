@@ -81,6 +81,175 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain aprikose_param (without @)", names.contains("aprikose_param"))
     }
 
+    // ==================== Top-level (global) method completion ====================
+
+    fun testCompletesTopLevelMethods() {
+        myFixture.configureByText("main.cr", """
+            def kung(foo : String)
+              foo
+            end
+
+            def kunde
+            end
+
+            ku<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions (multiple matches)", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain kung (top-level method): $names", names.contains("kung"))
+        assertTrue("Should contain kunde (top-level method): $names", names.contains("kunde"))
+    }
+
+    fun testTopLevelMethodShowsSignature() {
+        myFixture.configureByText("main.cr", """
+            def kung(foo : String)
+              foo
+            end
+
+            def kunde
+            end
+
+            ku<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions (multiple matches)", lookups)
+        val kungElement = lookups.first { it.lookupString == "kung" }
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        kungElement.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("Should show parameter signature: '$tailText'", tailText.contains("foo") && tailText.contains("String"))
+    }
+
+    fun testTopLevelMethodAvailableInsideClassMethod() {
+        myFixture.configureByText("main.cr", """
+            def kung(foo : String)
+              foo
+            end
+
+            def kunde
+            end
+
+            class Foo
+              def bar
+                ku<caret>
+              end
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions (multiple matches)", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain kung inside class method: $names", names.contains("kung"))
+        assertTrue("Should contain kunde inside class method: $names", names.contains("kunde"))
+    }
+
+    fun testClassMethodNotInTopLevelIndex() {
+        myFixture.configureByText("main.cr", """
+            class Foo
+              def self.kung
+              end
+            end
+
+            kung<caret>
+        """.trimIndent())
+        // kung is a class method (def self.kung), NOT a top-level def — it should
+        // not be offered as a bare top-level call. complete() returns null when
+        // there are zero or one matches (auto-insert); in either case kung must
+        // not appear in the document.
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        if (lookups != null) {
+            val names = lookups.map { it.lookupString }
+            assertFalse(
+                "Class method self.kung should NOT be offered at top-level: $names",
+                names.contains("kung")
+            )
+        }
+    }
+
+    fun testTopLevelMethodNotSuggestedForUppercasePrefix() {
+        myFixture.configureByText("main.cr", """
+            class Kiste
+            end
+
+            def kung(foo : String)
+              foo
+            end
+
+            K<caret>
+        """.trimIndent())
+        // Uppercase prefix 'K' should match classes (Kiste) but NOT lowercase
+        // top-level methods (kung). We add a class to guarantee multiple matches
+        // for 'K' so complete() returns a non-null array.
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions (uppercase matches)", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain Kiste (class): $names", names.contains("Kiste"))
+        assertFalse(
+            "Top-level method kung should NOT be offered for uppercase prefix: $names",
+            names.contains("kung")
+        )
+    }
+
+    fun testLocalVariableShadowsTopLevelMethod() {
+        myFixture.configureByText("main.cr", """
+            def kung
+              "top-level"
+            end
+
+            def kunde
+            end
+
+            def foo
+              kung = 1
+              ku<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions (multiple matches)", lookups)
+        // The local variable 'kung' (priority 50) and the top-level method 'kung'
+        // (priority 0) dedup by name via the seen-set, so only one 'kung' entry
+        // is present. Either way the lookup should contain 'kung'.
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain kung (local var or method): $names", names.contains("kung"))
+        assertEquals("Should have exactly one kung entry", 1, names.count { it == "kung" })
+    }
+
+    fun testTopLevelMethodFromSeparateFile() {
+        myFixture.addFileToProject("helpers.cr", """
+            def kung(foo : String)
+              foo
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            def kunde
+            end
+
+            ku<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions (multiple matches)", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue(
+            "Should contain kung (top-level def from separate file via stub index): $names",
+            names.contains("kung")
+        )
+        assertTrue("Should contain kunde (current file top-level def): $names", names.contains("kunde"))
+    }
+
+    fun testTopLevelMethodSuggestedAtEmptyCaret() {
+        myFixture.configureByText("main.cr", """
+            def kung(foo : String)
+              foo
+            end
+
+            <caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions at empty caret", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain kung at empty caret: $names", names.contains("kung"))
+    }
+
     // ==================== Dot completion on class (static methods) ====================
 
     fun testDotCompletionOnClassShowsStaticMethods() {

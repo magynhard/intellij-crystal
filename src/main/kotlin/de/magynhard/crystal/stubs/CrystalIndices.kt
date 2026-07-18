@@ -48,6 +48,24 @@ class CrystalMacroIndex : StringStubIndexExtension<CrystalMacroDefinition>() {
 }
 
 /**
+ * Index that maps method names to their top-level `def` definitions
+ * (methods defined outside any class/module/struct/enum).
+ *
+ * Enables free-text completion of global functions like `puts`, `pp`,
+ * `kung`, etc. — analogous to how [CrystalClassIndex] enables class name
+ * completion. Keyed by the method's simple name (e.g. `"kung"` for
+ * `def kung(foo : String) ... end`).
+ */
+class CrystalTopLevelMethodIndex : StringStubIndexExtension<CrystalMethodDefinition>() {
+    override fun getKey(): StubIndexKey<String, CrystalMethodDefinition> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalMethodDefinition> =
+            StubIndexKey.createIndexKey("crystal.toplevel.method.index")
+    }
+}
+
+/**
  * Index that maps enclosing class/module/struct/enum names to their nested type definitions.
  * Enables O(1) lookup of "all types nested inside class X" for completion of
  * namespace paths like `Bar::<caret>`.

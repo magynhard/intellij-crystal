@@ -19,7 +19,8 @@ class CrystalStdlibLibraryProvider : AdditionalLibraryRootsProvider() {
 
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return emptyList()
         val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
-        return listOf(CrystalStdlibLibrary(stdlibRoot, version))
+        val stdlibRoots = CrystalStdlibRoots.enumerate(stdlibRoot)
+        return listOf(CrystalStdlibLibrary(stdlibRoots, version))
     }
 
     private fun isCrystalProject(project: Project): Boolean {
@@ -46,21 +47,21 @@ class CrystalStdlibLibraryProvider : AdditionalLibraryRootsProvider() {
 }
 
 private class CrystalStdlibLibrary(
-    private val root: VirtualFile,
+    private val roots: List<VirtualFile>,
     private val crystalVersion: String
 ) : SyntheticLibrary() {
 
-    override fun getSourceRoots(): Collection<VirtualFile> = listOf(root)
+    override fun getSourceRoots(): Collection<VirtualFile> = roots
 
     override fun getBinaryRoots(): Collection<VirtualFile> = emptyList()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is CrystalStdlibLibrary) return false
-        return root == other.root && crystalVersion == other.crystalVersion
+        return roots == other.roots && crystalVersion == other.crystalVersion
     }
 
-    override fun hashCode(): Int = root.hashCode() * 31 + crystalVersion.hashCode()
+    override fun hashCode(): Int = roots.hashCode() * 31 + crystalVersion.hashCode()
 
-    override fun toString(): String = "CrystalStdlibLibrary(${root.path}, $crystalVersion)"
+    override fun toString(): String = "CrystalStdlibLibrary(${roots.map { it.path }}, $crystalVersion)"
 }

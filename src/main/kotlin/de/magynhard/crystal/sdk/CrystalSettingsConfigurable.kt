@@ -93,6 +93,9 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     override fun apply() {
         val settings = CrystalSettings.getInstance(project)
         settings.state.crystalPath = crystalPathField.text
+        // Invalidate any cached stdlib path so the next call re-runs
+        // `crystal env CRYSTAL_PATH` against the newly configured SDK.
+        CrystalStdlibResolver.clearCachedStdlibPath(project)
     }
 
     override fun reset() {
@@ -124,6 +127,7 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     private fun forceReindex() {
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
         val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
+        val stdlibRoots = CrystalStdlibRoots.enumerate(stdlibRoot)
         val module = com.intellij.openapi.module.ModuleManager.getInstance(project).modules.firstOrNull() ?: return
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Re-indexing Crystal Stdlib", true) {
@@ -139,12 +143,15 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
                     }
                 }
 
-                // Step 2: Re-add module library
+                // Step 2: Re-add module library with the filtered enumeration,
+                // excluding compiler/, lib_c/, llvm/, and other non-stdlib subtrees.
                 indicator.text = "Adding Crystal Stdlib ($version)..."
                 ModuleRootModificationUtil.updateModel(module) { model ->
                     val library = model.moduleLibraryTable.createLibrary(CrystalStdlibSourceRootConfigurator.LIBRARY_NAME)
                     val libraryModel = library.modifiableModel
-                    libraryModel.addRoot(stdlibRoot, OrderRootType.SOURCES)
+                    for (root in stdlibRoots) {
+                        libraryModel.addRoot(root, OrderRootType.SOURCES)
+                    }
                     libraryModel.commit()
                 }
 
@@ -153,7 +160,7 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
                 // if the file content hasn't changed, the old stubs are reused even
                 // though the BNF grammar (and thus stub structure) may have changed.
                 indicator.text = "Re-indexing Crystal Stdlib files ($version)..."
-                val stdlibFiles = collectCrystalFiles(stdlibRoot, indicator)
+                val stdlibFiles = collectCrystalFiles(stdlibRoots, indicator)
                 var processed = 0
                 for (file in stdlibFiles) {
                     if (indicator.isCanceled) break
@@ -179,12 +186,12 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     }
 
     private fun collectCrystalFiles(
-        root: com.intellij.openapi.vfs.VirtualFile,
+        roots: List<com.intellij.openapi.vfs.VirtualFile>,
         indicator: com.intellij.openapi.progress.ProgressIndicator
     ): List<com.intellij.openapi.vfs.VirtualFile> {
         val result = mutableListOf<com.intellij.openapi.vfs.VirtualFile>()
         val stack = ArrayDeque<com.intellij.openapi.vfs.VirtualFile>()
-        stack.addLast(root)
+        roots.forEach { stack.addLast(it) }
         while (stack.isNotEmpty()) {
             if (indicator.isCanceled) break
             val file = stack.removeFirst()

@@ -27,10 +27,15 @@ private fun findNameIdentifierInTypeName(element: PsiElement): PsiElement? {
 private fun findNameIdentifierInMethodName(element: PsiElement): PsiElement? {
     // method_name is now private (inlined), IDENTIFIER/CONSTANT tokens are direct children of the definition node.
     // We want the first IDENTIFIER or CONSTANT token (the method name).
-    // Skip SELF and DOT tokens for self.method definitions.
+    // DEF, SELF, DOT, and whitespace tokens are skipped.
+    // Operator methods (def self.+) and keyword methods (def self.require) have
+    // no single IDENTIFIER/CONSTANT leaf — they are composed in the fallback
+    // path of `getNameFromMethodName`. Returning null here is correct for them
+    // (and preserves the existing behaviour of operator method naming).
     var child = element.node.firstChildNode
     while (child != null) {
-        if (child.elementType == CrystalTypes.IDENTIFIER || child.elementType == CrystalTypes.CONSTANT) {
+        val type = child.elementType
+        if (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT) {
             return child.psi
         }
         child = child.treeNext
@@ -43,18 +48,26 @@ private fun getNameFromTypeName(element: PsiElement): String? {
 }
 
 private fun getNameFromMethodName(element: PsiElement): String? {
-    // Try to find IDENTIFIER or CONSTANT first (regular method names)
+    // Primary path: regular method names have an IDENTIFIER/CONSTANT leaf.
+    //   def kung, def self.tanzen, def self.Build
     val identifier = findNameIdentifierInMethodName(element)
     if (identifier != null) return identifier.text
 
-    // For operator methods (e.g. def self.[]), compose name from operator tokens
-    // method_name is now private (inlined), tokens are direct children of the definition node.
-    // Skip SELF and DOT prefix tokens.
+    // Fallback: operator methods (def self.+, def self.[]) and keyword methods
+    // (def self.require, def self.class) have no single IDENTIFIER/CONSTANT
+    // leaf. Compose from the header tokens, but STOP at the parameter list
+    // (LPAREN) and method body — previously the loop walked the entire node,
+    // producing "def require(path)\nend" for `def self.require` (the body
+    // source got included in the name). Skip DEF, SELF, DOT, and whitespace
+    // tokens (none of them are part of the method name).
     val sb = StringBuilder()
     var child = element.node.firstChildNode
     while (child != null) {
         val type = child.elementType
-        if (type != CrystalTypes.SELF && type != CrystalTypes.DOT) {
+        if (type == CrystalTypes.LPAREN || type == CrystalTypes.METHOD_BODY) break
+        if (type != CrystalTypes.DEF && type != CrystalTypes.SELF && type != CrystalTypes.DOT &&
+            type != com.intellij.psi.TokenType.WHITE_SPACE
+        ) {
             sb.append(child.psi.text)
         }
         child = child.treeNext
