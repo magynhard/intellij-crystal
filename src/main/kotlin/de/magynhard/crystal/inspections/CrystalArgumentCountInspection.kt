@@ -59,7 +59,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val methodNameElement = findMethodNameElement(callExpr) ?: return
 
         val project = callExpr.project
-        val scope = GlobalSearchScope.allScope(project)
+        val scope = GlobalSearchScope.projectScope(project)
         val methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()
@@ -98,7 +98,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val arguments = extractArgumentsFromArgsElement(argsElement)
 
         val project = argsElement.project
-        val scope = GlobalSearchScope.allScope(project)
+        val scope = GlobalSearchScope.projectScope(project)
         var methods = StubIndex.getElements(
             CrystalMethodIndex.KEY, info.methodName, project, scope, CrystalMethodDefinition::class.java
         ).toList()

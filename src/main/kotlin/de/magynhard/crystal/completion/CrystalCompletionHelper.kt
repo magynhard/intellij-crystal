@@ -37,17 +37,32 @@ object CrystalCompletionHelper {
      * If currentFile is provided, prefers the definition from that file.
      */
     fun findTypeByName(name: String, project: Project, currentFile: PsiFile? = null): TypeLookupResult? {
-        val scope = GlobalSearchScope.allScope(project)
-        val elements = StubIndex.getElements(
-            CrystalClassIndex.KEY, name, project, scope, CrystalNamedElement::class.java
-        )
-        // Prefer the definition from the current file
-        val element = if (currentFile != null) {
-            elements.firstOrNull { it.containingFile?.virtualFile == currentFile.virtualFile }
-                ?: elements.firstOrNull()
-        } else {
-            elements.firstOrNull()
-        } ?: return null
+        val projectScope = GlobalSearchScope.projectScope(project)
+        val found = findInScope(name, project, projectScope, currentFile)
+        if (found != null) return found
+        val allScope = GlobalSearchScope.allScope(project)
+        return findInScope(name, project, allScope, currentFile)
+    }
+
+    private fun findInScope(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope,
+        currentFile: PsiFile?
+    ): TypeLookupResult? {
+        var firstMatch: CrystalNamedElement? = null
+        var fileMatch: CrystalNamedElement? = null
+        StubIndex.getInstance().processElements(
+            CrystalClassIndex.KEY, name, project, scope, null, CrystalNamedElement::class.java
+        ) { element ->
+            if (fileMatch == null && currentFile != null &&
+                element.containingFile?.virtualFile == currentFile.virtualFile) {
+                fileMatch = element
+            }
+            if (firstMatch == null) firstMatch = element
+            fileMatch != null && firstMatch != null
+        }
+        val element = fileMatch ?: firstMatch ?: return null
         val kind = when (element) {
             is CrystalClassDefinition -> TypeKind.CLASS
             is CrystalModuleDefinition -> TypeKind.MODULE
