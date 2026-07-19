@@ -147,7 +147,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         val ref = element.reference
         if (ref != null) {
             val resolved = ref.resolve()
-            if (resolved != null) return resolveTarget(resolved)
+            if (resolved != null && resolved != element) return resolveTarget(resolved)
         }
         // Walk up a few levels to find a definition (for leaf tokens like IDENTIFIER in a method name)
         var current: PsiElement? = element.parent
