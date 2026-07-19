@@ -36,7 +36,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     is CrystalMethodCallExpression -> checkCall(element, holder)
                     is CrystalBareMethodCallExpression -> checkCall(element, holder)
                     is CrystalCallArgs, is CrystalBareArgumentList -> {
-                        val dotCallInfo = detectDotCall(element)
+                        val dotCallInfo = CrystalCallExtractor.detectDotCall(element)
                         if (dotCallInfo != null) {
                             checkDotCall(element, dotCallInfo, holder)
                         }
@@ -54,9 +54,9 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val resolvedRef = callExpr.reference?.resolve()
         if (resolvedRef != null && resolvedRef !is CrystalMethodDefinition) return
 
-        val methodName = extractMethodName(callExpr) ?: return
+        val methodName = CrystalCallExtractor.extractMethodName(callExpr) ?: return
         val arguments = extractArguments(callExpr)
-        val methodNameElement = findMethodNameElement(callExpr) ?: return
+        val methodNameElement = CrystalCallExtractor.findMethodNameElement(callExpr) ?: return
 
         val project = callExpr.project
         val scope = GlobalSearchScope.projectScope(project)
@@ -65,7 +65,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         ).toList()
 
         if (methodName == "new") {
-            val className = findClassNameBeforeNew(callExpr)
+            val className = CrystalCallExtractor.findClassNameBeforeNew(callExpr)
             if (className != null) {
                 // Check record definition first — if `record Config, ...` exists in the
                 // current file, its parameters take priority over any `class Config`
@@ -90,6 +90,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     private fun checkDotCall(argsElement: PsiElement, info: DotCallInfo, holder: ProblemsHolder) {
+        val methodNameElement = info.methodNameElement ?: return
         // Skip DOT-calls on local variables/parameters — we can't reliably determine
         // the receiver's type, so we only check calls on Constants (class methods).
         val firstChar = info.receiverName.firstOrNull() ?: return
@@ -117,20 +118,20 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             // defined elsewhere (which might have a different `initialize`).
             val recordParams = findRecordParameters(info.receiverName, argsElement)
             if (recordParams != null) {
-                checkRecordArguments(recordParams, arguments, info.methodNameElement, holder)
+                checkRecordArguments(recordParams, arguments, methodNameElement, holder)
                 return
             }
             // No record found — try regular class initialize
             val initMethod = CrystalCompletionHelper.getInitializeMethod(info.receiverName, project, argsElement.containingFile)
             if (initMethod != null) {
-                checkArgumentCount(listOf(initMethod), arguments, info.methodNameElement, holder)
+                checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
                 return
             }
         }
 
         if (methods.isEmpty()) return
 
-        checkArgumentCount(methods, arguments, info.methodNameElement, holder)
+        checkArgumentCount(methods, arguments, methodNameElement, holder)
     }
 
     private fun checkArgumentCount(
@@ -312,43 +313,6 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     data class ParamInfo(val name: String, val hasDefault: Boolean)
-
-    // ==================== DOT-call Detection ====================
-
-    data class DotCallInfo(val receiverName: String, val methodName: String, val methodNameElement: PsiElement)
-
-    private fun detectDotCall(argsElement: PsiElement): DotCallInfo? {
-        val parent = argsElement.parent
-        if (parent is CrystalMethodCallExpression || parent is CrystalBareMethodCallExpression) return null
-
-        var sibling = argsElement.prevSibling
-        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-
-        val methodNameNode = sibling ?: return null
-        val methodType = methodNameNode.node?.elementType
-        if (methodType != CrystalTypes.IDENTIFIER && methodType != CrystalTypes.CONSTANT) return null
-
-        val methodNameElement = methodNameNode
-        val methodName = methodNameNode.text
-
-        sibling = methodNameNode.prevSibling
-        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-        if (sibling?.node?.elementType != CrystalTypes.DOT) return null
-
-        sibling = sibling.prevSibling
-        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-        // If DOT is the first child of dot_call_access, walk up to find the receiver
-        if (sibling == null) {
-            val dotCallAccess = methodNameNode.parent
-            if (dotCallAccess is CrystalDotCallAccess) {
-                sibling = dotCallAccess.prevSibling
-                while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-            }
-        }
-        val receiverName = sibling?.text ?: return null
-
-        return DotCallInfo(receiverName, methodName, methodNameElement)
-    }
 
     // ==================== Argument Extraction ====================
 
@@ -632,42 +596,6 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
     // ==================== Helpers ====================
 
-    private fun extractMethodName(callExpr: PsiElement): String? {
-        var child = callExpr.firstChild
-        var lastNameBeforeDot: String? = null
-        var foundDot = false
-        while (child != null) {
-            val type = child.node?.elementType
-            if (type == CrystalTypes.DOT) {
-                foundDot = true
-            } else if (foundDot && (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT)) {
-                return child.text
-            } else if (!foundDot && (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT)) {
-                lastNameBeforeDot = child.text
-            }
-            child = child.nextSibling
-        }
-        return lastNameBeforeDot
-    }
-
-    private fun findMethodNameElement(callExpr: PsiElement): PsiElement? {
-        var child = callExpr.firstChild
-        var lastNameElement: PsiElement? = null
-        var foundDot = false
-        while (child != null) {
-            val type = child.node?.elementType
-            if (type == CrystalTypes.DOT) {
-                foundDot = true
-            } else if (foundDot && (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT)) {
-                return child
-            } else if (!foundDot && (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT)) {
-                lastNameElement = child
-            }
-            child = child.nextSibling
-        }
-        return lastNameElement
-    }
-
     private fun findHighlightTarget(element: PsiElement): PsiElement {
         if (element is CrystalBareArgument || element is CrystalArgument) {
             var child = element.firstChild
@@ -682,28 +610,6 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
         }
         return element
-    }
-
-    /**
-     * For "ClassName.new(...)" — finds the class name (CONSTANT) before ".new".
-     */
-    private fun findClassNameBeforeNew(callExpr: PsiElement): String? {
-        var child = callExpr.firstChild
-        var foundDot = false
-        while (child != null) {
-            val type = child.node?.elementType
-            if (type == CrystalTypes.DOT) {
-                foundDot = true
-            } else if (foundDot && type == CrystalTypes.IDENTIFIER && child.text == "new") {
-                var beforeDot = child.prevSibling
-                while (beforeDot is PsiWhiteSpace) beforeDot = beforeDot.prevSibling
-                if (beforeDot?.node?.elementType == CrystalTypes.CONSTANT) {
-                    return beforeDot.text
-                }
-            }
-            child = child.nextSibling
-        }
-        return null
     }
 
     private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
