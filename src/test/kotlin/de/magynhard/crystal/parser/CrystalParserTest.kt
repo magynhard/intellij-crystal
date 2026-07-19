@@ -270,4 +270,16 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testCommandInterpolation() {
         doTest(true)
     }
+
+    fun testLibDefinitionWithStub() {
+        doTest(true)
+    }
+
+    fun testAnnotationDefinitionWithStub() {
+        doTest(true)
+    }
+
+    fun testAliasDefinitionWithStub() {
+        doTest(true)
+    }
 }

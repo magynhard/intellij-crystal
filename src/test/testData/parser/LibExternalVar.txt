@@ -1,5 +1,5 @@
 Crystal File(0,90)
-  CrystalLibDefinitionImpl(CrystalElementType.LIB_DEFINITION)(0,90)
+  {}(0,90)
     PsiElement(CrystalTokenType.LIB)('lib')(0,3)
     PsiElement(CrystalTokenType.CONSTANT)('LibC')(4,8)
     CrystalLibBodyImpl(CrystalElementType.LIB_BODY)(8,87)

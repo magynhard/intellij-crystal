@@ -214,6 +214,90 @@ class CrystalMacroDefinitionElementType(debugName: String) :
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
 }
 
+class CrystalLibDefinitionElementType(debugName: String) :
+    IStubElementType<CrystalLibDefinitionStub, CrystalLibDefinition>(debugName, CrystalLanguage) {
+
+    override fun getExternalId(): String = "crystal.LIB_DEFINITION"
+
+    override fun serialize(stub: CrystalLibDefinitionStub, dataStream: StubOutputStream) {
+        dataStream.writeName(stub.name)
+    }
+
+    override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalLibDefinitionStub {
+        return CrystalLibDefinitionStub(parentStub, this, dataStream.readNameString())
+    }
+
+    override fun createStub(psi: CrystalLibDefinition, parentStub: StubElement<out PsiElement>?): CrystalLibDefinitionStub {
+        return CrystalLibDefinitionStub(parentStub, this, psi.name)
+    }
+
+    override fun createPsi(stub: CrystalLibDefinitionStub): CrystalLibDefinition {
+        return CrystalLibDefinitionImpl(stub, this)
+    }
+
+    override fun indexStub(stub: CrystalLibDefinitionStub, sink: IndexSink) {
+        stub.name?.let { sink.occurrence(CrystalLibIndex.KEY, it) }
+    }
+
+    override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
+class CrystalAnnotationDefinitionElementType(debugName: String) :
+    IStubElementType<CrystalAnnotationDefinitionStub, CrystalAnnotationDefinition>(debugName, CrystalLanguage) {
+
+    override fun getExternalId(): String = "crystal.ANNOTATION_DEFINITION"
+
+    override fun serialize(stub: CrystalAnnotationDefinitionStub, dataStream: StubOutputStream) {
+        dataStream.writeName(stub.name)
+    }
+
+    override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalAnnotationDefinitionStub {
+        return CrystalAnnotationDefinitionStub(parentStub, this, dataStream.readNameString())
+    }
+
+    override fun createStub(psi: CrystalAnnotationDefinition, parentStub: StubElement<out PsiElement>?): CrystalAnnotationDefinitionStub {
+        return CrystalAnnotationDefinitionStub(parentStub, this, psi.name)
+    }
+
+    override fun createPsi(stub: CrystalAnnotationDefinitionStub): CrystalAnnotationDefinition {
+        return CrystalAnnotationDefinitionImpl(stub, this)
+    }
+
+    override fun indexStub(stub: CrystalAnnotationDefinitionStub, sink: IndexSink) {
+        stub.name?.let { sink.occurrence(CrystalAnnotationIndex.KEY, it) }
+    }
+
+    override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
+class CrystalAliasDefinitionElementType(debugName: String) :
+    IStubElementType<CrystalAliasDefinitionStub, CrystalAliasDefinition>(debugName, CrystalLanguage) {
+
+    override fun getExternalId(): String = "crystal.ALIAS_DEFINITION"
+
+    override fun serialize(stub: CrystalAliasDefinitionStub, dataStream: StubOutputStream) {
+        dataStream.writeName(stub.name)
+    }
+
+    override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalAliasDefinitionStub {
+        return CrystalAliasDefinitionStub(parentStub, this, dataStream.readNameString())
+    }
+
+    override fun createStub(psi: CrystalAliasDefinition, parentStub: StubElement<out PsiElement>?): CrystalAliasDefinitionStub {
+        return CrystalAliasDefinitionStub(parentStub, this, psi.name)
+    }
+
+    override fun createPsi(stub: CrystalAliasDefinitionStub): CrystalAliasDefinition {
+        return CrystalAliasDefinitionImpl(stub, this)
+    }
+
+    override fun indexStub(stub: CrystalAliasDefinitionStub, sink: IndexSink) {
+        stub.name?.let { sink.occurrence(CrystalAliasIndex.KEY, it) }
+    }
+
+    override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
 /**
  * Walks up the stub tree from [stub] to find the name of the immediate enclosing
  * class/module/struct/enum. Returns `null` if no enclosing type is found.

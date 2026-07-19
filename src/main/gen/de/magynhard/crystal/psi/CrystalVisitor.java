@@ -8,11 +8,11 @@ import com.intellij.psi.PsiElement;
 public class CrystalVisitor extends PsiElementVisitor {
 
   public void visitAliasDefinition(@NotNull CrystalAliasDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitAnnotationDefinition(@NotNull CrystalAnnotationDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitAnnotationUsage(@NotNull CrystalAnnotationUsage o) {
@@ -200,7 +200,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitLibDefinition(@NotNull CrystalLibDefinition o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitLibExternalVar(@NotNull CrystalLibExternalVar o) {

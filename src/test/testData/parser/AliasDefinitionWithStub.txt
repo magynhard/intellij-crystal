@@ -1,0 +1,8 @@
+Crystal File(0,17)
+  {}(0,17)
+    PsiElement(CrystalTokenType.ALIAS)('alias')(0,5)
+    PsiElement(CrystalTokenType.CONSTANT)('Foo')(6,9)
+    PsiElement(CrystalTokenType.ASSIGN)('=')(10,11)
+    CrystalTypeReferenceImpl(CrystalElementType.TYPE_REFERENCE)(12,17)
+      CrystalTypePathImpl(CrystalElementType.TYPE_PATH)(12,17)
+        PsiElement(CrystalTokenType.CONSTANT)('Int32')(12,17)

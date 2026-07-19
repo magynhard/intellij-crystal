@@ -2,9 +2,7 @@ package de.magynhard.crystal.stubs
 
 import com.intellij.psi.stubs.StringStubIndexExtension
 import com.intellij.psi.stubs.StubIndexKey
-import de.magynhard.crystal.psi.CrystalMacroDefinition
-import de.magynhard.crystal.psi.CrystalMethodDefinition
-import de.magynhard.crystal.psi.CrystalNamedElement
+import de.magynhard.crystal.psi.*
 
 class CrystalClassIndex : StringStubIndexExtension<CrystalNamedElement>() {
     override fun getKey(): StubIndexKey<String, CrystalNamedElement> = KEY
@@ -79,5 +77,32 @@ class CrystalClassByEnclosingIndex : StringStubIndexExtension<CrystalNamedElemen
     companion object {
         val KEY: StubIndexKey<String, CrystalNamedElement> =
             StubIndexKey.createIndexKey("crystal.class.by.enclosing.index")
+    }
+}
+
+class CrystalAliasIndex : StringStubIndexExtension<CrystalAliasDefinition>() {
+    override fun getKey(): StubIndexKey<String, CrystalAliasDefinition> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalAliasDefinition> =
+            StubIndexKey.createIndexKey("crystal.alias.index")
+    }
+}
+
+class CrystalAnnotationIndex : StringStubIndexExtension<CrystalAnnotationDefinition>() {
+    override fun getKey(): StubIndexKey<String, CrystalAnnotationDefinition> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalAnnotationDefinition> =
+            StubIndexKey.createIndexKey("crystal.annotation.index")
+    }
+}
+
+class CrystalLibIndex : StringStubIndexExtension<CrystalLibDefinition>() {
+    override fun getKey(): StubIndexKey<String, CrystalLibDefinition> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalLibDefinition> =
+            StubIndexKey.createIndexKey("crystal.lib.index")
     }
 }

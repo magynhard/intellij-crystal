@@ -12,6 +12,9 @@ object CrystalStubElementTypeFactory {
             "ENUM_DEFINITION" -> CrystalStubElementTypeHolder.ENUM_DEFINITION
             "METHOD_DEFINITION" -> CrystalStubElementTypeHolder.METHOD_DEFINITION
             "MACRO_DEFINITION" -> CrystalStubElementTypeHolder.MACRO_DEFINITION
+            "LIB_DEFINITION" -> CrystalStubElementTypeHolder.LIB_DEFINITION
+            "ANNOTATION_DEFINITION" -> CrystalStubElementTypeHolder.ANNOTATION_DEFINITION
+            "ALIAS_DEFINITION" -> CrystalStubElementTypeHolder.ALIAS_DEFINITION
             else -> throw IllegalArgumentException("Unknown stub element type: $name")
         }
     }

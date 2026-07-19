@@ -8,13 +8,18 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
+import com.intellij.psi.stubs.IStubElementType;
+import de.magynhard.crystal.stubs.CrystalAnnotationDefinitionStub;
 
-public class CrystalAnnotationDefinitionImpl extends ASTWrapperPsiElement implements CrystalAnnotationDefinition {
+public class CrystalAnnotationDefinitionImpl extends CrystalStubbedAnnotationDefinitionImpl implements CrystalAnnotationDefinition {
 
-  public CrystalAnnotationDefinitionImpl(@NotNull ASTNode node) {
+  public CrystalAnnotationDefinitionImpl(ASTNode node) {
     super(node);
+  }
+
+  public CrystalAnnotationDefinitionImpl(CrystalAnnotationDefinitionStub stub, IStubElementType stubType) {
+    super(stub, stubType);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {

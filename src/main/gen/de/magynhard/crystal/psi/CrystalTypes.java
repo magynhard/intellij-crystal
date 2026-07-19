@@ -10,8 +10,8 @@ import de.magynhard.crystal.psi.impl.*;
 
 public interface CrystalTypes {
 
-  IElementType ALIAS_DEFINITION = new CrystalElementType("ALIAS_DEFINITION");
-  IElementType ANNOTATION_DEFINITION = new CrystalElementType("ANNOTATION_DEFINITION");
+  IElementType ALIAS_DEFINITION = CrystalStubElementTypeFactory.create("ALIAS_DEFINITION");
+  IElementType ANNOTATION_DEFINITION = CrystalStubElementTypeFactory.create("ANNOTATION_DEFINITION");
   IElementType ANNOTATION_USAGE = new CrystalElementType("ANNOTATION_USAGE");
   IElementType ARGUMENT = new CrystalElementType("ARGUMENT");
   IElementType ARGUMENT_LIST = new CrystalElementType("ARGUMENT_LIST");
@@ -58,7 +58,7 @@ public interface CrystalTypes {
   IElementType INSTANCE_VAR_ACCESS = new CrystalElementType("INSTANCE_VAR_ACCESS");
   IElementType IN_CLAUSE = new CrystalElementType("IN_CLAUSE");
   IElementType LIB_BODY = new CrystalElementType("LIB_BODY");
-  IElementType LIB_DEFINITION = new CrystalElementType("LIB_DEFINITION");
+  IElementType LIB_DEFINITION = CrystalStubElementTypeFactory.create("LIB_DEFINITION");
   IElementType LIB_EXTERNAL_VAR = new CrystalElementType("LIB_EXTERNAL_VAR");
   IElementType LIB_FIELD = new CrystalElementType("LIB_FIELD");
   IElementType LIB_STRUCT_DEFINITION = new CrystalElementType("LIB_STRUCT_DEFINITION");

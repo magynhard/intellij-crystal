@@ -14,4 +14,7 @@ object CrystalStubElementTypeHolder {
     @JvmField val ENUM_DEFINITION = CrystalEnumDefinitionElementType("ENUM_DEFINITION")
     @JvmField val METHOD_DEFINITION = CrystalMethodDefinitionElementType("METHOD_DEFINITION")
     @JvmField val MACRO_DEFINITION = CrystalMacroDefinitionElementType("MACRO_DEFINITION")
+@JvmField val LIB_DEFINITION = CrystalLibDefinitionElementType("LIB_DEFINITION")
+@JvmField val ANNOTATION_DEFINITION = CrystalAnnotationDefinitionElementType("ANNOTATION_DEFINITION")
+    @JvmField val ALIAS_DEFINITION = CrystalAliasDefinitionElementType("ALIAS_DEFINITION")
 }

@@ -1,4 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.grammarkit.tasks.GenerateParserTask
+import org.jetbrains.grammarkit.tasks.GenerateLexerTask
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.3.20"
@@ -74,12 +76,12 @@ tasks {
         pathToPsiRoot.set("de/magynhard/crystal/psi")
     }
 
-    generateLexer {
+    register<GenerateLexerTask>("generateEcrLexer") {
         sourceFile.set(file("src/main/kotlin/de/magynhard/crystal/ecr/lexer/EmbeddedCrystal.flex"))
         targetOutputDir.set(file("src/main/gen/de/magynhard/crystal/ecr/lexer"))
     }
 
-    generateParser {
+    register<GenerateParserTask>("generateEcrParser") {
         sourceFile.set(file("src/main/kotlin/de/magynhard/crystal/ecr/parser/EmbeddedCrystal.bnf"))
         targetRootOutputDir.set(file("src/main/gen"))
         pathToParser.set("de/magynhard/crystal/ecr/parser/EmbeddedCrystalParser.java")
@@ -87,7 +89,7 @@ tasks {
     }
 
     compileKotlin {
-        dependsOn(generateLexer, generateParser)
+        dependsOn(generateLexer, generateParser, "generateEcrLexer", "generateEcrParser")
     }
 
     withType<JavaCompile>().configureEach {

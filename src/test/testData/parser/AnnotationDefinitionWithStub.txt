@@ -1,0 +1,6 @@
+Crystal File(0,18)
+  {}(0,18)
+    PsiElement(CrystalTokenType.ANNOTATION)('annotation')(0,10)
+    PsiElement(CrystalTokenType.CONSTANT)('Foo')(11,14)
+    PsiElement(CrystalTokenType.NEWLINE)('\n')(14,15)
+    PsiElement(CrystalTokenType.END)('end')(15,18)

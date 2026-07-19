@@ -66,3 +66,27 @@ class CrystalMacroDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?
 ) : StubBase<CrystalMacroDefinition>(parent, elementType), CrystalNamedStub
+
+// ==================== Lib Stub ====================
+
+class CrystalLibDefinitionStub(
+    parent: StubElement<*>?,
+    elementType: IStubElementType<*, *>,
+    override val name: String?
+) : StubBase<CrystalLibDefinition>(parent, elementType), CrystalNamedStub
+
+// ==================== Annotation Stub ====================
+
+class CrystalAnnotationDefinitionStub(
+    parent: StubElement<*>?,
+    elementType: IStubElementType<*, *>,
+    override val name: String?
+) : StubBase<CrystalAnnotationDefinition>(parent, elementType), CrystalNamedStub
+
+// ==================== Alias Stub ====================
+
+class CrystalAliasDefinitionStub(
+    parent: StubElement<*>?,
+    elementType: IStubElementType<*, *>,
+    override val name: String?
+) : StubBase<CrystalAliasDefinition>(parent, elementType), CrystalNamedStub

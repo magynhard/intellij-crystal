@@ -152,3 +152,32 @@ abstract class CrystalStubbedMacroDefinitionImpl : StubBasedPsiElementBase<Cryst
     override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }
+
+// ==================== Lib / Annotation / Alias / Constant ====================
+
+abstract class CrystalStubbedLibDefinitionImpl : StubBasedPsiElementBase<CrystalLibDefinitionStub>, CrystalNamedElement {
+    constructor(node: ASTNode) : super(node)
+    constructor(stub: CrystalLibDefinitionStub, nodeType: IStubElementType<*, *>) : super(stub, nodeType)
+    override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
+    override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
+    override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
+}
+
+abstract class CrystalStubbedAnnotationDefinitionImpl : StubBasedPsiElementBase<CrystalAnnotationDefinitionStub>, CrystalNamedElement {
+    constructor(node: ASTNode) : super(node)
+    constructor(stub: CrystalAnnotationDefinitionStub, nodeType: IStubElementType<*, *>) : super(stub, nodeType)
+    override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
+    override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
+    override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
+}
+
+abstract class CrystalStubbedAliasDefinitionImpl : StubBasedPsiElementBase<CrystalAliasDefinitionStub>, CrystalNamedElement {
+    constructor(node: ASTNode) : super(node)
+    constructor(stub: CrystalAliasDefinitionStub, nodeType: IStubElementType<*, *>) : super(stub, nodeType)
+    override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
+    override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
+    override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
+}

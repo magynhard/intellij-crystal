@@ -457,6 +457,9 @@
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalClassByEnclosingIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMacroIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalTopLevelMethodIndex"/>
+        <stubIndex implementation="de.magynhard.crystal.stubs.CrystalAliasIndex"/>
+        <stubIndex implementation="de.magynhard.crystal.stubs.CrystalAnnotationIndex"/>
+        <stubIndex implementation="de.magynhard.crystal.stubs.CrystalLibIndex"/>
 
         <stubElementTypeHolder class="de.magynhard.crystal.stubs.CrystalStubElementTypeHolder"/>
 

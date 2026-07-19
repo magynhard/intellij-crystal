@@ -11,7 +11,7 @@
   elementTypeHolderClass="de.magynhard.crystal.psi.CrystalTypes"
   elementTypeClass="de.magynhard.crystal.psi.CrystalElementType"
   tokenTypeClass="de.magynhard.crystal.lexer.CrystalTokenType"
-  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
+  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition|lib_definition|annotation_definition|alias_definition")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
 
   tokens = [
     // Keywords
@@ -254,13 +254,28 @@ enum_definition ::= ENUM type_name [COLON type_reference] enum_body END {
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-lib_definition ::= LIB CONSTANT lib_body END {pin=1}
+lib_definition ::= LIB CONSTANT lib_body END {
+  pin=1
+  stubClass="de.magynhard.crystal.stubs.CrystalLibDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedLibDefinitionImpl"
+  implements="de.magynhard.crystal.psi.CrystalNamedElement"
+}
 
-annotation_definition ::= ANNOTATION type_name NEWLINE* END {pin=1}
+annotation_definition ::= ANNOTATION type_name NEWLINE* END {
+  pin=1
+  stubClass="de.magynhard.crystal.stubs.CrystalAnnotationDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedAnnotationDefinitionImpl"
+  implements="de.magynhard.crystal.psi.CrystalNamedElement"
+}
 
 annotation_usage ::= AT LBRACKET type_path [LPAREN NLS argument_list NLS RPAREN] RBRACKET
 
-alias_definition ::= ALIAS type_name ASSIGN type_reference {pin=1}
+alias_definition ::= ALIAS type_name ASSIGN type_reference {
+  pin=1
+  stubClass="de.magynhard.crystal.stubs.CrystalAliasDefinitionStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedAliasDefinitionImpl"
+  implements="de.magynhard.crystal.psi.CrystalNamedElement"
+}
 
 // ==================== Type Bodies ====================
 
@@ -495,7 +510,9 @@ multi_assign_target ::= STAR variable
                        | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
 private multi_assign_values ::= expression (COMMA expression)*
 
-constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {pin=2}
+constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {
+  pin=2
+}
 
 private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
 

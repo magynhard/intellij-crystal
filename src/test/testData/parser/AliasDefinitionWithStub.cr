@@ -1,0 +1,1 @@
+alias Foo = Int32
