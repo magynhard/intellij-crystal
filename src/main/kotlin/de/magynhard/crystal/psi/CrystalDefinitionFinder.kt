@@ -4,37 +4,28 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
-import de.magynhard.crystal.stubs.CrystalClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.*
 
-/**
- * Project-wide definition lookup for Go to Definition and Reference resolution.
- *
- * Uses StubIndex for fast lookups. No FileTypeIndex fallback — that scans all
- * .cr files in the project and causes 90+ second delays on every right-click.
- */
 object CrystalDefinitionFinder {
 
-    /**
-     * Find all definitions (class/module/struct/enum/method/macro) with the given name
-     * across the entire project via StubIndex.
-     */
     fun findDefinitions(name: String, project: Project): List<PsiElement> {
         val scope = GlobalSearchScope.allScope(project)
         val results = mutableListOf<PsiElement>()
-
-        val types = StubIndex.getElements(
-            CrystalClassIndex.KEY, name, project, scope,
-            CrystalNamedElement::class.java
-        )
-        results.addAll(types)
-
-        val methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, name, project, scope,
-            CrystalMethodDefinition::class.java
-        )
-        results.addAll(methods)
-
+        results.addAll(StubIndex.getElements(CrystalClassIndex.KEY, name, project, scope, CrystalNamedElement::class.java))
+        results.addAll(StubIndex.getElements(CrystalMethodIndex.KEY, name, project, scope, CrystalMethodDefinition::class.java))
+        results.addAll(StubIndex.getElements(CrystalMacroIndex.KEY, name, project, scope, CrystalMacroDefinition::class.java))
         return results
     }
+
+    fun findMacros(name: String, project: Project): List<CrystalMacroDefinition> =
+        StubIndex.getElements(CrystalMacroIndex.KEY, name, project, GlobalSearchScope.allScope(project), CrystalMacroDefinition::class.java).toList()
+
+    fun findAliases(name: String, project: Project): List<CrystalAliasDefinition> =
+        StubIndex.getElements(CrystalAliasIndex.KEY, name, project, GlobalSearchScope.allScope(project), CrystalAliasDefinition::class.java).toList()
+
+    fun findAnnotations(name: String, project: Project): List<CrystalAnnotationDefinition> =
+        StubIndex.getElements(CrystalAnnotationIndex.KEY, name, project, GlobalSearchScope.allScope(project), CrystalAnnotationDefinition::class.java).toList()
+
+    fun findLibs(name: String, project: Project): List<CrystalLibDefinition> =
+        StubIndex.getElements(CrystalLibIndex.KEY, name, project, GlobalSearchScope.allScope(project), CrystalLibDefinition::class.java).toList()
 }
