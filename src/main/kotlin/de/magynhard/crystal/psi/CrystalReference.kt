@@ -13,12 +13,6 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
  * Resolution order:
  * 1. Local scope (fast — walks up PSI tree, no I/O) — for variables and parameters
  * 2. StubIndex lookup (fast — in-memory index) — for methods, classes, etc.
- *
- * IMPORTANT: Does NOT use CrystalDefinitionFinder.findDefinitions() because that
- * includes a FileTypeIndex fallback that scans ALL .cr files in the project and
- * walks their PSI trees, causing 90+ second delays on every right-click/hover.
- * Go to Definition via CrystalGotoDeclarationHandler still uses the full
- * CrystalDefinitionFinder with the FileTypeIndex fallback.
  */
 class CrystalReference(
     element: PsiElement,
@@ -44,7 +38,7 @@ class CrystalReference(
             return local
         }
 
-        // 2. StubIndex lookup only (fast — in-memory index, no FileTypeIndex scan)
+        // 2. StubIndex lookup (fast — in-memory index)
         val scope = GlobalSearchScope.allScope(element.project)
         val types = StubIndex.getElements(
             CrystalClassIndex.KEY, name, element.project, scope,
