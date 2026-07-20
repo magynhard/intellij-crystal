@@ -162,6 +162,21 @@ class CrystalParameterInfoHandlerTest : BasePlatformTestCase() {
         assertEquals(1, index)
     }
 
+    fun testParameterIndexIgnoresCommasInNestedExpressions() {
+        val file = myFixture.configureByText("test.cr", """
+            def foo(a, b, c, d, e)
+            end
+            def bar(x, y)
+            end
+            foo([1, 2], {"one" => 1, "two" => 2}, {one: 1, two: 2}, bar(3, 4), <caret>5)
+        """.trimIndent())
+        val argsHolder = handler.findArgsHolder(file, myFixture.caretOffset)
+        assertNotNull(argsHolder)
+        val index = CrystalParameterIndexUtil.computeCurrentParameterIndex(argsHolder!!, myFixture.caretOffset)
+        assertEquals(4, index)
+        assertEquals(index, handler.computeCurrentParameterIndex(argsHolder, myFixture.caretOffset))
+    }
+
     // ==================== Bare Call Parameter Index Tests ====================
 
     fun testBareCallParameterIndexFirst() {
