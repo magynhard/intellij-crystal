@@ -33,7 +33,11 @@ internal object CrystalParameterCallLocator {
             if (fallbackA != null) return fallbackA
         }
 
-        val brokenParenHolder = CrystalBareCallParameterLocator.findBrokenParenArgsHolder(file, offset)
+        val brokenParenHolder = CrystalBareCallParameterLocator.findBrokenParenArgsHolder(
+            file,
+            offset,
+            ::findArgsParent
+        )
         if (brokenParenHolder != null) return brokenParenHolder
 
         val bareCallAnchor = CrystalBareCallParameterLocator.scanBackwardsForBareCall(file, offset)
@@ -48,7 +52,7 @@ internal object CrystalParameterCallLocator {
         return null
     }
 
-    internal fun findArgsParent(element: PsiElement?): PsiElement? {
+    private fun findArgsParent(element: PsiElement?): PsiElement? {
         if (element == null) return null
         val callArgs = PsiTreeUtil.getParentOfType(element, CrystalCallArgs::class.java, false)
         if (callArgs != null) return callArgs

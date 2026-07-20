@@ -6,7 +6,7 @@ Parameter Info (`Ctrl+P`) displays Crystal method signatures for parenthesized c
 
 `CrystalParameterInfoHandler` is the IntelliJ `ParameterInfoHandler` lifecycle coordinator and compatibility facade. It owns the synthetic `CrystalParameterInfoAnchor`, resolves indexed method definitions, prepares displayed signatures, and delegates call analysis to package-internal helpers:
 
-- `CrystalParameterCallLocator` discovers the argument owner without changing the established lookup order: direct PSI, adjacent PSI, broken parenthesized PSI, bare-call recovery, then the closing-parenthesis edge case.
+- `CrystalParameterCallLocator` discovers the argument owner without changing the established lookup order: a preliminary bare/DOT-call scan that can select an inner DOT-call before an outer call's arguments, direct PSI, adjacent PSI, broken parenthesized PSI, bare-call recovery, then the closing-parenthesis edge case.
 - `CrystalBareCallParameterLocator` performs bounded backwards token scans, detects bare method names, and recovers synthetic anchors for incomplete calls.
 - `CrystalDotCallParameterLocator` extracts method and receiver names from call PSI and resolves the class name preceding `.new`.
 - `CrystalParameterIndexUtil` computes the active argument from top-level commas.

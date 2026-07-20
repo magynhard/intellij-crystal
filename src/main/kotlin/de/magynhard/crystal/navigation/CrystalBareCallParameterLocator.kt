@@ -125,12 +125,16 @@ internal object CrystalBareCallParameterLocator {
         return CrystalParameterInfoHandler.CrystalParameterInfoAnchor(file.manager, nameToken, stmtEnd)
     }
 
-    internal fun findBrokenParenArgsHolder(file: PsiFile, offset: Int): PsiElement? {
+    internal fun findBrokenParenArgsHolder(
+        file: PsiFile,
+        offset: Int,
+        findArgsParent: (PsiElement?) -> PsiElement?
+    ): PsiElement? {
         val lparenOffset = findUnmatchedLparen(file.text, offset)
         if (lparenOffset < 0) return null
 
         val lparenElement = file.findElementAt(lparenOffset) ?: return null
-        val callArgs = CrystalParameterCallLocator.findArgsParent(lparenElement)
+        val callArgs = findArgsParent(lparenElement)
         if (callArgs != null) return callArgs
 
         val parent = lparenElement.parent

@@ -60,6 +60,23 @@ class CrystalParameterInfoHandlerTest : BasePlatformTestCase() {
         assertNotNull("Should find args holder at opening paren", argsHolder)
     }
 
+    fun testBrokenParenRecoveryUsesInjectedParentResolver() {
+        val file = myFixture.configureByText("test.cr", "greet(<caret>")
+        val lparen = file.findElementAt(myFixture.caretOffset - 1)
+        var resolverCalled = false
+
+        val argsHolder = CrystalBareCallParameterLocator.findBrokenParenArgsHolder(
+            file,
+            myFixture.caretOffset
+        ) { element ->
+            resolverCalled = true
+            element
+        }
+
+        assertTrue("Should delegate parent lookup to the injected resolver", resolverCalled)
+        assertSame(lparen, argsHolder)
+    }
+
     // ==================== Method Name Resolution Tests ====================
 
     fun testMethodNameParenthesized() {
