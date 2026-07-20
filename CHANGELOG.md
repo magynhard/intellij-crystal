@@ -19,6 +19,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ### Changed
 
+- **Split completion responsibilities into focused providers** — `CrystalCompletionContributor` now retains only registration and ordered dispatch policy, while context classification, local candidates, and class/constant candidates live in dedicated components. Completion ordering, ranking, deduplication, Dumb Mode guards, and results remain unchanged.
 - **Centralize indexed production lookups** — all PSI, navigation, completion, inspection, documentation, and SDK StubIndex queries now go through a typed `CrystalIndexService`. Go to Class/Symbol name processing honors its requested search scope and preserves distinct class, module, struct, and enum icons.
 - **Strengthen indexed navigation regression coverage** — direct tests now protect call extraction, Go to Class/Symbol contributors, and current-file-aware completion type lookup ahead of the index service migration. The coverage also fixes current-file type preference stopping at the first indexed match and constructor extraction for the composite DOT-call PSI shape.
 - **Split Parameter Info call analysis into focused helpers** — `CrystalParameterInfoHandler` now coordinates the IntelliJ lifecycle while dedicated locators handle call discovery, bare and DOT-call analysis, and current-parameter indexing. Existing handler entry points and behavior remain unchanged.

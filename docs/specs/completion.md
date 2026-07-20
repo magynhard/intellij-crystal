@@ -2,6 +2,18 @@
 
 Specs to define the behaviour of code completion in the Crystal plugin.
 
+## Architecture
+
+`CrystalCompletionContributor` owns IntelliJ registration and the ordered dispatch policy. The
+require, suppression, override, type, class-body, annotation, DOT, namespace, and free-text
+branches remain in that contributor because their order and early returns are behaviorally
+significant.
+
+Context classification is implemented by package-level helpers in `CrystalCompletionContext`.
+Candidate generation is split between `CrystalLocalCompletionProvider` for scope-sensitive
+locals, parameters, variables, and methods, and `CrystalSymbolCompletionProvider` for classes
+and constants. Local candidates share one deduplication set across all candidate sources.
+
 ## General Behaviours
 
 ### Triggering
