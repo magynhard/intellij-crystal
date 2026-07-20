@@ -13,6 +13,8 @@ Parameter Info (`Ctrl+P`) displays Crystal method signatures for parenthesized c
 
 The handler continues to expose `findArgsHolder`, `scanBackwardsForBareCall`, `computeCurrentParameterIndex`, and `findReceiverNameFromSiblings` for existing callers and tests. These methods delegate to the helpers. `findMethodNameForArgs` remains in the handler because it coordinates synthetic anchors, regular call expressions, bare call expressions, sibling recovery, and malformed PSI.
 
+Indexed method resolution goes through `CrystalIndexService`. General methods use all scope so SDK definitions remain available. Constructor lookup narrows directly to the receiver's methods through the method-by-class index instead of loading every method named `new`. This internal split and lookup narrowing do not intentionally change displayed signatures, call discovery order, or active-parameter behavior.
+
 ## Parameter Index
 
 The active parameter index is the number of top-level commas before the caret. Commas nested inside parentheses, arrays, hashes, named tuples, or nested method calls do not advance the outer parameter index. The same rule applies to regular PSI argument owners, bare-call anchors, and synthetic anchors created for incomplete parenthesized calls.

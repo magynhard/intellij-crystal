@@ -44,7 +44,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 - **Go to Definition** (Ctrl+Click / Ctrl+B) — jump to class, module, struct, enum, method definitions, instance/class variable declarations (`@name`, `@@name`), and DOT-call methods (`obj.method`, `Class.method`)
 - **Namespace Access** — hovering and Go to Definition for intermediate namespace segments (e.g. `Inner` in `Outer::Inner.method`)
 - **Go to Symbol** (Ctrl+Alt+Shift+N) — find any symbol in the project
-- **Go to Class** (Ctrl+N) — find classes, modules, structs, enums
+- **Go to Class** (Ctrl+N) — find classes, modules, structs, enums, aliases, annotations, and libs
 - **Find Usages** (Alt+F7) — find all usages of methods, classes, instance variables (`@name`), and class variables (`@@name`) within the enclosing class
 - **Structure View** — PSI-based tree with nested types, methods, macros, constants
 - **Embedded Crystal (ECR) Templates** — `.ecr` and `.html.ecr` files with full template language support:
@@ -101,7 +101,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 ### Parser
 
 - **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, postfix if/unless/while/until/rescue, typed declarations, expressions with operator precedence, type references with generics (variadic `*T`, defaults `T = X`), union types, blocks, literals, percent literals (`%w[]`, `%i[]`, `%x()`) with string interpolation, regex with string interpolation, backtick command literals with string interpolation, lib blocks (fun, union, struct, enum, external vars, varargs), top-level fun, wrapping operators, `previous_def`, `out` parameters, pattern matching (pin `^var`, guards), annotations on parameters, rescue in method body with typed rescue (union types, variable binding), condition assignments (`while x = expr`), metaclass types (`T.class`), backslash line continuation, method chaining across newlines, trailing commas, `&.method` shorthand with operators and bracket access (`&.[]`, `&.[1]`), `::Foo` global namespace prefix, external parameter names, command literals, `$?` global variable, range with omitted start in bracket access (`arr[..2]`, `arr[1..]`), postfix `?`/`!` after macro interpolation
-- **StubIndex** — project-wide index for classes and methods (instant navigation even in large projects)
+- **StubIndex** — project-wide indexes for navigable declarations and symbols
 - **Error-tolerant** — pin/recovery rules ensure the parser works with incomplete code while typing
 
 ## Requirements
@@ -266,13 +266,13 @@ To run a development IDE instance:
 ```
 Crystal.flex (JFlex)     →  Lexer (tokenization, highlighting)
 Crystal.bnf (GrammarKit) →  Parser (PSI tree, structure)
-Stubs                    →  StubIndex (project-wide search, Go to Definition)
+Stubs                    →  StubIndex (indexed declarations, navigation, completion)
 ```
 
 ### Design Decisions
 
 - **All features plugin-native**: No external LSP dependency — everything works offline and instantly
-- **StubIndex over FileBasedIndex**: Industry standard for IntelliJ plugins, enables instant project-wide navigation
+- **StubIndex over FileBasedIndex**: indexed declaration lookup without runtime project-wide file scans
 - **External formatter**: Crystal's built-in `crystal tool format` is canonical — no need to reimplement
 - **Rename strategy**: Token-based + preview dialog + compiler verification
 - **Generated files committed**: Standard convention for GrammarKit-based plugins to ensure reproducible builds

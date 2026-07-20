@@ -2,11 +2,29 @@
 
 The plugin uses Crystal stub indexes for navigation and type lookup without scanning project files at runtime.
 
+## Active Indexes
+
+The active index set consists of exactly nine indexes:
+
+- `CrystalClassIndex` indexes class, module, struct, and enum names.
+- `CrystalMethodIndex` indexes method names.
+- `CrystalMethodByClassIndex` maps enclosing type names to methods.
+- `CrystalMacroIndex` indexes macro names.
+- `CrystalTopLevelMethodIndex` indexes methods declared outside a type.
+- `CrystalClassByEnclosingIndex` maps enclosing type names to nested types.
+- `CrystalAliasIndex` indexes alias definitions.
+- `CrystalAnnotationIndex` indexes annotation definitions.
+- `CrystalLibIndex` indexes lib definitions.
+
+Constant, instance-variable, and class-variable declaration indexes are intentionally absent. Constant indexing is deferred until the grammar distinguishes definition contexts from ordinary statement assignment. Variable indexing remains deferred unless a valid stubbed declaration model is designed.
+
 ## Index Gateway
 
-Production code accesses stub indexes through the stateless `CrystalIndexService`. The service owns the index keys and exposes typed lookup and key-processing methods; callers must always supply a `GlobalSearchScope` for element lookups. Completion, references, documentation, Parameter Info, and SDK-aware paths use all scope where library definitions are required, while inspections retain project scope.
+Production code accesses stub indexes through the stateless `CrystalIndexService`, the typed production gateway for StubIndex access. The service exposes typed element lookup, streaming element processing, and key-processing methods; callers must always choose an explicit `GlobalSearchScope`. Completion, references, documentation, Parameter Info, and SDK-aware paths use all scope where library definitions are required. Inspections use project scope when diagnostics must be limited to project declarations. Navigation contributors use the scope supplied by IntelliJ.
 
 Type, method, macro, alias, annotation, and library name processing accepts both the requested scope and `IdFilter`. Because the platform can enumerate keys that have no values in a narrow scope, the service verifies that each candidate key has an element in that scope before forwarding it. Element processing remains streaming and stops as soon as the supplied processor returns `false`.
+
+Runtime project-wide `FileTypeIndex` scans, including iteration over every Crystal file, are prohibited. Runtime lookup must use the in-memory StubIndex gateway; narrower scopes and early processor termination are used wherever the required semantics permit them.
 
 ## Go To Contributors
 

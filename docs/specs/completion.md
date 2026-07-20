@@ -12,7 +12,10 @@ significant.
 Context classification is implemented by package-level helpers in `CrystalCompletionContext`.
 Candidate generation is split between `CrystalLocalCompletionProvider` for scope-sensitive
 locals, parameters, variables, and methods, and `CrystalSymbolCompletionProvider` for classes
-and constants. Local candidates share one deduplication set across all candidate sources.
+and file/class-body constants. Indexed type and method access goes through `CrystalIndexService`;
+constants and instance/class variables are collected from live PSI because no declaration indexes
+exist for them. Local candidates share one deduplication set across all candidate sources. The split
+preserves the contributor's established dispatch order, ranking, deduplication, and results.
 
 ## General Behaviours
 

@@ -81,3 +81,12 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Discover abstract methods** from parent classes/modules
 - [ ] **Generate implementing stubs** with correct method signatures
 - [ ] **Register OverrideImplement action** in plugin.xml
+
+## Indexed Declaration Follow-up
+
+- [ ] **Add constant declaration stubs and indexes** (`CrystalConstantIndex` and `CrystalConstantByClassIndex`) only after the grammar separates constant definitions from ordinary statement assignment contexts.
+- [ ] **Design instance/class-variable declaration indexing** only if a valid stubbed declaration model can represent declarations without indexing arbitrary usages or assignments.
+
+## Type Resolution Unification
+
+- [ ] **Unify type resolution ownership** by replacing the dependency cycle between `CrystalTypeInference` and `CrystalExpressionTypeResolver` with one coherent design. Do not add the rejected delegation-only `CrystalTypeResolver` facade; a facade without unified ownership would preserve the cycle rather than resolve it.
