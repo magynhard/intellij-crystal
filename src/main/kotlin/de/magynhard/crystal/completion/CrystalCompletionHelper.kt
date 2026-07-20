@@ -60,7 +60,7 @@ object CrystalCompletionHelper {
                 fileMatch = element
             }
             if (firstMatch == null) firstMatch = element
-            fileMatch != null && firstMatch != null
+            fileMatch == null
         }
         val element = fileMatch ?: firstMatch ?: return null
         val kind = when (element) {

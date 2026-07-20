@@ -48,6 +48,18 @@ object CrystalCallExtractor {
     }
 
     fun findClassNameBeforeNew(callExpr: PsiElement): String? {
+        if (callExpr is CrystalDotCallAccess) {
+            if (extractMethodName(callExpr) != "new") return null
+            var receiver = callExpr.prevSibling
+            while (receiver is com.intellij.psi.PsiWhiteSpace) receiver = receiver.prevSibling
+            val receiverType = receiver?.node?.elementType
+            val receiverConstant = receiver?.node?.findChildByType(CrystalTypes.CONSTANT)
+            if (receiverType == CrystalTypes.CONSTANT || receiverConstant != null) {
+                return receiver.text
+            }
+            return null
+        }
+
         var child = callExpr.firstChild
         var foundDot = false
         while (child != null) {

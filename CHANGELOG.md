@@ -19,6 +19,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ### Changed
 
+- **Strengthen indexed navigation regression coverage** — direct tests now protect call extraction, Go to Class/Symbol contributors, and current-file-aware completion type lookup ahead of the index service migration. The coverage also fixes current-file type preference stopping at the first indexed match and constructor extraction for the composite DOT-call PSI shape.
 - **Replace deprecated `DefaultLiveTemplatesProvider`** — replaced the deprecated `DefaultLiveTemplatesProvider` class-based implementation with the declarative `<defaultLiveTemplates file="..."/>` extension point, aligning with current IntelliJ Platform API conventions.
 - **Replace deprecated `supportsPossessiveQuantifiers()`** — updated `CrystalRegExpLanguageHost` to use the new `supportsPossessiveQuantifiers(RegExpElement)` overload, replacing the deprecated no-args version.
 - **Replace deprecated `FileChooserDescriptorFactory.createSingleFileDescriptor()`** — migrated to `singleFile()` and `singleFile().withExtensionFilter()` across settings, project wizard, and run configuration.
