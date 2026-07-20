@@ -1,5 +1,6 @@
 package de.magynhard.crystal.navigation
 
+import com.intellij.icons.AllIcons
 import com.intellij.navigation.NavigationItem
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -74,10 +75,47 @@ class CrystalGoToContributorTest : BasePlatformTestCase() {
         expectedNames.forEach { name -> assertContributorElement(contributor, name) }
     }
 
-    private fun processNames(contributor: com.intellij.navigation.ChooseByNameContributorEx): Set<String> {
+    fun testGoToContributorsRespectNameProcessingScope() {
+        val included = myFixture.addFileToProject("included.cr", "class IncludedScopeType\nend")
+        myFixture.addFileToProject("excluded.cr", "class ExcludedScopeType\nend")
+        val scope = GlobalSearchScope.fileScope(included)
+
+        for (contributor in listOf(CrystalGoToClassContributor(), CrystalGoToSymbolContributor())) {
+            val names = processNames(contributor, scope)
+            assertContainsElements(names, "IncludedScopeType")
+            assertDoesntContain(names, "ExcludedScopeType")
+        }
+    }
+
+    fun testGoToContributorsPreserveTypeKindIcons() {
+        for (contributor in listOf(CrystalGoToClassContributor(), CrystalGoToSymbolContributor())) {
+            assertEquals(AllIcons.Nodes.Class, contributorItem(contributor, "IndexedClass").presentation?.getIcon(false))
+            assertEquals(AllIcons.Nodes.Module, contributorItem(contributor, "IndexedModule").presentation?.getIcon(false))
+            assertEquals(AllIcons.Nodes.Record, contributorItem(contributor, "IndexedStruct").presentation?.getIcon(false))
+            assertEquals(AllIcons.Nodes.Enum, contributorItem(contributor, "IndexedEnum").presentation?.getIcon(false))
+        }
+    }
+
+    private fun processNames(
+        contributor: com.intellij.navigation.ChooseByNameContributorEx,
+        scope: GlobalSearchScope = projectScope()
+    ): Set<String> {
         val names = mutableSetOf<String>()
-        contributor.processNames(Processor { names.add(it); true }, projectScope(), null)
+        contributor.processNames(Processor { names.add(it); true }, scope, null)
         return names
+    }
+
+    private fun contributorItem(
+        contributor: com.intellij.navigation.ChooseByNameContributorEx,
+        name: String
+    ): NavigationItem {
+        val items = mutableListOf<NavigationItem>()
+        contributor.processElementsWithName(
+            name,
+            Processor { items.add(it); true },
+            FindSymbolParameters(name, name, projectScope())
+        )
+        return items.first { it.name == name && it.presentation?.locationString == "symbols.cr" }
     }
 
     private fun assertContributorElement(

@@ -4,16 +4,13 @@ import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.CrystalClassDefinition
 import de.magynhard.crystal.psi.CrystalEnumDefinition
 import de.magynhard.crystal.psi.CrystalModuleDefinition
-import de.magynhard.crystal.psi.CrystalNamedElement
 import de.magynhard.crystal.psi.CrystalStructDefinition
-import de.magynhard.crystal.stubs.CrystalClassByEnclosingIndex
-import de.magynhard.crystal.stubs.CrystalClassIndex
-import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Provides type completions for type annotation contexts (after `:` in parameters and return types).
@@ -139,7 +136,7 @@ object CrystalTypeCompletionProvider {
         }
 
         // 2. Additional types from StubIndex (includes stdlib when CrystalStdlibLibraryProvider is active)
-        val allTypes = StubIndex.getInstance().getAllKeys(CrystalClassIndex.KEY, project)
+        val allTypes = CrystalIndexService.getAllTypeNames(project)
         for (typeName in allTypes) {
             if (typeName !in STDLIB_TYPES) {
                 result.add(
@@ -171,14 +168,11 @@ object CrystalTypeCompletionProvider {
      * Returns LookupElements for types nested inside the given enclosing type name.
      * Used for `Foo::<caret>` completion — shows only types defined inside `Foo`.
      *
-     * Queries [CrystalClassByEnclosingIndex] for O(1) lookup of nested types.
+     * Uses the nested-type index for O(1) lookup.
      */
     fun getEnclosingTypeLookups(enclosingName: String, project: Project): List<LookupElementBuilder> {
         val scope = GlobalSearchScope.allScope(project)
-        val nestedTypes = StubIndex.getElements(
-            CrystalClassByEnclosingIndex.KEY, enclosingName, project, scope,
-            CrystalNamedElement::class.java
-        )
+        val nestedTypes = CrystalIndexService.findNestedTypes(enclosingName, project, scope)
         return nestedTypes.mapNotNull { element ->
             val name = element.name ?: return@mapNotNull null
             val kind = when (element) {

@@ -5,10 +5,9 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Handles Go to Definition (Ctrl+Click / Ctrl+B) for:
@@ -121,10 +120,7 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         val scope = GlobalSearchScope.allScope(project)
 
         // 1. Explicit "def self.new" in the class — takes priority (overrides default "new")
-        val classMethods = StubIndex.getElements(
-            CrystalMethodByClassIndex.KEY, className, project, scope,
-            CrystalMethodDefinition::class.java
-        )
+        val classMethods = CrystalIndexService.findMethodsByClass(className, project, scope)
         val selfNew = classMethods.filter { it.name == "new" }
         if (selfNew.isNotEmpty()) return selfNew.toList()
 

@@ -3,11 +3,9 @@ package de.magynhard.crystal.psi
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.completion.CrystalTypeInference
-import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Reference from a DOT-call method-name identifier to its definition.
@@ -15,22 +13,22 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
  * Resolution rules (no false-positive name-only guessing):
  *
  * 1. CONSTANT receiver (e.g. `Apfel.tanzen`, `Senf.new`) — resolve via
- *    [CrystalMethodByClassIndex] keyed by the receiver (class/module/struct/enum
+ *    the method-by-class index keyed by the receiver (class/module/struct/enum
  *    name). Filters results by method name. This is exact — no guessing.
  *
  * 2. Namespace receiver (e.g. `Foo::Sub.space`) — walks left through
  *    [CrystalNamespaceAccess] and [CrystalVariableReference] to reconstruct the
- *    full qualified name, resolves via [CrystalClassIndex], then filters methods
+ *    full qualified name, resolves the type, then filters methods
  *    by the enclosing class's qualified name to avoid ambiguity (Foo::Sub vs Bar::Sub).
  *
  * 3. IDENTIFIER receiver (e.g. `a.essen` where `a = Apfel.new`):
  *    - Call [CrystalTypeInference.inferType] on the receiver variable name.
- *    - If a concrete type is returned, resolve via [CrystalMethodByClassIndex]
+ *    - If a concrete type is returned, resolve via the method-by-class index
  *      keyed by the inferred type, filtering by method name.
  *    - If the type is **unknown** (untyped parameter, untyped return chain, …),
  *      return `null` — no jump, no false-positive popup.
  *
- * 4. `.new` constructor on a class — resolved via [CrystalMethodByClassIndex] for
+ * 4. `.new` constructor on a class — resolved via the method-by-class index for
  *    `def self.new` if it exists. If not found, falls through to `record` macro,
  *    then to `def initialize` via [CrystalCompletionHelper.getInitializeMethod].
  *    This makes Find Usages on both `.new` and `initialize` work correctly.
@@ -57,10 +55,7 @@ class CrystalDotCallReference(
         val qualifiedName = info.qualifiedName
 
         // 1. Search for exact method name (catches def self.new for .new, plus all other DOT-calls)
-        val methods = StubIndex.getElements(
-            CrystalMethodByClassIndex.KEY, className, project, scope,
-            CrystalMethodDefinition::class.java
-        )
+        val methods = CrystalIndexService.findMethodsByClass(className, project, scope)
         val matchingByName = methods.filter { it.name == methodName }
 
         // Filter by qualified class name if available (for namespace disambiguation)
@@ -99,7 +94,7 @@ class CrystalDotCallReference(
     override fun getVariants(): Array<Any> = emptyArray()
 
     /**
-     * Returns the receiver class name (for [CrystalMethodByClassIndex] lookup),
+     * Returns the receiver class name (for method-by-class lookup),
      * whether it is a CONSTANT (static) or IDENTIFIER (instance) reference,
      * and the full qualified name (for namespace disambiguation).
      *

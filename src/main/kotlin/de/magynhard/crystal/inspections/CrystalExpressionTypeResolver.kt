@@ -368,10 +368,7 @@ object CrystalExpressionTypeResolver {
 
     private fun lookupReturnType(methodName: String, project: com.intellij.openapi.project.Project): String? {
         val scope = com.intellij.psi.search.GlobalSearchScope.projectScope(project)
-        val methods = com.intellij.psi.stubs.StubIndex.getElements(
-            de.magynhard.crystal.stubs.CrystalMethodIndex.KEY,
-            methodName, project, scope, CrystalMethodDefinition::class.java
-        )
+        val methods = de.magynhard.crystal.stubs.CrystalIndexService.findMethods(methodName, project, scope)
         for (method in methods) {
             val returnType = method.typeReference?.text
             if (returnType != null) {

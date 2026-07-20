@@ -8,13 +8,9 @@ import com.intellij.icons.AllIcons
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodIndex
-import de.magynhard.crystal.stubs.CrystalTopLevelMethodIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Helper for building completion lookup elements from Crystal PSI.
@@ -52,9 +48,7 @@ object CrystalCompletionHelper {
     ): TypeLookupResult? {
         var firstMatch: CrystalNamedElement? = null
         var fileMatch: CrystalNamedElement? = null
-        StubIndex.getInstance().processElements(
-            CrystalClassIndex.KEY, name, project, scope, null, CrystalNamedElement::class.java
-        ) { element ->
+        CrystalIndexService.processTypes(name, project, scope) { element ->
             if (fileMatch == null && currentFile != null &&
                 element.containingFile?.virtualFile == currentFile.virtualFile) {
                 fileMatch = element
@@ -192,9 +186,7 @@ object CrystalCompletionHelper {
                 2 -> 2.0
                 else -> 1.0
             }
-            val elements = StubIndex.getElements(
-                CrystalMethodByClassIndex.KEY, className, project, scope, CrystalMethodDefinition::class.java
-            )
+            val elements = CrystalIndexService.findMethodsByClass(className, project, scope)
             for (method in elements) {
                 if (isStaticMethod(method)) continue
                 val name = method.name ?: continue
@@ -227,9 +219,7 @@ object CrystalCompletionHelper {
         val seen = mutableSetOf<String>()
 
         for (className in hierarchyNames) {
-            val elements = StubIndex.getElements(
-                CrystalMethodByClassIndex.KEY, className, project, scope, CrystalMethodDefinition::class.java
-            )
+            val elements = CrystalIndexService.findMethodsByClass(className, project, scope)
             for (method in elements) {
                 val name = method.name ?: continue
                 // Deduplicate by name+signature to keep overloads with different params
@@ -345,7 +335,7 @@ object CrystalCompletionHelper {
      * Returns all class/module/struct/enum names from the project-wide StubIndex.
      */
     fun getAllClassNames(project: Project): Collection<String> {
-        return StubIndex.getInstance().getAllKeys(CrystalClassIndex.KEY, project)
+        return CrystalIndexService.getAllTypeNames(project)
     }
 
     /**
@@ -357,7 +347,7 @@ object CrystalCompletionHelper {
      * stdlib types like String/Int32.
      */
     fun getAllTopLevelMethodNames(project: Project): Collection<String> {
-        return StubIndex.getInstance().getAllKeys(CrystalTopLevelMethodIndex.KEY, project)
+        return CrystalIndexService.getAllTopLevelMethodNames(project)
     }
 
     /**
@@ -366,9 +356,7 @@ object CrystalCompletionHelper {
      */
     fun getTopLevelMethodsByName(name: String, project: Project): Collection<CrystalMethodDefinition> {
         val scope = GlobalSearchScope.allScope(project)
-        return StubIndex.getElements(
-            CrystalTopLevelMethodIndex.KEY, name, project, scope, CrystalMethodDefinition::class.java
-        )
+        return CrystalIndexService.findTopLevelMethods(name, project, scope)
     }
 
     /**
@@ -377,9 +365,8 @@ object CrystalCompletionHelper {
     fun getInitializeMethod(typeName: String, project: Project, currentFile: PsiFile? = null): CrystalMethodDefinition? {
         // Fast path: direct lookup by class name — avoids full hierarchy traversal
         val scope = GlobalSearchScope.allScope(project)
-        val directMatch = StubIndex.getElements(
-            CrystalMethodByClassIndex.KEY, typeName, project, scope, CrystalMethodDefinition::class.java
-        ).firstOrNull { it.name == "initialize" }
+        val directMatch = CrystalIndexService.findMethodsByClass(typeName, project, scope)
+            .firstOrNull { it.name == "initialize" }
         if (directMatch != null) return directMatch
 
         // Slow path: resolve type hierarchy (for inherited initialize from parent classes)

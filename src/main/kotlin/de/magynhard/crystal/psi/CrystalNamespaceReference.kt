@@ -4,8 +4,7 @@ import com.intellij.lang.ASTNode
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
-import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Reference from a `namespace_access` element (e.g. `::Unterklasse` in `Oberklasse::Unterklasse`)
@@ -32,29 +31,20 @@ class CrystalNamespaceReference(
         val fullName = buildFullName()
 
         // 1. Try full path first (for namespace-defined classes: `class A::B`)
-        val byFullName = StubIndex.getElements(
-            CrystalClassIndex.KEY, fullName, project, scope,
-            CrystalNamedElement::class.java
-        )
+        val byFullName = CrystalIndexService.findTypes(fullName, project, scope)
         if (byFullName.isNotEmpty()) return byFullName.first()
 
         // 2. Fall back to filtered simple-name lookup (for lexically-nested classes).
         //    Filter by qualified name to disambiguate: Foo::Sub vs Bar::Sub.
         if (fullName != simpleName) {
-            val candidates = StubIndex.getElements(
-                CrystalClassIndex.KEY, simpleName, project, scope,
-                CrystalNamedElement::class.java
-            )
+            val candidates = CrystalIndexService.findTypes(simpleName, project, scope)
             return candidates.filter { candidate ->
                 CrystalPsiUtils.buildQualifiedName(candidate) == fullName
             }.firstOrNull()
         }
 
         // 3. Simple name only (e.g., `::Foo` — no preceding path)
-        return StubIndex.getElements(
-            CrystalClassIndex.KEY, simpleName, project, scope,
-            CrystalNamedElement::class.java
-        ).firstOrNull()
+        return CrystalIndexService.findTypes(simpleName, project, scope).firstOrNull()
     }
 
     /**

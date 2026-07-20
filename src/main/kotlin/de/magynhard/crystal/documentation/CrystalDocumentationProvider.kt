@@ -10,14 +10,13 @@ import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
@@ -28,7 +27,7 @@ import org.intellij.markdown.parser.MarkdownParser
  *
  * Documentation links: type names, class names, and superclass names inside the rendered
  * documentation popup are hyperlinked via `psi_element://class:<name>` URLs. Clicking them
- * resolves via [CrystalClassIndex] and replaces the popup content with the target element's
+ * resolves via the type index and replaces the popup content with the target element's
  * documentation (handled by [getDocumentationElementForLink]).
  */
 class CrystalDocumentationProvider : AbstractDocumentationProvider() {
@@ -122,10 +121,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         if (!link.startsWith("class:")) return null
         val className = link.removePrefix("class:")
         val project = originalElement?.project ?: return null
-        val elements = StubIndex.getElements(
-            CrystalClassIndex.KEY, className, project,
-            GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
-        )
+        val elements = CrystalIndexService.findTypes(className, project, GlobalSearchScope.allScope(project))
         return elements.firstOrNull()
     }
 
@@ -385,20 +381,17 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     /**
      * Returns an `<a>` tag linking to the class documentation, or null if the class
-     * is not found in [CrystalClassIndex] (silent omit — callers fall back to plain text).
+     * is not found in the type index (silent omit — callers fall back to plain text).
      */
     private fun linkToClass(name: String, project: Project): String? {
-        val elements = StubIndex.getElements(
-            CrystalClassIndex.KEY, name, project,
-            GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
-        )
+        val elements = CrystalIndexService.findTypes(name, project, GlobalSearchScope.allScope(project))
         if (elements.isEmpty()) return null
         return "<a href=\"psi_element://class:$name\">$name</a>"
     }
 
     /**
      * Wraps type names in the syntax-highlighted HTML with clickable links.
-     * For each uppercase identifier found in the HTML that exists in [CrystalClassIndex],
+     * For each uppercase identifier found in the HTML that exists in the type index,
      * it is wrapped with an `<a>` tag pointing to the class documentation.
      * Uses a word-boundary match (no letter/digit/underscore before or after) to prevent
      * partial matches like `Foo` inside `FooBar`.
@@ -438,10 +431,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
      * or via the numeric type fallback mapping).
      */
     private fun isResolvableType(name: String, project: Project): Boolean {
-        if (StubIndex.getElements(
-                CrystalClassIndex.KEY, name, project,
-                GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
-            ).isNotEmpty()) return true
+        if (CrystalIndexService.findTypes(name, project, GlobalSearchScope.allScope(project)).isNotEmpty()) return true
         return resolveNumericTypeLink(name) != null
     }
 
@@ -452,10 +442,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
      */
     private fun resolveTypeLinkTarget(name: String, project: Project): String? {
         // Check direct class index first
-        if (StubIndex.getElements(
-                CrystalClassIndex.KEY, name, project,
-                GlobalSearchScope.allScope(project), CrystalNamedElement::class.java
-            ).isNotEmpty()) return name
+        if (CrystalIndexService.findTypes(name, project, GlobalSearchScope.allScope(project)).isNotEmpty()) return name
 
         // Check numeric type fallback
         return resolveNumericTypeLink(name)

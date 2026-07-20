@@ -23,3 +23,11 @@ data class CrystalSymbol(
     val kind: CrystalSymbolKind,
     val element: PsiElement
 )
+
+internal fun crystalTypeSymbolKind(element: CrystalNamedElement): CrystalSymbolKind = when (element) {
+    is CrystalClassDefinition -> CrystalSymbolKind.CLASS
+    is CrystalModuleDefinition -> CrystalSymbolKind.MODULE
+    is CrystalStructDefinition -> CrystalSymbolKind.STRUCT
+    is CrystalEnumDefinition -> CrystalSymbolKind.ENUM
+    else -> CrystalSymbolKind.CLASS
+}

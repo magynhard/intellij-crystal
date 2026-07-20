@@ -9,13 +9,11 @@ import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodByClassIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Computes the completion prefix from the raw document text before the caret,
@@ -443,10 +441,7 @@ class CrystalCompletionContributor : CompletionContributor() {
             seen: MutableSet<String>,
             result: CompletionResultSet
         ) {
-            val methods = StubIndex.getElements(
-                CrystalMethodByClassIndex.KEY, className, project, scope,
-                CrystalMethodDefinition::class.java
-            )
+            val methods = CrystalIndexService.findMethodsByClass(className, project, scope)
             for (method in methods) {
                 val name = method.name ?: continue
                 if (seen.add(name)) {

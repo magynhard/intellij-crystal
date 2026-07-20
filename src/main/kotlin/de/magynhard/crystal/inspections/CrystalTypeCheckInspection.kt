@@ -5,10 +5,9 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Inspection that validates argument types against parameter type annotations
@@ -68,9 +67,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // Find all overloads of this method
         val project = callExpr.project
         val scope = GlobalSearchScope.projectScope(project)
-        var methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
-        ).toList()
+        var methods = CrystalIndexService.findMethods(methodName, project, scope).toList()
 
         // Check record definition first — if `record Config, ...` exists in the
         // current file, its parameters take priority over any `class Config`
@@ -186,9 +183,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
         val project = argsElement.project
         val scope = GlobalSearchScope.projectScope(project)
-        var methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
-        ).toList()
+        var methods = CrystalIndexService.findMethods(methodName, project, scope).toList()
 
         // Filter to methods defined inside a class/module matching the receiver name.
         // This prevents false positives like ENV.fetch(...) matching Hash#fetch.

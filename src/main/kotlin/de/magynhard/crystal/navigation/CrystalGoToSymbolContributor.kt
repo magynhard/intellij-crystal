@@ -3,25 +3,23 @@ package de.magynhard.crystal.navigation
 import com.intellij.navigation.ChooseByNameContributorEx
 import com.intellij.navigation.NavigationItem
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.util.Processor
 import com.intellij.util.indexing.FindSymbolParameters
 import com.intellij.util.indexing.IdFilter
-import de.magynhard.crystal.stubs.*
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
 
     override fun processNames(processor: Processor<in String>, scope: GlobalSearchScope, filter: IdFilter?) {
         val project = scope.project ?: return
 
-        val index = StubIndex.getInstance()
-        index.getAllKeys(CrystalClassIndex.KEY, project).forEach { processor.process(it) }
-        index.getAllKeys(CrystalMethodIndex.KEY, project).forEach { processor.process(it) }
-        index.getAllKeys(CrystalMacroIndex.KEY, project).forEach { processor.process(it) }
-        index.getAllKeys(CrystalAliasIndex.KEY, project).forEach { processor.process(it) }
-        index.getAllKeys(CrystalAnnotationIndex.KEY, project).forEach { processor.process(it) }
-        index.getAllKeys(CrystalLibIndex.KEY, project).forEach { processor.process(it) }
+        if (!CrystalIndexService.processTypeNames(project, scope, filter, processor)) return
+        if (!CrystalIndexService.processMethodNames(project, scope, filter, processor)) return
+        if (!CrystalIndexService.processMacroNames(project, scope, filter, processor)) return
+        if (!CrystalIndexService.processAliasNames(project, scope, filter, processor)) return
+        if (!CrystalIndexService.processAnnotationNames(project, scope, filter, processor)) return
+        CrystalIndexService.processLibNames(project, scope, filter, processor)
     }
 
     override fun processElementsWithName(
@@ -32,23 +30,23 @@ class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
         val project = parameters.project
         val scope = parameters.searchScope
 
-        StubIndex.getElements(CrystalClassIndex.KEY, name, project, scope, CrystalNamedElement::class.java).forEach { element ->
-            processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.CLASS, element)))
+        for (element in CrystalIndexService.findTypes(name, project, scope)) {
+            if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, crystalTypeSymbolKind(element), element)))) return
         }
-        StubIndex.getElements(CrystalMethodIndex.KEY, name, project, scope, CrystalMethodDefinition::class.java).forEach { element ->
-            processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.METHOD, element)))
+        for (element in CrystalIndexService.findMethods(name, project, scope)) {
+            if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.METHOD, element)))) return
         }
-        StubIndex.getElements(CrystalMacroIndex.KEY, name, project, scope, CrystalMacroDefinition::class.java).forEach { element ->
-            processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.MACRO, element)))
+        for (element in CrystalIndexService.findMacros(name, project, scope)) {
+            if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.MACRO, element)))) return
         }
-        StubIndex.getElements(CrystalAliasIndex.KEY, name, project, scope, CrystalAliasDefinition::class.java).forEach { element ->
-            processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.ALIAS, element)))
+        for (element in CrystalIndexService.findAliases(name, project, scope)) {
+            if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.ALIAS, element)))) return
         }
-        StubIndex.getElements(CrystalAnnotationIndex.KEY, name, project, scope, CrystalAnnotationDefinition::class.java).forEach { element ->
-            processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.ANNOTATION, element)))
+        for (element in CrystalIndexService.findAnnotations(name, project, scope)) {
+            if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.ANNOTATION, element)))) return
         }
-        StubIndex.getElements(CrystalLibIndex.KEY, name, project, scope, CrystalLibDefinition::class.java).forEach { element ->
-            processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.LIB, element)))
+        for (element in CrystalIndexService.findLibs(name, project, scope)) {
+            if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.LIB, element)))) return
         }
     }
 }

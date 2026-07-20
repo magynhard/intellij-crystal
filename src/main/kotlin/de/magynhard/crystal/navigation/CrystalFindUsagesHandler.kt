@@ -8,15 +8,13 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.usageView.UsageInfo
 import com.intellij.util.Processor
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalMethodDefinition
-import de.magynhard.crystal.psi.CrystalNamedElement
-import de.magynhard.crystal.stubs.CrystalClassIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Find Usages handler for Crystal definition elements (class, module, struct,
@@ -57,10 +55,7 @@ class CrystalFindUsagesHandler(element: PsiElement) : FindUsagesHandler(element)
                     ?: return@runBlocking
 
                 // Find the class definition via CrystalClassIndex
-                val classElements = StubIndex.getElements(
-                    CrystalClassIndex.KEY, enclosingClassName, project, scope,
-                    CrystalNamedElement::class.java
-                )
+                val classElements = CrystalIndexService.findTypes(enclosingClassName, project, scope)
                 if (classElements.isEmpty()) return@runBlocking
 
                 val classDefinition = classElements.first()

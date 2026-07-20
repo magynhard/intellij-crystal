@@ -9,9 +9,7 @@ import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.stubs.StubIndex
 import de.magynhard.crystal.completion.CrystalCompletionHelper
-import de.magynhard.crystal.stubs.CrystalTopLevelMethodIndex
 
 /**
  * Adds Crystal stdlib as a library with source roots when a Crystal project is opened.
@@ -98,7 +96,6 @@ class CrystalStdlibSourceRootConfigurator : ProjectActivity {
                 // overload is safe here: we are on a pooled thread, not nested
                 // inside another read action.
                 DumbService.getInstance(project).runReadActionInSmartMode {
-                    StubIndex.getInstance().getAllKeys(CrystalTopLevelMethodIndex.KEY, project)
                     CrystalCompletionHelper.getAllTopLevelMethodNames(project)
                 }
             } catch (_: Throwable) {

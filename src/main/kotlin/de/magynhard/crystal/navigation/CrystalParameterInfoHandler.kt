@@ -8,14 +8,13 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.impl.light.LightElement
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.tree.TokenSet
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Provides parameter info (Ctrl+P) for Crystal method calls.
@@ -197,13 +196,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
 
         val scope = GlobalSearchScope.allScope(project)
 
-        var methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY,
-            methodName,
-            project,
-            scope,
-            CrystalMethodDefinition::class.java
-        ).toTypedArray()
+        var methods = CrystalIndexService.findMethods(methodName, project, scope).toTypedArray()
 
         // Filter by receiver type for DOT-calls on CONSTANT receivers.
         // This prevents stdlib methods like ENV.fetch from showing params of Hash#fetch etc.

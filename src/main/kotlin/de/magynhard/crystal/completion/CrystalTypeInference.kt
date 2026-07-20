@@ -3,11 +3,10 @@ package de.magynhard.crystal.completion
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.inspections.CrystalExpressionTypeResolver
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Basic type inference for Crystal variables.
@@ -162,9 +161,7 @@ object CrystalTypeInference {
      */
     private fun inferReturnTypeOfMethod(methodName: String, className: String?, project: Project): String? {
         val scope = GlobalSearchScope.allScope(project)
-        val methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
-        ).toMutableList()
+        val methods = CrystalIndexService.findMethods(methodName, project, scope)
 
         for (method in methods) {
             if (className != null) {

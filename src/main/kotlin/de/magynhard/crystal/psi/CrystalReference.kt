@@ -3,9 +3,7 @@ package de.magynhard.crystal.psi
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
-import de.magynhard.crystal.stubs.CrystalClassIndex
-import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Reference from an identifier usage to its definition (class/module/struct/enum/method/macro).
@@ -40,16 +38,10 @@ class CrystalReference(
 
         // 2. StubIndex lookup (fast — in-memory index)
         val scope = GlobalSearchScope.allScope(element.project)
-        val types = StubIndex.getElements(
-            CrystalClassIndex.KEY, name, element.project, scope,
-            CrystalNamedElement::class.java
-        )
+        val types = CrystalIndexService.findTypes(name, element.project, scope)
         if (types.isNotEmpty()) return types.first()
 
-        val methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, name, element.project, scope,
-            CrystalMethodDefinition::class.java
-        )
+        val methods = CrystalIndexService.findMethods(name, element.project, scope)
         if (methods.isNotEmpty()) return methods.first()
 
         return null

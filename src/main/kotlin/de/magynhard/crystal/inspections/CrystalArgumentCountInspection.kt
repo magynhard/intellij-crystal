@@ -5,11 +5,10 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalMethodIndex
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Inspection that validates argument count against method parameter definitions.
@@ -60,9 +59,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
         val project = callExpr.project
         val scope = GlobalSearchScope.projectScope(project)
-        val methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, methodName, project, scope, CrystalMethodDefinition::class.java
-        ).toList()
+        val methods = CrystalIndexService.findMethods(methodName, project, scope).toList()
 
         if (methodName == "new") {
             val className = CrystalCallExtractor.findClassNameBeforeNew(callExpr)
@@ -100,9 +97,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
         val project = argsElement.project
         val scope = GlobalSearchScope.projectScope(project)
-        var methods = StubIndex.getElements(
-            CrystalMethodIndex.KEY, info.methodName, project, scope, CrystalMethodDefinition::class.java
-        ).toList()
+        var methods = CrystalIndexService.findMethods(info.methodName, project, scope).toList()
 
         // Filter to methods defined inside a class/module matching the receiver name.
         // This prevents false positives like ::Bytes.new(...) matching unrelated new overloads.
