@@ -495,9 +495,13 @@
         <additionalLibraryRootsProvider
                 implementation="de.magynhard.crystal.sdk.CrystalStdlibLibraryProvider"/>
 
-        <!-- Remove obsolete persisted stdlib module libraries before project loading/indexing -->
-        <project.converterProvider
-                implementation="de.magynhard.crystal.sdk.CrystalStdlibConverterProvider"/>
+        <!-- Shield first-open indexing from obsolete broad persisted stdlib roots -->
+        <directoryIndexExcludePolicy
+                implementation="de.magynhard.crystal.sdk.CrystalLegacyStdlibExcludePolicy"/>
+
+        <!-- Remove obsolete persisted stdlib module libraries after project startup -->
+        <postStartupActivity
+                implementation="de.magynhard.crystal.sdk.CrystalLegacyStdlibCleanupActivity"/>
 
         <!-- Debugger -->
         <xdebugger.breakpointType

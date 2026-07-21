@@ -27,16 +27,24 @@ class CrystalStdlibExtensionRegistrationTest {
     }
 
     @Test
-    fun `pre-load stdlib converter is registered`() {
+    fun `legacy root protection and cleanup are registered without converter`() {
         val extensions = pluginXml().getChild("extensions").children
 
         assertTrue(
             extensions.any {
-                it.name == "project.converterProvider" &&
+                it.name == "directoryIndexExcludePolicy" &&
                     it.getAttributeValue("implementation") ==
-                    "de.magynhard.crystal.sdk.CrystalStdlibConverterProvider"
+                    "de.magynhard.crystal.sdk.CrystalLegacyStdlibExcludePolicy"
             }
         )
+        assertTrue(
+            extensions.any {
+                it.name == "postStartupActivity" &&
+                    it.getAttributeValue("implementation") ==
+                    "de.magynhard.crystal.sdk.CrystalLegacyStdlibCleanupActivity"
+            }
+        )
+        assertTrue(extensions.none { it.name == "project.converterProvider" })
     }
 
     private fun pluginXml() = JDOMUtil.load(

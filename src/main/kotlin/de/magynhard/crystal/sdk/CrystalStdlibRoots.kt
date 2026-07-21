@@ -75,4 +75,7 @@ object CrystalStdlibRoots {
         }
         return result
     }
+
+    fun excludedDirectories(stdlibRoot: VirtualFile): List<VirtualFile> =
+        EXCLUDED_DIRS.mapNotNull { stdlibRoot.findChild(it)?.takeIf(VirtualFile::isDirectory) }
 }
