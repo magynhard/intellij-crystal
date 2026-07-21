@@ -1,6 +1,7 @@
 package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.AdditionalLibraryRootsListener
 import com.intellij.openapi.vfs.VirtualFile
@@ -13,7 +14,7 @@ internal object CrystalStdlibIndexRefresher {
         project: Project,
         oldRoots: List<VirtualFile>,
         newRoots: List<VirtualFile>,
-        forceReindex: Boolean,
+        reindexIndicator: ProgressIndicator? = null,
     ) {
         WriteAction.runAndWait<RuntimeException> {
             AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
@@ -25,16 +26,23 @@ internal object CrystalStdlibIndexRefresher {
             )
         }
 
-        if (forceReindex) {
-            collectCrystalFiles(newRoots).forEach(FileBasedIndex.getInstance()::requestReindex)
+        if (reindexIndicator != null) {
+            for (file in collectCrystalFiles(newRoots, reindexIndicator)) {
+                reindexIndicator.checkCanceled()
+                FileBasedIndex.getInstance().requestReindex(file)
+            }
         }
     }
 
-    internal fun collectCrystalFiles(roots: List<VirtualFile>): List<VirtualFile> {
+    internal fun collectCrystalFiles(
+        roots: List<VirtualFile>,
+        indicator: ProgressIndicator? = null,
+    ): List<VirtualFile> {
         val result = mutableListOf<VirtualFile>()
         val stack = ArrayDeque<VirtualFile>()
         roots.forEach(stack::addLast)
         while (stack.isNotEmpty()) {
+            indicator?.checkCanceled()
             val file = stack.removeFirst()
             if (file.isDirectory) {
                 file.children.forEach(stack::addLast)

@@ -95,7 +95,7 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
         // Invalidate any cached stdlib path so the next call re-runs
         // `crystal env CRYSTAL_PATH` against the newly configured SDK.
         CrystalStdlibResolver.clearCachedStdlibPath(project)
-        CrystalStdlibIndexRefresher.refresh(project, oldRoots, resolveStdlibRoots(), false)
+        CrystalStdlibIndexRefresher.refresh(project, oldRoots, resolveStdlibRoots())
     }
 
     override fun reset() {
@@ -125,9 +125,9 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
     }
 
     private fun forceReindex() {
-        val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
+        val stdlibRoots = resolveStdlibRoots()
+        if (stdlibRoots.isEmpty()) return
         val version = CrystalStdlibResolver.resolveCrystalVersion(project) ?: "unknown"
-        val stdlibRoots = CrystalStdlibRoots.enumerate(stdlibRoot)
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Re-indexing Crystal Stdlib", true) {
             override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
@@ -138,7 +138,7 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
                 // if the file content hasn't changed, the old stubs are reused even
                 // though the BNF grammar (and thus stub structure) may have changed.
                 indicator.text = "Re-indexing Crystal Stdlib files ($version)..."
-                CrystalStdlibIndexRefresher.refresh(project, emptyList(), stdlibRoots, true)
+                CrystalStdlibIndexRefresher.refresh(project, emptyList(), stdlibRoots, indicator)
             }
 
             override fun onSuccess() {

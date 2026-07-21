@@ -19,7 +19,7 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
         myFixture.addFileToProject("main.cr", "puts 1")
         val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
         val roots = CrystalStdlibRoots.enumerate(stdlibRoot)
-        CrystalStdlibIndexRefresher.refresh(project, emptyList(), roots, false)
+        CrystalStdlibIndexRefresher.refresh(project, emptyList(), roots)
     }
 
     fun testStdlibPathResolves() {
