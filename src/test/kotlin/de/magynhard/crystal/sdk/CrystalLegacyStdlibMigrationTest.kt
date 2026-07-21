@@ -25,7 +25,7 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
     fun testExclusionPolicyReturnsKnownDistributionDirectoriesForLegacyLibrary() {
         val fixture = createStdlibFixture()
         try {
-            addModuleLibrary(LEGACY_LIBRARY_NAME)
+            addModuleLibrary(LEGACY_LIBRARY_NAME, fixture.stdlib)
             configureCrystalPath(fixture.executable)
 
             val excludedUrls = CrystalLegacyStdlibExcludePolicy(project)
@@ -33,6 +33,73 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
                 .toSet()
 
             assertEquals(fixture.excludedDirectories.map { it.toUri().toString().removeSuffix("/") }.toSet(), excludedUrls)
+        } finally {
+            restoreCrystalPath()
+            File(fixture.root.toString()).deleteRecursively()
+        }
+    }
+
+    fun testExclusionPolicyUsesPersistedLegacyRootInsteadOfConfiguredRoot() {
+        val legacyFixture = createStdlibFixture()
+        val configuredFixture = createStdlibFixture()
+        try {
+            addModuleLibrary(LEGACY_LIBRARY_NAME, legacyFixture.stdlib)
+            configureCrystalPath(configuredFixture.executable)
+
+            val excludedUrls = CrystalLegacyStdlibExcludePolicy(project).excludeUrlsForProject.toSet()
+
+            assertEquals(excludedUrls(legacyFixture), excludedUrls)
+            assertTrue(excludedUrls.intersect(excludedUrls(configuredFixture)).isEmpty())
+        } finally {
+            restoreCrystalPath()
+            File(legacyFixture.root.toString()).deleteRecursively()
+            File(configuredFixture.root.toString()).deleteRecursively()
+        }
+    }
+
+    fun testExclusionPolicyUsesEveryPersistedLegacySourceRoot() {
+        val firstFixture = createStdlibFixture()
+        val secondFixture = createStdlibFixture()
+        try {
+            addModuleLibrary(LEGACY_LIBRARY_NAME, firstFixture.stdlib, secondFixture.stdlib)
+            configureCrystalPath(firstFixture.executable)
+
+            val excludedUrls = CrystalLegacyStdlibExcludePolicy(project).excludeUrlsForProject.toSet()
+
+            assertEquals(excludedUrls(firstFixture) + excludedUrls(secondFixture), excludedUrls)
+        } finally {
+            restoreCrystalPath()
+            File(firstFixture.root.toString()).deleteRecursively()
+            File(secondFixture.root.toString()).deleteRecursively()
+        }
+    }
+
+    fun testExclusionPolicyExcludesDirectUnwantedSourceRoot() {
+        val fixture = createStdlibFixture()
+        try {
+            val compilerRoot = fixture.stdlib.resolve("compiler")
+            addModuleLibrary(LEGACY_LIBRARY_NAME, compilerRoot)
+            configureCrystalPath(fixture.executable)
+
+            assertEquals(
+                setOf(compilerRoot.toUri().toString().removeSuffix("/")),
+                CrystalLegacyStdlibExcludePolicy(project).excludeUrlsForProject.toSet()
+            )
+        } finally {
+            restoreCrystalPath()
+            File(fixture.root.toString()).deleteRecursively()
+        }
+    }
+
+    fun testExclusionPolicyPreservesSrcAndFilteredSourceRoots() {
+        val fixture = createStdlibFixture()
+        try {
+            val srcRoot = Files.createDirectory(fixture.root.resolve("src"))
+            val filteredRoot = Files.createDirectory(fixture.root.resolve("json"))
+            addModuleLibrary(LEGACY_LIBRARY_NAME, srcRoot, filteredRoot)
+            configureCrystalPath(fixture.executable)
+
+            assertEmpty(CrystalLegacyStdlibExcludePolicy(project).excludeUrlsForProject.asList())
         } finally {
             restoreCrystalPath()
             File(fixture.root.toString()).deleteRecursively()
@@ -92,11 +159,13 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
 
     private var originalCrystalPath: String? = null
 
-    private fun addModuleLibrary(name: String) {
-        ModuleRootModificationUtil.updateModel(module) { model ->
-            model.moduleLibraryTable.createLibrary(name)
-        }
-    }
+    private fun addModuleLibrary(name: String, vararg sourceRoots: Path) =
+        ModuleRootModificationUtil.addModuleLibrary(
+            module,
+            name,
+            emptyList(),
+            sourceRoots.map { it.toUri().toString().removeSuffix("/") }
+        )
 
     private fun moduleLibraryNames(): List<String> {
         val model = ModuleRootManager.getInstance(module).modifiableModel
@@ -138,11 +207,15 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
             """.trimIndent()
         )
         assertTrue(executable.toFile().setExecutable(true))
-        return StdlibFixture(root, executable, excludedDirectories)
+        return StdlibFixture(root, stdlib, executable, excludedDirectories)
     }
+
+    private fun excludedUrls(fixture: StdlibFixture): Set<String> =
+        fixture.excludedDirectories.map { it.toUri().toString().removeSuffix("/") }.toSet()
 
     private data class StdlibFixture(
         val root: Path,
+        val stdlib: Path,
         val executable: Path,
         val excludedDirectories: List<Path>
     )

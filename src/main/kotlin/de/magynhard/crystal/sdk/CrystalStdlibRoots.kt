@@ -78,4 +78,11 @@ object CrystalStdlibRoots {
 
     fun excludedDirectories(stdlibRoot: VirtualFile): List<VirtualFile> =
         EXCLUDED_DIRS.mapNotNull { stdlibRoot.findChild(it)?.takeIf(VirtualFile::isDirectory) }
+
+    fun legacyExclusions(sourceRoot: VirtualFile): List<VirtualFile> {
+        if (!sourceRoot.isDirectory) return emptyList()
+        if (sourceRoot.name.lowercase() in EXCLUDED_DIRS) return listOf(sourceRoot)
+        if (sourceRoot.name.equals("src", ignoreCase = true)) return emptyList()
+        return excludedDirectories(sourceRoot)
+    }
 }

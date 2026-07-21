@@ -6,25 +6,25 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.LibraryOrderEntry
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.roots.impl.DirectoryIndexExcludePolicy
 import com.intellij.openapi.startup.ProjectActivity
 
 class CrystalLegacyStdlibExcludePolicy(private val project: Project) : DirectoryIndexExcludePolicy {
 
     override fun getExcludeUrlsForProject(): Array<String> {
-        if (!hasLegacyModuleLibrary()) return emptyArray()
-        val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return emptyArray()
-        return CrystalStdlibRoots.excludedDirectories(stdlibRoot)
+        return ModuleManager.getInstance(project).modules
+            .asSequence()
+            .flatMap { ModuleRootManager.getInstance(it).orderEntries.asSequence() }
+            .filterIsInstance<LibraryOrderEntry>()
+            .filter { it.isModuleLevel && it.libraryName == LEGACY_LIBRARY_NAME }
+            .flatMap { it.library?.getFiles(OrderRootType.SOURCES)?.asSequence() ?: emptySequence() }
+            .flatMap { CrystalStdlibRoots.legacyExclusions(it).asSequence() }
+            .distinctBy { it.url }
             .map { it.url }
+            .toList()
             .toTypedArray()
     }
-
-    private fun hasLegacyModuleLibrary(): Boolean =
-        ModuleManager.getInstance(project).modules.any { module ->
-            ModuleRootManager.getInstance(module).orderEntries.any { entry ->
-                entry is LibraryOrderEntry && entry.isModuleLevel && entry.libraryName == LEGACY_LIBRARY_NAME
-            }
-        }
 }
 
 class CrystalLegacyStdlibCleanupActivity : ProjectActivity, DumbAware {
