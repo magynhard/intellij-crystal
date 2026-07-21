@@ -524,9 +524,7 @@ private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_
 
 // ==================== Expressions ====================
 
-expression ::= or_expression QUESTION expression COLON expression
-             | or_expression QUESTION
-             | or_expression
+expression ::= or_expression [QUESTION [expression COLON expression]]
 
 private or_expression ::= and_expression (OR_OR NLS and_expression)*
 
@@ -536,8 +534,8 @@ private not_expression ::= BANG not_expression | comparison_expression
 
 private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
 
-private range_expression ::= [or_bitwise_expression] (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
-                           | or_bitwise_expression
+private range_expression ::= (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
+                           | or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]]
 
 private or_bitwise_expression ::= xor_expression (PIPE NLS xor_expression)*
 
@@ -705,9 +703,7 @@ private named_bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_ex
 
 // Bare expression: same as expression but does not consume blocks or assignments
 // This prevents the bare argument from eating the 'do' that belongs to the outer method call
-private bare_expression ::= bare_or_expression QUESTION expression COLON expression
-                          | bare_or_expression QUESTION
-                          | bare_or_expression
+private bare_expression ::= bare_or_expression [QUESTION [expression COLON expression]]
 
 private bare_or_expression ::= bare_and_expression (OR_OR NLS bare_and_expression)*
 
@@ -717,8 +713,8 @@ private bare_not_expression ::= BANG bare_not_expression | bare_comparison_expre
 
 private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
 
-private bare_range_expression ::= [bare_or_bitwise_expression] (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
-                               | bare_or_bitwise_expression
+private bare_range_expression ::= (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
+                               | bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]]
 
 private bare_or_bitwise_expression ::= bare_xor_expression (PIPE NLS bare_xor_expression)*
 

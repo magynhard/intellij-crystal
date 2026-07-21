@@ -282,4 +282,8 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testAliasDefinitionWithStub() {
         doTest(true)
     }
+
+    fun testExpressionAndRangeReplay() {
+        doTest(true)
+    }
 }

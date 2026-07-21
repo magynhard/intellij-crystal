@@ -42,6 +42,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ### Fixed
 
+- **Prevent exponential parser replay in nested Spec DSL files** — expression, bare-expression, and range rules now parse their common prefixes once, keeping deeply nested `describe`/`context`/`it`-style blocks responsive while preserving postfix `?`, right-associative ternaries, and all bounded or omitted-endpoint range forms.
 - **Restore responsive Go to Symbol searches** — name enumeration now streams StubIndex keys directly instead of loading PSI elements once per candidate name; actual navigation results remain constrained to the requested search scope.
 - **Block parameter rename/reference resolution** — block parameters (e.g. `|ola|` in `each do |ola| ... end`) are now resolved as references, so Rename (from definition or usage site), Go to Definition, and Find Usages work and stay in sync across the block body. Previously they were only highlighted (Annotator) and suggested (Completion) but had no reference link, so renaming one occurrence did not rename the other. Fixed by teaching `CrystalReference.resolveLocal()` to check `CrystalBlock.parameterList`, mirroring the existing method/macro parameter resolution.
 
