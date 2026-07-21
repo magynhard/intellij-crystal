@@ -22,13 +22,13 @@ Constant, instance-variable, and class-variable declaration indexes are intentio
 
 Production code accesses stub indexes through the stateless `CrystalIndexService`, the typed production gateway for StubIndex access. The service exposes typed element lookup, streaming element processing, and key-processing methods; callers must always choose an explicit `GlobalSearchScope`. Completion, references, documentation, Parameter Info, and SDK-aware paths use all scope where library definitions are required. Inspections use project scope when diagnostics must be limited to project declarations. Navigation contributors use the scope supplied by IntelliJ.
 
-Type, method, macro, alias, annotation, and library name processing accepts both the requested scope and `IdFilter`. Because the platform can enumerate keys that have no values in a narrow scope, the service verifies that each candidate key has an element in that scope before forwarding it. Element processing remains streaming and stops as soon as the supplied processor returns `false`.
+Type, method, macro, alias, annotation, and library name processing passes the requested scope and `IdFilter` directly to `StubIndex.processAllKeys()`. IntelliJ may still enumerate project-wide keys for a narrow scope; these keys are cheap name candidates and do not materialize PSI elements. Name and element processing remain streaming and stop as soon as the supplied processor returns `false`.
 
 Runtime project-wide `FileTypeIndex` scans, including iteration over every Crystal file, are prohibited. Runtime lookup must use the in-memory StubIndex gateway; narrower scopes and early processor termination are used wherever the required semantics permit them.
 
 ## Go To Contributors
 
-Go to Class exposes indexed classes, modules, structs, enums, aliases, annotations, and libraries. Go to Symbol exposes those definitions plus indexed methods and macros. Both contributors process names and resolve navigation items in the requested search scope. Type navigation items retain their concrete class, module, struct, or enum kind and icon.
+Go to Class exposes indexed classes, modules, structs, enums, aliases, annotations, and libraries. Go to Symbol exposes those definitions plus indexed methods and macros. Both contributors cheaply enumerate project-wide name candidates; only navigation items resolved through `processElementsWithName()` are constrained by `FindSymbolParameters.searchScope`. Type navigation items retain their concrete class, module, struct, or enum kind and icon.
 
 ## Completion Type Lookup
 

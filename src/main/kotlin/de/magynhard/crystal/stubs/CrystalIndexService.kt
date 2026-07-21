@@ -1,7 +1,6 @@
 package de.magynhard.crystal.stubs
 
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.stubs.StubIndexKey
@@ -119,84 +118,66 @@ object CrystalIndexService {
         StubIndex.getElements(CrystalLibIndex.KEY, name, project, scope, CrystalLibDefinition::class.java)
 
     fun processTypeNames(
-        project: Project,
         scope: GlobalSearchScope,
         filter: IdFilter?,
         processor: Processor<in String>
     ): Boolean = processNames(
         CrystalClassIndex.KEY,
-        CrystalNamedElement::class.java,
-        project,
         scope,
         filter,
         processor
     )
 
     fun processMethodNames(
-        project: Project,
         scope: GlobalSearchScope,
         filter: IdFilter?,
         processor: Processor<in String>
     ): Boolean = processNames(
         CrystalMethodIndex.KEY,
-        CrystalMethodDefinition::class.java,
-        project,
         scope,
         filter,
         processor
     )
 
     fun processMacroNames(
-        project: Project,
         scope: GlobalSearchScope,
         filter: IdFilter?,
         processor: Processor<in String>
     ): Boolean = processNames(
         CrystalMacroIndex.KEY,
-        CrystalMacroDefinition::class.java,
-        project,
         scope,
         filter,
         processor
     )
 
     fun processAliasNames(
-        project: Project,
         scope: GlobalSearchScope,
         filter: IdFilter?,
         processor: Processor<in String>
     ): Boolean = processNames(
         CrystalAliasIndex.KEY,
-        CrystalAliasDefinition::class.java,
-        project,
         scope,
         filter,
         processor
     )
 
     fun processAnnotationNames(
-        project: Project,
         scope: GlobalSearchScope,
         filter: IdFilter?,
         processor: Processor<in String>
     ): Boolean = processNames(
         CrystalAnnotationIndex.KEY,
-        CrystalAnnotationDefinition::class.java,
-        project,
         scope,
         filter,
         processor
     )
 
     fun processLibNames(
-        project: Project,
         scope: GlobalSearchScope,
         filter: IdFilter?,
         processor: Processor<in String>
     ): Boolean = processNames(
         CrystalLibIndex.KEY,
-        CrystalLibDefinition::class.java,
-        project,
         scope,
         filter,
         processor
@@ -208,33 +189,10 @@ object CrystalIndexService {
     fun getAllTopLevelMethodNames(project: Project): Collection<String> =
         StubIndex.getInstance().getAllKeys(CrystalTopLevelMethodIndex.KEY, project)
 
-    private fun <T : PsiElement> processNames(
-        key: StubIndexKey<String, T>,
-        elementClass: Class<T>,
-        project: Project,
+    private fun processNames(
+        key: StubIndexKey<String, *>,
         scope: GlobalSearchScope,
         filter: IdFilter?,
         processor: Processor<in String>
-    ): Boolean {
-        val names = mutableListOf<String>()
-        StubIndex.getInstance().processAllKeys(key, Processor { names.add(it) }, scope, filter)
-
-        for (name in names) {
-            var presentInScope = false
-            StubIndex.getInstance().processElements(
-                key,
-                name,
-                project,
-                scope,
-                filter,
-                elementClass,
-                Processor {
-                    presentInScope = true
-                    false
-                }
-            )
-            if (presentInScope && !processor.process(name)) return false
-        }
-        return true
-    }
+    ): Boolean = StubIndex.getInstance().processAllKeys(key, processor, scope, filter)
 }

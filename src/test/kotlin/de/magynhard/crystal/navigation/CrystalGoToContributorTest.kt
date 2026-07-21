@@ -75,7 +75,7 @@ class CrystalGoToContributorTest : BasePlatformTestCase() {
         expectedNames.forEach { name -> assertContributorElement(contributor, name) }
     }
 
-    fun testGoToContributorsRespectNameProcessingScope() {
+    fun testGoToContributorsEnumerateCandidateOutsideScopeButDoNotResolveIt() {
         val included = myFixture.addFileToProject("included.cr", "class IncludedScopeType\nend")
         myFixture.addFileToProject("excluded.cr", "class ExcludedScopeType\nend")
         val scope = GlobalSearchScope.fileScope(included)
@@ -83,7 +83,15 @@ class CrystalGoToContributorTest : BasePlatformTestCase() {
         for (contributor in listOf(CrystalGoToClassContributor(), CrystalGoToSymbolContributor())) {
             val names = processNames(contributor, scope)
             assertContainsElements(names, "IncludedScopeType")
-            assertDoesntContain(names, "ExcludedScopeType")
+            assertContainsElements(names, "ExcludedScopeType")
+
+            val items = mutableListOf<NavigationItem>()
+            contributor.processElementsWithName(
+                "ExcludedScopeType",
+                Processor { items.add(it); true },
+                FindSymbolParameters("ExcludedScopeType", "ExcludedScopeType", scope)
+            )
+            assertEmpty(items)
         }
     }
 

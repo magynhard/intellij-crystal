@@ -12,14 +12,14 @@ import de.magynhard.crystal.stubs.CrystalIndexService
 class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
 
     override fun processNames(processor: Processor<in String>, scope: GlobalSearchScope, filter: IdFilter?) {
-        val project = scope.project ?: return
+        scope.project ?: return
 
-        if (!CrystalIndexService.processTypeNames(project, scope, filter, processor)) return
-        if (!CrystalIndexService.processMethodNames(project, scope, filter, processor)) return
-        if (!CrystalIndexService.processMacroNames(project, scope, filter, processor)) return
-        if (!CrystalIndexService.processAliasNames(project, scope, filter, processor)) return
-        if (!CrystalIndexService.processAnnotationNames(project, scope, filter, processor)) return
-        CrystalIndexService.processLibNames(project, scope, filter, processor)
+        if (!CrystalIndexService.processTypeNames(scope, filter, processor)) return
+        if (!CrystalIndexService.processMethodNames(scope, filter, processor)) return
+        if (!CrystalIndexService.processMacroNames(scope, filter, processor)) return
+        if (!CrystalIndexService.processAliasNames(scope, filter, processor)) return
+        if (!CrystalIndexService.processAnnotationNames(scope, filter, processor)) return
+        CrystalIndexService.processLibNames(scope, filter, processor)
     }
 
     override fun processElementsWithName(

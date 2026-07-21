@@ -101,20 +101,19 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         assertSize(1, CrystalIndexService.findLibs("IndexedLib", project, scope))
     }
 
-    fun testProcessesTypeNamesWithinProvidedScope() {
+    fun testProcessesTypeNameCandidatesOutsideProvidedScope() {
         val included = myFixture.addFileToProject("included.cr", "class IncludedType\nend")
         myFixture.addFileToProject("excluded.cr", "class ExcludedType\nend")
         val names = mutableSetOf<String>()
 
         CrystalIndexService.processTypeNames(
-            project,
             GlobalSearchScope.fileScope(included),
             null,
             Processor { names.add(it) }
         )
 
         assertContainsElements(names, "IncludedType")
-        assertDoesntContain(names, "ExcludedType")
+        assertContainsElements(names, "ExcludedType")
     }
 
     fun testProcessesEveryPublicSymbolNameKind() {
@@ -138,23 +137,40 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         val scope = GlobalSearchScope.projectScope(project)
 
         assertProcessedName("ProcessedType") { processor ->
-            CrystalIndexService.processTypeNames(project, scope, null, processor)
+            CrystalIndexService.processTypeNames(scope, null, processor)
         }
         assertProcessedName("processed_method") { processor ->
-            CrystalIndexService.processMethodNames(project, scope, null, processor)
+            CrystalIndexService.processMethodNames(scope, null, processor)
         }
         assertProcessedName("processed_macro") { processor ->
-            CrystalIndexService.processMacroNames(project, scope, null, processor)
+            CrystalIndexService.processMacroNames(scope, null, processor)
         }
         assertProcessedName("ProcessedAlias") { processor ->
-            CrystalIndexService.processAliasNames(project, scope, null, processor)
+            CrystalIndexService.processAliasNames(scope, null, processor)
         }
         assertProcessedName("ProcessedAnnotation") { processor ->
-            CrystalIndexService.processAnnotationNames(project, scope, null, processor)
+            CrystalIndexService.processAnnotationNames(scope, null, processor)
         }
         assertProcessedName("ProcessedLib") { processor ->
-            CrystalIndexService.processLibNames(project, scope, null, processor)
+            CrystalIndexService.processLibNames(scope, null, processor)
         }
+    }
+
+    fun testProcessTypeNamesStopsWhenProcessorReturnsFalse() {
+        myFixture.addFileToProject("names.cr", "class FirstType\nend\nclass SecondType\nend")
+        var processed = 0
+
+        val completed = CrystalIndexService.processTypeNames(
+            GlobalSearchScope.projectScope(project),
+            null,
+            Processor {
+                processed++
+                false
+            }
+        )
+
+        assertFalse(completed)
+        assertEquals(1, processed)
     }
 
     private fun assertProcessedName(
