@@ -17,8 +17,9 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
 
     private fun setupStdlib() {
         myFixture.addFileToProject("main.cr", "puts 1")
-        val configurator = CrystalStdlibSourceRootConfigurator()
-        runBlocking { configurator.execute(project) }
+        val stdlibRoot = CrystalStdlibResolver.resolveStdlibPath(project) ?: return
+        val roots = CrystalStdlibRoots.enumerate(stdlibRoot)
+        CrystalStdlibIndexRefresher.refresh(project, emptyList(), roots, false)
     }
 
     fun testStdlibPathResolves() {
@@ -53,7 +54,7 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
         }
     }
 
-    fun testModuleHasStdlibLibrary() {
+    fun testStdlibDoesNotCreatePersistentModuleLibrary() {
         setupStdlib()
         val modules = ModuleManager.getInstance(project).modules
         assertTrue("Should have at least one module", modules.isNotEmpty())
@@ -62,7 +63,7 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
         val libraries = model.moduleLibraryTable.libraries
         println("Module libraries: ${libraries.map { it.name }}")
         val hasStdlib = libraries.any { it.name == "Crystal StdLib" }
-        println("Has Crystal StdLib library: $hasStdlib")
+        assertFalse("Synthetic stdlib must not create a module library", hasStdlib)
         model.dispose()
     }
 
@@ -333,7 +334,4 @@ class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
         println("=== END ENV DIAGNOSIS ===")
     }
 
-    private fun runBlocking(block: suspend () -> Unit) {
-        kotlinx.coroutines.runBlocking { block() }
-    }
 }

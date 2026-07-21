@@ -491,13 +491,13 @@
         <postStartupActivity
                 implementation="de.magynhard.crystal.CrystalSpecSourceRootConfigurator"/>
 
-        <!-- Crystal stdlib as indexed source library -->
+        <!-- Crystal stdlib as a filtered indexed synthetic library -->
         <additionalLibraryRootsProvider
                 implementation="de.magynhard.crystal.sdk.CrystalStdlibLibraryProvider"/>
 
-        <!-- Add Crystal stdlib as library source root on project open (triggers indexing) -->
-        <postStartupActivity
-                implementation="de.magynhard.crystal.sdk.CrystalStdlibSourceRootConfigurator"/>
+        <!-- Remove obsolete persisted stdlib module libraries before project loading/indexing -->
+        <project.converterProvider
+                implementation="de.magynhard.crystal.sdk.CrystalStdlibConverterProvider"/>
 
         <!-- Debugger -->
         <xdebugger.breakpointType

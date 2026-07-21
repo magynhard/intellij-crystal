@@ -302,8 +302,8 @@ directories, and re-triggers the popup.
 New `src/test/kotlin/de/magynhard/crystal/CrystalRequireCompletionTest.kt`.
 Tests that need stdlib indexed must call `setupStdlib()` (the same helper
 used by `CrystalStdlibIndexDiagnosticTest`: add a `main.cr` containing
-`puts 1`, then run `CrystalStdlibSourceRootConfigurator().execute(project)`
-inside `runBlocking`). For relative-mode tests, `myFixture.addFileToProject`
+`puts 1`, resolve and filter the stdlib roots, then notify the synthetic
+library refresh through `CrystalStdlibIndexRefresher`). For relative-mode tests, `myFixture.addFileToProject`
 suffices because completion uses the in-project VFS directly.
 
 - `testRequireKeywordSuggestedForReqPrefix` — `req<caret>` at statement
@@ -393,9 +393,8 @@ Existing tests that must still pass:
   `AutoPopupController.scheduleAutoPopup` is the idiomatic way; existing
   code uses it in `CrystalTypedHandler.kt:26` for `::`. Consistent.
 - **Stdlib path resolution cost.** `CrystalStdlibResolver.resolveStdlibPath`
-  runs `crystal env CRYSTAL_PATH` via `ProcessBuilder`. Currently this is
-  called on every project open via `CrystalStdlibSourceRootConfigurator`,
-  not on every completion. **For path completion inside `require`, the
+  runs `crystal env CRYSTAL_PATH` via `ProcessBuilder`. It is called when the
+  synthetic stdlib provider is queried and by path completion. **For path completion inside `require`, the
   resolver is called once per completion invocation.** If the subprocess
   takes >200ms (cold), the popup may lag on first use. Mitigation: cache
   the resolved VirtualFile in `CrystalStdlibResolver` (project-scoped,

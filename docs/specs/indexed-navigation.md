@@ -35,3 +35,13 @@ Go to Class exposes indexed classes, modules, structs, enums, aliases, annotatio
 Type lookup searches project scope before all scope. When multiple indexed classes, modules, structs, or enums have the same name and a current file is supplied, the definition in that file takes precedence.
 
 The all-scope fallback exists for library definitions. Its regression coverage requires a configured SDK/library root and is intentionally separate from the lightweight project-fixture coverage.
+
+## Standard Library Indexing
+
+`CrystalStdlibLibraryProvider` is the sole source of Crystal standard-library roots. It exposes one synthetic library through `AdditionalLibraryRootsProvider`; the library source roots are always produced by `CrystalStdlibRoots.enumerate()`. For the flat Crystal 1.20+ distribution, this includes top-level `.cr` files and user-facing stdlib directories while excluding `compiler`, `crystal`, `lib_c`, `lib_z`, `ll`, `llvm`, `gc`, and `samples`.
+
+The plugin must never persist a `Crystal StdLib` module library. Persisted libraries are loaded into Workspace Model early enough to queue their roots before post-startup activities run, so migrating them after project open cannot cancel an already queued broad `/usr/lib/crystal` indexing job.
+
+`CrystalStdlibConverterProvider` performs the legacy cleanup before project loading. Its public IntelliJ module-file conversion processor removes only `orderEntry` elements whose type is exactly `module-library` and whose nested library name is exactly `Crystal StdLib`. It preserves every unrelated order entry and becomes unnecessary after that exact entry is removed.
+
+SDK changes and manual reindex requests notify the platform through `AdditionalLibraryRootsListener.fireAdditionalLibraryChanged()` under a write action. Manual refresh requests reindexing only for `.cr` files reachable from the already filtered synthetic-library roots. Normal platform indexing populates StubIndex data; no pooled smart-mode waiter or eager top-level index warm-up is used.

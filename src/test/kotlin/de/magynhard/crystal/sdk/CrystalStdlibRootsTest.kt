@@ -23,6 +23,7 @@ class CrystalStdlibRootsTest : BasePlatformTestCase() {
         childList.add(dir("llvm", file("llvm_bindings.cr")))
         childList.add(dir("ll", file("ll_bindings.cr")))
         childList.add(dir("gc", file("boehm.cr")))
+        childList.add(dir("samples", file("hello_world.cr")))
         // Stdlib subdirectories — MUST be included
         childList.add(dir("json", file("parser.cr"), file("from_yaml.cr")))
         childList.add(dir("http", file("client.cr")))
@@ -51,6 +52,7 @@ class CrystalStdlibRootsTest : BasePlatformTestCase() {
         assertFalse("llvm/ excluded: $roots", roots.contains("llvm"))
         assertFalse("ll/ excluded: $roots", roots.contains("ll"))
         assertFalse("gc/ excluded: $roots", roots.contains("gc"))
+        assertFalse("samples/ excluded: $roots", roots.contains("samples"))
     }
 
     fun testEnumerateFallsBackToSrcDirForPre120Layout() {
