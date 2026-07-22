@@ -10,9 +10,18 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.psi.CrystalBlock
+import de.magynhard.crystal.psi.CrystalClassBody
+import de.magynhard.crystal.psi.CrystalMacroBody
+import de.magynhard.crystal.psi.CrystalMacroDefinition
+import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalRequireStatement
+import de.magynhard.crystal.psi.CrystalTopLevelFun
+import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 /**
@@ -52,21 +61,46 @@ object CrystalRequireCompletionProvider {
             .withInsertHandler(CrystalRequireInsertHandler)
 
     /**
-     * `true` iff the caret is at a top-level statement position where a
-     * `require "..."` statement may legitimately appear.
-     *
-     * `require_statement` is only a `top_level_statement` alternative in the
-     * BNF ( Crystal.bnf:199 ), so the keyword lookup is suppressed inside
-     * method bodies, class bodies, blocks, and macro bodies.
+     * Returns whether the completion prefix starts an independent statement
+     * in a context where Crystal permits `require`.
      */
-    fun isAtTopLevel(position: PsiElement): Boolean =
-        PsiTreeUtil.getParentOfType(
-            position,
-            de.magynhard.crystal.psi.CrystalMethodDefinition::class.java,
-            de.magynhard.crystal.psi.CrystalClassBody::class.java,
-            de.magynhard.crystal.psi.CrystalBlock::class.java,
-            de.magynhard.crystal.psi.CrystalMacroBody::class.java,
-        ) == null
+    fun isKeywordContext(position: PsiElement, prefixStart: Int): Boolean {
+        var previous = PsiTreeUtil.prevLeaf(position)
+        while (previous != null &&
+            (previous.text.isBlank() || previous is PsiComment || previous.node.elementType == CrystalTypes.LINE_COMMENT)
+        ) {
+            previous = PsiTreeUtil.prevLeaf(previous)
+        }
+        val previousText = previous?.text
+        if (previousText != null &&
+            (previousText.endsWith('.') || previousText.endsWith(':') ||
+                previousText == "(" || previousText == "[" || previousText == "{" || previousText == ",")
+        ) {
+            return false
+        }
+
+        if (PsiTreeUtil.getParentOfType(
+                position,
+                CrystalMethodDefinition::class.java,
+                CrystalClassBody::class.java,
+                CrystalBlock::class.java,
+                CrystalMacroBody::class.java,
+                CrystalTopLevelFun::class.java,
+                CrystalMacroDefinition::class.java,
+            ) != null
+        ) {
+            return false
+        }
+
+        var element = position
+        while (true) {
+            val parent = element.parent ?: return false
+            if (parent is PsiFile) {
+                return element.textRange.startOffset == prefixStart
+            }
+            element = parent
+        }
+    }
 
     // ==================== Path mode ====================
 

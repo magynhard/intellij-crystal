@@ -1,6 +1,8 @@
 package de.magynhard.crystal
 
 import com.intellij.codeInsight.completion.CompletionType
+import com.intellij.codeInsight.lookup.LookupElementPresentation
+import com.intellij.icons.AllIcons
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -12,36 +14,30 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     // ==================== Keyword mode ====================
 
     fun testRequireKeywordSuggestedForReqPrefix() {
-        myFixture.configureByText("main.cr", "req<caret>")
-        val lookups = myFixture.complete(CompletionType.BASIC)
-        // May be `null` if only `require` matches (auto-insert). We use a
-        // unique non-method context so only the keyword lookup is emitted
-        // — hence we accept null-or-contains.
-        val names = lookups?.map { it.lookupString } ?: listOf("require")
-        assertTrue("Should suggest `require`: $names", names.contains("require"))
+        assertRequireKeywordSuggested("req<caret>")
     }
 
     fun testEmptyCaretSuggestsRequire() {
+        assertRequireKeywordSuggested("<caret>")
+    }
+
+    fun testRequireKeywordPresentation() {
         myFixture.configureByText("main.cr", "<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
-        assertNotNull("Should return completions at empty caret", lookups)
-        val names = lookups.map { it.lookupString }
-        assertTrue("Empty caret should suggest `require`: $names", names.contains("require"))
+        assertNotNull("Empty file should return multiple completion items", lookups)
+        val requireItem = lookups.first { item ->
+            if (item.lookupString != "require") return@first false
+            LookupElementPresentation().also(item::renderElement).typeText == "keyword"
+        }
+        val presentation = LookupElementPresentation().also(requireItem::renderElement)
+
+        assertEquals("(name)", presentation.tailText)
+        assertEquals("keyword", presentation.typeText)
+        assertSame(AllIcons.Nodes.Include, presentation.icon)
     }
 
     fun testUppercasePrefixDoesNotSuggestRequire() {
-        // No class/file in project starts with Req, so complete() may return
-        // null (no match) — that is the expected behaviour (uppercase prefix
-        // is reserved for class/type completion, not the lowercase `require`).
-        myFixture.configureByText("main.cr", "Req<caret>")
-        val lookups = myFixture.complete(CompletionType.BASIC)
-        if (lookups != null) {
-            val names = lookups.map { it.lookupString }
-            assertFalse(
-                "Uppercase prefix must NOT suggest `require`: $names",
-                names.contains("require")
-            )
-        }
+        assertRequireKeywordNotSuggested("Req<caret>")
     }
 
     fun testRequireKeywordInsertsEmptyStringAndTriggersPopup() {
@@ -63,22 +59,161 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     }
 
     fun testRequireKeywordNotSuggestedInsideMethod() {
-        myFixture.configureByText("main.cr", """
+        assertRequireKeywordNotSuggested("""
             def foo
               req<caret>
             end
         """.trimIndent())
+    }
+
+    fun testRequireKeywordSuggestedAfterSemicolon() {
+        assertRequireKeywordSuggested("foo; req<caret>")
+    }
+
+    fun testRequireKeywordSuggestedAfterCommentEndingInDot() {
+        assertRequireKeywordSuggested("""
+            # Load the bootstrap dependency.
+            req<caret>
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordSuggestedAfterCommentEndingInColon() {
+        assertRequireKeywordSuggested("""
+            # Bootstrap dependency:
+            req<caret>
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordSuggestedInMacroIfBranch() {
+        assertRequireKeywordSuggested("""
+            {% if flag?(:win32) %}
+              req<caret>
+            {% end %}
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedInRuntimeIfBranch() {
+        assertRequireKeywordNotSuggested("""
+            if flag?
+              req<caret>
+            end
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedInClassBody() {
+        assertRequireKeywordNotSuggested("""
+            class Loader
+              req<caret>
+            end
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedInTopLevelBlock() {
+        assertRequireKeywordNotSuggested("""
+            1.times do
+              req<caret>
+            end
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedAfterClassDot() {
+        assertRequireKeywordNotSuggested("Loader.req<caret>")
+    }
+
+    fun testRequireKeywordNotSuggestedAfterVariableDot() {
+        assertRequireKeywordNotSuggested("""
+            loader = Loader.new
+            loader.req<caret>
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedAfterNamespaceSeparator() {
+        assertRequireKeywordNotSuggested("Loader::req<caret>")
+    }
+
+    fun testRequireKeywordNotSuggestedInTypeAnnotation() {
+        assertRequireKeywordNotSuggested("loader : req<caret>")
+    }
+
+    fun testRequireKeywordNotSuggestedAsAssignmentValue() {
+        assertRequireKeywordNotSuggested("loader = req<caret>")
+    }
+
+    fun testRequireKeywordNotSuggestedAsArgument() {
+        assertRequireKeywordNotSuggested("load(req<caret>)")
+    }
+
+    fun testRequireKeywordNotSuggestedAsIfCondition() {
+        assertRequireKeywordNotSuggested("""
+            if req<caret>
+            end
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedAfterMultilineDot() {
+        assertRequireKeywordNotSuggested("""
+            Loader.
+              req<caret>
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedInUnfinishedMultilineArgument() {
+        assertRequireKeywordNotSuggested("""
+            load(
+              req<caret>
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedAfterMultilineOperator() {
+        assertRequireKeywordNotSuggested("""
+            value +
+              req<caret>
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedInsideFun() {
+        assertRequireKeywordNotSuggested("""
+            fun load
+              req<caret>
+            end
+        """.trimIndent())
+    }
+
+    fun testRequireKeywordNotSuggestedInsideMacroDefinition() {
+        assertRequireKeywordNotSuggested("""
+            macro load
+              req<caret>
+            end
+        """.trimIndent())
+    }
+
+    fun testRealRequireMethodStillSuggestedAfterDot() {
+        myFixture.configureByText("main.cr", """
+            class Loader
+              def self.require(path)
+              end
+            end
+
+            Loader.<caret>
+        """.trimIndent())
+
         val lookups = myFixture.complete(CompletionType.BASIC)
-        // Inside a method, free-text completion returns other items (params,
-        // locals, top-level methods). `require` keyword must NOT be among
-        // them — it's only valid at top-level.
-        if (lookups != null) {
-            val names = lookups.map { it.lookupString }
-            assertFalse(
-                "Should not suggest `require` inside a method: $names",
-                names.contains("require")
-            )
+        assertNotNull("Should return the real require method", lookups)
+        val requireItems = lookups.filter { it.lookupString == "require" }
+        assertTrue("Should contain a require method lookup", requireItems.isNotEmpty())
+        val typeTexts = requireItems.map { item ->
+            LookupElementPresentation().also(item::renderElement).typeText
         }
+        assertTrue("Should identify the method's class: $typeTexts", typeTexts.contains("Loader"))
+        assertFalse("Should not include the synthesized keyword: $typeTexts", typeTexts.contains("keyword"))
+
+        val requireItem = requireItems.first { item ->
+            LookupElementPresentation().also(item::renderElement).typeText == "Loader"
+        }
+        myFixture.lookup.currentItem = requireItem
+        myFixture.finishLookup('\n')
+        assertTrue(myFixture.editor.document.text.contains("Loader.require"))
+        assertFalse(myFixture.editor.document.text.contains("Loader.require \"\""))
     }
 
     // ==================== Path mode — relative ====================
@@ -321,4 +456,30 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
             text.contains("require \"json\"") && !text.contains("json/json")
         )
     }
+
+    private fun assertRequireKeywordSuggested(code: String) {
+        myFixture.configureByText("main.cr", code)
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        if (lookups == null) {
+            assertTrue(
+                "The require keyword should have been auto-inserted: '${myFixture.editor.document.text}'",
+                myFixture.editor.document.text.contains("require \"\"")
+            )
+            return
+        }
+
+        assertTrue("Should contain the synthesized require keyword", lookups.any(::isRequireKeyword))
+    }
+
+    private fun assertRequireKeywordNotSuggested(code: String) {
+        myFixture.configureByText("main.cr", code)
+        val before = myFixture.editor.document.text
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertTrue("Should not contain the synthesized require keyword", lookups.orEmpty().none(::isRequireKeyword))
+        assertEquals("Completion must not modify an excluded context", before, myFixture.editor.document.text)
+    }
+
+    private fun isRequireKeyword(item: com.intellij.codeInsight.lookup.LookupElement): Boolean =
+        item.lookupString == "require" &&
+            LookupElementPresentation().also(item::renderElement).typeText == "keyword"
 }

@@ -78,12 +78,13 @@ Free-text completion offers scope-aware suggestions based on the current cursor 
 
 The synthesized `require` keyword is a context-gated exception to ordinary
 free-text candidates. It is offered only when the typed prefix starts an
-independent statement outside `def`, `fun`, and macro-definition bodies. This
-includes top-level control-flow branches, type bodies, and top-level block
-bodies. It is not offered as part of DOT calls, namespace access, type
-annotations, assignment values, arguments, conditions, or other larger
-expressions. Real methods named `require` remain available through normal DOT
-completion. See [`require.md`](require.md) for parser and insertion details.
+independent file-scope statement, including between top-level compile-time
+macro-control directives. It is not offered in runtime control flow, blocks,
+type or callable bodies, macro definitions, DOT calls, namespace access, type
+annotations, assignment values, arguments, conditions, unfinished multiline
+expressions, or other larger expressions. Real methods named `require` remain
+available through normal DOT completion. See [`require.md`](require.md) for
+insertion and path-completion details.
 
 #### Scope-Aware Local Variables
 
@@ -523,14 +524,6 @@ enum Color
 end
 
 Color.  # ← would show Red, Green, Blue
-```
-
-### `require` Path Completion
-
-Completion after `require` would show local `.cr` files:
-
-```crystal
-require "./  # ← would show local .cr files
 ```
 
 ### `include` Module Completion

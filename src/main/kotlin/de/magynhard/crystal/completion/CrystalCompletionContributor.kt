@@ -58,9 +58,11 @@ class CrystalCompletionContributor : CompletionContributor() {
             if (isInsideStringLiteral(position)) return
             if (isAfterNumericLiteral(position)) return
 
-            val requirePrefix = computeCompletionPrefix(parameters.editor, parameters.offset)
+            val requirePrefix = result.prefixMatcher.prefix
             val lowercaseRPrefix = requirePrefix.isEmpty() || requirePrefix[0].isLowerCase()
-            if (lowercaseRPrefix && CrystalRequireCompletionProvider.isAtTopLevel(position) &&
+            val requirePrefixStart = parameters.offset - requirePrefix.length
+            if (lowercaseRPrefix &&
+                CrystalRequireCompletionProvider.isKeywordContext(position, requirePrefixStart) &&
                 result.prefixMatcher.prefixMatches("require")
             ) {
                 result.addElement(CrystalRequireCompletionProvider.getKeywordLookup())
