@@ -74,6 +74,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalRegexExpression> getRegexExpressionList();
 
   @NotNull
+  List<CrystalRequireStatement> getRequireStatementList();
+
+  @NotNull
   List<CrystalSizeofExpression> getSizeofExpressionList();
 
   @NotNull

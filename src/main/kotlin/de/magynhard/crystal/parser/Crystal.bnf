@@ -196,7 +196,6 @@ crystalFile ::= top_level_statement*
 
 private top_level_statement ::= NEWLINE
                               | SEMICOLON
-                              | require_statement
                               | include_statement
                               | extend_statement
                               | annotation_usage
@@ -354,13 +353,13 @@ private macro_body_element ::= MACRO_BODY_CONTENT
                              | macro_interpolation
                              | macro_control
                              | NEWLINE
-macro_interpolation ::= MACRO_INTERPOLATION_BEGIN expression MACRO_INTERPOLATION_END
+macro_interpolation ::= MACRO_INTERPOLATION_BEGIN expression [postfix_modifier] MACRO_INTERPOLATION_END
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | INTEGER_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
     | SYMBOL_LITERAL | SYMBOL_COLON
     | TRUE | FALSE | NIL
-    | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | BEGIN | YIELD | VERBATIM
+    | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM
     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
     | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
@@ -615,6 +614,7 @@ private primary_expression ::= grouped_expression
                              | hash_literal
                              | tuple_literal
                              | proc_literal
+                             | require_statement
                              | namespace_access
                              | method_call_expression
                              | implicit_object_call
@@ -659,6 +659,7 @@ private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PE
     (IDENTIFIER | CONSTANT | STRING_LITERAL | INTEGER_LITERAL | FLOAT_LITERAL | CHAR_LITERAL
      | SYMBOL_LITERAL | NIL | TRUE | FALSE | SELF | SUPER | PREVIOUS_DEF
      | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+     | REQUIRE
      | LPAREN | LBRACKET | LBRACE
      | PERCENT_LITERAL_BEGIN | PERCENT_SYMBOL_BEGIN
      | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN)
@@ -747,6 +748,7 @@ private bare_primary_expression ::= grouped_expression
                                   | hash_literal
                                   | tuple_literal
                                   | proc_literal
+                                  | require_statement
                                   | bare_method_call_expression
                                   | implicit_object_call
                                   | literal
@@ -793,18 +795,20 @@ private literal ::= INTEGER_LITERAL
                   | heredoc_literal
                   | percent_literal
 
-string_expression ::= (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
-regex_expression ::= REGEX_BEGIN (REGEX_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* REGEX_END
-command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* COMMAND_END
+private interpolation_expression ::= STRING_INTERPOLATION_BEGIN expression [postfix_modifier] STRING_INTERPOLATION_END
 
-heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)* HEREDOC_END?
+string_expression ::= (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
+regex_expression ::= REGEX_BEGIN (REGEX_LITERAL | STRING_ESCAPE | interpolation_expression)* REGEX_END
+command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | interpolation_expression)* COMMAND_END
+
+heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | interpolation_expression)* HEREDOC_END?
 
 percent_literal ::= PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
                   | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
-private percent_literal_content ::= STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
+private percent_literal_content ::= STRING_LITERAL | STRING_ESCAPE | interpolation_expression | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
 private percent_symbol_content ::= SYMBOL_LITERAL | NEWLINE
 
-symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN expression STRING_INTERPOLATION_END)+
+symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
 
 array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference]
 

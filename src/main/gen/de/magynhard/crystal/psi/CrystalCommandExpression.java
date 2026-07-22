@@ -10,4 +10,7 @@ public interface CrystalCommandExpression extends PsiElement {
   @NotNull
   List<CrystalExpression> getExpressionList();
 
+  @NotNull
+  List<CrystalPostfixModifier> getPostfixModifierList();
+
 }

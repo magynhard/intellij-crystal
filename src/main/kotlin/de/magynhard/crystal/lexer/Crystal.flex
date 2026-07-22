@@ -442,6 +442,12 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
+  "if"                 { return CrystalTypes.IF; }
+  "unless"             { return CrystalTypes.UNLESS; }
+  "while"              { return CrystalTypes.WHILE; }
+  "until"              { return CrystalTypes.UNTIL; }
+  "rescue"             { return CrystalTypes.RESCUE; }
+  "require"            { return CrystalTypes.REQUIRE; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
@@ -579,6 +585,12 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
+  "if"                 { return CrystalTypes.IF; }
+  "unless"             { return CrystalTypes.UNLESS; }
+  "while"              { return CrystalTypes.WHILE; }
+  "until"              { return CrystalTypes.UNTIL; }
+  "rescue"             { return CrystalTypes.RESCUE; }
+  "require"            { return CrystalTypes.REQUIRE; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
@@ -622,8 +634,12 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "for"                { return CrystalTypes.FOR; }
   "in"                 { return CrystalTypes.IN; }
   "unless"             { return CrystalTypes.UNLESS; }
+  "while"              { return CrystalTypes.WHILE; }
+  "until"              { return CrystalTypes.UNTIL; }
+  "rescue"             { return CrystalTypes.RESCUE; }
   "begin"              { return CrystalTypes.BEGIN; }
   "yield"              { return CrystalTypes.YIELD; }
+  "require"            { return CrystalTypes.REQUIRE; }
   "true"               { return CrystalTypes.TRUE; }
   "false"              { return CrystalTypes.FALSE; }
   "nil"                { return CrystalTypes.NIL; }

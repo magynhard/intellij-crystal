@@ -86,6 +86,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalRegexExpression> getRegexExpressionList();
 
   @NotNull
+  List<CrystalRequireStatement> getRequireStatementList();
+
+  @NotNull
   List<CrystalSizeofExpression> getSizeofExpressionList();
 
   @NotNull

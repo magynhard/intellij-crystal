@@ -10,4 +10,7 @@ public interface CrystalHeredocLiteral extends PsiElement {
   @NotNull
   List<CrystalExpression> getExpressionList();
 
+  @NotNull
+  List<CrystalPostfixModifier> getPostfixModifierList();
+
 }

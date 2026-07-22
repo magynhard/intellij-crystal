@@ -379,6 +379,15 @@
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.inspections.CrystalInstanceVarTypeInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Invalid require context"
+                shortName="CrystalRequireContext"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalRequireContextInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>

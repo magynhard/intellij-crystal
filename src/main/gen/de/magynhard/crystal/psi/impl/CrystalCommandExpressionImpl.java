@@ -33,4 +33,10 @@ public class CrystalCommandExpressionImpl extends ASTWrapperPsiElement implement
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalPostfixModifier> getPostfixModifierList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalPostfixModifier.class);
+  }
+
 }

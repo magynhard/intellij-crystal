@@ -86,6 +86,10 @@ expressions, or other larger expressions. Real methods named `require` remain
 available through normal DOT completion. See [`require.md`](require.md) for
 insertion and path-completion details.
 
+The parser still creates `CrystalRequireStatement` PSI in excluded contexts.
+`CrystalRequireContextInspection` reports the corresponding compiler error
+instead of exposing a generic parser error.
+
 #### Scope-Aware Local Variables
 
 Variables are collected from the **enclosing scope** only:

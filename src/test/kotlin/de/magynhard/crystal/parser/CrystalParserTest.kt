@@ -15,6 +15,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testRequireInNestedContexts() {
+        doTest(true)
+    }
+
     fun testDescribeBlock() {
         doTest(true)
     }

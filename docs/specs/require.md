@@ -11,9 +11,9 @@ require "json"
 require "./user"
 ```
 
-The parser represents it as `CrystalRequireStatement`. Crystal permits `require` only at file scope. Compile-time macro controls may conditionally surround a top-level require statement.
+The parser represents it as `CrystalRequireStatement`. Like the Crystal compiler parser, the plugin accepts `require` as a primary expression in every expression context. This keeps PSI structured even when the compiler later rejects the context.
 
-Crystal rejects dynamic require statements inside runtime control flow, blocks, type declarations, `def`, and `fun`. Keyword completion also excludes macro-definition bodies, where generated source has separate completion requirements.
+Crystal permits `require` only at file scope. Compile-time macro controls may conditionally surround a top-level require statement. Semantic analysis rejects dynamic require expressions inside runtime control flow, postfix conditions, binary expressions, blocks, assignments, arguments, conditions, string interpolation, type declarations, `def`, and `fun`. Executing `require` inside macro interpolation or a macro-control directive is rejected as a macro execution error. Keyword completion also excludes macro-definition bodies, where generated source has separate completion requirements.
 
 `require` may also be used as a method name after a receiver. A real method such as `def self.require(path)` is independent from the compiler keyword and remains available through normal DOT completion.
 
@@ -97,6 +97,21 @@ The resulting document is:
 require "<caret>"
 ```
 
+## Context Diagnostics
+
+The parser always preserves a `CrystalRequireStatement`; invalid placement is reported by the `CrystalRequireContext` inspection instead of a generic `PsiErrorElement`.
+
+Only the `require` keyword is highlighted. The path remains independently navigable and editable.
+
+| Context | Diagnostic |
+|---------|------------|
+| Direct file scope, including between top-level macro-control directives | None |
+| Inside `def` | `Can't require inside def` |
+| Inside `fun` | `Can't require inside fun` |
+| Inside a class, module, or struct | `Can't require inside type declarations` |
+| Inside macro interpolation or a macro-control directive | `Can't execute Require in a macro` |
+| Runtime control flow, blocks, assignments, arguments, conditions, and other nested expressions | `Can't require dynamically` |
+
 ## Path Completion
 
 Path completion is active only when the caret is inside the string expression of a `CrystalRequireStatement`. Other string literals retain normal string-completion suppression.
@@ -175,6 +190,9 @@ Automated coverage protects:
 - Keyword discovery, lowercase matching, presentation, and insertion.
 - Valid statement contexts and invalid expression contexts.
 - Exclusion from runtime control flow, blocks, type declarations, `def`, `fun`, and macro definitions.
+- Structured PSI without `PsiErrorElement` for nested require expressions.
+- Context-specific compiler diagnostics on the `require` keyword.
+- Require tokenization and diagnostics in string and macro interpolation.
 - Real methods named `require` after DOT.
 - Multiline receiver and unfinished-argument recovery contexts.
 - Relative files, directories, parent traversal, and current-file exclusion.

@@ -33,4 +33,10 @@ public class CrystalPercentLiteralImpl extends ASTWrapperPsiElement implements C
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalPostfixModifier> getPostfixModifierList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalPostfixModifier.class);
+  }
+
 }

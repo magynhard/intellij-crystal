@@ -71,6 +71,36 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testRequireKeywordInExpressionLexerStates() {
+        val inputs = listOf(
+            "\"#{require \"./dependency\"}\"",
+            "{{ require \"./dependency\" }}",
+            "{% require \"./dependency\" %}",
+        )
+
+        for (input in inputs) {
+            val requireToken = nonWhitespaceTokens(input).firstOrNull { it.second == "require" }
+            assertNotNull("Should tokenize require in '$input'", requireToken)
+            assertEquals("Require token in '$input'", CrystalTypes.REQUIRE, requireToken?.first)
+        }
+    }
+
+    @Test
+    fun testPostfixIfKeywordInExpressionLexerStates() {
+        val inputs = listOf(
+            "\"#{require \"./dependency\" if true}\"",
+            "{{ require \"./dependency\" if true }}",
+            "{% require \"./dependency\" if true %}",
+        )
+
+        for (input in inputs) {
+            val ifToken = nonWhitespaceTokens(input).firstOrNull { it.second == "if" }
+            assertNotNull("Should tokenize postfix if in '$input'", ifToken)
+            assertEquals("Postfix if token in '$input'", CrystalTypes.IF, ifToken?.first)
+        }
+    }
+
+    @Test
     fun testIdentifiers() {
         val cases = mapOf(
             "foo" to CrystalTypes.IDENTIFIER,

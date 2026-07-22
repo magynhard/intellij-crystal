@@ -10,4 +10,7 @@ public interface CrystalPercentLiteral extends PsiElement {
   @NotNull
   List<CrystalExpression> getExpressionList();
 
+  @NotNull
+  List<CrystalPostfixModifier> getPostfixModifierList();
+
 }
