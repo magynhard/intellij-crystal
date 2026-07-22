@@ -132,7 +132,7 @@ Regression: `CrystalRenamePsiNameIdentifierOwnerTest`,
 
 Two independent completion contexts share one provider file:
 
-#### 2A. Keyword context — typing `req<caret>` at statement position
+#### 2A. Keyword context — typing `req<caret>` at a valid statement start
 
 - Lookup: `require` with icon `AllIcons.Nodes.Include`, tail text `(name)`,
   type text `keyword`.
@@ -146,38 +146,75 @@ Two independent completion contexts share one provider file:
 
 The lookup is emitted only when **all** of these hold:
 
-1. Caret is at a **top-level position** — not inside any
-   `CrystalMethodDefinition`, `CrystalClassBody`, `CrystalBlock`,
-   `CrystalMacroBody`, or interpolation. Verified via
-   `PsiTreeUtil.getParentOfType(...)` returning `null` for each of these
-   types. `require_statement` is only valid at top-level in Crystal
-   (per the BNF: it appears as a `top_level_statement` alternative), so
-   emitting the keyword at non-top-level positions would be misleading.
-2. Crystal's `require` is lowercase; an uppercase `R` prefix
+1. The prefix starts an **independent statement**. The completion position is
+   resolved to its direct statement child under the nearest statement
+   container (`CrystalFile`, `CrystalStatementList`, or a type body). That
+   child's start offset must equal the completion prefix's start offset. This
+   admits `require` at file level, in type bodies, and in top-level control-flow
+   or block bodies while rejecting a prefix embedded in a larger expression:
+
+   ```crystal
+   Foo.req<caret>       # rejected: DOT call target
+   Foo::req<caret>      # rejected: namespace continuation
+   value = req<caret>   # rejected: assignment value
+   foo(req<caret>)      # rejected: argument
+   if req<caret>        # rejected: condition
+   ```
+
+   This is intentionally PSI-based rather than a blacklist of preceding
+   characters. It also handles whitespace and multiline expression
+   continuations correctly.
+2. The caret is not inside a `def`, `fun`, or macro definition. Crystal 1.20's
+   parser accepts `require` as an atomic expression but rejects it while the
+   parser is nested in a `def` or `fun` (`check_not_inside_def("can't
+   require")`). Macro-definition bodies remain excluded because completion in
+   generated macro source is outside this provider's scope.
+3. Crystal's `require` is lowercase; an uppercase `R` prefix
    (e.g. `Req<caret>`) must **not** trigger this lookup (uppercase
    prefixes are reserved for class/type completion).
-3. `result.prefixMatcher.prefixMatches("require")` returns true (in
+4. `result.prefixMatcher.prefixMatches("require")` returns true (in
    practice, when the prefix is empty or starts with a lowercase `r`).
+
+The context gate applies only to the synthesized keyword lookup. If user code
+defines a real method named `require`, normal DOT completion may still offer
+that method for `Foo.req<caret>` or `value.req<caret>`; it uses the method
+lookup and must not receive the keyword's `require ""` insert handler.
 
 Implementation gate:
 
 ```kotlin
 val prefix = computeCompletionPrefix(parameters.editor, parameters.offset)
 val lowercase = prefix.isEmpty() || prefix[0].isLowerCase()
-val atTopLevel = PsiTreeUtil.getParentOfType(
+val prefixStart = parameters.offset - prefix.length
+val validContext = CrystalRequireCompletionProvider.isKeywordContext(
     position,
-    CrystalMethodDefinition::class.java,
-    CrystalClassBody::class.java,
-    CrystalBlock::class.java,
-    CrystalMacroBody::class.java,
-) == null
-if (atTopLevel && lowercase && result.prefixMatcher.prefixMatches("require")) {
+    prefixStart,
+)
+if (validContext && lowercase && result.prefixMatcher.prefixMatches("require")) {
     result.addElement(CrystalRequireCompletionProvider.getKeywordLookup())
 }
 ```
 
 Empty caret (Ctrl+Space without prefix) also emits the lookup, so users can
-discover the keyword — but only when the caret is at top-level.
+discover the keyword when the caret starts a valid independent statement.
+
+#### 2A.1 Parser support in nested statement containers
+
+The plugin grammar currently lists `require_statement` only in
+`top_level_statement`, even though Crystal accepts it in contexts such as a
+top-level `if` branch. Add `require_statement` to `statement` before the more
+general expression alternatives. The existing explicit
+`top_level_statement -> require_statement` alternative remains first and
+continues to parse the common file-level form directly.
+
+This parser change deliberately preserves a structured `CrystalRequireStatement`
+even in semantically invalid source such as a `require` inside `def`. The
+completion context gate remains responsible for not suggesting that invalid
+construct; semantic diagnostics are separate from error-tolerant PSI parsing.
+
+Regenerate the committed parser output after changing `Crystal.bnf`. A parser
+golden test must cover `require` in an `if` branch, a type body, and a top-level
+block body without any `PsiErrorElement`.
 
 #### 2B. Path context — caret inside the string of a `require_statement`
 
@@ -268,10 +305,12 @@ file-relative, otherwise Crystal searches `CRYSTAL_PATH` (`lib:/usr/lib/crystal`
   1. **Before** `isInsideStringLiteral` suppression: check
      `getParentOfType(position, CrystalRequireStatement::class.java) != null`
      and, if true, delegate to `getPathLookups` and `return`.
-  2. **After** the general suppression guards (string literals, numeric
-     literals): in the free-text branch, alongside the existing
-     `addLocalCompletions`, emit `getKeywordLookup()` when
-     `result.prefixMatcher.prefixMatches("require")`.
+   2. **After** the general suppression guards (string literals, numeric
+      literals): before context-specific completion dispatch, emit
+      `getKeywordLookup()` only when `isKeywordContext(position, prefixStart)`
+      and `result.prefixMatcher.prefixMatches("require")` both succeed.
+- `Crystal.bnf` — add `require_statement` to `statement`, then regenerate the
+  committed parser output in `src/main/gen/`.
 
 ### Insert handler
 
@@ -316,6 +355,25 @@ suffices because completion uses the in-project VFS directly.
   in lookups (lowercase-only keyword).
 - `testEmptyCaretSuggestsRequire` — `<caret>` with no prefix → `require` in
   lookups.
+- `testRequireKeywordSuggestedAfterSemicolon` — `foo; req<caret>` → keyword
+  lookup is offered as a new statement.
+- `testRequireKeywordSuggestedInIfBranch` — a standalone `req<caret>` in a
+  top-level `if` body → keyword lookup is offered.
+- `testRequireKeywordSuggestedInTypeBody` — a standalone `req<caret>` in a
+  class body → keyword lookup is offered.
+- `testRequireKeywordSuggestedInTopLevelBlock` — a standalone `req<caret>` in
+  a top-level block body → keyword lookup is offered.
+- Context rejection tests cover `Foo.req<caret>`, `value.req<caret>`,
+  `Foo::req<caret>`, `x : req<caret>`, `x = req<caret>`,
+  `foo(req<caret>)`, and `if req<caret>`. None may insert or render the
+  synthesized keyword lookup.
+- `testRealRequireMethodStillSuggestedAfterDot` — a real
+  `def self.require(path)` remains available through DOT method completion and
+  does not use the keyword insert handler.
+- Existing method-body rejection is extended to `fun` and macro-definition
+  bodies.
+- A parser golden test covers nested statement containers (`if`, type body,
+  and top-level block) and contains no `PsiErrorElement`.
 - `testRelativeFileCompletionInRequireString` — file has sibling `user.cr`;
   `require "./<caret>"` → `user` offered; selecting inserts `require "./user"`
   (no `.cr` extension).
