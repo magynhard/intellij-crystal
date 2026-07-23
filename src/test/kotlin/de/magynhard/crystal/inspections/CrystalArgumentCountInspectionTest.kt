@@ -428,6 +428,68 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         assertEquals("build", qualified?.methodName)
     }
 
+    fun testArgumentlessKeywordClassMethodReportsRequiredParameter() {
+        myFixture.configureByText("test.cr", """
+            class Factory
+              def self.class(name)
+              end
+            end
+            Factory.<error descr="Missing required argument(s): 'name'">class</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessOperatorClassMethodReportsRequiredParameter() {
+        myFixture.configureByText("test.cr", """
+            class Factory
+              def self.+(value)
+              end
+            end
+            Factory.<error descr="Missing required argument(s): 'value'">+</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessConstantDotCallExtractionSkipsWhitespaceAndNewline() {
+        val file = myFixture.configureByText("test.cr", """
+            Factory .create
+            Factory
+              .build
+        """.trimIndent())
+        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java).toList()
+
+        assertEquals("Factory", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[0])?.receiverName)
+        assertEquals("create", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[0])?.methodName)
+        assertEquals("Factory", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[1])?.receiverName)
+        assertEquals("build", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[1])?.methodName)
+    }
+
+    fun testArgumentlessAbsoluteDeeplyQualifiedClassMethodUsesExactReceiver() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              module Inner
+                class Factory
+                  def self.create(name)
+                  end
+                end
+              end
+            end
+            module Other
+              class Factory
+                def self.create
+                end
+              end
+            end
+            ::Outer::Inner::Factory.<error descr="Missing required argument(s): 'name'">create</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+
+        val access = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalDotCallAccess::class.java).single()
+        val info = CrystalCallExtractor.detectArgumentlessConstantDotCall(access)
+        assertEquals("Factory", info?.receiverName)
+        assertEquals("Outer::Inner::Factory", info?.qualifiedReceiverName)
+    }
+
     fun testArgumentlessQualifiedClassMethodReportsRequiredParameter() {
         myFixture.configureByText("test.cr", """
             module Outer

@@ -2,6 +2,7 @@ package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 
 data class DotCallInfo(
@@ -22,8 +23,17 @@ object CrystalCallExtractor {
     fun detectArgumentlessConstantDotCall(access: CrystalDotCallAccess): ArgumentlessDotCallInfo? {
         if (access.callArgs != null || access.bareArgumentList != null) return null
 
-        val methodNameElement = access.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
-            ?: access.node.findChildByType(CrystalTypes.CONSTANT)?.psi
+        val methodNameElement = access.node.getChildren(null).asSequence()
+            .dropWhile { it.elementType != CrystalTypes.DOT }
+            .drop(1)
+            .firstOrNull { child ->
+                val type = child.elementType
+                type == CrystalTypes.IDENTIFIER ||
+                    type == CrystalTypes.CONSTANT ||
+                    CrystalTokenTypes.KEYWORDS.contains(type) ||
+                    CrystalTokenTypes.OPERATORS.contains(type)
+            }
+            ?.psi
             ?: return null
         val methodName = methodNameElement.text
         if (methodName == "new") return null
