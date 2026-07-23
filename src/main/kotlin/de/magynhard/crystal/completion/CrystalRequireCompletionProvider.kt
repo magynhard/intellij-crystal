@@ -29,8 +29,8 @@ import de.magynhard.crystal.sdk.CrystalStdlibResolver
  *
  * Two modes (see `docs/specs/require.md`):
  *
- * 1. **Keyword mode** — caret at top-level position with a `r…` prefix that
- *    matches `require`. Emits a single keyword lookup; selecting it inserts
+ * 1. **Statement mode** — caret at top-level position with a `r…` prefix that
+ *    matches `require`. Emits a single method-style lookup; selecting it inserts
  *    `require ""` and schedules the path-completion popup.
  * 2. **Path mode** — caret inside the string of a `require_statement`.
  *    Dispatches by the first typed character:
@@ -40,31 +40,30 @@ import de.magynhard.crystal.sdk.CrystalStdlibResolver
  *      `<project>/lib/` and the stdlib root).
  *
  * `require` is a compiler pseudo-keyword in Crystal — there is no `def
- * require` in stdlib. The keyword lookup is synthesized here, not produced
+ * require` in stdlib. The statement lookup is synthesized here, not produced
  * from the method index.
  */
 object CrystalRequireCompletionProvider {
 
-    private const val KEYWORD = "require"
+    private const val STATEMENT = "require"
 
-    // ==================== Keyword mode ====================
+    // ==================== Statement mode ====================
 
     /**
-     * Builds the synthesized `require` keyword lookup. Selecting it inserts
+     * Builds the synthesized `require` statement lookup. Selecting it inserts
      * `require ""<caret>` and schedules the path-completion popup.
      */
-    fun getKeywordLookup(): LookupElement =
-        LookupElementBuilder.create(KEYWORD)
-            .withIcon(AllIcons.Nodes.Include)
-            .withTailText("(name)", true)
-            .withTypeText("keyword", true)
+    fun getStatementLookup(): LookupElement =
+        LookupElementBuilder.create(STATEMENT)
+            .withIcon(AllIcons.Nodes.Method)
+            .withTailText("(path)", true)
             .withInsertHandler(CrystalRequireInsertHandler)
 
     /**
      * Returns whether the completion prefix starts an independent statement
      * in a context where Crystal permits `require`.
      */
-    fun isKeywordContext(position: PsiElement, prefixStart: Int): Boolean {
+    fun isStatementContext(position: PsiElement, prefixStart: Int): Boolean {
         var previous = PsiTreeUtil.prevLeaf(position)
         while (previous != null &&
             (previous.text.isBlank() || previous is PsiComment || previous.node.elementType == CrystalTypes.LINE_COMMENT)

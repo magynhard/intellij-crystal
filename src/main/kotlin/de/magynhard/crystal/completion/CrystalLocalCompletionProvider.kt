@@ -22,7 +22,8 @@ internal object CrystalLocalCompletionProvider {
         originalFile: PsiFile,
         result: CompletionResultSet
     ) {
-        val seen = mutableSetOf<String>()
+        // The synthesized statement lookup is the sole bare `require` candidate.
+        val seen = mutableSetOf("require")
 
         var currentBlock = PsiTreeUtil.getParentOfType(position, CrystalBlock::class.java)
         while (currentBlock != null) {

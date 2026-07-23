@@ -1,6 +1,6 @@
 # `require` Completion
 
-Behavioral specification for Crystal's `require` keyword and require-path completion.
+Behavioral specification for Crystal's `require` statement and require-path completion.
 
 ## Language Model
 
@@ -17,11 +17,11 @@ Crystal permits `require` only at file scope. Compile-time macro controls may co
 
 `require` may also be used as a method name after a receiver. A real method such as `def self.require(path)` is independent from the compiler keyword and remains available through normal DOT completion.
 
-## Keyword Completion
+## Statement Completion
 
 ### Eligibility
 
-The synthesized `require` keyword is offered when all of these conditions hold:
+The synthesized `require` statement lookup is offered when all of these conditions hold:
 
 - The lowercase completion prefix matches `require`. An uppercase prefix such as `Req` does not match.
 - The prefix starts an independent statement.
@@ -40,7 +40,7 @@ req<caret>
 foo; req<caret>
 ```
 
-The keyword is not offered when the prefix belongs to a larger expression:
+The statement lookup is not offered when the prefix belongs to a larger expression:
 
 ```crystal
 Loader.req<caret>
@@ -71,20 +71,22 @@ load(
   req<caret>
 ```
 
-The receiver exclusions apply only to the synthesized keyword. If `Loader` defines a real class method named `require`, `Loader.<caret>` may offer that method with its method signature and normal method insertion behavior.
+The receiver exclusions apply only to the synthesized statement lookup. If `Loader` defines a real class method named `require`, `Loader.<caret>` may offer that method with its method signature and normal method insertion behavior.
+
+The synthesized lookup is the canonical bare `require` candidate. Local and indexed methods with the same name do not add duplicate bare candidates, including when a project defines a top-level `def require(path)`. Receiver completion remains independent.
 
 ### Presentation
 
 The synthesized lookup uses:
 
 - Lookup string: `require`
-- Tail text: `(name)`
-- Type text: `keyword`
-- Include-style icon
+- Tail text: `(path)`
+- Type text: none
+- Method icon
 
 ### Insertion
 
-Selecting the keyword:
+Selecting the statement lookup:
 
 1. Replaces the typed prefix with `require`.
 2. Inserts ` ""`.
@@ -187,7 +189,7 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
 
 Automated coverage protects:
 
-- Keyword discovery, lowercase matching, presentation, and insertion.
+- Statement lookup discovery, lowercase matching, canonical deduplication, method presentation, and insertion.
 - Valid statement contexts and invalid expression contexts.
 - Exclusion from runtime control flow, blocks, type declarations, `def`, `fun`, and macro definitions.
 - Structured PSI without `PsiErrorElement` for nested require expressions.

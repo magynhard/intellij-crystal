@@ -62,10 +62,10 @@ class CrystalCompletionContributor : CompletionContributor() {
             val lowercaseRPrefix = requirePrefix.isEmpty() || requirePrefix[0].isLowerCase()
             val requirePrefixStart = parameters.offset - requirePrefix.length
             if (lowercaseRPrefix &&
-                CrystalRequireCompletionProvider.isKeywordContext(position, requirePrefixStart) &&
+                CrystalRequireCompletionProvider.isStatementContext(position, requirePrefixStart) &&
                 result.prefixMatcher.prefixMatches("require")
             ) {
-                result.addElement(CrystalRequireCompletionProvider.getKeywordLookup())
+                result.addElement(CrystalRequireCompletionProvider.getStatementLookup())
             }
 
             if (isAfterDefKeywordInClassBody(position)) {

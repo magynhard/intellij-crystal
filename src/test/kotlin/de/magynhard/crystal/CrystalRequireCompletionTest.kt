@@ -6,7 +6,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
- * Tests for `require` keyword synthesis and file-path completion inside the
+ * Tests for `require` statement synthesis and file-path completion inside the
  * require string. See `docs/specs/require.md` for the behavioural spec.
  */
 class CrystalRequireCompletionTest : BasePlatformTestCase() {
@@ -21,19 +21,30 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         assertRequireKeywordSuggested("<caret>")
     }
 
-    fun testRequireKeywordPresentation() {
+    fun testRequireStatementUsesMethodPresentation() {
         myFixture.configureByText("main.cr", "<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Empty file should return multiple completion items", lookups)
-        val requireItem = lookups.first { item ->
-            if (item.lookupString != "require") return@first false
-            LookupElementPresentation().also(item::renderElement).typeText == "keyword"
-        }
+        val requireItem = lookups.first { it.lookupString == "require" }
         val presentation = LookupElementPresentation().also(requireItem::renderElement)
 
-        assertEquals("(name)", presentation.tailText)
-        assertEquals("keyword", presentation.typeText)
-        assertSame(AllIcons.Nodes.Include, presentation.icon)
+        assertEquals("(path)", presentation.tailText)
+        assertNull(presentation.typeText)
+        assertSame(AllIcons.Nodes.Method, presentation.icon)
+    }
+
+    fun testBareRequireHasOneCanonicalCandidateWhenIndexedMethodExists() {
+        myFixture.addFileToProject("helper.cr", """
+            def require(path)
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "<caret>")
+
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Empty file should return multiple completion items", lookups)
+        val requireItems = lookups.filter { it.lookupString == "require" }
+
+        assertEquals("Bare require should have one canonical candidate", 1, requireItems.size)
     }
 
     fun testUppercasePrefixDoesNotSuggestRequire() {
@@ -468,18 +479,20 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
             return
         }
 
-        assertTrue("Should contain the synthesized require keyword", lookups.any(::isRequireKeyword))
+        assertTrue("Should contain the synthesized require statement", lookups.any(::isRequireStatement))
     }
 
     private fun assertRequireKeywordNotSuggested(code: String) {
         myFixture.configureByText("main.cr", code)
         val before = myFixture.editor.document.text
         val lookups = myFixture.complete(CompletionType.BASIC)
-        assertTrue("Should not contain the synthesized require keyword", lookups.orEmpty().none(::isRequireKeyword))
+        assertTrue("Should not contain the synthesized require statement", lookups.orEmpty().none(::isRequireStatement))
         assertEquals("Completion must not modify an excluded context", before, myFixture.editor.document.text)
     }
 
-    private fun isRequireKeyword(item: com.intellij.codeInsight.lookup.LookupElement): Boolean =
-        item.lookupString == "require" &&
-            LookupElementPresentation().also(item::renderElement).typeText == "keyword"
+    private fun isRequireStatement(item: com.intellij.codeInsight.lookup.LookupElement): Boolean {
+        if (item.lookupString != "require") return false
+        val presentation = LookupElementPresentation().also(item::renderElement)
+        return presentation.tailText == "(path)" && presentation.typeText == null
+    }
 }
