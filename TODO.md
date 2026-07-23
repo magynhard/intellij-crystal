@@ -103,4 +103,6 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Route records through the shared call resolver** — resolve record constructors and instance methods to exact generated or declared signatures before enabling call-argument diagnostics for record targets.
 - [ ] **Resolve class-variable receivers** — model exact class-variable types and assignment conflicts so DOT-calls on class variables can use the shared resolver without name-only guesses.
 - [ ] **Narrow union and nilable receivers** — use control-flow facts to reduce union or nilable receiver types to one exact non-nil type before resolving DOT-calls.
+- [ ] **Resolve macro-interpolated call targets** — resolve macro-interpolated receivers, method names, and constructor targets to one exact declaration before enabling call-argument diagnostics for those calls.
+- [ ] **Include inherited instance-variable type evidence** — define deterministic hierarchy precedence for inherited instance-variable declarations and assignments before using inherited type bodies for DOT-call receiver inference.
 - [ ] **Migrate all call consumers to the shared resolver** — move type checking, navigation, completion, and parameter info to the same receiver, hierarchy, constructor, and overload semantics used by call-argument inspections.

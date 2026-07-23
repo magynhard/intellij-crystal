@@ -142,7 +142,9 @@ Every DOT-call must resolve its receiver to one distinct, exact type identity be
 - The nearest preceding assignment to a local variable in the current lexical scope, provided that assignment resolves to one exact type. A later assignment is irrelevant. A nearer reassignment replaces all older receiver information at that call site; if the nearer assignment cannot resolve exactly, the call is suppressed instead of falling back to an older assignment.
 - A method or block parameter with one exact type restriction.
 - An instance variable with an exact declared type, including a typed instance-variable parameter.
-- An instance variable whose assignments consistently infer the same exact type. All relevant assignments for that instance variable must agree; conflicting inferred types suppress resolution rather than selecting one by proximity.
+- An instance variable whose relevant assignments consistently infer the same exact type.
+
+Relevant instance-variable assignments are all assignments to that instance variable within the current enclosing type declaration, regardless of source order or control-flow branch. Assignments inside nested type declarations and assignments from inherited type bodies are excluded. Every relevant assignment must resolve to the same exact type; an unknown, ambiguous, union, nilable, or conflicting assignment suppresses resolution rather than selecting a type by proximity or source order. Support for inherited instance-variable declarations and assignments is deferred in `TODO.md`.
 
 Constant receivers search class methods. Inferred value receivers search instance methods. Top-level methods, instance methods on unrelated types, and class methods on unrelated types never enter the candidate set. Resolution and hierarchy lookup use StubIndex-backed declarations and must not scan project files or fall back to a method name alone.
 
@@ -150,13 +152,13 @@ The receiver's exact type and its ancestors form one hierarchy lookup. All exact
 
 ## Constructor Resolution
 
-Calls to `.new` use constructor-specific precedence for every call syntax. Against the exact receiver hierarchy, resolve in this order:
+Calls to `.new` use constructor-specific precedence for every call syntax. Against the exact receiver's applicable hierarchy, select the first non-empty definition set in this order:
 
-1. One or more applicable `def self.new` overloads, including inherited definitions.
-2. Otherwise, one or more applicable `initialize` overloads, including inherited definitions.
-3. Otherwise, implicit zero-argument construction.
+1. All `def self.new` definitions, including inherited definitions.
+2. Only when no `def self.new` definitions exist, all `initialize` definitions, including inherited definitions.
+3. Only when neither definition set exists, implicit zero-argument construction.
 
-An explicit applicable `self.new` therefore takes precedence over `initialize`. An inapplicable `self.new` does not block an applicable `initialize`, and an inapplicable `initialize` does not block implicit construction. Implicit construction supplies an exact zero-argument signature: a call that supplies arguments is diagnosed against that signature rather than treated as an unknown target.
+Constructor fallback depends only on definition-set presence, never on whether an overload accepts the supplied arguments. Once a non-empty `self.new` or `initialize` set is selected, the inspection evaluates that full overload set and reports against its uniquely closest overload when none accepts. It must not fall through to the next constructor source after selecting a non-empty set. Implicit construction supplies an exact zero-argument signature only when both explicit definition sets are empty; a call that supplies arguments is diagnosed against that signature rather than treated as an unknown target.
 
 ## Suppression
 
@@ -207,14 +209,14 @@ Unknown or unresolved calls do not produce argument-count diagnostics.
 
 ## Verification Matrix
 
-Automated tests cover the following behavior across parenthesized, bare-argument, and argumentless syntax where each form is legal:
+Automated tests must cover the following behavior across parenthesized, bare-argument, and argumentless syntax where each form is legal:
 
 - A direct top-level method with one or more required parameters.
 - Constant, qualified constant, and absolute constant receivers.
 - Class and instance receiver methods with required, optional, excess, positional, and named arguments.
-- Constructors resolved through explicit `self.new`, fallback `initialize`, and implicit zero-argument construction.
-- Constructor precedence when explicit overloads are present but inapplicable.
-- Receiver types inferred from the nearest local assignment, typed parameters, typed instance variables, and consistent instance-variable assignments.
+- Constructors resolved through a non-empty `self.new` definition set, fallback to a non-empty `initialize` definition set only when no `self.new` definitions exist, and implicit zero-argument construction only when neither definition set exists.
+- Constructor definition-set precedence when no overload in the selected set accepts: rejecting `self.new` definitions must not fall through to `initialize` or implicit construction, and rejecting `initialize` definitions must not fall through to implicit construction.
+- Receiver types inferred from the nearest local assignment, typed parameters, typed instance variables, and consistent instance-variable assignments collected across the current enclosing type regardless of source order or control-flow branch while excluding nested and inherited type bodies.
 - Local reassignment before and after a call, proving that only the nearest preceding assignment controls that call site and that an unresolved nearer assignment suppresses fallback.
 - Methods inherited by class and instance receivers, including a nearer inapplicable declaration that must not block an inherited applicable overload.
 - Overloads where one overload accepts the supplied arguments and calls where one uniquely closest rejecting overload supplies the diagnostic.
