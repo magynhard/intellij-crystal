@@ -34,6 +34,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 when (element) {
                     is CrystalMethodCallExpression -> checkCall(element, holder)
                     is CrystalBareMethodCallExpression -> checkCall(element, holder)
+                    is CrystalVariableReference -> checkArgumentlessDirectCall(element, holder)
                     is CrystalCallArgs, is CrystalBareArgumentList -> {
                         val dotCallInfo = CrystalCallExtractor.detectDotCall(element)
                         if (dotCallInfo != null) {
@@ -42,6 +43,29 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     }
                 }
             }
+        }
+    }
+
+    private fun checkArgumentlessDirectCall(reference: CrystalVariableReference, holder: ProblemsHolder) {
+        val methodNameElement = reference.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+            ?: reference.node.findChildByType(CrystalTypes.CONSTANT)?.psi
+            ?: return
+
+        var next = reference.nextSibling
+        while (next is PsiWhiteSpace) next = next.nextSibling
+        if (next is CrystalDotCallAccess || next is CrystalNamespaceAccess) return
+
+        val resolved = reference.reference?.resolve()
+        if (resolved != null && resolved !is CrystalMethodDefinition) return
+
+        val project = reference.project
+        val scope = GlobalSearchScope.projectScope(project)
+        val methodName = methodNameElement.text
+        if (CrystalIndexService.findMacros(methodName, project, scope).isNotEmpty()) return
+
+        val methods = CrystalIndexService.findTopLevelMethods(methodName, project, scope).toList()
+        if (methods.isNotEmpty()) {
+            checkArgumentCount(methods, emptyList(), methodNameElement, holder)
         }
     }
 

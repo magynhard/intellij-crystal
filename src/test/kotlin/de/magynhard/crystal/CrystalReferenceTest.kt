@@ -1,6 +1,7 @@
 package de.magynhard.crystal
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.*
@@ -100,6 +101,22 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         assertNotNull("Should resolve to the method definition", resolved)
         assertTrue("Should resolve to CrystalMethodDefinition",
             resolved is CrystalMethodDefinition)
+    }
+
+    fun testInternalParameterNameResolvesToParameter() {
+        val file = myFixture.configureByText("test.cr", """
+            def wrapper(external callback)
+              callback
+            end
+        """.trimIndent())
+        val callbackRef = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "callback" }
+        val resolved = findReference(callbackRef)?.resolve()
+
+        assertTrue("Internal parameter name should resolve to CrystalParameter", resolved is CrystalParameter)
+        val parameter = resolved as PsiNameIdentifierOwner
+        assertEquals("callback", parameter.name)
+        assertEquals("callback", parameter.nameIdentifier?.text)
     }
 
     fun testTypePathResolvesToClass() {

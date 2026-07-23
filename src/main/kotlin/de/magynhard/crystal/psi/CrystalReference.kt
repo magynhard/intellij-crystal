@@ -70,8 +70,8 @@ class CrystalReference(
                     else -> null
                 }
                 paramList?.parameterList?.forEach { param ->
-                    val paramIdent = param.node.findChildByType(CrystalTypes.IDENTIFIER)
-                    if (paramIdent?.text == name) return paramIdent.psi
+                    val owner = param as? PsiNameIdentifierOwner
+                    owner?.nameIdentifier?.takeIf { owner.name == name }?.let { return it }
                 }
                 break // Don't look beyond method boundaries for locals
             }
@@ -79,8 +79,8 @@ class CrystalReference(
             if (scope is CrystalBlock) {
                 val paramList = scope.parameterList
                 paramList?.parameterList?.forEach { param ->
-                    val paramIdent = param.node.findChildByType(CrystalTypes.IDENTIFIER)
-                    if (paramIdent?.text == name) return paramIdent.psi
+                    val owner = param as? PsiNameIdentifierOwner
+                    owner?.nameIdentifier?.takeIf { owner.name == name }?.let { return it }
                 }
             }
             scope = scope.parent

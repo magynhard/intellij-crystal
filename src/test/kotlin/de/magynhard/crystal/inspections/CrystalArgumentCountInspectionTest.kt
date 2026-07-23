@@ -167,6 +167,177 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    // ==================== Argumentless Direct Calls ====================
+
+    fun testArgumentlessDirectCallReportsRequiredParameters() {
+        myFixture.configureByText("test.cr", """
+            def process(untyped, typed : Int32, nilable : String?)
+            end
+            <error descr="Missing required argument(s): 'untyped', 'typed', 'nilable'">process</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallAcceptsOptionalParameters() {
+        myFixture.configureByText("test.cr", """
+            def configure(value : String? = nil, *rest, **options)
+            end
+            configure
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallReportsRequiredParametersAroundVariadics() {
+        myFixture.configureByText("test.cr", """
+            def configure(nilable : String?, optional = 1, *rest, named_required, named_optional = 2, **options)
+            end
+            <error descr="Missing required argument(s): 'nilable', 'named_required'">configure</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallAcceptsMatchingOverload() {
+        myFixture.configureByText("test.cr", """
+            def process(value)
+            end
+            def process
+            end
+            process
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallUsesUniquelyClosestOverload() {
+        myFixture.configureByText("test.cr", """
+            def process(value)
+            end
+            def process(first, second)
+            end
+            <error descr="Missing required argument(s): 'value'">process</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallInsideAssignmentIsChecked() {
+        myFixture.configureByText("test.cr", """
+            def load(path)
+            end
+            result = <error descr="Missing required argument(s): 'path'">load</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallInsideReturnIsChecked() {
+        myFixture.configureByText("test.cr", """
+            def load(path)
+            end
+            def wrapper
+              return <error descr="Missing required argument(s): 'path'">load</error>
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallInsideCallArgumentIsCheckedOnce() {
+        myFixture.configureByText("test.cr", """
+            def load(path)
+            end
+            def consume(value)
+            end
+            consume(<error descr="Missing required argument(s): 'path'">load</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIsShadowedByPriorAssignment() {
+        myFixture.configureByText("test.cr", """
+            def refresh(required)
+            end
+            refresh = ->{ nil }
+            refresh
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIsShadowedByParameter() {
+        myFixture.configureByText("test.cr", """
+            def callback(required)
+            end
+            def wrapper(callback)
+              callback
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIsShadowedByBlockParameter() {
+        myFixture.configureByText("test.cr", """
+            def callback(required)
+            end
+            [1].each do |callback|
+              callback
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIsShadowedByInternalParameterName() {
+        myFixture.configureByText("test.cr", """
+            def callback(required)
+            end
+            def wrapper(external callback)
+              callback
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTypeDeclarationIsNotAnArgumentlessCall() {
+        myFixture.configureByText("test.cr", """
+            def callback(required)
+            end
+            callback : Proc(Int32, Nil)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIsSuppressedBySameNamedMacro() {
+        myFixture.configureByText("test.cr", """
+            def refresh(required)
+            end
+            macro refresh
+            end
+            refresh
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIgnoresUnrelatedEnclosedMethod() {
+        myFixture.configureByText("test.cr", """
+            class Other
+              def refresh(required)
+              end
+            end
+            refresh
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnknownArgumentlessDirectCallHasNoError() {
+        myFixture.configureByText("test.cr", "unknown_method")
+        myFixture.checkHighlighting()
+    }
+
+    fun testExplicitCallsRemainOwnedByExistingVisitorPaths() {
+        myFixture.configureByText("test.cr", """
+            def greet(name)
+            end
+            <error descr="Missing required argument(s): 'name'">greet</error>()
+            greet "Hans"
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== DOT-calls ====================
 
     fun testDotCallMissingArg() {
