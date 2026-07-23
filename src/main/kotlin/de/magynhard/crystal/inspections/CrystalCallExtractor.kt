@@ -14,6 +14,7 @@ data class DotCallInfo(
 data class ArgumentlessDotCallInfo(
     val receiverName: String,
     val qualifiedReceiverName: String,
+    val hasExplicitReceiverIdentity: Boolean,
     val methodName: String,
     val methodNameElement: PsiElement
 )
@@ -47,7 +48,7 @@ object CrystalCallExtractor {
             val receiverName = receiver.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: return null
             val qualifiedReceiverName = CrystalPsiUtils.buildNamespacePath(receiver)
             if (qualifiedReceiverName.isEmpty()) return null
-            return ArgumentlessDotCallInfo(receiverName, qualifiedReceiverName, methodName, methodNameElement)
+            return ArgumentlessDotCallInfo(receiverName, qualifiedReceiverName, true, methodName, methodNameElement)
         }
 
         val receiverName = when {
@@ -57,7 +58,7 @@ object CrystalCallExtractor {
             else -> null
         } ?: return null
 
-        return ArgumentlessDotCallInfo(receiverName, receiverName, methodName, methodNameElement)
+        return ArgumentlessDotCallInfo(receiverName, receiverName, false, methodName, methodNameElement)
     }
 
     fun extractMethodName(callExpr: PsiElement): String? {

@@ -294,6 +294,39 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testArgumentlessDirectCallIsShadowedByDestructuredMethodParameter() {
+        myFixture.configureByText("test.cr", """
+            def callback(required)
+            end
+            def wrapper((callback, other))
+              callback
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIsShadowedByDestructuredBlockParameter() {
+        myFixture.configureByText("test.cr", """
+            def callback(required)
+            end
+            pairs.each do |(callback, other)|
+              callback
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIsShadowedByDestructuredMacroParameter() {
+        myFixture.configureByText("test.cr", """
+            def callback(required)
+            end
+            macro wrapper((callback, other))
+              {{ callback }}
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testTypeDeclarationIsNotAnArgumentlessCall() {
         myFixture.configureByText("test.cr", """
             def callback(required)
@@ -499,6 +532,85 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
               end
             end
             Outer::Factory.<error descr="Missing required argument(s): 'name'">create</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessSimpleClassReceiverResolvesInLexicalNamespace() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              class Factory
+                def self.create(name)
+                end
+              end
+              Factory.<error descr="Missing required argument(s): 'name'">create</error>
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessSimpleClassReceiverResolvesInNestedLexicalNamespace() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              module Inner
+                class Factory
+                  def self.create(name)
+                  end
+                end
+                Factory.<error descr="Missing required argument(s): 'name'">create</error>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessLexicalClassReceiverIgnoresUnrelatedNamespace() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              class Factory
+                def self.create(name)
+                end
+              end
+              Factory.<error descr="Missing required argument(s): 'name'">create</error>
+            end
+            module Other
+              class Factory
+                def self.create
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessSimpleClassReceiverIsIgnoredWhenLexicalIdentityIsAmbiguous() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              class Factory
+                def self.create(name)
+                end
+              end
+              module Inner
+                class Factory
+                  def self.create(name)
+                  end
+                end
+                Factory.create
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroInterpolatedDotTargetIsNotAnArgumentlessStaticCall() {
+        myFixture.configureByText("test.cr", """
+            class Factory
+              def self.create(name)
+              end
+            end
+            macro invoke(method)
+              Factory.{{ method }}
+            end
         """.trimIndent())
         myFixture.checkHighlighting()
     }

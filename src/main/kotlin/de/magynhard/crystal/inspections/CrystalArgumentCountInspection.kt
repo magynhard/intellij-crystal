@@ -51,17 +51,40 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val info = CrystalCallExtractor.detectArgumentlessConstantDotCall(access) ?: return
         val project = access.project
         val scope = GlobalSearchScope.projectScope(project)
+        val receiverIdentity = resolveArgumentlessReceiverIdentity(access, info, scope) ?: return
         val methods = CrystalIndexService.findMethodsByClass(info.receiverName, project, scope)
             .filter { it.name == info.methodName }
             .filter(CrystalPsiUtils::isSelfMethod)
             .filter { method ->
                 CrystalPsiUtils.getEnclosingType(method)
-                    ?.let(CrystalPsiUtils::buildQualifiedName) == info.qualifiedReceiverName
+                    ?.let(CrystalPsiUtils::buildQualifiedName) == receiverIdentity
             }
 
         if (methods.isNotEmpty()) {
             checkArgumentCount(methods, emptyList(), info.methodNameElement, holder)
         }
+    }
+
+    private fun resolveArgumentlessReceiverIdentity(
+        access: CrystalDotCallAccess,
+        info: ArgumentlessDotCallInfo,
+        scope: GlobalSearchScope
+    ): String? {
+        if (info.hasExplicitReceiverIdentity) return info.qualifiedReceiverName
+
+        val possibleIdentities = mutableSetOf(info.receiverName)
+        var enclosingType = CrystalPsiUtils.getEnclosingType(access)
+        while (enclosingType != null) {
+            CrystalPsiUtils.buildQualifiedName(enclosingType)
+                ?.let { possibleIdentities.add("$it::${info.receiverName}") }
+            enclosingType = enclosingType.parent?.let(CrystalPsiUtils::getEnclosingType)
+        }
+
+        val identities = CrystalIndexService.findTypes(info.receiverName, access.project, scope)
+            .mapNotNull(CrystalPsiUtils::buildQualifiedName)
+            .filter { it in possibleIdentities }
+            .distinct()
+        return identities.singleOrNull()
     }
 
     private fun checkArgumentlessDirectCall(reference: CrystalVariableReference, holder: ProblemsHolder) {
@@ -75,19 +98,19 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         }
         if (next is CrystalDotCallAccess || next is CrystalNamespaceAccess) return
 
-        val crystalReference = reference.reference as? CrystalReference
-        if (crystalReference?.resolveLocalDeclaration() != null) return
-
         val project = reference.project
         val scope = GlobalSearchScope.projectScope(project)
         val methodName = methodNameElement.text
+        val methods = CrystalIndexService.findTopLevelMethods(methodName, project, scope).toList()
+        if (methods.isEmpty()) return
+
+        val crystalReference = reference.reference as? CrystalReference
+        if (crystalReference?.resolveLocalDeclaration() != null) return
+
         if (CrystalIndexService.findTypes(methodName, project, scope).isNotEmpty()) return
         if (CrystalIndexService.findMacros(methodName, project, scope).isNotEmpty()) return
 
-        val methods = CrystalIndexService.findTopLevelMethods(methodName, project, scope).toList()
-        if (methods.isNotEmpty()) {
-            checkArgumentCount(methods, emptyList(), methodNameElement, holder)
-        }
+        checkArgumentCount(methods, emptyList(), methodNameElement, holder)
     }
 
     private fun checkCall(callExpr: PsiElement, holder: ProblemsHolder) {

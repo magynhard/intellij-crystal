@@ -125,11 +125,11 @@ The inspection must visit these PSI forms directly and evaluate them with an emp
 - A `CrystalDotCallAccess` is eligible only when both `callArgs` and `bareArgumentList` are absent.
 - Existing parenthesized and bare-argument calls remain owned by their current call-expression or argument-list visitor paths.
 
-Direct variable references are checked only when a local-only resolver does not identify a regular parameter, block parameter, or preceding local assignment and dedicated StubIndex queries do not identify a type declaration or same-named macro. Parameter shadowing uses the parameter's internal declaration name when an external call-site name is present. The inspection never invokes general reference resolution or `CrystalMethodIndex` for this path. This preserves local/declaration shadowing and prevents a same-named indexed method from producing a false positive. Other declaration kinds and full Crystal call-precedence modeling remain outside this focused change.
+Direct variable references are checked only when a local-only resolver does not identify a regular parameter, block parameter, or preceding local assignment and dedicated StubIndex queries do not identify a type declaration or same-named macro. Parameter shadowing uses every directly declared identifier in a destructured parameter and uses only the internal declaration name when an external call-site name is present. The inspection never invokes general reference resolution or `CrystalMethodIndex` for this path. This preserves local/declaration shadowing and prevents a same-named indexed method from producing a false positive. Other declaration kinds and full Crystal call-precedence modeling remain outside this focused change.
 
 After local-shadow filtering, direct calls query only `CrystalTopLevelMethodIndex`. Instance methods and class methods enclosed by unrelated types are never candidates for an unqualified argumentless call. All same-named top-level overloads are evaluated. The lookup must use StubIndex and must not scan project files.
 
-Argumentless DOT-calls in this change are limited to constant and qualified constant receivers. The receiver must resolve to an exact class or module identity. Candidates come only from that receiver's `def self.<name>` definitions; instance methods and top-level methods are excluded. All matching class-method overloads are evaluated. Unknown, ambiguous, inferred instance, and `.new` receiver calls remain unchanged and do not enter the new argumentless path.
+Argumentless DOT-calls in this change are limited to constant and qualified constant receivers. Explicit qualified and absolute receivers retain their written identity. A simple constant receiver is matched against dedicated type-index results using the enclosing lexical namespace prefixes, including the global prefix, and proceeds only when that intersection yields one distinct exact qualified identity. Candidates come only from that receiver identity's `def self.<name>` definitions; instance methods and top-level methods are excluded. All matching class-method overloads are evaluated. Unknown, ambiguous, inferred instance, and `.new` receiver calls remain unchanged and do not enter the new argumentless path.
 
 Candidate discovery applies cheap PSI and name gates before reference or index resolution. It performs only direct StubIndex queries and introduces no project-wide file scans.
 
@@ -181,7 +181,8 @@ Automated tests cover argumentless calls without parentheses for:
 - A combined nilable/default/splat/named-only/double-splat signature that reports only required regular parameters.
 - Overloads where one overload accepts zero arguments.
 - Multiple rejecting overloads with one uniquely closest overload supplying the diagnostic.
-- Local variables, regular parameters, block parameters, internal parameter names, type declarations, and same-named macros that shadow indexed method names.
+- Local variables, regular parameters, destructured method/block/macro parameters, internal parameter names, type declarations, and same-named macros that shadow indexed method names.
+- Simple constant receivers resolved through an unambiguous enclosing lexical namespace, including rejection of ambiguous and unrelated namespace identities.
 - Unknown methods and unresolved, ambiguous, inherited-only, or inferred-instance receivers.
 - Parenthesized and bare-argument calls that remain owned by existing visitor paths and produce no duplicate diagnostics.
 

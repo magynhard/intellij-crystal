@@ -119,6 +119,65 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         assertEquals("callback", parameter.nameIdentifier?.text)
     }
 
+    fun testDestructuredMethodParameterResolvesLocally() {
+        val file = myFixture.configureByText("test.cr", """
+            def wrapper((callback, other))
+              callback
+            end
+        """.trimIndent())
+        val callbackRef = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "callback" }
+
+        val resolved = (findReference(callbackRef) as CrystalReference).resolveLocalDeclaration()
+
+        assertEquals("callback", resolved?.text)
+    }
+
+    fun testDestructuredBlockParameterResolvesLocally() {
+        val file = myFixture.configureByText("test.cr", """
+            pairs.each do |(callback, other)|
+              callback
+            end
+        """.trimIndent())
+        val callbackRef = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "callback" }
+
+        val resolved = (findReference(callbackRef) as CrystalReference).resolveLocalDeclaration()
+
+        assertEquals("callback", resolved?.text)
+    }
+
+    fun testDestructuredMacroParameterResolvesLocally() {
+        val file = myFixture.configureByText("test.cr", """
+            macro wrapper((callback, other))
+              {{ callback }}
+            end
+        """.trimIndent())
+        val callbackRef = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "callback" }
+
+        val resolved = (findReference(callbackRef) as CrystalReference).resolveLocalDeclaration()
+
+        assertEquals("callback", resolved?.text)
+    }
+
+    fun testMacroExternalParameterResolvesOnlyByInternalNameLocally() {
+        val file = myFixture.configureByText("test.cr", """
+            macro wrapper(external callback)
+              {{ external }}
+              {{ callback }}
+            end
+        """.trimIndent())
+        val references = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+        val externalRef = references.single { it.text == "external" }
+        val callbackRef = references.single { it.text == "callback" }
+
+        assertNull((findReference(externalRef) as CrystalReference).resolveLocalDeclaration())
+        val resolved = (findReference(callbackRef) as CrystalReference).resolveLocalDeclaration()
+        assertTrue(resolved is CrystalParameter)
+        assertEquals("callback", (resolved as PsiNameIdentifierOwner).name)
+    }
+
     fun testTypePathResolvesToClass() {
         // In "Foo.new", Foo is parsed as variable_reference (CONSTANT), not type_path
         val file = myFixture.configureByText("test.cr", """

@@ -47,7 +47,11 @@ class CrystalReference(
             // the IDENTIFIER leaf via getNameIdentifier().
             if (local !is PsiNameIdentifierOwner) {
                 val parent = local.parent
-                if (parent is PsiNameIdentifierOwner) return parent
+                if (parent is PsiNameIdentifierOwner &&
+                    parent.nameIdentifier === local &&
+                    !isDestructuredParameter(parent)) {
+                    return parent
+                }
             }
             return local
         }
@@ -77,8 +81,7 @@ class CrystalReference(
                     else -> null
                 }
                 paramList?.parameterList?.forEach { param ->
-                    val owner = param as? PsiNameIdentifierOwner
-                    owner?.nameIdentifier?.takeIf { owner.name == name }?.let { return it }
+                    findParameterNameElement(param, name)?.let { return it }
                 }
                 break // Don't look beyond method boundaries for locals
             }
@@ -86,13 +89,28 @@ class CrystalReference(
             if (scope is CrystalBlock) {
                 val paramList = scope.parameterList
                 paramList?.parameterList?.forEach { param ->
-                    val owner = param as? PsiNameIdentifierOwner
-                    owner?.nameIdentifier?.takeIf { owner.name == name }?.let { return it }
+                    findParameterNameElement(param, name)?.let { return it }
                 }
             }
             scope = scope.parent
         }
         return null
+    }
+
+    private fun findParameterNameElement(parameter: CrystalParameter, targetName: String): PsiElement? {
+        if (isDestructuredParameter(parameter)) {
+            return parameter.node.getChildren(null)
+                .firstOrNull { it.elementType == CrystalTypes.IDENTIFIER && it.text == targetName }
+                ?.psi
+        }
+
+        val owner = parameter as? PsiNameIdentifierOwner ?: return null
+        return owner.nameIdentifier?.takeIf { owner.name == targetName }
+    }
+
+    private fun isDestructuredParameter(element: PsiElement): Boolean {
+        return element is CrystalParameter &&
+            element.node.getChildren(null).any { it.elementType == CrystalTypes.LPAREN }
     }
 
     /**
