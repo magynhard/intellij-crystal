@@ -97,6 +97,10 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Model named-only parameter boundaries** — preserve bare `*` and positional-splat boundaries in parameter metadata so positional arguments cannot satisfy parameters that must be passed by name.
 - [ ] **Use external parameter names for named arguments** — distinguish a parameter's external call-site name from its internal body name when matching named arguments.
 - [ ] **Validate signature parameter ordering** — report invalid required positional parameters declared after optional positional parameters while preserving valid named-only parameters after splats.
-- [ ] **Expand argumentless call applicability** — support inherited unqualified methods and inferred instance receivers after a shared resolver can return the exact applicable overload set without name-only fallbacks.
+- [ ] **Expand unqualified call applicability** — support inherited unqualified methods and other unqualified calls that cannot yet resolve to one exact applicable overload set, without introducing name-only fallbacks.
 - [ ] **Make overload tie diagnostics deterministic** — define stable ranking when equally close overloads omit different required parameter names.
 - [ ] **Model complete call precedence** — distinguish all remaining declaration kinds that can share call syntax so argument inspections can suppress or resolve aliases and other non-method declarations without name-only guesses.
+- [ ] **Route records through the shared call resolver** — resolve record constructors and instance methods to exact generated or declared signatures before enabling call-argument diagnostics for record targets.
+- [ ] **Resolve class-variable receivers** — model exact class-variable types and assignment conflicts so DOT-calls on class variables can use the shared resolver without name-only guesses.
+- [ ] **Narrow union and nilable receivers** — use control-flow facts to reduce union or nilable receiver types to one exact non-nil type before resolving DOT-calls.
+- [ ] **Migrate all call consumers to the shared resolver** — move type checking, navigation, completion, and parameter info to the same receiver, hierarchy, constructor, and overload semantics used by call-argument inspections.

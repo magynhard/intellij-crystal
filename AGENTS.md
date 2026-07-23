@@ -95,6 +95,7 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 
 ## Documentation
 
+- **`TODO.md` tracks all deferred or unresolved work.** Whenever a task intentionally leaves behavior unsupported, discovers a follow-up, or defers part of the approved scope, add a concrete actionable entry to `TODO.md` before completing the task.
 - **`TODO.md`** contains follow-up tasks for ongoing work (rename, type inference, etc.). Update after completing tasks.
 - **`README.md`** should be updated when user-facing features or setup instructions change.
 - **`CHANGELOG.md`** — every change must have an entry. The skill `.agents/skills/changelog-entry/SKILL.md` describes the full workflow including version detection and auto-creation of new version sections.

@@ -4,18 +4,23 @@ Behavioral specification for validating Crystal method call arguments against `d
 
 ## Scope
 
-`CrystalArgumentCountInspection` validates calls to methods declared with `def`. It reports missing required arguments, excess arguments, and unknown named arguments when the call can be resolved to one or more method definitions.
+`CrystalArgumentCountInspection` validates calls to methods declared with `def`. It reports missing required arguments, excess arguments, and unknown named arguments when the call can be resolved to one or more exact method definitions.
 
-The inspection already covers parenthesized calls and calls with bare arguments. The immediate change defined here only adds discovery and missing-argument validation for argumentless calls without parentheses:
+The same resolution, overload, and diagnostic rules apply to every supported call syntax:
 
 ```crystal
 process()
 process value
 process
+Processor.process(value)
+Processor.process value
 Processor.process
+processor.process(value)
+processor.process value
+processor.process
 ```
 
-The first two forms document existing behavior and must remain unchanged. Only `process` and `Processor.process` are new inspection entry points.
+Parenthesized, bare-argument, and argumentless calls differ only in how their arguments are extracted from PSI. Syntax must not change receiver resolution, hierarchy lookup, overload applicability, constructor precedence, or suppression.
 
 FFI functions declared with `lib fun` are outside the current inspection scope because they require separate declaration indexing and call resolution.
 
@@ -110,9 +115,9 @@ end
 build # Missing required arguments: required, named_required
 ```
 
-This change guarantees missing-argument detection for argumentless calls. Full enforcement of positional use after a named-only separator, external parameter names, and signature ordering is tracked separately in `TODO.md`.
+Full enforcement of positional use after a named-only separator, external parameter names, and signature ordering is tracked separately in `TODO.md`.
 
-## Argumentless Call Discovery
+## Call Discovery And Ownership
 
 Argumentless calls without parentheses do not contain an argument-list PSI element:
 
@@ -122,20 +127,56 @@ Argumentless calls without parentheses do not contain an argument-list PSI eleme
 The inspection must visit these PSI forms directly and evaluate them with an empty argument list. It must not change the grammar or reinterpret variable PSI globally. Each syntactic call site is inspected exactly once:
 
 - A `CrystalVariableReference` is eligible when it is not already the method name of an explicit call and is not a receiver or namespace segment. Ownership checks skip both whitespace and explicit newline tokens so multiline DOT chains remain receiver calls. An eligible reference may be nested as an operand, assignment value, return value, or argument because Crystal permits argumentless method calls in expression positions.
-- A `CrystalDotCallAccess` is eligible only when both `callArgs` and `bareArgumentList` are absent.
-- Existing parenthesized and bare-argument calls remain owned by their current call-expression or argument-list visitor paths.
+- A `CrystalDotCallAccess` owns an argumentless DOT-call only when both `callArgs` and `bareArgumentList` are absent.
+- Parenthesized and bare-argument calls remain owned by their call-expression or argument-list visitor paths. Their nested `CrystalDotCallAccess` and method-name leaves must not create duplicate diagnostics.
 
 Direct variable references are checked only when a local-only resolver does not identify a regular parameter, block parameter, or preceding local assignment and dedicated StubIndex queries do not identify a type declaration or same-named macro. Parameter shadowing uses every directly declared identifier in a destructured parameter and uses only the internal declaration name when an external call-site name is present. The inspection never invokes general reference resolution or `CrystalMethodIndex` for this path. This preserves local/declaration shadowing and prevents a same-named indexed method from producing a false positive. Other declaration kinds and full Crystal call-precedence modeling remain outside this focused change.
 
-After local-shadow filtering, direct calls query only `CrystalTopLevelMethodIndex`. Instance methods and class methods enclosed by unrelated types are never candidates for an unqualified argumentless call. All same-named top-level overloads are evaluated. The lookup must use StubIndex and must not scan project files.
+After local-shadow filtering, direct calls query only `CrystalTopLevelMethodIndex`. Instance methods and class methods enclosed by unrelated types are never candidates for an unqualified argumentless call. All same-named top-level overloads are evaluated. The lookup must use StubIndex and must not scan project files. Unsupported inherited or otherwise inexact unqualified resolution remains tracked in `TODO.md`.
 
-Argumentless DOT-calls in this change are limited to constant and qualified constant receivers. Explicit qualified and absolute receivers retain their written identity. A simple constant receiver is matched against dedicated type-index results using the enclosing lexical namespace prefixes, including the global prefix, and proceeds only when that intersection yields one distinct exact qualified identity. Candidates come only from that receiver identity's `def self.<name>` definitions; instance methods and top-level methods are excluded. All matching class-method overloads are evaluated. Unknown, ambiguous, inferred instance, and `.new` receiver calls remain unchanged and do not enter the new argumentless path.
+## DOT-Call Receiver Resolution
+
+Every DOT-call must resolve its receiver to one distinct, exact type identity before method candidates are considered. Resolution uses only these sources:
+
+- A constant, qualified constant, or absolute constant receiver resolved by lexical namespace rules. Explicit qualified and absolute receivers retain their written identity; a simple constant must intersect type-index results with its enclosing lexical namespace prefixes, including the global prefix, to produce one distinct qualified identity.
+- The nearest preceding assignment to a local variable in the current lexical scope, provided that assignment resolves to one exact type. A later assignment is irrelevant. A nearer reassignment replaces all older receiver information at that call site; if the nearer assignment cannot resolve exactly, the call is suppressed instead of falling back to an older assignment.
+- A method or block parameter with one exact type restriction.
+- An instance variable with an exact declared type, including a typed instance-variable parameter.
+- An instance variable whose assignments consistently infer the same exact type. All relevant assignments for that instance variable must agree; conflicting inferred types suppress resolution rather than selecting one by proximity.
+
+Constant receivers search class methods. Inferred value receivers search instance methods. Top-level methods, instance methods on unrelated types, and class methods on unrelated types never enter the candidate set. Resolution and hierarchy lookup use StubIndex-backed declarations and must not scan project files or fall back to a method name alone.
+
+The receiver's exact type and its ancestors form one hierarchy lookup. All exact same-named overloads from that hierarchy form the candidate set and are evaluated independently. An unrelated declaration must not enter the set, and a rejecting declaration at a nearer hierarchy level must not block an inherited overload that accepts the call.
+
+## Constructor Resolution
+
+Calls to `.new` use constructor-specific precedence for every call syntax. Against the exact receiver hierarchy, resolve in this order:
+
+1. One or more applicable `def self.new` overloads, including inherited definitions.
+2. Otherwise, one or more applicable `initialize` overloads, including inherited definitions.
+3. Otherwise, implicit zero-argument construction.
+
+An explicit applicable `self.new` therefore takes precedence over `initialize`. An inapplicable `self.new` does not block an applicable `initialize`, and an inapplicable `initialize` does not block implicit construction. Implicit construction supplies an exact zero-argument signature: a call that supplies arguments is diagnosed against that signature rather than treated as an unknown target.
+
+## Suppression
+
+Argument diagnostics require exact resolution. The inspection emits no argument-count or named-argument diagnostic when the target depends on any of the following:
+
+- An unknown or ambiguous receiver identity.
+- A union or nilable receiver type, until control-flow narrowing supplies one exact non-nil type.
+- Conflicting local-variable receiver information that prevents one exact nearest assignment from being resolved.
+- Conflicting instance-variable assignment types.
+- A class-variable receiver.
+- A record constructor or record instance method until records use the shared call resolver.
+- A macro-interpolated receiver, method name, or constructor target.
+
+Unknown methods and calls with no exact receiver-specific declaration are likewise suppressed, except that constructor resolution can produce the implicit zero-argument signature defined above. A resolved declaration may still reject the supplied arguments and produce a diagnostic. The inspection must prefer no diagnostic over a name-only guess.
 
 Candidate discovery applies cheap PSI and name gates before reference or index resolution. It performs only direct StubIndex queries and introduces no project-wide file scans.
 
 ## Overloads
 
-Every applicable overload is evaluated independently. An argumentless call is valid when at least one overload accepts zero arguments:
+Every overload in the exact candidate set is evaluated independently. A call is valid when at least one overload accepts its positional and named arguments. For example, an argumentless call is valid when at least one overload accepts zero arguments:
 
 ```crystal
 def process(value)
@@ -147,7 +188,7 @@ end
 process # Valid
 ```
 
-When no overload accepts zero arguments, the inspection reports the missing parameters from the uniquely closest overload using the existing overload ranking. Deterministic selection between equally ranked overloads with different parameter names remains deferred in `TODO.md`.
+When no overload accepts the supplied arguments, the inspection reports from the uniquely closest overload using the existing overload ranking. Deterministic selection between equally ranked overloads with different parameter names remains deferred in `TODO.md`.
 
 ## Diagnostics
 
@@ -166,11 +207,17 @@ Unknown or unresolved calls do not produce argument-count diagnostics.
 
 ## Verification Matrix
 
-Automated tests cover argumentless calls without parentheses for:
+Automated tests cover the following behavior across parenthesized, bare-argument, and argumentless syntax where each form is legal:
 
 - A direct top-level method with one or more required parameters.
-- A constant receiver method with required parameters.
-- A qualified constant receiver method.
+- Constant, qualified constant, and absolute constant receivers.
+- Class and instance receiver methods with required, optional, excess, positional, and named arguments.
+- Constructors resolved through explicit `self.new`, fallback `initialize`, and implicit zero-argument construction.
+- Constructor precedence when explicit overloads are present but inapplicable.
+- Receiver types inferred from the nearest local assignment, typed parameters, typed instance variables, and consistent instance-variable assignments.
+- Local reassignment before and after a call, proving that only the nearest preceding assignment controls that call site and that an unresolved nearer assignment suppresses fallback.
+- Methods inherited by class and instance receivers, including a nearer inapplicable declaration that must not block an inherited applicable overload.
+- Overloads where one overload accepts the supplied arguments and calls where one uniquely closest rejecting overload supplies the diagnostic.
 - Same-named class methods on unrelated receiver types, which must not affect the call.
 - Same-named instance and top-level methods, which must not satisfy or invalidate a constant receiver call.
 - Untyped, typed, and nilable required parameters.
@@ -179,11 +226,10 @@ Automated tests cover argumentless calls without parentheses for:
 - Required parameters combined with splat or double-splat parameters.
 - Required named-only parameters.
 - A combined nilable/default/splat/named-only/double-splat signature that reports only required regular parameters.
-- Overloads where one overload accepts zero arguments.
-- Multiple rejecting overloads with one uniquely closest overload supplying the diagnostic.
 - Local variables, regular parameters, destructured method/block/macro parameters, internal parameter names, type declarations, and same-named macros that shadow indexed method names.
 - Simple constant receivers resolved through an unambiguous enclosing lexical namespace, including rejection of ambiguous and unrelated namespace identities.
-- Unknown methods and unresolved, ambiguous, inherited-only, or inferred-instance receivers.
-- Parenthesized and bare-argument calls that remain owned by existing visitor paths and produce no duplicate diagnostics.
+- Suppression for unknown, ambiguous, union, nilable, conflicting, class-variable, record, and macro-interpolated targets.
+- Unknown methods and calls without an exact receiver-specific declaration.
+- Single ownership of every call site, with no duplicate diagnostics from nested DOT-call, call-expression, argument-list, or method-name PSI.
 
-Existing parenthesized, bare-argument, excess-argument, named-argument, splat-expansion, constructor, record, and type-checking behavior remains unchanged. This task adds no new constructor or record coverage.
+Existing direct-call shadowing, parameter classification, excess-argument, named-argument, and splat-expansion behavior remains unchanged except where this contract explicitly unifies resolution across call syntax. Records remain suppressed pending the shared-resolver follow-up in `TODO.md`.
