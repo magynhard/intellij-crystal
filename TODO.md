@@ -90,3 +90,13 @@ type. This ensures consistent behavior regardless of what the user types.
 ## Type Resolution Unification
 
 - [ ] **Unify type resolution ownership** by replacing the dependency cycle between `CrystalTypeInference` and `CrystalExpressionTypeResolver` with one coherent design. Do not add the rejected delegation-only `CrystalTypeResolver` facade; a facade without unified ownership would preserve the cycle rather than resolve it.
+
+## Call Argument Inspection Follow-up
+
+- [ ] **Validate `lib fun` calls** — add indexed FFI function declaration resolution, then apply argument-count and argument-type diagnostics to calls such as `LibC.exit`, `LibC.exit()`, and `LibC.exit(value)`.
+- [ ] **Model named-only parameter boundaries** — preserve bare `*` and positional-splat boundaries in parameter metadata so positional arguments cannot satisfy parameters that must be passed by name.
+- [ ] **Use external parameter names for named arguments** — distinguish a parameter's external call-site name from its internal body name when matching named arguments.
+- [ ] **Validate signature parameter ordering** — report invalid required positional parameters declared after optional positional parameters while preserving valid named-only parameters after splats.
+- [ ] **Expand argumentless call applicability** — support inherited unqualified methods and inferred instance receivers after a shared resolver can return the exact applicable overload set without name-only fallbacks.
+- [ ] **Make overload tie diagnostics deterministic** — define stable ranking when equally close overloads omit different required parameter names.
+- [ ] **Model complete call precedence** — distinguish all remaining declaration kinds that can share call syntax so argument inspections can suppress or resolve aliases and other non-method declarations without name-only guesses.
