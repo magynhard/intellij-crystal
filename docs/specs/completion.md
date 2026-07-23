@@ -244,7 +244,7 @@ class Foo
 end
 ```
 
-Class methods (`def self.xxx`) are **not** indexed as top-level methods — they only appear via dot-completion on their enclosing class. A bare `kung` call will not resolve to `def self.kung` inside a class.
+Self-receiver methods (`def self.xxx`) are **not** indexed or collected as top-level methods, including when such a definition appears directly at file level. Class-scoped self-receiver methods only appear via dot-completion on their enclosing class. A bare `kung` call will not resolve to `def self.kung` inside a class.
 
 Local variables, parameters, and class methods of the enclosing class all take priority over (and dedup against) global methods of the same name. Only one lookup entry per name appears in the popup.
 

@@ -106,6 +106,7 @@ internal object CrystalLocalCompletionProvider {
         if (file != null) {
             for (method in PsiTreeUtil.findChildrenOfType(file, CrystalMethodDefinition::class.java)) {
                 if (CrystalCompletionHelper.getEnclosingClassName(method) != null) continue
+                if (CrystalPsiUtils.isSelfMethod(method)) continue
                 val name = method.name ?: continue
                 if (!seen.add(name)) continue
                 result.addElement(CrystalCompletionHelper.buildMethodLookup(method, 0.0))

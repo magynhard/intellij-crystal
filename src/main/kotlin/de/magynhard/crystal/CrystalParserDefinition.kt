@@ -22,7 +22,7 @@ class CrystalParserDefinition : ParserDefinition {
     companion object {
         val FILE = object : IStubFileElementType<PsiFileStub<CrystalFile>>(CrystalLanguage) {
             override fun getExternalId(): String = "crystal.FILE"
-            override fun getStubVersion(): Int = 2
+            override fun getStubVersion(): Int = 3
         }
     }
 

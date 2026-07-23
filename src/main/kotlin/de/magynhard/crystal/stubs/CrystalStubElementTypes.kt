@@ -152,15 +152,17 @@ class CrystalMethodDefinitionElementType(debugName: String) :
 
     override fun serialize(stub: CrystalMethodDefinitionStub, dataStream: StubOutputStream) {
         dataStream.writeName(stub.name)
+        dataStream.writeBoolean(stub.isSelfMethod)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalMethodDefinitionStub {
         val name = dataStream.readNameString()
-        return CrystalMethodDefinitionStub(parentStub, this, name)
+        val isSelfMethod = dataStream.readBoolean()
+        return CrystalMethodDefinitionStub(parentStub, this, name, isSelfMethod)
     }
 
     override fun createStub(psi: CrystalMethodDefinition, parentStub: StubElement<out PsiElement>?): CrystalMethodDefinitionStub {
-        return CrystalMethodDefinitionStub(parentStub, this, psi.name)
+        return CrystalMethodDefinitionStub(parentStub, this, psi.name, CrystalPsiUtils.isSelfMethod(psi))
     }
 
     override fun createPsi(stub: CrystalMethodDefinitionStub): CrystalMethodDefinition {
@@ -177,7 +179,7 @@ class CrystalMethodDefinitionElementType(debugName: String) :
         val className = findEnclosingParentName(stub)
         if (className != null) {
             sink.occurrence(CrystalMethodByClassIndex.KEY, className)
-        } else if (name != null) {
+        } else if (name != null && !stub.isSelfMethod) {
             sink.occurrence(CrystalTopLevelMethodIndex.KEY, name)
         }
     }

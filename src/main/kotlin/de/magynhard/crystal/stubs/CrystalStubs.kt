@@ -56,7 +56,8 @@ class CrystalEnumDefinitionStub(
 class CrystalMethodDefinitionStub(
     parent: StubElement<*>?,
     elementType: IStubElementType<*, *>,
-    override val name: String?
+    override val name: String?,
+    val isSelfMethod: Boolean
 ) : StubBase<CrystalMethodDefinition>(parent, elementType), CrystalNamedStub
 
 // ==================== Macro Stub ====================

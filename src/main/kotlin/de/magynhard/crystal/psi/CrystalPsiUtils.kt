@@ -11,6 +11,13 @@ import de.magynhard.crystal.stubs.CrystalNamedStub
 object CrystalPsiUtils {
 
     /**
+     * Returns whether a method has a direct `self` receiver in its definition header.
+     */
+    fun isSelfMethod(method: CrystalMethodDefinition): Boolean {
+        return method.node.findChildByType(CrystalTypes.SELF) != null
+    }
+
+    /**
      * Builds the fully-qualified name of a class/module/struct/enum definition
      * by walking up the PSI tree and collecting enclosing type names.
      *

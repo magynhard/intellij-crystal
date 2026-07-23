@@ -166,6 +166,29 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testFileLevelSelfMethodNotSuggestedAsTopLevelMethod() {
+        myFixture.configureByText("main.cr", """
+            def self.require(path)
+            end
+
+            def request
+            end
+
+            def requisition
+            end
+
+            def caller
+              req<caret>
+            end
+        """.trimIndent())
+
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain the top-level request method: $names", names.contains("request"))
+        assertFalse("File-level self.require should NOT be offered as top-level: $names", names.contains("require"))
+    }
+
     fun testTopLevelMethodNotSuggestedForUppercasePrefix() {
         myFixture.configureByText("main.cr", """
             class Kiste

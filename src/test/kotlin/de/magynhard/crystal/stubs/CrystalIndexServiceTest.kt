@@ -60,6 +60,20 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         assertContainsElements(topLevelMethods.mapNotNull { it.name }, "global_method")
     }
 
+    fun testFileLevelSelfMethodIsNotIndexedAsTopLevel() {
+        myFixture.addFileToProject("self_method.cr", """
+            def self.require(path)
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val namedMethods = CrystalIndexService.findMethods("require", project, scope)
+        val topLevelMethods = CrystalIndexService.findTopLevelMethods("require", project, scope)
+
+        assertContainsElements(namedMethods.mapNotNull { it.name }, "require")
+        assertEmpty(topLevelMethods)
+    }
+
     fun testFindsNestedTypes() {
         myFixture.addFileToProject("nested.cr", """
             class OuterType
