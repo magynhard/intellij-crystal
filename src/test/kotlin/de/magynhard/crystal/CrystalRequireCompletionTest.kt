@@ -45,6 +45,23 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         val requireItems = lookups.filter { it.lookupString == "require" }
 
         assertEquals("Bare require should have one canonical candidate", 1, requireItems.size)
+        assertCanonicalRequirePresentationAndInsertion(requireItems.single())
+    }
+
+    fun testBareRequireHasOneCanonicalCandidateWhenCurrentFileMethodExists() {
+        myFixture.configureByText("main.cr", """
+            def require(path)
+            end
+
+            <caret>
+        """.trimIndent())
+
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("File-scope position should return multiple completion items", lookups)
+        val requireItems = lookups.filter { it.lookupString == "require" }
+
+        assertEquals("Bare require should have one canonical candidate", 1, requireItems.size)
+        assertCanonicalRequirePresentationAndInsertion(requireItems.single())
     }
 
     fun testUppercasePrefixDoesNotSuggestRequire() {
@@ -494,5 +511,24 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         if (item.lookupString != "require") return false
         val presentation = LookupElementPresentation().also(item::renderElement)
         return presentation.tailText == "(path)" && presentation.typeText == null
+    }
+
+    private fun assertCanonicalRequirePresentationAndInsertion(
+        requireItem: com.intellij.codeInsight.lookup.LookupElement,
+    ) {
+        val presentation = LookupElementPresentation().also(requireItem::renderElement)
+        assertSame(AllIcons.Nodes.Method, presentation.icon)
+        assertEquals("(path)", presentation.tailText)
+        assertNull(presentation.typeText)
+
+        myFixture.lookup.currentItem = requireItem
+        myFixture.finishLookup('\n')
+        val text = myFixture.editor.document.text
+        assertTrue("Canonical require should insert an empty path: '$text'", text.endsWith("require \"\""))
+        assertEquals(
+            "Caret should be between the inserted quotes",
+            text.lastIndexOf("require \"") + "require \"".length,
+            myFixture.editor.caretModel.offset,
+        )
     }
 }
