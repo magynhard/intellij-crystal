@@ -168,25 +168,29 @@ class CrystalCompletionTest : BasePlatformTestCase() {
 
     fun testFileLevelSelfMethodNotSuggestedAsTopLevelMethod() {
         myFixture.configureByText("main.cr", """
-            def self.require(path)
+            def self.request_secret(path)
             end
 
-            def request
+            def request_public
             end
 
-            def requisition
+            def request_status
             end
 
             def caller
-              req<caret>
+              request_<caret>
             end
         """.trimIndent())
 
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
-        assertTrue("Should contain the top-level request method: $names", names.contains("request"))
-        assertFalse("File-level self.require should NOT be offered as top-level: $names", names.contains("require"))
+        assertTrue("Should contain the top-level request_public method: $names", names.contains("request_public"))
+        assertTrue("Should contain the top-level request_status method: $names", names.contains("request_status"))
+        assertFalse(
+            "File-level self.request_secret should NOT be offered as top-level: $names",
+            names.contains("request_secret")
+        )
     }
 
     fun testTopLevelMethodNotSuggestedForUppercasePrefix() {
