@@ -65,7 +65,7 @@ internal object CrystalExactReceiverTypeResolver {
                 collectLocalAssignments(sibling, name, assignments)
                 if (assignments.isNotEmpty()) {
                     val nearest = assignments.maxBy(CrystalAssignment::getTextOffset)
-                    val conditional = assignments.size > 1 || nearest.postfixModifier != null ||
+                    val conditional = nearest.postfixModifier != null ||
                         isConditionallyNested(nearest, sibling)
                     val type = if (conditional) null else resolveAssignment(nearest, call)
                     return ResolutionEvidence(true, type)
@@ -173,10 +173,11 @@ internal object CrystalExactReceiverTypeResolver {
     ): ExactReceiverType? {
         if (assignment.node.findChildByType(CrystalTypes.ASSIGN) == null) return null
         val expression = assignment.expression ?: return null
-        val constructorCalls = mutableListOf<CrystalDotCallAccess>()
-        collectDotCalls(expression, constructorCalls)
-        val constructor = constructorCalls.singleOrNull() ?: return null
+        val constructorRoot = unwrapTransparentExpression(expression) as? CrystalExpression ?: return null
+        val constructor = constructorRoot.children.filterIsInstance<CrystalDotCallAccess>().singleOrNull()
+            ?: return null
         if (CrystalCallExtractor.extractMethodName(constructor) != "new") return null
+        if (nextSignificantSibling(constructor) != null) return null
 
         val constructorReceiver = previousSignificantSibling(constructor) ?: return null
         val typeName = when (constructorReceiver) {
@@ -187,20 +188,54 @@ internal object CrystalExactReceiverTypeResolver {
         return resolveTypeIdentity(typeName, call)
     }
 
-    private fun collectDotCalls(element: PsiElement, result: MutableList<CrystalDotCallAccess>) {
-        if (element is CrystalDotCallAccess) result.add(element)
-        element.children.forEach { collectDotCalls(it, result) }
+    private fun unwrapTransparentExpression(expression: CrystalExpression): PsiElement {
+        var current: PsiElement = expression
+        while (true) {
+            current = when (current) {
+                is CrystalExpression -> {
+                    val wrappers = current.children.filter {
+                        it is CrystalExpression || it is CrystalGroupedExpression
+                    }
+                    if (current.children.filterNot(::isTrivia).size == 1 && wrappers.size == 1) {
+                        wrappers.single()
+                    } else {
+                        return current
+                    }
+                }
+                is CrystalGroupedExpression -> {
+                    if (current.expressionList.size != 1 ||
+                        current.node.findChildByType(CrystalTypes.ASSIGN) != null) {
+                        return current
+                    }
+                    current.expressionList.single()
+                }
+                else -> return current
+            }
+        }
     }
 
     private fun resolveExactTypeReference(
         typeReference: CrystalTypeReference,
         call: CrystalDotCallAccess
     ): ExactReceiverType? {
-        val typePath = typeReference.typePathList.singleOrNull() ?: return null
-        val normalizedReference = typeReference.text.filterNot(Char::isWhitespace)
+        val exactReference = unwrapParenthesizedTypeReference(typeReference) ?: return null
+        val typePath = exactReference.typePathList.singleOrNull() ?: return null
+        val normalizedReference = exactReference.text.filterNot(Char::isWhitespace)
         val normalizedPath = typePath.text.filterNot(Char::isWhitespace)
         if (normalizedReference != normalizedPath) return null
         return resolveTypeIdentity(normalizedPath, call)
+    }
+
+    private fun unwrapParenthesizedTypeReference(typeReference: CrystalTypeReference): CrystalTypeReference? {
+        var current = typeReference
+        while (current.typePathList.isEmpty()) {
+            val nested = current.typeReferenceList.singleOrNull() ?: return null
+            val normalized = current.text.filterNot(Char::isWhitespace)
+            val nestedText = nested.text.filterNot(Char::isWhitespace)
+            if (normalized != "($nestedText)") return null
+            current = nested
+        }
+        return current
     }
 
     private fun resolveTypeIdentity(typeName: String, context: PsiElement): ExactReceiverType? {
@@ -241,6 +276,17 @@ internal object CrystalExactReceiverTypeResolver {
         }
         return sibling
     }
+
+    private fun nextSignificantSibling(element: PsiElement): PsiElement? {
+        var sibling = element.nextSibling
+        while (sibling != null && isTrivia(sibling)) {
+            sibling = sibling.nextSibling
+        }
+        return sibling
+    }
+
+    private fun isTrivia(element: PsiElement): Boolean =
+        element is PsiWhiteSpace || element.node.elementType == CrystalTypes.NEWLINE
 
     private fun normalizeReceiver(receiver: PsiElement): PsiElement {
         return when {

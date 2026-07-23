@@ -1,6 +1,7 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -68,6 +69,118 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                 value = unknown_source
                 value.run
             """.trimIndent()
+        )
+    }
+
+    fun testConditionalConstructorExpressionWithNilBranchIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                value = if condition
+                  Service.new
+                else
+                  nil
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testConditionalConstructorExpressionWithUnknownBranchIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                value = if condition
+                  Service.new
+                else
+                  unknown_source
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testCompositeExpressionContainingConstructorIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                value = [Service.new]
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testGroupedConstructorExpressionIsExact() {
+        assertResolved(
+            """
+                class Service
+                end
+                value = (Service.new)
+                value.run
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testSequentialAssignmentsInBeginUseNearestAssignment() {
+        assertResolved(
+            """
+                class First
+                end
+                class Second
+                end
+                begin
+                  value = First.new
+                  value = Second.new
+                end
+                value.run
+            """.trimIndent(),
+            ExactReceiverType("Second", "Second")
+        )
+    }
+
+    fun testConditionalAssignmentsInBeginAreAmbiguous() {
+        assertUnresolved(
+            """
+                class First
+                end
+                class Second
+                end
+                begin
+                  if condition
+                    value = First.new
+                  else
+                    value = Second.new
+                  end
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testUnconditionalAssignmentAfterConditionalInBeginIsNearest() {
+        assertResolved(
+            """
+                class First
+                end
+                class Second
+                end
+                class Final
+                end
+                begin
+                  if condition
+                    value = First.new
+                  else
+                    value = Second.new
+                  end
+                  value = Final.new
+                end
+                value.run
+            """.trimIndent(),
+            ExactReceiverType("Final", "Final")
         )
     }
 
@@ -164,6 +277,19 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testResolvesParenthesizedExactParameterRestriction() {
+        assertResolved(
+            """
+                class Service
+                end
+                def execute(value : (Service))
+                  value.run
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
     fun testUntypedBlockParameterSuppressesOuterLocalType() {
         assertUnresolved(
             """
@@ -204,6 +330,27 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                 class Runner
                   def initialize(@value : Service)
                   end
+
+                  def execute
+                    @value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testExactInstanceVariableDeclarationTakesPrecedenceOverAssignments() {
+        assertResolved(
+            """
+                class Service
+                end
+                class Other
+                end
+                class Runner
+                  @value : Service
+                  @value = Other.new
+                  @value = unknown_source
 
                   def execute
                     @value.run
@@ -359,6 +506,7 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
 
     private fun resolve(source: String): ExactReceiverType? {
         val file = myFixture.configureByText("test.cr", source)
+        assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
         val call = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java)
             .single { CrystalCallExtractor.extractMethodName(it) == "run" }
         val receiver = previousSignificantSibling(call)
