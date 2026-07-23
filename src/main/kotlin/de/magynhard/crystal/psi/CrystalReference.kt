@@ -21,7 +21,23 @@ class CrystalReference(
 
     override fun resolve(): PsiElement? {
         // 1. Local scope fallback (fast — no I/O, walks up PSI tree)
-        val local = resolveLocal()
+        val local = resolveLocalDeclaration()
+        if (local != null) return local
+
+        // 2. StubIndex lookup (fast — in-memory index)
+        val scope = GlobalSearchScope.allScope(element.project)
+        val types = CrystalIndexService.findTypes(name, element.project, scope)
+        if (types.isNotEmpty()) return types.first()
+
+        val methods = CrystalIndexService.findMethods(name, element.project, scope)
+        if (methods.isNotEmpty()) return methods.first()
+
+        return null
+    }
+
+    /** Resolves only preceding assignments and enclosing parameters, without index access. */
+    fun resolveLocalDeclaration(): PsiElement? {
+        val local = findLocalDeclaration()
         if (local != null) {
             // If the result is an IDENTIFIER leaf (not PsiNameIdentifierOwner),
             // promote to its parent composite if it implements PsiNameIdentifierOwner.
@@ -35,19 +51,10 @@ class CrystalReference(
             }
             return local
         }
-
-        // 2. StubIndex lookup (fast — in-memory index)
-        val scope = GlobalSearchScope.allScope(element.project)
-        val types = CrystalIndexService.findTypes(name, element.project, scope)
-        if (types.isNotEmpty()) return types.first()
-
-        val methods = CrystalIndexService.findMethods(name, element.project, scope)
-        if (methods.isNotEmpty()) return methods.first()
-
         return null
     }
 
-    private fun resolveLocal(): PsiElement? {
+    private fun findLocalDeclaration(): PsiElement? {
         val containingFile = element.containingFile ?: return null
         var scope: PsiElement? = element.parent
         // Walk up the PSI tree, but NEVER cross the file boundary — climbing into
@@ -97,7 +104,7 @@ class CrystalReference(
      * to an assignment in sibling method B.
      *
      * Also refuses to cross file/directory boundaries — a defensive guard
-     * so any future regression in [resolveLocal] cannot cascade into the
+     * so any future regression in [findLocalDeclaration] cannot cascade into the
      * project tree and lazily parse every sibling file.
      */
     private fun findAssignmentWithName(element: PsiElement, targetName: String): PsiElement? {
@@ -108,7 +115,7 @@ class CrystalReference(
             return null
         }
         // Hard boundary: never recurse into files or directories. This is a defensive
-        // guard — resolveLocal() also stops at the file boundary, but this ensures
+        // guard — findLocalDeclaration() also stops at the file boundary, but this ensures
         // that even if the walk escaped, we cannot trigger lazy parsing of every
         // file in the project (which caused 40+ second EDT freezes).
         if (element is PsiFile || element is PsiDirectory) return null

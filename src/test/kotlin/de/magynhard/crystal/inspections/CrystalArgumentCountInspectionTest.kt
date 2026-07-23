@@ -323,6 +323,43 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testArgumentlessDirectCallIgnoresSameLineDotReceiver() {
+        myFixture.configureByText("test.cr", """
+            def service(required)
+            end
+            service.fetch
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIgnoresMultilineDotReceiver() {
+        myFixture.configureByText("test.cr", """
+            def service(required)
+            end
+            service
+              .fetch
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDirectCallIgnoresNamespaceRoot() {
+        myFixture.configureByText("test.cr", """
+            def service(required)
+            end
+            service::Client.fetch
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testStandaloneTypeIsNotAnArgumentlessDirectCall() {
+        myFixture.configureByText("test.cr", """
+            class Service
+            end
+            Service
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testUnknownArgumentlessDirectCallHasNoError() {
         myFixture.configureByText("test.cr", "unknown_method")
         myFixture.checkHighlighting()

@@ -52,15 +52,18 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             ?: return
 
         var next = reference.nextSibling
-        while (next is PsiWhiteSpace) next = next.nextSibling
+        while (next is PsiWhiteSpace || next?.node?.elementType == CrystalTypes.NEWLINE) {
+            next = next.nextSibling
+        }
         if (next is CrystalDotCallAccess || next is CrystalNamespaceAccess) return
 
-        val resolved = reference.reference?.resolve()
-        if (resolved != null && resolved !is CrystalMethodDefinition) return
+        val crystalReference = reference.reference as? CrystalReference
+        if (crystalReference?.resolveLocalDeclaration() != null) return
 
         val project = reference.project
         val scope = GlobalSearchScope.projectScope(project)
         val methodName = methodNameElement.text
+        if (CrystalIndexService.findTypes(methodName, project, scope).isNotEmpty()) return
         if (CrystalIndexService.findMacros(methodName, project, scope).isNotEmpty()) return
 
         val methods = CrystalIndexService.findTopLevelMethods(methodName, project, scope).toList()
