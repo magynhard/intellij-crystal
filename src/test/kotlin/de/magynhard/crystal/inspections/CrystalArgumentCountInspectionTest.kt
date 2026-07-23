@@ -1,6 +1,8 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.psi.CrystalDotCallAccess
 
 class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
 
@@ -391,6 +393,159 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             def self.create(name : String)
             end
             Foo.create("Hans")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessClassMethodReportsRequiredParameter() {
+        myFixture.configureByText("test.cr", """
+            class Factory
+              def self.create(name : String?)
+              end
+            end
+            Factory.<error descr="Missing required argument(s): 'name'">create</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessConstantDotCallExtractionUsesExactReceiverIdentity() {
+        val file = myFixture.configureByText("test.cr", """
+            Factory.create
+            Outer::Factory.build
+        """.trimIndent())
+        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java).toList()
+
+        val direct = CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[0])
+        assertNotNull(direct)
+        assertEquals("Factory", direct?.receiverName)
+        assertEquals("Factory", direct?.qualifiedReceiverName)
+        assertEquals("create", direct?.methodName)
+
+        val qualified = CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[1])
+        assertNotNull(qualified)
+        assertEquals("Factory", qualified?.receiverName)
+        assertEquals("Outer::Factory", qualified?.qualifiedReceiverName)
+        assertEquals("build", qualified?.methodName)
+    }
+
+    fun testArgumentlessQualifiedClassMethodReportsRequiredParameter() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              class Factory
+                def self.create(name)
+                end
+              end
+            end
+            Outer::Factory.<error descr="Missing required argument(s): 'name'">create</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessQualifiedClassMethodIgnoresUnrelatedQualifiedOverload() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              class Factory
+                def self.create(name)
+                end
+              end
+            end
+            module Other
+              class Factory
+                def self.create
+                end
+              end
+            end
+            Outer::Factory.<error descr="Missing required argument(s): 'name'">create</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessClassMethodIgnoresInstanceAndTopLevelMethods() {
+        myFixture.configureByText("test.cr", """
+            def create
+            end
+            class Factory
+              def create
+              end
+              def self.create(name)
+              end
+            end
+            Factory.<error descr="Missing required argument(s): 'name'">create</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessClassMethodAcceptsMatchingSelfOverload() {
+        myFixture.configureByText("test.cr", """
+            class Factory
+              def self.create(name)
+              end
+              def self.create
+              end
+            end
+            Factory.create
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessDotCallsWithUnsupportedReceiversAreIgnored() {
+        myFixture.configureByText("test.cr", """
+            class Parent
+              def self.create(name)
+              end
+            end
+            class Child < Parent
+            end
+            class Factory
+              def self.create(name)
+              end
+            end
+            factory = Factory.new
+            factory.create
+            Child.create
+            Unknown.create
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessAmbiguousSimpleClassReceiverIsIgnored() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              class Factory
+                def self.create(name)
+                end
+              end
+            end
+            module Other
+              class Factory
+                def self.create(name)
+                end
+              end
+            end
+            Factory.create
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessNewIsNotExpandedToInitialize() {
+        myFixture.configureByText("test.cr", """
+            class Factory
+              def initialize(name)
+              end
+            end
+            Factory.new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentBearingClassDotCallsRemainSingleOwned() {
+        myFixture.configureByText("test.cr", """
+            class Factory
+              def self.create(name)
+              end
+            end
+            Factory.<error descr="Missing required argument(s): 'name'">create</error>()
+            Factory.create "value"
         """.trimIndent())
         myFixture.checkHighlighting()
     }

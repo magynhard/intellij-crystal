@@ -1,6 +1,7 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
 import de.magynhard.crystal.psi.*
 
 data class DotCallInfo(
@@ -9,7 +10,45 @@ data class DotCallInfo(
     val methodNameElement: PsiElement?
 )
 
+data class ArgumentlessDotCallInfo(
+    val receiverName: String,
+    val qualifiedReceiverName: String,
+    val methodName: String,
+    val methodNameElement: PsiElement
+)
+
 object CrystalCallExtractor {
+
+    fun detectArgumentlessConstantDotCall(access: CrystalDotCallAccess): ArgumentlessDotCallInfo? {
+        if (access.callArgs != null || access.bareArgumentList != null) return null
+
+        val methodNameElement = access.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+            ?: access.node.findChildByType(CrystalTypes.CONSTANT)?.psi
+            ?: return null
+        val methodName = methodNameElement.text
+        if (methodName == "new") return null
+
+        var receiver = access.prevSibling
+        while (receiver is PsiWhiteSpace || receiver?.node?.elementType == CrystalTypes.NEWLINE) {
+            receiver = receiver.prevSibling
+        }
+
+        if (receiver is CrystalNamespaceAccess) {
+            val receiverName = receiver.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: return null
+            val qualifiedReceiverName = CrystalPsiUtils.buildNamespacePath(receiver)
+            if (qualifiedReceiverName.isEmpty()) return null
+            return ArgumentlessDotCallInfo(receiverName, qualifiedReceiverName, methodName, methodNameElement)
+        }
+
+        val receiverName = when {
+            receiver.node?.elementType == CrystalTypes.CONSTANT -> receiver.text
+            receiver is CrystalVariableReference ->
+                receiver.node.findChildByType(CrystalTypes.CONSTANT)?.text
+            else -> null
+        } ?: return null
+
+        return ArgumentlessDotCallInfo(receiverName, receiverName, methodName, methodNameElement)
+    }
 
     fun extractMethodName(callExpr: PsiElement): String? {
         var child = callExpr.firstChild
