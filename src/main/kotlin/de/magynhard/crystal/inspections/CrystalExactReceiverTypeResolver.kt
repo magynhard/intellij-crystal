@@ -36,46 +36,9 @@ internal object CrystalExactReceiverTypeResolver {
         name: String,
         call: CrystalDotCallAccess
     ): ResolutionEvidence {
-        val file = receiver.containingFile ?: return ResolutionEvidence.NONE
-        var current: PsiElement? = receiver
-
-        while (current != null && current !== file) {
-            when (current) {
-                is CrystalBlock -> {
-                    val parameter = findParameterEvidence(
-                        current.parameterList?.parameterList.orEmpty(),
-                        name,
-                        call
-                    )
-                    if (parameter.found) return parameter
-                }
-                is CrystalMethodDefinition -> {
-                    return findParameterEvidence(current.parameterList?.parameterList.orEmpty(), name, call)
-                }
-                is CrystalMacroDefinition -> return ResolutionEvidence.NONE
-                is CrystalClassDefinition,
-                is CrystalModuleDefinition,
-                is CrystalStructDefinition,
-                is CrystalEnumDefinition -> return ResolutionEvidence.NONE
-            }
-
-            var sibling = current.prevSibling
-            while (sibling != null) {
-                val assignments = mutableListOf<CrystalAssignment>()
-                collectLocalAssignments(sibling, name, assignments)
-                if (assignments.isNotEmpty()) {
-                    val nearest = assignments.maxBy(CrystalAssignment::getTextOffset)
-                    val conditional = nearest.postfixModifier != null ||
-                        isConditionallyNested(nearest, sibling)
-                    val type = if (conditional) null else resolveAssignment(nearest, call)
-                    return ResolutionEvidence(true, type)
-                }
-                sibling = sibling.prevSibling
-            }
-            current = current.parent
-        }
-
-        return ResolutionEvidence.NONE
+        val assignment = findLinearAssignmentEvidence(receiver, name, call)
+        if (assignment.found) return assignment
+        return findEnclosingParameterEvidence(receiver, name, call)
     }
 
     private fun findParameterEvidence(
@@ -90,37 +53,173 @@ internal object CrystalExactReceiverTypeResolver {
         return ResolutionEvidence(true, type)
     }
 
-    private fun collectLocalAssignments(
-        element: PsiElement,
+    private fun findLinearAssignmentEvidence(
+        receiver: PsiElement,
         name: String,
-        result: MutableList<CrystalAssignment>
-    ) {
-        if (element is PsiFile || element is CrystalMethodDefinition || element is CrystalMacroDefinition ||
-            element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-            element is CrystalStructDefinition || element is CrystalEnumDefinition) {
-            return
+        call: CrystalDotCallAccess
+    ): ResolutionEvidence {
+        var statement = findEnclosingStatement(receiver) ?: return ResolutionEvidence.NONE
+
+        while (true) {
+            val container = statement.parent ?: return ResolutionEvidence.NONE
+            if (!isLinearSequence(container)) {
+                val nonlinearRoot = findNonlinearRoot(container)
+                if (nonlinearRoot != null && containsAssignment(nonlinearRoot, nonlinearRoot, name)) {
+                    return ResolutionEvidence.UNKNOWN
+                }
+                return if (hasPrecedingAssignmentOutside(nonlinearRoot ?: container, name)) {
+                    ResolutionEvidence.UNKNOWN
+                } else {
+                    ResolutionEvidence.NONE
+                }
+            }
+
+            val preceding = container.children.filterIsInstance<CrystalStatement>()
+                .takeWhile { it !== statement }
+            val evidence = scanLinearStatements(preceding, name, call)
+            if (evidence.found) return evidence
+
+            val begin = container.parent as? CrystalBeginStatement ?: return ResolutionEvidence.NONE
+            if (!isPlainBegin(begin)) return ResolutionEvidence.NONE
+            statement = findEnclosingStatement(begin) ?: return ResolutionEvidence.NONE
         }
-        if (element is CrystalAssignment && (element as PsiNameIdentifierOwner).name == name) {
-            result.add(element)
-        }
-        element.children.forEach { collectLocalAssignments(it, name, result) }
     }
 
-    private fun isConditionallyNested(assignment: CrystalAssignment, searchedRoot: PsiElement): Boolean {
-        var current: PsiElement? = assignment.parent
-        while (current != null && current !== searchedRoot) {
-            when (current.node.elementType) {
-                CrystalTypes.IF_STATEMENT,
-                CrystalTypes.UNLESS_STATEMENT,
-                CrystalTypes.WHILE_STATEMENT,
-                CrystalTypes.UNTIL_STATEMENT,
-                CrystalTypes.CASE_STATEMENT,
-                CrystalTypes.SELECT_STATEMENT,
-                CrystalTypes.BLOCK -> return true
+    private fun scanLinearStatements(
+        statements: List<CrystalStatement>,
+        name: String,
+        call: CrystalDotCallAccess
+    ): ResolutionEvidence {
+        var nearest = ResolutionEvidence.NONE
+        for (statement in statements) {
+            val directAssignment = statement.assignment
+            if (directAssignment != null && assignmentName(directAssignment) == name) {
+                if (directAssignment.postfixModifier != null) return ResolutionEvidence.UNKNOWN
+                nearest = ResolutionEvidence(true, resolveAssignment(directAssignment, call))
+                continue
+            }
+
+            val begin = statement.beginStatement
+            if (begin != null && containsAssignment(begin, begin, name)) {
+                if (!isPlainBegin(begin)) return ResolutionEvidence.UNKNOWN
+                val nested = scanLinearStatements(
+                    begin.statementList?.statementList.orEmpty(),
+                    name,
+                    call
+                )
+                if (nested.found) {
+                    if (nested.type == null) return ResolutionEvidence.UNKNOWN
+                    nearest = nested
+                }
+                continue
+            }
+
+            if (containsAssignment(statement, statement, name)) return ResolutionEvidence.UNKNOWN
+        }
+        return nearest
+    }
+
+    private fun findEnclosingParameterEvidence(
+        receiver: PsiElement,
+        name: String,
+        call: CrystalDotCallAccess
+    ): ResolutionEvidence {
+        var current: PsiElement? = receiver.parent
+        while (current != null && current !is PsiFile) {
+            when (current) {
+                is CrystalBlock -> {
+                    val parameter = findParameterEvidence(
+                        current.parameterList?.parameterList.orEmpty(),
+                        name,
+                        call
+                    )
+                    if (parameter.found) return parameter
+                }
+                is CrystalMethodDefinition ->
+                    return findParameterEvidence(current.parameterList?.parameterList.orEmpty(), name, call)
+                is CrystalMacroDefinition,
+                is CrystalClassDefinition,
+                is CrystalModuleDefinition,
+                is CrystalStructDefinition,
+                is CrystalEnumDefinition -> return ResolutionEvidence.NONE
             }
             current = current.parent
         }
+        return ResolutionEvidence.NONE
+    }
+
+    private fun isLinearSequence(container: PsiElement): Boolean {
+        if (container is PsiFile) return true
+        val statementList = container as? CrystalStatementList ?: return false
+        return when (val owner = statementList.parent) {
+            is CrystalBeginStatement -> isPlainBegin(owner) && owner.statementList === statementList
+            is CrystalMethodBody -> owner.rescueClauseList.isEmpty() &&
+                owner.elseClause == null && owner.ensureClause == null
+            else -> false
+        }
+    }
+
+    private fun isPlainBegin(begin: CrystalBeginStatement): Boolean =
+        begin.rescueClauseList.isEmpty() && begin.elseClause == null && begin.ensureClause == null
+
+    private fun findNonlinearRoot(element: PsiElement): PsiElement? {
+        var current: PsiElement? = element
+        while (current != null && current !is PsiFile) {
+            if (current is CrystalIfStatement || current is CrystalUnlessStatement ||
+                current is CrystalCaseStatement || current is CrystalSelectStatement ||
+                current is CrystalWhileStatement || current is CrystalUntilStatement ||
+                current is CrystalForStatement || current is CrystalBlock ||
+                current is CrystalBeginStatement && !isPlainBegin(current) ||
+                current is CrystalMethodBody && (current.rescueClauseList.isNotEmpty() ||
+                    current.elseClause != null || current.ensureClause != null)) {
+                return current
+            }
+            if (current is CrystalMethodDefinition || isTypeBoundary(current)) return null
+            current = current.parent
+        }
+        return null
+    }
+
+    private fun hasPrecedingAssignmentOutside(element: PsiElement, name: String): Boolean {
+        var current: PsiElement? = element
+        while (current != null && current !is PsiFile) {
+            val statement = findEnclosingStatement(current)
+            if (statement != null) {
+                var sibling = statement.prevSibling
+                while (sibling != null) {
+                    if (containsAssignment(sibling, sibling, name)) return true
+                    sibling = sibling.prevSibling
+                }
+                current = statement.parent
+            } else {
+                if (current is CrystalMethodDefinition || isTypeBoundary(current)) return false
+                current = current.parent
+            }
+        }
         return false
+    }
+
+    private fun containsAssignment(element: PsiElement, root: PsiElement, name: String): Boolean {
+        if (element !== root && (element is PsiFile || element is CrystalMethodDefinition ||
+                element is CrystalMacroDefinition || isTypeBoundary(element))) {
+            return false
+        }
+        if (element is CrystalAssignment && assignmentName(element) == name) return true
+        return element.children.any { containsAssignment(it, root, name) }
+    }
+
+    private fun assignmentName(assignment: CrystalAssignment): String? =
+        (assignment as PsiNameIdentifierOwner).name
+
+    private fun findEnclosingStatement(element: PsiElement): CrystalStatement? {
+        var current: PsiElement? = element
+        while (current != null && current !is PsiFile) {
+            if (current is CrystalStatement) return current
+            if (current is CrystalMethodDefinition || current is CrystalMacroDefinition ||
+                isTypeBoundary(current)) return null
+            current = current.parent
+        }
+        return null
     }
 
     private fun resolveInstanceVariable(
@@ -174,18 +273,27 @@ internal object CrystalExactReceiverTypeResolver {
         if (assignment.node.findChildByType(CrystalTypes.ASSIGN) == null) return null
         val expression = assignment.expression ?: return null
         val constructorRoot = unwrapTransparentExpression(expression) as? CrystalExpression ?: return null
-        val constructor = constructorRoot.children.filterIsInstance<CrystalDotCallAccess>().singleOrNull()
-            ?: return null
+        val significantChildren = directSignificantChildren(constructorRoot)
+        val constructor = significantChildren.lastOrNull() as? CrystalDotCallAccess ?: return null
+        if (significantChildren.count { it is CrystalDotCallAccess } != 1) return null
         if (CrystalCallExtractor.extractMethodName(constructor) != "new") return null
-        if (nextSignificantSibling(constructor) != null) return null
-
-        val constructorReceiver = previousSignificantSibling(constructor) ?: return null
-        val typeName = when (constructorReceiver) {
-            is CrystalNamespaceAccess -> CrystalPsiUtils.buildNamespacePath(constructorReceiver)
-            is CrystalVariableReference -> constructorReceiver.node.findChildByType(CrystalTypes.CONSTANT)?.text
-            else -> constructorReceiver.takeIf { it.node.elementType == CrystalTypes.CONSTANT }?.text
-        } ?: return null
+        val typeName = exactConstructorReceiverName(significantChildren.dropLast(1)) ?: return null
         return resolveTypeIdentity(typeName, call)
+    }
+
+    private fun exactConstructorReceiverName(elements: List<PsiElement>): String? {
+        if (elements.size == 1) {
+            return (elements.single() as? CrystalVariableReference)
+                ?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
+        }
+
+        val receiverElements = elements.dropWhile { it.node.elementType == CrystalTypes.DOUBLE_COLON }
+        if (elements.size - receiverElements.size > 1) return null
+        val root = receiverElements.firstOrNull() as? CrystalVariableReference ?: return null
+        if (root.node.findChildByType(CrystalTypes.CONSTANT) == null) return null
+        val namespaces = receiverElements.drop(1)
+        if (namespaces.isEmpty() || namespaces.any { it !is CrystalNamespaceAccess }) return null
+        return CrystalPsiUtils.buildNamespacePath(namespaces.last() as CrystalNamespaceAccess)
     }
 
     private fun unwrapTransparentExpression(expression: CrystalExpression): PsiElement {
@@ -220,10 +328,12 @@ internal object CrystalExactReceiverTypeResolver {
     ): ExactReceiverType? {
         val exactReference = unwrapParenthesizedTypeReference(typeReference) ?: return null
         val typePath = exactReference.typePathList.singleOrNull() ?: return null
-        val normalizedReference = exactReference.text.filterNot(Char::isWhitespace)
-        val normalizedPath = typePath.text.filterNot(Char::isWhitespace)
-        if (normalizedReference != normalizedPath) return null
-        return resolveTypeIdentity(normalizedPath, call)
+        if (exactReference.typeArgumentsList.size > 1 || exactReference.expressionList.isNotEmpty() ||
+            exactReference.typeReferenceList.isNotEmpty()) return null
+        val significantChildren = directSignificantChildren(exactReference)
+        if (significantChildren.any { it !is CrystalTypePath && it !is CrystalTypeArguments }) return null
+        if (significantChildren.count { it is CrystalTypePath } != 1) return null
+        return resolveTypeIdentity(typePath.text.filterNot(Char::isWhitespace), call)
     }
 
     private fun unwrapParenthesizedTypeReference(typeReference: CrystalTypeReference): CrystalTypeReference? {
@@ -277,16 +387,11 @@ internal object CrystalExactReceiverTypeResolver {
         return sibling
     }
 
-    private fun nextSignificantSibling(element: PsiElement): PsiElement? {
-        var sibling = element.nextSibling
-        while (sibling != null && isTrivia(sibling)) {
-            sibling = sibling.nextSibling
-        }
-        return sibling
-    }
-
     private fun isTrivia(element: PsiElement): Boolean =
         element is PsiWhiteSpace || element.node.elementType == CrystalTypes.NEWLINE
+
+    private fun directSignificantChildren(element: PsiElement): List<PsiElement> =
+        element.node.getChildren(null).map { it.psi }.filterNot(::isTrivia)
 
     private fun normalizeReceiver(receiver: PsiElement): PsiElement {
         return when {
@@ -308,6 +413,7 @@ internal object CrystalExactReceiverTypeResolver {
     ) {
         companion object {
             val NONE = ResolutionEvidence(false, null)
+            val UNKNOWN = ResolutionEvidence(true, null)
         }
     }
 }

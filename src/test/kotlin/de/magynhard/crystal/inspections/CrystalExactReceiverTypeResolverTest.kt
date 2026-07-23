@@ -113,6 +113,50 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBinaryExpressionEndingInConstructorIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                value = unknown || Service.new
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testTernaryExpressionEndingInConstructorIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                value = condition ? unknown : Service.new
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testUnaryConstructorExpressionIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                value = +Service.new
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testCallWrapperContainingConstructorIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                value = identity(Service.new)
+                value.run
+            """.trimIndent()
+        )
+    }
+
     fun testGroupedConstructorExpressionIsExact() {
         assertResolved(
             """
@@ -161,8 +205,8 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testUnconditionalAssignmentAfterConditionalInBeginIsNearest() {
-        assertResolved(
+    fun testConditionalAssignmentMakesPlainBeginAmbiguousDespiteLaterAssignment() {
+        assertUnresolved(
             """
                 class First
                 end
@@ -179,8 +223,138 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                   value = Final.new
                 end
                 value.run
-            """.trimIndent(),
-            ExactReceiverType("Final", "Final")
+            """.trimIndent()
+        )
+    }
+
+    fun testDirectIfAssignmentIsUnresolved() {
+        assertUnresolved(controlFlowAssignment("if condition", "end"))
+    }
+
+    fun testAssignmentInSiblingConditionalBranchSuppressesTypedParameter() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                def execute(value : Service)
+                  if condition
+                    value = unknown_source
+                  else
+                    value.run
+                  end
+                end
+            """.trimIndent()
+        )
+    }
+
+    fun testDirectUnlessAssignmentIsUnresolved() {
+        assertUnresolved(controlFlowAssignment("unless condition", "end"))
+    }
+
+    fun testDirectWhileAssignmentIsUnresolved() {
+        assertUnresolved(controlFlowAssignment("while condition", "end"))
+    }
+
+    fun testDirectUntilAssignmentIsUnresolved() {
+        assertUnresolved(controlFlowAssignment("until condition", "end"))
+    }
+
+    fun testDirectForAssignmentIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                for item in items
+                  value = Service.new
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testDirectCaseAssignmentIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                case condition
+                when true
+                  value = Service.new
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testDirectSelectAssignmentIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                select
+                when condition
+                  value = Service.new
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testBlockAssignmentIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                [1].each do
+                  value = Service.new
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testBeginWithRescueAssignmentIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                begin
+                  value = Service.new
+                rescue
+                  nil
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testBeginWithElseAssignmentIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                begin
+                  value = Service.new
+                else
+                  nil
+                end
+                value.run
+            """.trimIndent()
+        )
+    }
+
+    fun testBeginWithEnsureAssignmentIsUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                begin
+                  value = Service.new
+                ensure
+                  nil
+                end
+                value.run
+            """.trimIndent()
         )
     }
 
@@ -288,6 +462,45 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
             """.trimIndent(),
             ExactReceiverType("Service", "Service")
         )
+    }
+
+    fun testResolvesExactGenericParameterRestrictionToRootIdentity() {
+        assertResolved(
+            """
+                class Array(T)
+                end
+                def execute(value : Array(Int32))
+                  value.run
+                end
+            """.trimIndent(),
+            ExactReceiverType("Array", "Array")
+        )
+    }
+
+    fun testResolvesParenthesizedExactGenericParameterRestrictionToRootIdentity() {
+        assertResolved(
+            """
+                class Array(T)
+                end
+                def execute(value : (Array(Int32)))
+                  value.run
+                end
+            """.trimIndent(),
+            ExactReceiverType("Array", "Array")
+        )
+    }
+
+    fun testRejectsNonExactStructuralTypeRestrictions() {
+        val declarations = """
+            class Service
+            end
+            class Other
+            end
+        """.trimIndent()
+        assertUnresolved("$declarations\ndef execute(value : (Service, Other))\n  value.run\nend")
+        assertUnresolved("$declarations\ndef execute(value : Service -> Other)\n  value.run\nend")
+        assertUnresolved("$declarations\ndef execute(value : Service.class)\n  value.run\nend")
+        assertUnresolved("$declarations\ndef execute(value : *Service)\n  value.run\nend")
     }
 
     fun testUntypedBlockParameterSuppressesOuterLocalType() {
@@ -503,6 +716,15 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
     private fun assertUnresolved(source: String) {
         assertNull(resolve(source))
     }
+
+    private fun controlFlowAssignment(opening: String, closing: String): String = """
+        class Service
+        end
+        $opening
+          value = Service.new
+        $closing
+        value.run
+    """.trimIndent()
 
     private fun resolve(source: String): ExactReceiverType? {
         val file = myFixture.configureByText("test.cr", source)
