@@ -8,7 +8,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 
-internal data class ExactReceiverType(
+data class ExactReceiverType(
     val simpleName: String,
     val qualifiedName: String
 )
@@ -353,19 +353,13 @@ internal object CrystalExactReceiverTypeResolver {
         val simpleName = normalizedName.substringAfterLast("::")
         if (simpleName.isEmpty()) return null
 
-        val possibleIdentities = mutableSetOf(simpleName)
-        var enclosingType = CrystalPsiUtils.getEnclosingType(context)
-        while (enclosingType != null) {
-            CrystalPsiUtils.buildQualifiedName(enclosingType)
-                ?.let { possibleIdentities.add("$it::$simpleName") }
-            enclosingType = enclosingType.parent?.let(CrystalPsiUtils::getEnclosingType)
-        }
+        val possibleIdentities = CrystalPsiUtils.buildLexicalQualifiedNameCandidates(simpleName, context)
         val hasExplicitIdentity = typeName.startsWith("::") || normalizedName.contains("::")
 
         val identities = CrystalIndexService.findTypes(
             simpleName,
             context.project,
-            GlobalSearchScope.projectScope(context.project)
+            GlobalSearchScope.allScope(context.project)
         ).mapNotNull(CrystalPsiUtils::buildQualifiedName)
             .filter { if (hasExplicitIdentity) it == normalizedName else it in possibleIdentities }
             .distinct()

@@ -72,24 +72,7 @@ object CrystalCompletionHelper {
      * Returns the record's `CrystalMethodCallExpression` if found, null otherwise.
      */
     fun findRecordDefinition(className: String, file: PsiFile): CrystalMethodCallExpression? {
-        val recordCalls = PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java)
-        for (call in recordCalls) {
-            val methodName = call.firstChild
-            if (methodName?.text != "record") continue
-            val bareArgList = call.bareArgumentList ?: continue
-            val firstArg = bareArgList.bareArgumentList.firstOrNull() ?: continue
-            val firstName = firstArg.firstChild
-            // The CONSTANT may be wrapped in a VARIABLE_REFERENCE node
-            val nameText = if (firstName?.node?.elementType == CrystalTypes.CONSTANT) {
-                firstName.text
-            } else {
-                firstName?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
-            }
-            if (nameText == className) {
-                return call
-            }
-        }
-        return null
+        return CrystalPsiUtils.findRecordDefinition(className, file)
     }
 
     /**

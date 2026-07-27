@@ -11,54 +11,70 @@ data class DotCallInfo(
     val methodNameElement: PsiElement?
 )
 
-data class ArgumentlessDotCallInfo(
-    val receiverName: String,
-    val qualifiedReceiverName: String,
-    val hasExplicitReceiverIdentity: Boolean,
+data class DotCallDescriptor(
+    val access: CrystalDotCallAccess,
+    val receiver: PsiElement,
+    val receiverText: String,
+    val methodNameElement: PsiElement,
     val methodName: String,
-    val methodNameElement: PsiElement
+    val argumentHolder: PsiElement
 )
 
 object CrystalCallExtractor {
 
-    fun detectArgumentlessConstantDotCall(access: CrystalDotCallAccess): ArgumentlessDotCallInfo? {
-        if (access.callArgs != null || access.bareArgumentList != null) return null
-
+    fun extractDotCall(access: CrystalDotCallAccess): DotCallDescriptor? {
         val methodNameElement = access.node.getChildren(null).asSequence()
             .dropWhile { it.elementType != CrystalTypes.DOT }
             .drop(1)
-            .firstOrNull { child ->
-                val type = child.elementType
-                type == CrystalTypes.IDENTIFIER ||
-                    type == CrystalTypes.CONSTANT ||
+            .map { it.psi }
+            .firstOrNull { element ->
+                val type = element.node.elementType
+                type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT ||
                     CrystalTokenTypes.KEYWORDS.contains(type) ||
-                    CrystalTokenTypes.OPERATORS.contains(type)
+                    CrystalTokenTypes.OPERATORS.contains(type) ||
+                    element is CrystalMacroInterpolation
             }
-            ?.psi
             ?: return null
-        val methodName = methodNameElement.text
-        if (methodName == "new") return null
-
-        var receiver = access.prevSibling
-        while (receiver is PsiWhiteSpace || receiver?.node?.elementType == CrystalTypes.NEWLINE) {
-            receiver = receiver.prevSibling
+        val receiver = previousSignificantSibling(access) ?: access.node.getChildren(null)
+            .asSequence()
+            .takeWhile { it.elementType != CrystalTypes.DOT }
+            .map { it.psi }
+            .filterNot { it is PsiWhiteSpace || it.node.elementType == CrystalTypes.NEWLINE }
+            .lastOrNull()
+            ?: return null
+        val receiverText = when (receiver) {
+            is CrystalNamespaceAccess -> qualifiedReceiverText(receiver)
+            else -> receiver.text
         }
+        if (receiverText.isEmpty()) return null
+        return DotCallDescriptor(
+            access,
+            receiver,
+            receiverText,
+            methodNameElement,
+            methodNameElement.text,
+            access.callArgs ?: access.bareArgumentList ?: access
+        )
+    }
 
-        if (receiver is CrystalNamespaceAccess) {
-            val receiverName = receiver.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: return null
-            val qualifiedReceiverName = CrystalPsiUtils.buildNamespacePath(receiver)
-            if (qualifiedReceiverName.isEmpty()) return null
-            return ArgumentlessDotCallInfo(receiverName, qualifiedReceiverName, true, methodName, methodNameElement)
+    private fun qualifiedReceiverText(namespaceAccess: CrystalNamespaceAccess): String {
+        val path = CrystalPsiUtils.buildNamespacePath(namespaceAccess)
+        var current: PsiElement = namespaceAccess
+        while (true) {
+            when (val previous = previousSignificantSibling(current)) {
+                is CrystalNamespaceAccess -> current = previous
+                is CrystalVariableReference -> return path
+                else -> return "::$path"
+            }
         }
+    }
 
-        val receiverName = when {
-            receiver.node?.elementType == CrystalTypes.CONSTANT -> receiver.text
-            receiver is CrystalVariableReference ->
-                receiver.node.findChildByType(CrystalTypes.CONSTANT)?.text
-            else -> null
-        } ?: return null
-
-        return ArgumentlessDotCallInfo(receiverName, receiverName, false, methodName, methodNameElement)
+    private fun previousSignificantSibling(element: PsiElement): PsiElement? {
+        var sibling = element.prevSibling
+        while (sibling is PsiWhiteSpace || sibling?.node?.elementType == CrystalTypes.NEWLINE) {
+            sibling = sibling.prevSibling
+        }
+        return sibling
     }
 
     fun extractMethodName(callExpr: PsiElement): String? {

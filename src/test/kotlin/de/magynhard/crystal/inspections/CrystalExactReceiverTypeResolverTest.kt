@@ -3,10 +3,17 @@ package de.magynhard.crystal.inspections
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.PsiTestUtil
+import com.intellij.openapi.vfs.LocalFileSystem
 import de.magynhard.crystal.psi.CrystalDotCallAccess
+import de.magynhard.crystal.psi.CrystalPsiUtils
 import de.magynhard.crystal.psi.CrystalTypes
+import de.magynhard.crystal.stubs.CrystalIndexService
+import java.io.File
+import java.nio.file.Files
 
 class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
 
@@ -707,6 +714,122 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
             """.trimIndent()
         )
         assertUnresolved("value.run")
+    }
+
+    fun testQualifiedDeclarationResolvesTypedParameterThroughOuterNamespacePrefix() {
+        assertResolved(
+            """
+                module Outer
+                  class Service
+                  end
+                end
+                module Other
+                  class Service
+                  end
+                end
+                class Outer::Runner
+                  def execute(value : Service)
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Outer::Service")
+        )
+    }
+
+    fun testQualifiedDeclarationResolvesLocalConstructorThroughOuterNamespacePrefix() {
+        assertResolved(
+            """
+                module Outer
+                  class Service
+                  end
+                end
+                module Other
+                  class Service
+                  end
+                end
+                class Outer::Runner
+                  def execute
+                    value = Service.new
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Outer::Service")
+        )
+    }
+
+    fun testQualifiedDeclarationResolvesInstanceVariableThroughOuterNamespacePrefix() {
+        assertResolved(
+            """
+                module Outer
+                  class Service
+                  end
+                end
+                module Other
+                  class Service
+                  end
+                end
+                class Outer::Runner
+                  @value : Service
+
+                  def execute
+                    @value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Outer::Service")
+        )
+    }
+
+    fun testResolvesTypedParameterAndLocalConstructorFromLibraryScope() {
+        val tempDir = Files.createTempDirectory("crystal-exact-receiver-library")
+        Files.writeString(tempDir.resolve("library_service.cr"), "class LibraryService; end")
+        val root = requireNotNull(
+            LocalFileSystem.getInstance().refreshAndFindFileByNioFile(tempDir)
+        )
+        val library = PsiTestUtil.addProjectLibrary(
+            module,
+            "exact-receiver-library",
+            emptyList(),
+            listOf(root)
+        )
+        try {
+            assertEmpty(
+                CrystalIndexService.findTypes(
+                    "LibraryService",
+                    project,
+                    GlobalSearchScope.projectScope(project)
+                ).toList()
+            )
+            assertEquals(
+                listOf("LibraryService"),
+                CrystalIndexService.findTypes(
+                    "LibraryService",
+                    project,
+                    GlobalSearchScope.allScope(project)
+                ).mapNotNull(CrystalPsiUtils::buildQualifiedName)
+            )
+
+            assertResolved(
+                """
+                    def execute(value : LibraryService)
+                      value.run
+                    end
+                """.trimIndent(),
+                ExactReceiverType("LibraryService", "LibraryService")
+            )
+            assertResolved(
+                """
+                    value = LibraryService.new
+                    value.run
+                """.trimIndent(),
+                ExactReceiverType("LibraryService", "LibraryService")
+            )
+        } finally {
+            PsiTestUtil.removeLibrary(module, library)
+            File(tempDir.toString()).deleteRecursively()
+        }
     }
 
     private fun assertResolved(source: String, expected: ExactReceiverType) {

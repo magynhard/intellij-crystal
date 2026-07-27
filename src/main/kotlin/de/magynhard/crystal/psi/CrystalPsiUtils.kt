@@ -1,6 +1,7 @@
 package de.magynhard.crystal.psi
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.stubs.CrystalNamedStub
@@ -9,6 +10,79 @@ import de.magynhard.crystal.stubs.CrystalNamedStub
  * Utility functions for Crystal PSI elements.
  */
 object CrystalPsiUtils {
+
+    data class RecordDefinition(
+        val qualifiedName: String,
+        val call: CrystalMethodCallExpression
+    )
+
+    fun findRecordDefinition(className: String, file: PsiFile): CrystalMethodCallExpression? {
+        return findRecordDefinitions(className, file).firstOrNull()?.call
+    }
+
+    fun findRecordDefinitions(className: String, file: PsiFile): List<RecordDefinition> {
+        return PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java).mapNotNull { call ->
+            if (call.firstChild?.text != "record") return@mapNotNull null
+            val firstArgument = call.bareArgumentList?.bareArgumentList?.firstOrNull()
+                ?: return@mapNotNull null
+            val firstName = firstArgument.firstChild
+            val name = if (firstName?.node?.elementType == CrystalTypes.CONSTANT) {
+                firstName.text
+            } else {
+                firstName?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
+            }
+            if (name != className) return@mapNotNull null
+            val enclosingName = getEnclosingType(call)?.let(::buildQualifiedName)
+            RecordDefinition(
+                listOfNotNull(enclosingName, name).joinToString("::"),
+                call
+            )
+        }
+    }
+
+    fun buildLexicalQualifiedNameCandidates(simpleName: String, context: PsiElement): Set<String> {
+        val candidates = linkedSetOf(simpleName)
+        val enclosingParts = getEnclosingType(context)
+            ?.let(::buildQualifiedName)
+            ?.split("::")
+            .orEmpty()
+        for (size in enclosingParts.size downTo 1) {
+            candidates.add(enclosingParts.take(size).joinToString("::") + "::$simpleName")
+        }
+        return candidates
+    }
+
+    fun isInsideMacroControlRegion(element: PsiElement): Boolean {
+        var current = element
+        while (true) {
+            val parent = current.parent ?: return false
+            if (parent is PsiFile || parent is CrystalClassBody) {
+                var depth = 0
+                for (sibling in parent.children) {
+                    if (sibling === current) {
+                        if (depth > 0) return true
+                        break
+                    }
+                    if (sibling is CrystalMacroControl) {
+                        depth = updateMacroDepth(depth, sibling)
+                    }
+                }
+            }
+            current = parent
+        }
+    }
+
+    private fun updateMacroDepth(depth: Int, control: CrystalMacroControl): Int {
+        val keyword = control.text.removePrefix("{%")
+            .removeSuffix("%}")
+            .trim()
+            .takeWhile { !it.isWhitespace() }
+        return when (keyword) {
+            "end" -> (depth - 1).coerceAtLeast(0)
+            "if", "unless", "for", "case", "begin" -> depth + 1
+            else -> depth
+        }
+    }
 
     /**
      * Returns whether a method has a direct `self` receiver in its definition header.
