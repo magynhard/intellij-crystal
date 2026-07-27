@@ -22,6 +22,8 @@ processor.process
 
 Parenthesized, bare-argument, and argumentless calls differ only in how their arguments are extracted from PSI. Syntax must not change receiver resolution, hierarchy lookup, overload applicability, constructor precedence, or suppression.
 
+`CrystalTypeCheckInspection` matches named arguments against the parameter's external call-site name. Constructor shorthand parameters such as `initialize(@age : Int32)` expose `age` to callers, so `Boo.new age: value` must validate `value` against `Int32` exactly like `initialize(age : Int32)`.
+
 FFI functions declared with `lib fun` are outside the current inspection scope because they require separate declaration indexing and call resolution.
 
 ## Signature-Only Requirement Model
@@ -146,9 +148,23 @@ Every DOT-call must resolve its receiver to one distinct, exact type identity be
 
 Relevant instance-variable assignments are all assignments to that instance variable within the current enclosing type declaration, regardless of source order or control-flow branch. Assignments inside nested type declarations and assignments from inherited type bodies are excluded. Every relevant assignment must resolve to the same exact type; an unknown, ambiguous, union, nilable, or conflicting assignment suppresses resolution rather than selecting a type by proximity or source order. Support for inherited instance-variable declarations and assignments is deferred in `TODO.md`.
 
-Constant receivers search class methods. Inferred value receivers search instance methods. Top-level methods, instance methods on unrelated types, and class methods on unrelated types never enter the candidate set. Resolution and hierarchy lookup use StubIndex-backed declarations and must not scan project files or fall back to a method name alone.
+Constant receivers search class methods. Inferred value receivers search instance methods. Top-level methods, instance methods on unrelated types, and class methods on unrelated types never enter the candidate set. Resolution and hierarchy lookup use StubIndex-backed declarations across project and synthetic-library scopes and must not scan project files or fall back to a method name alone.
 
 The receiver's exact type and its ancestors form one hierarchy lookup. All exact same-named overloads from that hierarchy form the candidate set and are evaluated independently. An unrelated declaration must not enter the set, and a rejecting declaration at a nearer hierarchy level must not block an inherited overload that accepts the call.
+
+`CrystalDotCallTargetResolver.resolve(access)` is the shared target-resolution boundary. `CrystalCallExtractor` derives one descriptor from the owning `CrystalDotCallAccess`, containing the exact receiver PSI, normalized receiver spelling, method-name PSI/name, and the argument holder. The access itself is the holder for argumentless calls; `CrystalCallArgs` and `CrystalBareArgumentList` remain the holders for parenthesized and bare calls.
+
+Hierarchy traversal carries both exact qualified type identity and method exposure mode. Direct declarations are searched first, then later `include`/`extend` edges before earlier edges, and finally the superclass while preserving static or instance receiver mode. An `include` exposes module instance methods to instance lookup; an `extend` exposes module instance methods to static lookup. Metadata is combined across exact type reopenings. Every simple-name StubIndex result is filtered back to its declaration's qualified identity before it can contribute a type, edge, or method.
+
+Hierarchy completeness is part of resolution. A missing, ambiguous, unsupported, or conflicting relevant superclass/include/extend identity suppresses the call instead of returning a partial candidate set or an implicit constructor. Edges for the other receiver mode are irrelevant: unresolved `extend` metadata does not suppress instance lookup, and unresolved `include` metadata does not suppress static lookup.
+
+Qualified enclosing declarations contribute every namespace prefix. Inside `class Outer::Runner`, a simple `Service` therefore considers `Outer::Runner::Service`, `Outer::Service`, and global `Service`. The same candidate generation applies to constant calls, typed parameters, local constructor assignments, and instance-variable annotations.
+
+`extend self` exposes the exact type's instance methods to its static receiver while retaining direct `def self.name` methods. Legal visibility wrappers around include/extend statements do not hide those edges. Methods or relevant edges inside macro-control regions are not unconditional evidence and make the affected hierarchy lookup incomplete. The same rule applies when an exact class/module/struct declaration or reopening is itself enclosed by a file-level or type-level macro-control sibling region.
+
+Nearest-first candidate deduplication uses a resolver-specific structural signature rather than completion display text. Explicitly delimited fields retain parameter kind, separate external/internal names, normalized type restrictions (including direct `type_union` restrictions on anonymous block parameters), named-only position, and required/default shape. Default expression contents do not participate. Within one file, later exact type methods and repeated include/extend edges take precedence. Identical signatures from exact reopenings in different files suppress because require/load precedence is not indexed; callable-distinct cross-file overloads remain candidates. Multiple relevant include/extend edges contributed by different files also suppress until their load precedence can be proven.
+
+Task 3 returns exact candidate definition sets only. Argument applicability and uniquely closest rejecting-overload selection remain the responsibility of Task 4, after target resolution succeeds.
 
 ## Constructor Resolution
 
@@ -158,7 +174,13 @@ Calls to `.new` use constructor-specific precedence for every call syntax. Again
 2. Only when no `def self.new` definitions exist, all `initialize` definitions, including inherited definitions.
 3. Only when neither definition set exists, implicit zero-argument construction.
 
-Constructor fallback depends only on definition-set presence, never on whether an overload accepts the supplied arguments. Once a non-empty `self.new` or `initialize` set is selected, the inspection evaluates that full overload set and reports against its uniquely closest overload when none accepts. It must not fall through to the next constructor source after selecting a non-empty set. Implicit construction supplies an exact zero-argument signature only when both explicit definition sets are empty; a call that supplies arguments is diagnosed against that signature rather than treated as an unknown target.
+The `self.new` definition-set search traverses direct exact types and static superclasses only. It does not traverse `extend` edges or become incomplete from unresolved or macro-controlled extends, because extended module instance methods named `new` are not members of constructor precedence. The later `initialize` fallback retains normal instance superclass/include hierarchy semantics. Ordinary static method calls continue to treat unresolved relevant extend edges as incomplete.
+
+Constructor fallback depends only on definition-set presence, never on whether an overload accepts the supplied arguments. Once a non-empty `self.new` or `initialize` set is selected, the inspection evaluates that full overload set and reports against its uniquely closest overload when none accepts. It must not fall through to the next constructor source after selecting a non-empty set. Implicit construction supplies an exact zero-argument signature only when both explicit definition sets are empty; positional or named arguments are excess, resolved splat and double-splat counts are excess on the method name, unresolved expansions suppress validation, and a block pass does not count as an argument.
+
+Simple constant `.new` selects the nearest lexical identity across current-file records and exact indexed types. A record produces `RecordFallback` only when it occupies that selected identity; when a record and indexed type share the selected exact identity, the existing record-first behavior is retained. A nearer nested class or struct therefore takes precedence over a farther global record, while a nearer nested record takes precedence over a farther indexed type. Qualified record calls and inferred value receivers remain unsupported and suppress; records are not treated as ordinary indexed classes.
+
+Record fallback retains exact lexical identity. A record nested as `Other::Config` cannot satisfy top-level `Config.new`, while simple `Config.new` inside `Other` may select that nested record. A record declaration inside a file-level or type-level macro-control region is conditional evidence and suppresses resolution when its identity would otherwise be selected. Qualified record call syntax remains unsupported only when the reconstructed qualified record identity exactly matches the receiver; an unrelated `A::Config` does not suppress exact class `B::Config`. An exact abstract class is not constructible; `.new` suppresses rather than producing an implicit constructor.
 
 ## Suppression
 
@@ -169,8 +191,10 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - Conflicting local-variable receiver information that prevents one exact nearest assignment from being resolved.
 - Conflicting instance-variable assignment types.
 - A class-variable receiver.
-- A record constructor or record instance method until records use the shared call resolver.
+- A qualified record constructor or record instance method until records use exact generated-signature resolution.
 - A macro-interpolated receiver, method name, or constructor target.
+
+Macro interpolation contained only inside an argument does not suppress an otherwise exact target. Task 4 decides whether and how that argument can be validated.
 
 Unknown methods and calls with no exact receiver-specific declaration are likewise suppressed, except that constructor resolution can produce the implicit zero-argument signature defined above. A resolved declaration may still reject the supplied arguments and produce a diagnostic. The inspection must prefer no diagnostic over a name-only guess.
 
@@ -230,8 +254,9 @@ Automated tests must cover the following behavior across parenthesized, bare-arg
 - A combined nilable/default/splat/named-only/double-splat signature that reports only required regular parameters.
 - Local variables, regular parameters, destructured method/block/macro parameters, internal parameter names, type declarations, and same-named macros that shadow indexed method names.
 - Simple constant receivers resolved through an unambiguous enclosing lexical namespace, including rejection of ambiguous and unrelated namespace identities.
-- Suppression for unknown, ambiguous, union, nilable, conflicting, class-variable, record, and macro-interpolated targets.
+- Simple record constructors validated through exact current-file `RecordFallback`, including argumentless calls and lexical collisions with indexed types.
+- Suppression for unknown, ambiguous, union, nilable, conflicting, class-variable, qualified or macro-controlled record, record-instance, and macro-interpolated targets.
 - Unknown methods and calls without an exact receiver-specific declaration.
 - Single ownership of every call site, with no duplicate diagnostics from nested DOT-call, call-expression, argument-list, or method-name PSI.
 
-Existing direct-call shadowing, parameter classification, excess-argument, named-argument, and splat-expansion behavior remains unchanged except where this contract explicitly unifies resolution across call syntax. Records remain suppressed pending the shared-resolver follow-up in `TODO.md`.
+Existing direct-call shadowing, parameter classification, excess-argument, named-argument, and splat-expansion behavior remains unchanged except where this contract explicitly unifies resolution across call syntax. Record instance calls and qualified record constructors remain suppressed pending the shared-resolver follow-up in `TODO.md`.

@@ -5,8 +5,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.util.PsiTreeUtil
-import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 
@@ -35,56 +33,23 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     is CrystalMethodCallExpression -> checkCall(element, holder)
                     is CrystalBareMethodCallExpression -> checkCall(element, holder)
                     is CrystalVariableReference -> checkArgumentlessDirectCall(element, holder)
-                    is CrystalDotCallAccess -> checkArgumentlessConstantDotCall(element, holder)
-                    is CrystalCallArgs, is CrystalBareArgumentList -> {
-                        val dotCallInfo = CrystalCallExtractor.detectDotCall(element)
-                        if (dotCallInfo != null) {
-                            checkDotCall(element, dotCallInfo, holder)
-                        }
+                    is CrystalDotCallAccess -> if (element.callArgs == null && element.bareArgumentList == null) {
+                        checkDotCall(element, holder)
+                    }
+                    is CrystalCallArgs, is CrystalBareArgumentList -> findOwningDotCall(element)?.let {
+                        checkDotCall(it, holder)
                     }
                 }
             }
         }
     }
 
-    private fun checkArgumentlessConstantDotCall(access: CrystalDotCallAccess, holder: ProblemsHolder) {
-        val info = CrystalCallExtractor.detectArgumentlessConstantDotCall(access) ?: return
-        val project = access.project
-        val scope = GlobalSearchScope.projectScope(project)
-        val receiverIdentity = resolveArgumentlessReceiverIdentity(access, info, scope) ?: return
-        val methods = CrystalIndexService.findMethodsByClass(info.receiverName, project, scope)
-            .filter { it.name == info.methodName }
-            .filter(CrystalPsiUtils::isSelfMethod)
-            .filter { method ->
-                CrystalPsiUtils.getEnclosingType(method)
-                    ?.let(CrystalPsiUtils::buildQualifiedName) == receiverIdentity
+    private fun findOwningDotCall(argumentHolder: PsiElement): CrystalDotCallAccess? {
+        return generateSequence(argumentHolder.parent) { it.parent }
+            .filterIsInstance<CrystalDotCallAccess>()
+            .firstOrNull {
+                it.callArgs === argumentHolder || it.bareArgumentList === argumentHolder
             }
-
-        if (methods.isNotEmpty()) {
-            checkArgumentCount(methods, emptyList(), info.methodNameElement, holder)
-        }
-    }
-
-    private fun resolveArgumentlessReceiverIdentity(
-        access: CrystalDotCallAccess,
-        info: ArgumentlessDotCallInfo,
-        scope: GlobalSearchScope
-    ): String? {
-        if (info.hasExplicitReceiverIdentity) return info.qualifiedReceiverName
-
-        val possibleIdentities = mutableSetOf(info.receiverName)
-        var enclosingType = CrystalPsiUtils.getEnclosingType(access)
-        while (enclosingType != null) {
-            CrystalPsiUtils.buildQualifiedName(enclosingType)
-                ?.let { possibleIdentities.add("$it::${info.receiverName}") }
-            enclosingType = enclosingType.parent?.let(CrystalPsiUtils::getEnclosingType)
-        }
-
-        val identities = CrystalIndexService.findTypes(info.receiverName, access.project, scope)
-            .mapNotNull(CrystalPsiUtils::buildQualifiedName)
-            .filter { it in possibleIdentities }
-            .distinct()
-        return identities.singleOrNull()
     }
 
     private fun checkArgumentlessDirectCall(reference: CrystalVariableReference, holder: ProblemsHolder) {
@@ -129,72 +94,83 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val scope = GlobalSearchScope.projectScope(project)
         val methods = CrystalIndexService.findMethods(methodName, project, scope).toList()
 
-        if (methodName == "new") {
-            val className = CrystalCallExtractor.findClassNameBeforeNew(callExpr)
-            if (className != null) {
-                // Check record definition first — if `record Config, ...` exists in the
-                // current file, its parameters take priority over any `class Config`
-                // defined elsewhere (which might have a different `initialize`).
-                val recordParams = findRecordParameters(className, callExpr)
-                if (recordParams != null) {
-                    checkRecordArguments(recordParams, arguments, methodNameElement, holder)
-                    return
-                }
-                // No record found — try regular class initialize
-                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, callExpr.containingFile)
-                if (initMethod != null) {
-                    checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
-                    return
-                }
-            }
-        }
-
         if (methods.isEmpty()) return
 
         checkArgumentCount(methods, arguments, methodNameElement, holder)
     }
 
-    private fun checkDotCall(argsElement: PsiElement, info: DotCallInfo, holder: ProblemsHolder) {
-        val methodNameElement = info.methodNameElement ?: return
-        // Skip DOT-calls on local variables/parameters — we can't reliably determine
-        // the receiver's type, so we only check calls on Constants (class methods).
-        val firstChar = info.receiverName.firstOrNull() ?: return
-        if (!firstChar.isUpperCase()) return
-
-        val arguments = extractArgumentsFromArgsElement(argsElement)
-
-        val project = argsElement.project
-        val scope = GlobalSearchScope.projectScope(project)
-        var methods = CrystalIndexService.findMethods(info.methodName, project, scope).toList()
-
-        // Filter to methods defined inside a class/module matching the receiver name.
-        // This prevents false positives like ::Bytes.new(...) matching unrelated new overloads.
-        // Only filter when methods actually have an enclosing type; top-level defs stay.
-        methods = methods.filter { method ->
-            val enclosing = findEnclosingTypeName(method)
-            enclosing == null || enclosing == info.receiverName
+    private fun checkDotCall(access: CrystalDotCallAccess, holder: ProblemsHolder) {
+        val resolution = CrystalDotCallTargetResolver.resolve(access)
+        val call = when (resolution) {
+            is DotCallResolution.Methods -> resolution.call
+            is DotCallResolution.ImplicitConstructor -> resolution.call
+            is DotCallResolution.RecordFallback -> resolution.call
+            DotCallResolution.Suppressed, DotCallResolution.Unresolved -> return
         }
+        val arguments = extractArgumentsFromArgsElement(call.argumentHolder)
 
-        if (info.methodName == "new") {
-            // Check record definition first — if `record Config, ...` exists in the
-            // current file, its parameters take priority over any `class Config`
-            // defined elsewhere (which might have a different `initialize`).
-            val recordParams = findRecordParameters(info.receiverName, argsElement)
-            if (recordParams != null) {
-                checkRecordArguments(recordParams, arguments, methodNameElement, holder)
-                return
+        when (resolution) {
+            is DotCallResolution.Methods -> checkArgumentCount(
+                resolution.methods,
+                arguments,
+                call.methodNameElement,
+                holder
+            )
+            is DotCallResolution.ImplicitConstructor -> checkImplicitConstructorArguments(
+                arguments,
+                call.methodNameElement,
+                holder
+            )
+            is DotCallResolution.RecordFallback -> {
+                val recordArguments = resolution.recordDefinition.bareArgumentList ?: return
+                checkRecordArguments(
+                    extractRecordFields(recordArguments),
+                    arguments,
+                    call.methodNameElement,
+                    holder
+                )
             }
-            // No record found — try regular class initialize
-            val initMethod = CrystalCompletionHelper.getInitializeMethod(info.receiverName, project, argsElement.containingFile)
-            if (initMethod != null) {
-                checkArgumentCount(listOf(initMethod), arguments, methodNameElement, holder)
-                return
+            DotCallResolution.Suppressed, DotCallResolution.Unresolved -> Unit
+        }
+    }
+
+    private fun checkImplicitConstructorArguments(
+        arguments: List<ArgumentInfo>,
+        methodNameElement: PsiElement,
+        holder: ProblemsHolder
+    ) {
+        if (arguments.any { it.isSplat && it.resolvedSplatCount == null }) return
+        if (arguments.any { it.isDoubleSplat && it.resolvedDoubleSplatKeys == null }) return
+
+        val effectivePositionalCount = arguments.sumOf { argument ->
+            when {
+                argument.isBlockPass -> 0
+                argument.isSplat -> argument.resolvedSplatCount ?: 1
+                argument.isDoubleSplat || argument.name != null -> 0
+                else -> 1
             }
         }
+        val namedArgumentNames = buildSet {
+            arguments.forEach { argument ->
+                argument.name?.let(::add)
+                argument.resolvedDoubleSplatKeys?.let(::addAll)
+            }
+        }
+        val effectiveArgCount = effectivePositionalCount + namedArgumentNames.size
+        if (effectiveArgCount == 0) return
 
-        if (methods.isEmpty()) return
-
-        checkArgumentCount(methods, arguments, methodNameElement, holder)
+        val message = "Too many arguments: expected at most 0, got $effectiveArgCount"
+        if (arguments.any { it.isSplat || it.isDoubleSplat }) {
+            holder.registerProblem(methodNameElement, message, ProblemHighlightType.GENERIC_ERROR)
+            return
+        }
+        arguments.filterNot { it.isBlockPass }.forEach { argument ->
+            holder.registerProblem(
+                findHighlightTarget(argument.element),
+                message,
+                ProblemHighlightType.GENERIC_ERROR
+            )
+        }
     }
 
     private fun checkArgumentCount(
@@ -414,12 +390,10 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
             is CrystalBareMethodCallExpression -> {
                 val callArgs = callExpr.callArgs
-                if (callArgs != null) {
-                    val argList = callArgs.argumentList
-                    if (argList != null) {
-                        for (arg in argList.argumentList) {
-                            result.add(extractArgInfo(arg))
-                        }
+                val argList = callArgs.argumentList
+                if (argList != null) {
+                    for (arg in argList.argumentList) {
+                        result.add(extractArgInfo(arg))
                     }
                 }
             }
@@ -675,38 +649,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         return element
     }
 
-    private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
-        return CrystalCompletionHelper.getEnclosingClassName(method)
-    }
-
     // ==================== Record Macro Support ====================
-
-    /**
-     * Finds a `record ClassName, ...` macro call in the file and extracts its parameter list.
-     * Returns the list of parameter infos (name, hasDefault) or null if no record found.
-     */
-    private fun findRecordParameters(className: String, contextElement: PsiElement): List<ParamInfo>? {
-        val file = contextElement.containingFile ?: return null
-        val recordCalls = PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java)
-        for (call in recordCalls) {
-            val methodName = call.firstChild
-            if (methodName?.text != "record") continue
-            // First bare argument should be the class name (CONSTANT, possibly wrapped in VARIABLE_REFERENCE)
-            val bareArgList = call.bareArgumentList ?: continue
-            val firstArg = bareArgList.bareArgumentList.firstOrNull() ?: continue
-            val firstName = firstArg.firstChild
-            // The CONSTANT may be wrapped in a VARIABLE_REFERENCE node
-            val nameText = if (firstName?.node?.elementType == CrystalTypes.CONSTANT) {
-                firstName.text
-            } else {
-                firstName?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
-            }
-            if (nameText == className) {
-                return extractRecordFields(bareArgList)
-            }
-        }
-        return null
-    }
 
     /**
      * Extracts parameter infos from a record's bare argument list.

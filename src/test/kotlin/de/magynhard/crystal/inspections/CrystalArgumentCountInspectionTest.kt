@@ -1,8 +1,6 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.intellij.psi.util.PsiTreeUtil
-import de.magynhard.crystal.psi.CrystalDotCallAccess
 
 class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
 
@@ -414,7 +412,9 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
 
     fun testDotCallMissingArg() {
         myFixture.configureByText("test.cr", """
-            def self.create(name : String, age : Int32)
+            class Foo
+              def self.create(name : String, age : Int32)
+              end
             end
             Foo.<error descr="Missing required argument(s): 'age'">create</error>("Hans")
         """.trimIndent())
@@ -423,7 +423,9 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
 
     fun testDotCallCorrect() {
         myFixture.configureByText("test.cr", """
-            def self.create(name : String)
+            class Foo
+              def self.create(name : String)
+              end
             end
             Foo.create("Hans")
         """.trimIndent())
@@ -439,26 +441,6 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             Factory.<error descr="Missing required argument(s): 'name'">create</error>
         """.trimIndent())
         myFixture.checkHighlighting()
-    }
-
-    fun testArgumentlessConstantDotCallExtractionUsesExactReceiverIdentity() {
-        val file = myFixture.configureByText("test.cr", """
-            Factory.create
-            Outer::Factory.build
-        """.trimIndent())
-        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java).toList()
-
-        val direct = CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[0])
-        assertNotNull(direct)
-        assertEquals("Factory", direct?.receiverName)
-        assertEquals("Factory", direct?.qualifiedReceiverName)
-        assertEquals("create", direct?.methodName)
-
-        val qualified = CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[1])
-        assertNotNull(qualified)
-        assertEquals("Factory", qualified?.receiverName)
-        assertEquals("Outer::Factory", qualified?.qualifiedReceiverName)
-        assertEquals("build", qualified?.methodName)
     }
 
     fun testArgumentlessKeywordClassMethodReportsRequiredParameter() {
@@ -483,20 +465,6 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testArgumentlessConstantDotCallExtractionSkipsWhitespaceAndNewline() {
-        val file = myFixture.configureByText("test.cr", """
-            Factory .create
-            Factory
-              .build
-        """.trimIndent())
-        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java).toList()
-
-        assertEquals("Factory", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[0])?.receiverName)
-        assertEquals("create", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[0])?.methodName)
-        assertEquals("Factory", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[1])?.receiverName)
-        assertEquals("build", CrystalCallExtractor.detectArgumentlessConstantDotCall(accesses[1])?.methodName)
-    }
-
     fun testArgumentlessAbsoluteDeeplyQualifiedClassMethodUsesExactReceiver() {
         myFixture.configureByText("test.cr", """
             module Outer
@@ -517,10 +485,6 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
 
-        val access = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalDotCallAccess::class.java).single()
-        val info = CrystalCallExtractor.detectArgumentlessConstantDotCall(access)
-        assertEquals("Factory", info?.receiverName)
-        assertEquals("Outer::Inner::Factory", info?.qualifiedReceiverName)
     }
 
     fun testArgumentlessQualifiedClassMethodReportsRequiredParameter() {
@@ -662,7 +626,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testArgumentlessDotCallsWithUnsupportedReceiversAreIgnored() {
+    fun testArgumentlessDotCallsResolveInheritanceAndSuppressUnsupportedReceivers() {
         myFixture.configureByText("test.cr", """
             class Parent
               def self.create(name)
@@ -676,7 +640,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             end
             factory = Factory.new
             factory.create
-            Child.create
+            Child.<error descr="Missing required argument(s): 'name'">create</error>
             Unknown.create
         """.trimIndent())
         myFixture.checkHighlighting()
@@ -701,13 +665,364 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testArgumentlessNewIsNotExpandedToInitialize() {
+    fun testArgumentlessConstructorAndInstanceCallReportRequiredParameters() {
         myFixture.configureByText("test.cr", """
-            class Factory
-              def initialize(name)
+            class Foos
+              def initialize(age : Int32)
+              end
+              def dance(name : String)
               end
             end
-            Factory.new
+            a = Foos.<error descr="Missing required argument(s): 'age'">new</error>
+            a.<error descr="Missing required argument(s): 'name'">dance</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testConstructorFormsRespectRequiredDefaultAndNilableParameters() {
+        myFixture.configureByText("test.cr", """
+            class Required
+              def initialize(value : String?)
+              end
+            end
+            Required.<error descr="Missing required argument(s): 'value'">new</error>
+            Required.<error descr="Missing required argument(s): 'value'">new</error>()
+            Required.new nil
+
+            class Optional
+              def initialize(value : String? = nil)
+              end
+            end
+            Optional.new
+            Optional.new()
+            Optional.new "value"
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInstanceCallFormsUseExactReceiverMethods() {
+        myFixture.configureByText("test.cr", """
+            class Foos
+              def first(value : Int32)
+              end
+            end
+            a = Foos.new
+            a.<error descr="Missing required argument(s): 'value'">first</error>
+            a.<error descr="Missing required argument(s): 'value'">first</error>()
+            a.first 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTypedAndInferredReceiversUseExactInstanceMethods() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def run(value)
+              end
+            end
+            class Runner
+              @typed : Service
+
+              def initialize(@parameter_service : Service)
+                @assigned = Service.new
+              end
+
+              def exercise(parameter : Service)
+                parameter.<error descr="Missing required argument(s): 'value'">run</error>
+                @parameter_service.<error descr="Missing required argument(s): 'value'">run</error>
+                @typed.<error descr="Missing required argument(s): 'value'">run</error>
+                @assigned.<error descr="Missing required argument(s): 'value'">run</error>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNearestLocalAssignmentAndReassignmentControlResolution() {
+        myFixture.configureByText("test.cr", """
+            class First
+              def run(first)
+              end
+            end
+            class Second
+              def run(second, extra)
+              end
+            end
+            value = First.new
+            value.<error descr="Missing required argument(s): 'first'">run</error>
+            value = Second.new
+            value.<error descr="Missing required argument(s): 'second', 'extra'">run</error>
+            value = unknown
+            value.run
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInheritedMethodsInitializersAndCompleteOverloadsAreEvaluated() {
+        myFixture.configureByText("test.cr", """
+            class Parent
+              def initialize(age)
+              end
+              def run(parent_value)
+              end
+            end
+            class Child < Parent
+              def run(child_value, extra)
+              end
+            end
+            Child.<error descr="Missing required argument(s): 'age'">new</error>
+            child = Child.new 1
+            child.<error descr="Missing required argument(s): 'parent_value'">run</error>
+            child.run 1
+
+            class Overloaded
+              def choose(value)
+              end
+              def choose
+              end
+            end
+            overloaded = Overloaded.new
+            overloaded.choose
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testConstructorDefinitionSetPriorityDoesNotFallThrough() {
+        myFixture.configureByText("test.cr", """
+            class Explicit
+              def self.new(first, second)
+              end
+              def initialize(first)
+              end
+            end
+            Explicit.<error descr="Missing required argument(s): 'second'">new</error> 1
+
+            class Initialized
+              def initialize(first, second)
+              end
+            end
+            Initialized.<error descr="Missing required argument(s): 'second'">new</error> 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testStructAndImplicitConstructorsUseConstructorRules() {
+        myFixture.configureByText("test.cr", """
+            struct Point
+              def initialize(x, y)
+              end
+            end
+            Point.<error descr="Missing required argument(s): 'y'">new</error> 1
+
+            class Empty
+            end
+            Empty.new
+            Empty.new()
+            Empty.new <error descr="Too many arguments: expected at most 0, got 1">1</error>
+            Empty.new(<error descr="Too many arguments: expected at most 0, got 2">1</error>, <error descr="Too many arguments: expected at most 0, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testImplicitConstructorNamedArgumentIsExcess() {
+        myFixture.configureByText("test.cr", """
+            class Empty
+            end
+            Empty.new(value: <error descr="Too many arguments: expected at most 0, got 1">1</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testImplicitConstructorResolvedSplatIsExcessOnMethodName() {
+        myFixture.configureByText("test.cr", """
+            class Empty
+            end
+            values = {1, 2}
+            Empty.<error descr="Too many arguments: expected at most 0, got 2">new</error>(*values)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testImplicitConstructorUnresolvedSplatIsSuppressed() {
+        myFixture.configureByText("test.cr", """
+            class Empty
+            end
+            Empty.new(*unknown_values)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testImplicitConstructorResolvedDoubleSplatIsExcessOnMethodName() {
+        myFixture.configureByText("test.cr", """
+            class Empty
+            end
+            options = {first: 1, second: 2}
+            Empty.<error descr="Too many arguments: expected at most 0, got 2">new</error>(**options)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testImplicitConstructorUnresolvedDoubleSplatIsSuppressed() {
+        myFixture.configureByText("test.cr", """
+            class Empty
+            end
+            Empty.new(**unknown_options)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testImplicitConstructorBlockPassDoesNotCountAsArgument() {
+        myFixture.configureByText("test.cr", """
+            class Empty
+            end
+            block = ->{ nil }
+            Empty.new(&block)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testResolvedDotCallPreservesSplatAndDoubleSplatSemantics() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def run(first, second)
+              end
+              def configure(host, port)
+              end
+            end
+            service = Service.new
+            values = {1, 2}
+            options = {host: "localhost", port: 8080}
+            service.run(*values)
+            service.configure(**options)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInexactReceiversAndTargetsAreSuppressed() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def run(value)
+              end
+            end
+            class Other
+              def run(unrelated)
+              end
+            end
+            def unknown_receiver(value)
+              value.run
+            end
+            def union_receiver(value : Service | Other)
+              value.run
+            end
+            def nilable_receiver(value : Service?)
+              value.run
+            end
+            class Conflicting
+              def initialize(flag)
+                @value = Service.new
+                @value = Other.new if flag
+              end
+              def exercise
+                @value.run
+                @@value.run
+              end
+            end
+            value = Service.new
+            value = unresolved
+            value.run
+            Service.unknown
+            Unknown.run
+            Service.{{ method }}
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testAmbiguousRecordAndIncompleteHierarchyTargetsAreSuppressed() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def self.run(value)
+              end
+            end
+            module Outer
+              class Service
+                def self.run(value)
+                end
+              end
+              def self.exercise
+                Service.run
+              end
+            end
+            record Entry, value : Int32
+            entry = Entry.new 1
+            entry.run
+            class Child < MissingParent
+            end
+            Child.new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNearerNestedClassConstructorTakesPrecedenceOverGlobalRecord() {
+        myFixture.configureByText("test.cr", """
+            record Config, record_value : Int32
+
+            module Other
+              class Config
+                def initialize(class_value)
+                end
+              end
+
+              def self.exercise
+                Config.<error descr="Missing required argument(s): 'class_value'">new</error>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroControlledRecordDoesNotProduceArgumentDiagnostic() {
+        myFixture.configureByText("test.cr", """
+            {% if false %}
+            record Config, hidden_value : Int32
+            {% end %}
+
+            Config.new
+
+            {% if unresolved_flag %}
+            record DynamicConfig, hidden_value : Int32
+            {% end %}
+
+            DynamicConfig.new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrelatedSameNamedMethodsDoNotAffectExactReceiver() {
+        myFixture.configureByText("test.cr", """
+            class Target
+              def run(value)
+              end
+            end
+            class Other
+              def run
+              end
+            end
+            target = Target.new
+            target.<error descr="Missing required argument(s): 'value'">run</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDotCallOwnershipProducesOneDiagnosticPerCallForm() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def run(value)
+              end
+            end
+            service = Service.new
+            service.<error descr="Missing required argument(s): 'value'">run</error>
+            service.<error descr="Missing required argument(s): 'value'">run</error>()
+            service.run 1, <error descr="Too many arguments: expected at most 1, got 2">2</error>
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -1003,6 +1318,14 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             record Config, host : String, port : Int32 = 80
             Config.<error descr="Missing required argument(s): 'host'">new</error>(port: 8080)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessRecordFallbackReportsMissingRequiredField() {
+        myFixture.configureByText("test.cr", """
+            record Config, host : String, port : Int32 = 80
+            Config.<error descr="Missing required argument(s): 'host'">new</error>
         """.trimIndent())
         myFixture.checkHighlighting()
     }
