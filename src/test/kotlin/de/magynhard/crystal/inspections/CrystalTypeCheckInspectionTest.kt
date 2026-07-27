@@ -233,6 +233,18 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testConstructorNamedArgumentMatchesInstanceVariableParameter() {
+        myFixture.configureByText("test.cr", """
+            class Boo
+              def initialize(@age : Int32)
+              end
+            end
+
+            Boo.new age: <error descr="Type mismatch: expected 'Int32', got 'String'">"some string"</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Record macro type checking ====================
 
     fun testRecordNewWithCorrectTypes() {

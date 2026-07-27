@@ -382,7 +382,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // Named argument: find parameter by name
         if (argName != null) {
             for (param in params) {
-                val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
+                val paramName = CrystalCompletionHelper.extractParameterName(param)
                 if (paramName == argName) return param
             }
             return null
