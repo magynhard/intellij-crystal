@@ -326,14 +326,6 @@ object CrystalCompletionHelper {
     }
 
     /**
-     * Returns whether a type can be instantiated with .new (classes and structs only).
-     */
-    fun canInstantiate(typeName: String, project: Project): Boolean {
-        val result = findTypeByName(typeName, project) ?: return true // unknown type — offer new as fallback
-        return result.kind == TypeKind.CLASS || result.kind == TypeKind.STRUCT
-    }
-
-    /**
      * Returns all class/module/struct/enum names from the project-wide StubIndex.
      */
     fun getAllClassNames(project: Project): Collection<String> {
@@ -377,17 +369,17 @@ object CrystalCompletionHelper {
     }
 
     /**
-     * Builds a LookupElement for `new` with initialize parameters.
+     * Builds a LookupElement for `new` from an already resolved exact-identity
+     * constructor method. A null [initialize] renders a parameterless `new`.
      */
-    fun buildNewLookup(className: String, project: Project, currentFile: PsiFile? = null): LookupElementBuilder {
-        val initMethod = getInitializeMethod(className, project, currentFile)
-        val signature = if (initMethod != null) getParameterSignature(initMethod) else "()"
+    fun buildResolvedNewLookup(initialize: CrystalMethodDefinition?, displayTypeName: String): LookupElementBuilder {
+        val signature = if (initialize != null) getParameterSignature(initialize) else "()"
         val tailText = if (signature == "()") "" else signature
 
         return LookupElementBuilder.create("new")
             .withIcon(AllIcons.Nodes.Method)
             .withTailText(tailText, true)
-            .withTypeText(className, true)
+            .withTypeText(displayTypeName, true)
     }
 
     /**

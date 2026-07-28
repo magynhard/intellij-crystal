@@ -150,17 +150,21 @@ internal object CrystalCompletionReceiverResolver {
     ): CompletionReceiver {
         val normalizedRoot = typeRoot.removePrefix("::")
         val explicitIdentity = typeRoot.startsWith("::") || normalizedRoot.contains("::")
+        // The shared constructor classifier encodes record-vs-type precedence at each exact
+        // identity and selects the nearest lexically visible identity first.
+        val record = session.resolveConstructor(typeRoot, context) as? CrystalConstructorResolution.Record
+        if (record != null) {
+            return CompletionReceiver.TypeObject(
+                record.identity.simpleName,
+                record.identity.qualifiedName,
+                explicitIdentity,
+                record.recordDefinition
+            )
+        }
         session.resolveType(typeRoot, context)?.let { identity ->
             return CompletionReceiver.TypeObject(identity.simpleName, identity.qualifiedName, explicitIdentity)
         }
-        val record = session.resolveConstructor(typeRoot, context) as? CrystalConstructorResolution.Record
-            ?: return CompletionReceiver.Unknown
-        return CompletionReceiver.TypeObject(
-            record.identity.simpleName,
-            record.identity.qualifiedName,
-            explicitIdentity,
-            record.recordDefinition
-        )
+        return CompletionReceiver.Unknown
     }
 
     private fun methodName(call: PsiElement): String? {

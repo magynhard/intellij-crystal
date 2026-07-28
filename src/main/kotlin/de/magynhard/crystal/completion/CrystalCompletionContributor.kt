@@ -8,6 +8,9 @@ import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.analysis.CrystalConstructorResolution
+import de.magynhard.crystal.analysis.CrystalTypeIdentity
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 
 /**
  * Code completion contributor for Crystal.
@@ -161,10 +164,32 @@ internal object CrystalTypeObjectCompletionProvider {
         val record = receiver.recordDefinition
         if (record != null) {
             result.addElement(CrystalCompletionHelper.buildRecordNewLookup(record, receiver.qualifiedName))
-        } else if (!receiver.explicitIdentity && CrystalCompletionHelper.canInstantiate(receiver.simpleName, project)) {
-            result.addElement(
-                CrystalCompletionHelper.buildNewLookup(receiver.simpleName, project, parameters.originalFile)
+        } else if (!receiver.explicitIdentity) {
+            addSyntheticNew(receiver, parameters, result)
+        }
+    }
+
+    /**
+     * Offers a synthetic `new` derived from the shared constructor metadata of the exact
+     * selected type identity, so same-simple-name types in other namespaces can never leak
+     * their eligibility or `initialize` signature into this receiver's presentation.
+     */
+    private fun addSyntheticNew(
+        receiver: CompletionReceiver.TypeObject,
+        parameters: CompletionParameters,
+        result: CompletionResultSet
+    ) {
+        val session = CrystalTypeSetResolver.session(parameters.position)
+        when (val constructor = session.resolveConstructor(
+            CrystalTypeIdentity(receiver.simpleName, receiver.qualifiedName)
+        )) {
+            is CrystalConstructorResolution.Methods -> result.addElement(
+                CrystalCompletionHelper.buildResolvedNewLookup(constructor.methods.first(), receiver.simpleName)
             )
+            is CrystalConstructorResolution.Implicit -> result.addElement(
+                CrystalCompletionHelper.buildResolvedNewLookup(null, receiver.simpleName)
+            )
+            else -> Unit
         }
     }
 }

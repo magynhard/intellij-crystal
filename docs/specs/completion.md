@@ -366,9 +366,17 @@ to this multi-type API.
 record constructor signatures, synthetic `new` behavior, icons, and priority. Static candidates are
 collected through the neutral exact-identity hierarchy API in static mode using the receiver's
 resolved qualified name. This includes a simple constant resolved through lexical shadowing; no
-simple-name type is selected and filtered after the fact. Exact record receiver results retain the
-selected `CrystalConstructorResolution.Record` call, so same-simple-name records cannot leak a
-constructor tail or type presentation across namespaces.
+simple-name type is selected and filtered after the fact. Type-object classification consults the
+shared constructor classifier before indexed types, so record-vs-type precedence is decided at the
+selected exact identity: a record wins over an indexed class with the same qualified name, while a
+nearer lexical identity of either kind keeps precedence over a farther one. Exact record receiver
+results retain the selected `CrystalConstructorResolution.Record` call, so same-simple-name records
+cannot leak a constructor tail or type presentation across namespaces. Synthetic `new` eligibility
+and its initializer signature are resolved through the shared constructor metadata of the exact
+selected identity (`CrystalConstructorResolution.Methods`/`Implicit`); abstract, unavailable, or
+incomplete constructor metadata suppresses the synthetic entry, an explicit `def self.new` still
+suppresses it via the static candidate set, and qualified/absolute receivers keep their established
+no-synthetic-`new` behavior.
 `ValueTypes` receivers are passed as one ordered set to the multi-type helper, so every union branch
 contributes methods, identical canonical signatures appear once, and distinct overloads remain
 separate. The contributor no longer classifies receivers from the token immediately before the DOT.
@@ -443,6 +451,16 @@ Point.new(  # ← shows (x : Int32, y : Int32)
 Qualified and lexically selected records use the exact resolved record declaration. If both
 `Left::Config` and `Right::Config` exist, `Right::Config.` renders only `Right::Config`'s `new`
 signature and type text in direct or grouped form.
+
+A record also wins when an indexed class shares its exact identity: with both top-level
+`record Config, record_value : String` and `class Config`, `Config.` renders
+`new(record_value : String)` rather than the class constructor, matching the shared DOT-call
+constructor precedence.
+
+Synthetic `new` for lexically selected simple constants uses the exact resolved identity. With
+`Left::Service` and `Right::Service` defining different `initialize` signatures, `Service.` inside
+`Right` renders only `Right::Service`'s initializer tail in direct or grouped form; qualified
+`Left::Service.`/`Right::Service.` receivers offer no synthetic `new` at all.
 
 #### Instance Method Completion (`variable.method`)
 

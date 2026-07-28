@@ -1561,6 +1561,65 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertEquals(expected, completionPresentations("$declarations\n::Right::Config.<caret>"))
     }
 
+    fun testRecordWinsSameExactIdentityConstructorCollision() {
+        val declarations = """
+            record Config, record_value : String
+            class Config
+              def self.build
+              end
+              def initialize(class_value : Int32)
+              end
+            end
+        """.trimIndent()
+        val expected = listOf(
+            "build|()|Config|Method",
+            "new|(record_value : String)|Config|Method"
+        )
+
+        assertReceiverPresentationParity(declarations, "Config", expected)
+    }
+
+    fun testLexicalSameSimpleNameSyntheticNewUsesSelectedInitializer() {
+        val prefix = """
+            module Left
+              class Service
+                def initialize(left : String)
+                end
+              end
+            end
+
+            module Right
+              class Service
+                def initialize(right : Int32)
+                end
+              end
+        """.trimIndent()
+        val expected = listOf("new|(right : Int32)|Service|Method")
+
+        assertReceiverPresentationParity(prefix, "Service", expected, "\nend")
+    }
+
+    fun testQualifiedSameSimpleNameTypeObjectsDoNotLeakInitializerTails() {
+        val declarations = """
+            module Left
+              class Service
+                def initialize(left : String)
+                end
+              end
+            end
+
+            module Right
+              class Service
+                def initialize(right : Int32)
+                end
+              end
+            end
+        """.trimIndent()
+
+        assertEquals(emptyList<String>(), completionPresentations("$declarations\nLeft::Service.<caret>"))
+        assertEquals(emptyList<String>(), completionPresentations("$declarations\nRight::Service.<caret>"))
+    }
+
     fun testLocalParameterAndInstanceVariableCompletionUseValueTypes() {
         val declarations = """
             class ValueType

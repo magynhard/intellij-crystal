@@ -55,6 +55,54 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         assertTrue(receiver.recordDefinition!!.text.startsWith("record Config"))
     }
 
+    fun testRecordWinsSameExactIdentityTypeObjectCollision() {
+        val position = configurePosition(
+            "record Config, record_value : String\n" +
+                "class Config\n" +
+                "  def self.build\n" +
+                "  end\n" +
+                "end\n" +
+                "Config.<caret>"
+        )
+        val receiver = CrystalCompletionReceiverResolver.resolve(position) as CompletionReceiver.TypeObject
+
+        assertEquals("Config", receiver.simpleName)
+        assertEquals("Config", receiver.qualifiedName)
+        assertFalse(receiver.explicitIdentity)
+        assertNotNull("Record must win at the shared exact identity", receiver.recordDefinition)
+        assertTrue(receiver.recordDefinition!!.text.startsWith("record Config"))
+    }
+
+    fun testNearerNestedRecordTypeObjectWinsOverGlobalClass() {
+        val position = configurePosition(
+            "class Config\n" +
+                "end\n" +
+                "module Other\n" +
+                "  record Config, record_value : Int32\n" +
+                "  Config.<caret>\n" +
+                "end"
+        )
+        val receiver = CrystalCompletionReceiverResolver.resolve(position) as CompletionReceiver.TypeObject
+
+        assertEquals("Config", receiver.simpleName)
+        assertEquals("Other::Config", receiver.qualifiedName)
+        assertFalse(receiver.explicitIdentity)
+        assertNotNull("Nearer nested record must win over the global class", receiver.recordDefinition)
+        assertTrue(receiver.recordDefinition!!.text.startsWith("record Config"))
+    }
+
+    fun testNearerNestedClassTypeObjectWinsOverGlobalRecord() {
+        assertReceiver(
+            CompletionReceiver.TypeObject("Config", "Other::Config", explicitIdentity = false),
+            "record Config, record_value : Int32\n" +
+                "module Other\n" +
+                "  class Config\n" +
+                "  end\n" +
+                "  Config.<caret>\n" +
+                "end"
+        )
+    }
+
     fun testRejectsNestedOnlySimpleTypeObjectAtTopLevel() {
         assertReceiver(
             CompletionReceiver.Unknown,
