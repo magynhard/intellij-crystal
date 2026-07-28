@@ -1842,6 +1842,79 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertEquals(emptySet<String>(), completionNames("(missing).<caret>"))
     }
 
+    // ==================== Constructor policy pinning ====================
+
+    fun testAbstractClassTypeObjectSuppressesSyntheticNew() {
+        // Shared constructor policy: CrystalConstructorResolution.Abstract suppresses the
+        // synthetic `new`, while static methods of the abstract class remain available.
+        myFixture.configureByText("main.cr", """
+            abstract class Foo
+              def self.build
+              end
+            end
+
+            Foo.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain static method 'build': $names", names.contains("build"))
+        assertFalse(
+            "Abstract class must NOT offer synthetic 'new' (shared constructor policy): $names",
+            names.contains("new")
+        )
+        assertEquals(setOf("build"), names.toSet())
+    }
+
+    fun testCrossFileRecordTypeObjectOffersNoCompletions() {
+        // Cross-file record completion is intentionally unsupported: the shared constructor
+        // classifier (CrystalTypeResolutionSession.resolveConstructor) scopes record
+        // definitions to the containing file, so the record below is invisible from main.cr
+        // and the receiver resolves to Unknown. Pinned behavior: no record `new` and no
+        // unrelated completion noise. Tracked in TODO.md (Completion Follow-up).
+        myFixture.addFileToProject("config.cr", """
+            record Config, host : String, port : Int32 = 80
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Config.<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse(
+            "Cross-file record must NOT offer 'new' (records are containing-file-scoped): $names",
+            names.contains("new")
+        )
+        assertEquals(
+            "Unknown cross-file record receiver must not emit unrelated noise: $names",
+            emptyList<String>(), names
+        )
+    }
+
+    fun testNearerModuleTypeObjectWinsOverTopLevelRecord() {
+        // The nearer lexical identity `Outer::Config` (a module) wins over the farther
+        // top-level record: its static method is offered, the record's `new` must not leak
+        // in, and modules never get a synthetic `new` (CrystalConstructorResolution.Unavailable).
+        myFixture.configureByText("main.cr", """
+            record Config, host : String
+
+            module Outer
+              module Config
+                def self.inner
+                end
+              end
+
+              Config.<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Nearer Outer::Config module must offer 'inner': $names", names.contains("inner"))
+        assertFalse(
+            "Top-level record 'new' must NOT leak into nearer module completion: $names",
+            names.contains("new")
+        )
+        assertEquals(setOf("inner"), names.toSet())
+    }
+
     private fun addExpressionCompletionTypes() {
         myFixture.addFileToProject("stdlib/expression_types.cr", """
             struct Int32
