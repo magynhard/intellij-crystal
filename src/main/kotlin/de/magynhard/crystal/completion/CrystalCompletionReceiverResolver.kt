@@ -1,7 +1,6 @@
 package de.magynhard.crystal.completion
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
@@ -23,91 +22,161 @@ internal sealed interface CompletionReceiver {
 internal object CrystalCompletionReceiverResolver {
     fun resolve(position: PsiElement): CompletionReceiver {
         val dot = findCompletionDot(position) ?: return CompletionReceiver.Unknown
-        val receiver = findReceiver(dot) ?: return CompletionReceiver.Unknown
-        if (hasIncompleteGrouping(dot) || containsRejectedReceiver(receiver)) {
-            return CompletionReceiver.Unknown
+        if (hasIncompleteGrouping(dot)) return CompletionReceiver.Unknown
+        val expression = PsiTreeUtil.getParentOfType(dot, CrystalExpression::class.java, false)
+            ?: return CompletionReceiver.Unknown
+        return resolveExpression(expression, dot.textRange.startOffset)
+    }
+
+    private fun resolveExpression(expression: CrystalExpression, completionDotOffset: Int? = null): CompletionReceiver {
+        val children = directSignificantChildren(expression).filter { child ->
+            when {
+                completionDotOffset == null -> true
+                child.textRange.endOffset <= completionDotOffset -> true
+                !child.textRange.containsOffset(completionDotOffset) -> false
+                child is CrystalDotCallAccess -> dotOffset(child) < completionDotOffset
+                else -> false
+            }
+        }
+        if (children.isEmpty()) return CompletionReceiver.Unknown
+
+        val firstAccess = children.indexOfFirst { it is CrystalDotCallAccess }
+        if (firstAccess < 0) {
+            resolveExactTypeRoot(children, expression)?.let { return it }
+            val receiver = if (completionDotOffset == null) expression else children.singleOrNull()
+                ?: return CompletionReceiver.Unknown
+            return resolveElement(receiver)
         }
 
-        val normalized = CrystalReceiverExpression.normalize(receiver)
-        val exactTypeRoot = CrystalReceiverExpression.extractExactConstantTypeRoot(normalized)
-        if (exactTypeRoot != null) return resolveTypeObject(exactTypeRoot, normalized)
+        var receiver = resolveBase(children.take(firstAccess))
+        for (access in children.drop(firstAccess).filterIsInstance<CrystalDotCallAccess>()) {
+            receiver = resolveCompletedCall(receiver, methodName(access), access)
+            if (receiver == CompletionReceiver.Unknown) return receiver
+            for (implicitCall in trailingImplicitCalls(access, completionDotOffset)) {
+                receiver = resolveCompletedCall(receiver, methodName(implicitCall), implicitCall)
+                if (receiver == CompletionReceiver.Unknown) return receiver
+            }
+        }
+        return receiver
+    }
 
+    private fun resolveBase(elements: List<PsiElement>): CompletionReceiver {
+        if (elements.isEmpty()) return CompletionReceiver.Unknown
+        resolveExactTypeRoot(elements, elements.last())?.let { return it }
+        return elements.singleOrNull()?.let(::resolveElement) ?: CompletionReceiver.Unknown
+    }
+
+    private fun resolveElement(element: PsiElement): CompletionReceiver {
+        val normalized = CrystalReceiverExpression.normalize(element)
+        if (isRejectedReceiver(normalized)) return CompletionReceiver.Unknown
+        CrystalReceiverExpression.extractExactConstantTypeRoot(normalized)?.let {
+            return resolveTypeObject(it, normalized)
+        }
         return when (normalized) {
             is CrystalVariableReference,
             is CrystalInstanceVarAccess -> resolveVariableValue(normalized)
-            else -> CrystalExpressionTypeResolver.resolveType(normalized)?.toValueTypes()
-                ?: CompletionReceiver.Unknown
-        }
-    }
-
-    private fun findCompletionDot(position: PsiElement): PsiElement? {
-        var leaf = PsiTreeUtil.prevLeaf(position)
-        while (leaf is PsiWhiteSpace || leaf?.node?.elementType == CrystalTypes.NEWLINE) {
-            leaf = PsiTreeUtil.prevLeaf(leaf)
-        }
-        return leaf?.takeIf { it.node.elementType == CrystalTypes.DOT }
-    }
-
-    private fun findReceiver(dot: PsiElement): PsiElement? {
-        val access = dot.parent as? CrystalDotCallAccess ?: return null
-        var receiver = previousSignificantSibling(access) ?: return null
-        var current = receiver
-        while (current.parent !is PsiFile && current.parent.textRange.endOffset <= dot.textRange.startOffset) {
-            current = current.parent
-            if (isRecognizedReceiver(current)) receiver = current
-        }
-        return receiver.takeIf(::isRecognizedReceiver)
-    }
-
-    private fun previousSignificantSibling(element: PsiElement): PsiElement? {
-        var sibling = element.prevSibling
-        while (sibling is PsiWhiteSpace || sibling?.node?.elementType == CrystalTypes.NEWLINE) {
-            sibling = sibling.prevSibling
-        }
-        return sibling
-    }
-
-    private fun isRecognizedReceiver(element: PsiElement): Boolean =
-        element is CrystalExpression ||
-            element is CrystalGroupedExpression ||
-            element is CrystalMethodCallExpression ||
-            element is CrystalVariableReference ||
-            element is CrystalInstanceVarAccess ||
-            element is CrystalNamespaceAccess ||
-            element is CrystalArrayLiteral ||
-            element is CrystalHashLiteral ||
-            element is CrystalTupleLiteral ||
-            element is CrystalIfStatement ||
-            element is CrystalCaseStatement ||
-            element is CrystalStringExpression ||
-            element.node.elementType in setOf(
-                CrystalTypes.INTEGER_LITERAL,
-                CrystalTypes.FLOAT_LITERAL,
-                CrystalTypes.STRING_LITERAL,
-                CrystalTypes.CHAR_LITERAL,
-                CrystalTypes.SYMBOL_LITERAL,
-                CrystalTypes.TRUE,
-                CrystalTypes.FALSE,
-                CrystalTypes.NIL
-            )
-
-    private fun hasIncompleteGrouping(dot: PsiElement): Boolean {
-        var current: PsiElement? = dot.parent
-        while (current != null && current !is PsiFile) {
-            if (current is CrystalGroupedExpression &&
-                current.node.findChildByType(CrystalTypes.RPAREN) == null) {
-                return true
+            is CrystalMethodCallExpression -> resolveMethodCall(normalized)
+            is CrystalExpression -> {
+                if (directSignificantChildren(normalized).any { it is CrystalDotCallAccess }) {
+                    resolveExpression(normalized)
+                } else {
+                    resolveExpressionType(normalized)
+                }
             }
-            current = current.parent
+            else -> resolveExpressionType(normalized)
         }
-        return false
     }
 
-    private fun containsRejectedReceiver(receiver: PsiElement): Boolean =
-        receiver is CrystalAssignment ||
-            PsiTreeUtil.findChildOfType(receiver, CrystalAssignment::class.java) != null ||
-            receiver is CrystalMacroInterpolation ||
-            PsiTreeUtil.findChildOfType(receiver, CrystalMacroInterpolation::class.java) != null
+    private fun resolveExactTypeRoot(elements: List<PsiElement>, context: PsiElement): CompletionReceiver.TypeObject? {
+        val callArgs = elements.lastOrNull() as? CrystalCallArgs
+        val pathElements = if (callArgs == null) elements else elements.dropLast(1)
+        val pathRoot = pathElements.lastOrNull()?.let(CrystalReceiverExpression::extractExactConstantTypeRoot)
+            ?: return null
+        if (callArgs != null) {
+            val arguments = callArgs.argumentList?.argumentList.orEmpty()
+            if (arguments.isEmpty() || arguments.any { argument ->
+                    val argumentExpression = argument.expression ?: return@any true
+                    CrystalReceiverExpression.extractExactConstantTypeRoot(argumentExpression) == null
+                }) {
+                return null
+            }
+        }
+        return resolveTypeObject(pathRoot, context) as? CompletionReceiver.TypeObject
+    }
+
+    private fun resolveCompletedCall(
+        receiver: CompletionReceiver,
+        methodName: String?,
+        context: PsiElement
+    ): CompletionReceiver {
+        methodName ?: return CompletionReceiver.Unknown
+        if (receiver is CompletionReceiver.TypeObject && methodName == "new") {
+            val typeName = if (receiver.explicitIdentity) receiver.qualifiedName else receiver.simpleName
+            return CompletionReceiver.ValueTypes(listOf(typeName))
+        }
+
+        val isStatic = receiver is CompletionReceiver.TypeObject
+        val receiverTypes = when (receiver) {
+            is CompletionReceiver.TypeObject -> listOf(receiver.qualifiedName)
+            is CompletionReceiver.ValueTypes -> receiver.typeNames
+            CompletionReceiver.Unknown -> return CompletionReceiver.Unknown
+        }
+        val methods = mutableListOf<CrystalMethodDefinition>()
+        for (typeName in receiverTypes) {
+            val identity = resolveTypeIdentity(typeName, context) ?: return CompletionReceiver.Unknown
+            val candidates = CrystalIndexService.findMethodsByClass(
+                identity.simpleName,
+                context.project,
+                GlobalSearchScope.allScope(context.project)
+            ).filter { method ->
+                method.name == methodName &&
+                    CrystalPsiUtils.isSelfMethod(method) == isStatic &&
+                    CrystalPsiUtils.getEnclosingType(method)
+                        ?.let(CrystalPsiUtils::buildQualifiedName) == identity.qualifiedName
+            }
+            if (candidates.isEmpty()) return CompletionReceiver.Unknown
+            methods.addAll(candidates)
+        }
+        return resolveMethodResults(methods)
+    }
+
+    private fun resolveMethodCall(call: CrystalMethodCallExpression): CompletionReceiver {
+        val methodName = call.node.getChildren(null)
+            .firstOrNull { it.elementType == CrystalTypes.IDENTIFIER }
+            ?.text
+            ?: return resolveExpressionType(call)
+        val methods = CrystalIndexService.findMethods(
+            methodName,
+            call.project,
+            GlobalSearchScope.allScope(call.project)
+        ).filter { CrystalPsiUtils.getEnclosingType(it) == null && !CrystalPsiUtils.isSelfMethod(it) }
+        return if (methods.isEmpty()) resolveExpressionType(call) else resolveMethodResults(methods)
+    }
+
+    private fun resolveMethodResults(methods: Collection<CrystalMethodDefinition>): CompletionReceiver {
+        val typeNames = mutableListOf<String>()
+        for (method in methods) {
+            val returnType = CrystalTypeInference.inferReturnTypePreservingUnion(method)
+                ?: return CompletionReceiver.Unknown
+            typeNames.addAll(normalizeLookupTypes(returnType))
+        }
+        return typeNames.distinct().toValueTypes()
+    }
+
+    private fun resolveVariableValue(receiver: PsiElement): CompletionReceiver {
+        val typeName = CrystalTypeInference.inferTypePreservingUnion(
+            receiver.text,
+            receiver,
+            receiver.project
+        ) ?: return CompletionReceiver.Unknown
+        return normalizeLookupTypes(typeName).toValueTypes()
+    }
+
+    private fun resolveExpressionType(expression: PsiElement): CompletionReceiver =
+        CrystalExpressionTypeResolver.resolveType(expression)?.typeName
+            ?.let(::normalizeLookupTypes)
+            ?.toValueTypes()
+            ?: CompletionReceiver.Unknown
 
     private fun resolveTypeObject(typeRoot: String, context: PsiElement): CompletionReceiver {
         val normalizedRoot = typeRoot.removePrefix("::")
@@ -130,17 +199,82 @@ internal object CrystalCompletionReceiverResolver {
         }
     }
 
-    private fun resolveVariableValue(receiver: PsiElement): CompletionReceiver {
-        val typeName = CrystalTypeInference.inferType(receiver.text, receiver, receiver.project)
-            ?: return CompletionReceiver.Unknown
-        return typeName.toValueTypes()
+    private fun resolveTypeIdentity(typeName: String, context: PsiElement): TypeIdentity? {
+        val normalized = typeName.removePrefix("::")
+        val simpleName = normalized.substringAfterLast("::")
+        val explicit = normalized.contains("::")
+        val identities = CrystalIndexService.findTypes(
+            simpleName,
+            context.project,
+            GlobalSearchScope.allScope(context.project)
+        ).asSequence()
+            .mapNotNull(CrystalPsiUtils::buildQualifiedName)
+            .filter { !explicit || it == normalized }
+            .distinct()
+            .toList()
+        return identities.singleOrNull()?.let { TypeIdentity(simpleName, it) }
     }
 
-    private fun CrystalExpressionTypeResolver.ResolvedType.toValueTypes(): CompletionReceiver =
-        typeName.toValueTypes()
-
-    private fun String.toValueTypes(): CompletionReceiver {
-        val types = normalizeLookupTypes(this)
-        return if (types.isEmpty()) CompletionReceiver.Unknown else CompletionReceiver.ValueTypes(types)
+    private fun trailingImplicitCalls(
+        access: CrystalDotCallAccess,
+        completionDotOffset: Int?
+    ): List<CrystalImplicitObjectCall> {
+        val argument = access.bareArgumentList?.bareArgumentList?.singleOrNull() ?: return emptyList()
+        val implicitCall = argument.implicitObjectCallList.singleOrNull() ?: return emptyList()
+        if (directSignificantChildren(argument) != listOf(implicitCall)) return emptyList()
+        return listOf(implicitCall).filter {
+            completionDotOffset == null || dotOffset(it) < completionDotOffset
+        }
     }
+
+    private fun methodName(call: PsiElement): String? {
+        var foundDot = false
+        for (child in call.node.getChildren(null)) {
+            if (child.elementType == CrystalTypes.DOT) {
+                foundDot = true
+            } else if (foundDot && child.psi !is PsiWhiteSpace) {
+                return child.text
+            }
+        }
+        return null
+    }
+
+    private fun dotOffset(call: PsiElement): Int =
+        call.node.findChildByType(CrystalTypes.DOT)?.startOffset ?: Int.MAX_VALUE
+
+    private fun findCompletionDot(position: PsiElement): PsiElement? {
+        var leaf = PsiTreeUtil.prevLeaf(position)
+        while (leaf is PsiWhiteSpace || leaf?.node?.elementType == CrystalTypes.NEWLINE) {
+            leaf = PsiTreeUtil.prevLeaf(leaf)
+        }
+        return leaf?.takeIf { it.node.elementType == CrystalTypes.DOT }
+    }
+
+    private fun hasIncompleteGrouping(dot: PsiElement): Boolean {
+        var current: PsiElement? = dot.parent
+        while (current != null) {
+            if (current is CrystalGroupedExpression &&
+                current.node.findChildByType(CrystalTypes.RPAREN) == null) {
+                return true
+            }
+            current = current.parent
+        }
+        return false
+    }
+
+    private fun isRejectedReceiver(receiver: PsiElement): Boolean =
+        receiver is CrystalAssignment ||
+            receiver is CrystalGroupedExpression ||
+            receiver is CrystalMacroInterpolation ||
+            PsiTreeUtil.findChildOfType(receiver, CrystalMacroInterpolation::class.java) != null
+
+    private fun directSignificantChildren(element: PsiElement): List<PsiElement> =
+        element.node.getChildren(null).map { it.psi }.filterNot {
+            it is PsiWhiteSpace || it.node.elementType == CrystalTypes.NEWLINE
+        }
+
+    private fun List<String>.toValueTypes(): CompletionReceiver =
+        if (isEmpty()) CompletionReceiver.Unknown else CompletionReceiver.ValueTypes(this)
+
+    private data class TypeIdentity(val simpleName: String, val qualifiedName: String)
 }

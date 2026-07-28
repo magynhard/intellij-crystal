@@ -30,6 +30,22 @@ object CrystalTypeInference {
         return null
     }
 
+    internal fun inferTypePreservingUnion(
+        variableName: String,
+        context: PsiElement,
+        project: Project
+    ): String? {
+        val method = PsiTreeUtil.getParentOfType(context, CrystalMethodDefinition::class.java)
+        val parameter = method?.parameterList?.parameterList?.firstOrNull {
+            CrystalCompletionHelper.extractParameterName(it) == variableName
+        }
+        parameter?.typeReference?.text?.let { return it }
+        return inferFromAssignment(variableName, context, project)
+    }
+
+    internal fun inferReturnTypePreservingUnion(method: CrystalMethodDefinition): String? =
+        method.typeReference?.text ?: inferReturnTypeFromBody(method)
+
     /**
      * Check if the variable is a parameter with a type annotation.
      * e.g. def foo(x : Apfel) → type of x is "Apfel"

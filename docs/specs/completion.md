@@ -297,17 +297,27 @@ ambiguous receiver identities return no exact constant root.
 
 `CrystalCompletionReceiverResolver` is the internal analysis boundary for expression DOT
 completion. It finds the member-access `DOT` immediately before IntelliJ's completion position and
-selects the outermost recognized receiver PSI ending before that dot. Receiver text is not rebuilt
-with source regexes. Transparent grouping is normalized through `CrystalReceiverExpression`;
-incomplete groups, assignments, macro-interpolated receivers, unknown variables, ambiguous type
-identities, and decimal points inside float tokens produce `Unknown`.
+analyzes the complete semantic postfix prefix before that dot. The grammar can flatten a chain into
+multiple `CrystalDotCallAccess` siblings or attach an argumentless continuation as a
+`CrystalImplicitObjectCall` inside the preceding access's bare-argument PSI; both shapes are
+processed in source order. Receiver text is not rebuilt with source regexes. Transparent grouping
+is normalized through `CrystalReceiverExpression`; incomplete groups, direct or non-transparent
+grouped assignment receivers, macro-interpolated receivers, unknown variables, ambiguous type
+identities, and decimal points inside float tokens produce `Unknown`. Assignments nested inside a
+supported `if`, `case`, or ternary receiver do not invalidate that receiver.
 
 Exact constant paths are classified before value inference. A unique indexed declaration produces
 a type object with its simple and qualified identity; qualified and absolute paths are marked as
-explicit identities. Other receivers use variable inference or expression type resolution and
-produce an ordered set of runtime lookup types. Top-level unions are expanded in source order, so
-`Foo | Bar` becomes `Foo`, then `Bar`. Generic internals are not expanded: `Array(Int32 | String)`
-produces the single outer lookup type `Array`.
+explicit identities, including qualified generic roots such as `Outer::Box(Int32)`. Other
+receivers use completion-specific union-preserving variable inference or expression type
+resolution and produce an ordered set of runtime lookup types. Completed constructors produce
+their exact receiver type. Completed methods require an exact indexed receiver identity and target
+method; explicit return annotations are preserved, while unannotated returns use existing body
+inference. Unknown or ambiguous targets remain `Unknown`.
+
+Top-level unions are expanded in source order, so typed parameters and explicit method returns of
+`Foo | Bar` produce `Foo`, then `Bar`. Generic internals are not expanded:
+`Array(Int32 | String)` produces the single outer lookup type `Array`.
 
 This analysis is not wired into `CrystalCompletionContributor` yet. It does not change popup
 dispatch or perform candidate lookup across the resulting type set.

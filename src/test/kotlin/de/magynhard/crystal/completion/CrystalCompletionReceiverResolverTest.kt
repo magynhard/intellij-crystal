@@ -71,6 +71,63 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         assertReceiver(CompletionReceiver.ValueTypes(listOf("String")), declaration + "((value())).<caret>")
     }
 
+    fun testResolvesConstructorResultFromCompletePostfixPrefix() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Foo")),
+            "class Foo\nend\nFoo.new.<caret>"
+        )
+    }
+
+    fun testResolvesInstanceMethodResultFromCompletePostfixPrefix() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("String")),
+            "class Service\n  def value : String\n    \"text\"\n  end\nend\n" +
+                "service = Service.new\nservice.value().<caret>"
+        )
+    }
+
+    fun testInfersCompletedInstanceMethodResultFromBody() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("String")),
+            "class Service\n  def value\n    \"text\"\n  end\nend\n" +
+                "service = Service.new\nservice.value().<caret>"
+        )
+    }
+
+    fun testResolvesNestedAndChainedMethodResults() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("String")),
+            "class First\n" +
+                "  def second : Second\n    Second.new\n  end\nend\n" +
+                "class Second\n" +
+                "  def value : String\n    \"text\"\n  end\nend\n" +
+                "((First.new.second())).value().<caret>"
+        )
+    }
+
+    fun testResolvesQualifiedGenericTypeObject() {
+        assertReceiver(
+            CompletionReceiver.TypeObject("Box", "Outer::Box", explicitIdentity = true),
+            "module Outer\n  class Box\n  end\nend\nOuter::Box(Int32).<caret>"
+        )
+    }
+
+    fun testPreservesTypedParameterUnionOrder() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Foo", "Bar")),
+            "class Foo\nend\nclass Bar\nend\n" +
+                "def use(value : Foo | Bar)\n  value.<caret>\nend"
+        )
+    }
+
+    fun testPreservesExplicitMethodReturnUnionOrder() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Foo", "Bar")),
+            "class Foo\nend\nclass Bar\nend\n" +
+                "def value : Foo | Bar\n  Foo.new\nend\nvalue().<caret>"
+        )
+    }
+
     fun testResolvesIfCaseAndTernaryResultTypeSetsInSourceOrder() {
         assertReceiver(
             CompletionReceiver.ValueTypes(listOf("Int32", "String")),
@@ -106,6 +163,21 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         assertReceiver(CompletionReceiver.Unknown, "((3).<caret>")
         assertReceiver(CompletionReceiver.Unknown, "{{ Foo }}.<caret>")
         assertReceiver(CompletionReceiver.Unknown, "(value = 1).<caret>")
+    }
+
+    fun testAllowsAssignmentsInsideIfCaseAndTernaryReceivers() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Int32", "String")),
+            "(if condition = true\n  1\nelse\n  \"text\"\nend).<caret>"
+        )
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Int32", "String")),
+            "(case 1\nwhen 1\n  subject = 1\n  1\nelse\n  \"text\"\nend).<caret>"
+        )
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Int32", "String")),
+            "((condition = true) ? 1 : \"text\").<caret>"
+        )
     }
 
     fun testRejectsCompletionInsideFloatTokenWithoutMemberAccessDot() {
