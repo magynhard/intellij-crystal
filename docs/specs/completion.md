@@ -295,9 +295,9 @@ ambiguous receiver identities return no exact constant root.
 
 #### Expression Receiver Analysis
 
-`CrystalCompletionReceiverResolver` is the internal analysis boundary for expression DOT
-completion. It finds the member-access `DOT` immediately before IntelliJ's completion position and
-analyzes the complete semantic postfix prefix before that dot. The grammar can flatten a chain into
+`CrystalCompletionReceiverResolver` is the completion-facing receiver boundary. It finds the
+member-access `DOT` immediately before IntelliJ's completion position and analyzes the complete
+semantic postfix prefix before that dot. The grammar can flatten a chain into
 multiple `CrystalDotCallAccess` siblings or attach an argumentless continuation as a
 `CrystalImplicitObjectCall` inside the preceding access's bare-argument PSI; both shapes are
 processed recursively in source order for arbitrarily long argumentless or mixed chains. Every
@@ -309,7 +309,13 @@ grouped assignment receivers, macro-interpolated receivers, unknown variables, a
 identities, and decimal points inside float tokens produce `Unknown`. Assignments nested inside a
 supported `if`, `case`, or ternary receiver do not invalidate that receiver.
 
-Exact constant paths are classified before value inference. A unique indexed declaration produces
+Exact constant paths are classified before value inference. All runtime values and completed calls
+delegate to one `CrystalTypeResolutionSession` from the neutral `de.magynhard.crystal.analysis`
+layer. The session owns ordered type sets, lexical variable flow, complete control-flow semantics,
+exact scoped method returns, memoization, recursion guards, and cached StubIndex lookups. It never
+collects assignments across a containing file or uses a project-wide first-name method fallback.
+
+A unique indexed declaration produces
 a type object with its simple and qualified identity; qualified and absolute paths are marked as
 explicit identities, including qualified generic roots such as `Outer::Box(Int32)`. Other
 receivers use completion-specific union-preserving variable inference or expression type
@@ -335,6 +341,9 @@ Assignment expressions have the type of their right-hand side. Completion accept
 branches when the RHS resolves, but `if`, `case`, and ternary result inference is complete-or-unknown:
 if any reachable branch has no type, receiver analysis returns `Unknown` instead of narrowing to the
 typed sibling branches.
+
+`CrystalExpressionTypeResolver` and `CrystalTypeInference` are compatibility adapters over the
+neutral result; completion no longer depends on inspection-owned or legacy file-wide inference.
 
 This analysis is not wired into `CrystalCompletionContributor` yet. It does not change popup
 dispatch or perform candidate lookup across the resulting type set.

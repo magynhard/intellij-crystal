@@ -89,7 +89,7 @@ type. This ensures consistent behavior regardless of what the user types.
 
 ## Type Resolution Unification
 
-- [ ] **Unify type resolution ownership** by replacing the dependency cycle between `CrystalTypeInference` and `CrystalExpressionTypeResolver` with one coherent design. Do not add the rejected delegation-only `CrystalTypeResolver` facade; a facade without unified ownership would preserve the cycle rather than resolve it.
+- [x] **Unify type resolution ownership** — neutral `de.magynhard.crystal.analysis` structured type-set resolution now owns scoped expression, variable-flow, and method-return inference. `CrystalTypeInference` and `CrystalExpressionTypeResolver` are compatibility adapters rather than mutually dependent owners.
 
 ## Call Argument Inspection Follow-up
 

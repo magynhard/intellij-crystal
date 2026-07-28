@@ -33,7 +33,7 @@ Completion supports every receiver expression whose type can be determined from 
 - Generic value types, normalized to their indexed base type for method lookup.
 - Union results from conditionals and other expressions.
 
-Unknown branches do not create name-only guesses. Completion combines candidates from every type that is actually resolved.
+Unknown reachable branches make the complete result unknown. Completion never narrows to only the branches it happened to resolve and never creates name-only guesses.
 
 ## Receiver Model
 
@@ -55,7 +55,11 @@ Direct numeric completion such as `3.<caret>` is supported. The lexer already re
 
 ## Type Resolution
 
-The completion receiver analyzer reuses PSI-based expression type resolution instead of adding syntax-specific completion heuristics.
+Runtime expression analysis is owned by a neutral `de.magynhard.crystal.analysis` layer. Completion, inspections, hover/navigation inference, and future consumers adapt the same structured result rather than calling one another. Every public resolution call creates one session with PSI memoization, recursion guards, and cached StubIndex lookups.
+
+The result is either an ordered, stably deduplicated set of known runtime types or `Unknown`. Numeric literal entries retain unsuffixed-literal metadata for compatibility with autocasting inspections.
+
+Variable resolution follows lexical PSI flow only. It walks preceding siblings and enclosing scopes up to the active file, method/macro, block, and type boundaries; it never scans all assignments in a containing file. Internal parameter names are used in bodies. Later assignments and declarations in sibling methods, nested types, or other files cannot contribute. Branch assignments merge only when every reachable path supplies known evidence.
 
 Resolved type text is converted into a structured set of lookup types:
 
@@ -63,6 +67,10 @@ Resolved type text is converted into a structured set of lookup types:
 - Generic types such as `Array(Int32)` normalize to the indexed base type `Array` for method lookup.
 - Qualified type identities remain qualified until exact index filtering is complete.
 - Duplicate types are removed while preserving deterministic order.
+
+Control flow includes every `if`/`unless` main branch, every `elsif`, every `case when`/`in` clause in source order, and `else` or implicit `Nil`. Empty branches are `Nil`; any reachable unknown branch makes the result unknown. Assignment expressions resolve their nested assignment or RHS value.
+
+Method calls resolve against an exact receiver or lexical implicit-self scope. Unrelated same-name methods never contribute, top-level methods are considered only when no implicit-self candidate exists, ambiguous overload sets remain unknown, and direct or mutual recursion terminates as unknown. Unannotated methods merge all reachable explicit returns with the implicit final result.
 
 For a union such as `Foo | Bar`, completion returns the union of methods available on either type, as explicitly selected. Identical method signatures are shown once; distinct overloads remain separate.
 
@@ -80,14 +88,21 @@ Once a DOT receiver is recognized, completion must not fall through to unrelated
 
 ## Architecture
 
-Add a focused completion receiver analyzer with a small result model. It owns:
+Add a neutral analysis layer with a structured type-set model and one scoped resolution session per call. It owns:
+
+- Lexical variable flow and parameter/body-name semantics.
+- Complete expression and control-flow type sets.
+- Exact DOT, implicit-self, hierarchy, top-level, overload, and method-return resolution.
+- StubIndex lookup caching, PSI memoization, and recursion guards.
+
+The focused completion receiver analyzer owns only:
 
 - Finding the receiver PSI for an incomplete DOT completion site.
 - Recognizing exact type-object receivers.
-- Delegating runtime expressions to PSI type resolution.
+- Delegating runtime expressions and completed calls to one neutral resolution session.
 - Expanding top-level unions and normalizing generic base types.
 
-Move reusable transparent receiver normalization into a neutral PSI/analysis helper rather than making completion depend on inspection implementation details. Call inspections and completion remain separate consumers but share receiver normalization semantics.
+Move reusable transparent receiver normalization into neutral PSI infrastructure. `CrystalExpressionTypeResolver` remains a compatibility facade over the neutral result, and `CrystalTypeInference` remains an adapter for existing string-returning consumers. Neither owns inference or project-wide fallback behavior.
 
 Extend `CrystalCompletionHelper` with multi-type instance candidate collection so union merging and signature deduplication are implemented once.
 
@@ -95,6 +110,7 @@ Extend `CrystalCompletionHelper` with multi-type instance candidate collection s
 
 - No `FileTypeIndex` scans or project-wide file iteration.
 - Runtime project lookups remain StubIndex-backed.
+- Local flow never uses project/file-wide assignment collection.
 - Unknown, malformed, or unresolvable expressions do not trigger broad method-name fallback.
 - Static methods and constructors never enter runtime-value completion.
 - Instance methods never enter type-object completion unless existing Crystal module exposure semantics explicitly provide them.

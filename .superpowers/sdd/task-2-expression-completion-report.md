@@ -109,3 +109,56 @@
   internal parameter name without changing call-site external-name behavior.
 - Completed-call resolution still exposes no argument-aware overload API; the actionable follow-up
   is recorded in `TODO.md`.
+
+## Approved Architecture Correction
+
+### Rationale
+
+- Removed the completion dependency on inspection-owned `CrystalExpressionTypeResolver` logic and
+  legacy `CrystalTypeInference` file-wide/first-match behavior.
+- Added a neutral ordered type-set model and one per-call `CrystalTypeResolutionSession` with PSI
+  memoization, expression/method recursion guards, lexical flow, and cached StubIndex lookups.
+- Variable flow walks only preceding PSI siblings and enclosing lexical scopes. It cannot consume
+  later assignments or assignments from sibling methods, nested types, or other files.
+- Exact method resolution is receiver/implicit-self specific. Top-level methods are considered only
+  without an implicit-self target; ambiguous overloads and recursion remain `Unknown`.
+
+### TDD Evidence
+
+- RED: `./gradlew test --tests "de.magynhard.crystal.analysis.CrystalTypeSetResolverTest"`
+  failed at test compilation because `CrystalTypeResolution`, `CrystalResolvedType`, and
+  `CrystalTypeSetResolver` did not exist.
+- First GREEN attempt executed 24 neutral tests with 23 passing; `a = b = 1` exposed missing nested
+  assignment-chain evidence. Explicit chain traversal made all 24 pass.
+- Migration RED: the combined neutral/completion/type-inference/expression suite exposed legacy
+  file/declaration contexts, generic rendering, shorthand hash, numeric metadata, and nested postfix
+  compatibility differences. Each was corrected in the adapters/neutral session without restoring
+  project-wide fallback behavior.
+- Adjacent GREEN: neutral resolver, completion receiver, type inference, expression facade,
+  type-check inspection, and exact receiver suites completed successfully together.
+- Full-suite RED/GREEN: the first `./gradlew test --rerun-tasks` executed 1,123 tests with one
+  instance-variable completion failure. The fixture supplied `@apfel : Apfel` on the active class
+  path; adding scoped property-declaration evidence and adapting the legacy cleaned `apfel` input
+  fixed it without reading the sibling `initialize` assignment. The second fresh full run passed all
+  1,123 tests.
+
+### Changed APIs
+
+- Added `CrystalResolvedType`, `CrystalTypeResolution.Known`, and `CrystalTypeResolution.Unknown`.
+- Added `CrystalTypeSetResolver.resolve(...)`, `CrystalTypeSetResolver.session(...)`, and
+  `CrystalTypeResolutionSession` scoped resolve/variable/call/method-return operations.
+- Preserved `CompletionReceiver` and `CrystalCompletionReceiverResolver.resolve(position)`.
+- Preserved `CrystalExpressionTypeResolver.ResolvedType?`, `CrystalTypeInference.inferType(...)`,
+  and union-preserving string APIs as compatibility adapters.
+
+### Commits
+
+- `b5e054a refactor(analysis): centralize scoped type resolution`
+- `6e6fb58 fix(analysis): preserve scoped instance declarations`
+- Documentation subject: `docs(analysis): specify scoped type-set resolution`
+
+### Concerns
+
+- Argument-aware overload selection remains intentionally deferred; multiple exact candidates are
+  `Unknown` and the existing actionable completion TODO remains open.
+- Completion contributor dispatch and multi-type candidate lookup remain outside Task 2.
