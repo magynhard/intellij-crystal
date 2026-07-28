@@ -363,7 +363,12 @@ to this multi-type API.
 
 `CrystalCompletionContributor` dispatches DOT completion exclusively through this receiver result.
 `TypeObject` receivers are delegated to a focused provider that preserves static-method rendering,
-qualified filtering, record constructor signatures, synthetic `new` behavior, icons, and priority.
+record constructor signatures, synthetic `new` behavior, icons, and priority. Static candidates are
+collected through the neutral exact-identity hierarchy API in static mode using the receiver's
+resolved qualified name. This includes a simple constant resolved through lexical shadowing; no
+simple-name type is selected and filtered after the fact. Exact record receiver results retain the
+selected `CrystalConstructorResolution.Record` call, so same-simple-name records cannot leak a
+constructor tail or type presentation across namespaces.
 `ValueTypes` receivers are passed as one ordered set to the multi-type helper, so every union branch
 contributes methods, identical canonical signatures appear once, and distinct overloads remain
 separate. The contributor no longer classifies receivers from the token immediately before the DOT.
@@ -378,6 +383,10 @@ type-object candidates, and grouping likewise preserves qualified/absolute const
 records, runtime variables, typed parameters, instance variables, scalar literals, collections,
 operators, and supported method-result expressions. Runtime values receive instance methods only;
 they do not receive constructors or static-only methods, and modules do not receive `new`.
+Direct unwrapped operator receivers resolve the semantic expression prefix before the completion
+DOT, while single and nested grouping produce the identical lookup multiset. Completed
+argumentless, parenthesized, grouped, and mixed postfix chains are processed in source order;
+unsupported index/tail components make the whole receiver `Unknown` and suppress fallback.
 
 #### Static Method Completion (`CONSTANT.method`)
 
@@ -430,6 +439,10 @@ record Point, x : Int32, y : Int32
 
 Point.new(  # ← shows (x : Int32, y : Int32)
 ```
+
+Qualified and lexically selected records use the exact resolved record declaration. If both
+`Left::Config` and `Right::Config` exist, `Right::Config.` renders only `Right::Config`'s `new`
+signature and type text in direct or grouped form.
 
 #### Instance Method Completion (`variable.method`)
 

@@ -71,6 +71,37 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
         assertFalse(names.contains("from_other"))
     }
 
+    fun testStaticMethodsUseExactQualifiedIdentityAndRetainOverloads() {
+        myFixture.configureByText("qualified_static.cr", """
+            module Left
+              class Service
+                def self.from_left
+                end
+
+                def self.build(value : Int32)
+                end
+
+                def self.build(value : String)
+                end
+              end
+            end
+
+            module Right
+              class Service
+                def self.from_right
+                end
+              end
+            end
+        """.trimIndent())
+
+        val lookups = CrystalCompletionHelper.getStaticMethodsAsLookups("Left::Service", project)
+        val names = lookups.map { it.lookupString }
+
+        assertEquals(1, names.count { it == "from_left" })
+        assertEquals(2, names.count { it == "build" })
+        assertFalse(names.contains("from_right"))
+    }
+
     fun testFindsIndexedPrimitiveAndGenericBaseMethods() {
         myFixture.addFileToProject("stdlib/int.cr", "struct Int32\n  def integer_method\n  end\nend")
         myFixture.addFileToProject("stdlib/string.cr", "class String\n  def string_method\n  end\nend")

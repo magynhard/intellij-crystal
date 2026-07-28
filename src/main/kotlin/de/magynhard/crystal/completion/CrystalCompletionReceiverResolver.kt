@@ -14,7 +14,8 @@ internal sealed interface CompletionReceiver {
     data class TypeObject(
         val simpleName: String,
         val qualifiedName: String,
-        val explicitIdentity: Boolean
+        val explicitIdentity: Boolean,
+        val recordDefinition: CrystalMethodCallExpression? = null
     ) : CompletionReceiver
 
     data class ValueTypes(val typeNames: List<String>) : CompletionReceiver
@@ -53,12 +54,13 @@ internal object CrystalCompletionReceiverResolver {
         val firstAccess = children.indexOfFirst { it is CrystalDotCallAccess }
         if (firstAccess < 0) {
             resolveExactTypeRoot(children, expression, session)?.let { return it }
-            val receiver = if (completionDotOffset == null) expression else children.singleOrNull()
-                ?: return CompletionReceiver.Unknown
-            return resolveElement(receiver, session)
+            if (completionDotOffset == null) return resolveElement(expression, session)
+            children.singleOrNull()?.let { return resolveElement(it, session) }
+            return session.resolveExpressionPrefix(expression, completionDotOffset).toCompletionReceiver()
         }
 
-        var receiver = resolveBase(children.take(firstAccess), session)
+        val firstDotOffset = CrystalPostfixChain.dotOffset(children[firstAccess] as CrystalDotCallAccess)
+        var receiver = resolveBase(children.take(firstAccess), expression, session, firstDotOffset)
         for (element in children.drop(firstAccess)) {
             val access = element as? CrystalDotCallAccess ?: return CompletionReceiver.Unknown
             for (component in CrystalPostfixChain.components(access, completionDotOffset)) {
@@ -72,11 +74,14 @@ internal object CrystalCompletionReceiverResolver {
 
     private fun resolveBase(
         elements: List<PsiElement>,
-        session: CrystalTypeResolutionSession
+        expression: CrystalExpression,
+        session: CrystalTypeResolutionSession,
+        beforeOffset: Int
     ): CompletionReceiver {
         if (elements.isEmpty()) return CompletionReceiver.Unknown
         resolveExactTypeRoot(elements, elements.last(), session)?.let { return it }
-        return elements.singleOrNull()?.let { resolveElement(it, session) } ?: CompletionReceiver.Unknown
+        elements.singleOrNull()?.let { return resolveElement(it, session) }
+        return session.resolveExpressionPrefix(expression, beforeOffset).toCompletionReceiver()
     }
 
     private fun resolveElement(
@@ -145,10 +150,17 @@ internal object CrystalCompletionReceiverResolver {
     ): CompletionReceiver {
         val normalizedRoot = typeRoot.removePrefix("::")
         val explicitIdentity = typeRoot.startsWith("::") || normalizedRoot.contains("::")
-        val identity = session.resolveType(typeRoot, context)
-            ?: (session.resolveConstructor(typeRoot, context) as? CrystalConstructorResolution.Record)?.identity
+        session.resolveType(typeRoot, context)?.let { identity ->
+            return CompletionReceiver.TypeObject(identity.simpleName, identity.qualifiedName, explicitIdentity)
+        }
+        val record = session.resolveConstructor(typeRoot, context) as? CrystalConstructorResolution.Record
             ?: return CompletionReceiver.Unknown
-        return CompletionReceiver.TypeObject(identity.simpleName, identity.qualifiedName, explicitIdentity)
+        return CompletionReceiver.TypeObject(
+            record.identity.simpleName,
+            record.identity.qualifiedName,
+            explicitIdentity,
+            record.recordDefinition
+        )
     }
 
     private fun methodName(call: PsiElement): String? {

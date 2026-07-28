@@ -45,10 +45,14 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
     }
 
     fun testResolvesRecordTypeObjectThroughSharedConstructorAnalysis() {
-        assertReceiver(
-            CompletionReceiver.TypeObject("Config", "Config", explicitIdentity = false),
-            "record Config, name : String\nConfig.<caret>"
-        )
+        val position = configurePosition("record Config, name : String\nConfig.<caret>")
+        val receiver = CrystalCompletionReceiverResolver.resolve(position) as CompletionReceiver.TypeObject
+
+        assertEquals("Config", receiver.simpleName)
+        assertEquals("Config", receiver.qualifiedName)
+        assertFalse(receiver.explicitIdentity)
+        assertNotNull(receiver.recordDefinition)
+        assertTrue(receiver.recordDefinition!!.text.startsWith("record Config"))
     }
 
     fun testRejectsNestedOnlySimpleTypeObjectAtTopLevel() {
@@ -84,7 +88,18 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         assertReceiver(CompletionReceiver.ValueTypes(listOf("Array")), "[1, \"text\"].<caret>")
         assertReceiver(CompletionReceiver.ValueTypes(listOf("Hash")), "{\"key\" => 1}.<caret>")
         assertReceiver(CompletionReceiver.ValueTypes(listOf("Tuple")), "{1, \"text\"}.<caret>")
+        assertReceiver(CompletionReceiver.ValueTypes(listOf("Int32")), "1 + 2.<caret>")
         assertReceiver(CompletionReceiver.ValueTypes(listOf("Int32")), "(1 + 2).<caret>")
+    }
+
+    fun testDirectOperatorBaseDoesNotApplyCompletedCallTwice() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Second")),
+            "struct Int32\n" +
+                "  def to_second : Second\n    Second.new\n  end\nend\n" +
+                "class Second\nend\n" +
+                "1 + 2.to_second.<caret>"
+        )
     }
 
     fun testResolvesDirectAndNestedGroupedMethodResults() {

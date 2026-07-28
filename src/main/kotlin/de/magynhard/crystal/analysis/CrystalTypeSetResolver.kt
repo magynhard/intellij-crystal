@@ -38,6 +38,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return result
     }
 
+    fun resolveExpressionPrefix(expression: CrystalExpression, beforeOffset: Int): CrystalTypeResolution =
+        resolveExpressionChildren(
+            significantChildren(expression).filter { it.textRange.endOffset <= beforeOffset },
+            expression
+        )
+
     fun resolveVariable(name: String, position: PsiElement): CrystalTypeResolution =
         resolveVariableWithProvenance(name, position).resolution
 
@@ -213,7 +219,13 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun resolveExpression(expression: CrystalExpression): CrystalTypeResolution {
-        val children = significantChildren(expression)
+        return resolveExpressionChildren(significantChildren(expression), expression)
+    }
+
+    private fun resolveExpressionChildren(
+        children: List<PsiElement>,
+        expression: CrystalExpression
+    ): CrystalTypeResolution {
         val question = children.indexOfFirst { it.node.elementType == CrystalTypes.QUESTION }
         if (question >= 0) {
             val colon = children.indexOfFirst { it.node.elementType == CrystalTypes.COLON }

@@ -161,9 +161,23 @@ object CrystalCompletionHelper {
         getMethodsAsLookups(listOf(typeName), project)
 
     /**
+     * Returns static methods for one exact qualified type identity.
+     */
+    fun getStaticMethodsAsLookups(typeName: String, project: Project): List<LookupElement> =
+        getMethodsAsLookups(listOf(typeName), project, CrystalReceiverMode.STATIC)
+
+    /**
      * Returns merged instance methods for the requested exact type roots.
      */
     fun getMethodsAsLookups(typeNames: List<String>, project: Project): List<LookupElement> {
+        return getMethodsAsLookups(typeNames, project, CrystalReceiverMode.INSTANCE)
+    }
+
+    private fun getMethodsAsLookups(
+        typeNames: List<String>,
+        project: Project,
+        mode: CrystalReceiverMode
+    ): List<LookupElement> {
         val psiManager = PsiManager.getInstance(project)
         val projectDirectory = ProjectRootManager.getInstance(project).contentRoots
             .firstNotNullOfOrNull(psiManager::findDirectory)
@@ -171,7 +185,7 @@ object CrystalCompletionHelper {
         val session = CrystalTypeSetResolver.session(projectDirectory)
         val methods = typeNames.distinct().flatMap { typeName ->
             val identity = session.resolveType(typeName, projectDirectory) ?: return@flatMap emptyList()
-            val collection = session.collectMethods(identity, CrystalReceiverMode.INSTANCE)
+            val collection = session.collectMethods(identity, mode)
             if (collection.complete) collection.methods else emptyList()
         }
         val result = mutableListOf<LookupElement>()

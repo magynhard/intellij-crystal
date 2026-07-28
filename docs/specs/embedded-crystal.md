@@ -468,6 +468,7 @@ The Crystal code inside `<% %>` tags is not parsed as Crystal by default — the
 3. IntelliJ creates an **injected Crystal PSI** inside each `<% %>` tag, which enables:
    - **Syntax highlighting** — Crystal keywords, strings, numbers, operators, etc. are properly highlighted (no longer gray/comment-colored)
    - **Code completion** (Ctrl+Space) — class names (`Int32`, `String`), methods, local variables, dot-completion, type annotations
+   - Injected DOT completion uses the same exact receiver dispatch as `.cr` files for type objects, grouped literals/value expressions, and conservative unknown-receiver suppression
    - **Go to Definition** (Ctrl+B) — jump to classes, methods, variables referenced inside tags
    - **Parameter Info** (Ctrl+P) — method signatures at call sites
    - **Hover Type Info** — variable types and method return types

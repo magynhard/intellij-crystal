@@ -8,7 +8,6 @@ import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
-import de.magynhard.crystal.psi.CrystalPsiUtils
 
 /**
  * Code completion contributor for Crystal.
@@ -155,17 +154,13 @@ internal object CrystalTypeObjectCompletionProvider {
         result: CompletionResultSet
     ) {
         val project = parameters.position.project
-        val staticMethods = CrystalCompletionHelper.getStaticMethods(receiver.simpleName, project).filter { method ->
-            if (!receiver.explicitIdentity) return@filter true
-            val enclosing = CrystalPsiUtils.getEnclosingType(method) ?: return@filter false
-            CrystalPsiUtils.buildQualifiedName(enclosing) == receiver.qualifiedName
-        }
-        staticMethods.map(CrystalCompletionHelper::buildMethodLookup).forEach(result::addElement)
+        val staticLookups = CrystalCompletionHelper.getStaticMethodsAsLookups(receiver.qualifiedName, project)
+        staticLookups.forEach(result::addElement)
 
-        if (staticMethods.any { it.name == "new" }) return
-        val record = CrystalCompletionHelper.findRecordDefinition(receiver.simpleName, parameters.originalFile)
+        if (staticLookups.any { it.lookupString == "new" }) return
+        val record = receiver.recordDefinition
         if (record != null) {
-            result.addElement(CrystalCompletionHelper.buildRecordNewLookup(record, receiver.simpleName))
+            result.addElement(CrystalCompletionHelper.buildRecordNewLookup(record, receiver.qualifiedName))
         } else if (!receiver.explicitIdentity && CrystalCompletionHelper.canInstantiate(receiver.simpleName, project)) {
             result.addElement(
                 CrystalCompletionHelper.buildNewLookup(receiver.simpleName, project, parameters.originalFile)

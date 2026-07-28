@@ -1484,8 +1484,81 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertEquals(qualifiedNames, completionNames("$declarations\n(Outer::Service).<caret>"))
         assertEquals(qualifiedNames, completionNames("$declarations\n::Outer::Service.<caret>"))
         assertEquals(qualifiedNames, completionNames("$declarations\n(::Outer::Service).<caret>"))
-        assertEquals(setOf("module_only"), completionNames("$declarations\n(Utility).<caret>"))
-        assertEquals(setOf("new"), completionNames("$declarations\n((Config)).<caret>"))
+        val moduleExpected = listOf("module_only|()|Utility|Method")
+        assertReceiverPresentationParity(declarations, "Utility", moduleExpected)
+        val recordExpected = listOf("new|(name : String)|Config|Method")
+        assertReceiverPresentationParity(declarations, "Config", recordExpected)
+    }
+
+    fun testQualifiedStaticCompletionUsesExactIdentityAcrossGroupingAndAbsoluteForms() {
+        val declarations = """
+            module Left
+              class Service
+                def self.from_left
+                end
+              end
+            end
+
+            module Right
+              class Service
+                def self.from_right
+                end
+              end
+            end
+        """.trimIndent()
+
+        val expected = listOf("from_right|()|Service|Method")
+        assertEquals(expected, completionPresentations("$declarations\nRight::Service.<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n(Right::Service).<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n((Right::Service)).<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n::Right::Service.<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n(::Right::Service).<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n((::Right::Service)).<caret>"))
+    }
+
+    fun testLexicalSimpleTypeObjectUsesResolvedQualifiedIdentity() {
+        val source = """
+            module Left
+              class Service
+                def self.from_left
+                end
+              end
+            end
+
+            module Right
+              class Service
+                def self.from_right
+                end
+              end
+
+              Service.<caret>
+            end
+        """.trimIndent()
+
+        val expected = listOf("from_right|()|Service|Method", "new||Service|Method")
+        assertEquals(expected, completionPresentations(source))
+        assertEquals(
+            expected,
+            completionPresentations(source.replace("Service.<caret>", "((Service)).<caret>"))
+        )
+    }
+
+    fun testQualifiedRecordCompletionUsesExactRecordDefinition() {
+        val declarations = """
+            module Left
+              record Config, left_value : String
+            end
+
+            module Right
+              record Config, right_value : Int32, enabled : Bool = true
+            end
+        """.trimIndent()
+        val expected = listOf("new|(right_value : Int32, enabled : Bool = true)|Right::Config|Method")
+
+        assertEquals(expected, completionPresentations("$declarations\nRight::Config.<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n(Right::Config).<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n((Right::Config)).<caret>"))
+        assertEquals(expected, completionPresentations("$declarations\n::Right::Config.<caret>"))
     }
 
     fun testLocalParameterAndInstanceVariableCompletionUseValueTypes() {
@@ -1498,61 +1571,61 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent()
 
-        assertEquals(
-            setOf("value_only"),
-            completionNames("$declarations\nvalue = ValueType.new\n(value).<caret>")
+        val expected = listOf("value_only|()|ValueType|Method")
+        assertReceiverPresentationParity("$declarations\nvalue = ValueType.new", "value", expected)
+        assertReceiverPresentationParity(
+            "$declarations\ndef use(value : ValueType)",
+            "value",
+            expected,
+            "\nend"
         )
-        assertEquals(
-            setOf("value_only"),
-            completionNames("$declarations\ndef use(value : ValueType)\n  ((value)).<caret>\nend")
-        )
-        assertEquals(
-            setOf("value_only"),
-            completionNames(
-                "$declarations\nclass Holder\n  @value : ValueType\n" +
-                    "  def use\n    (@value).<caret>\n  end\nend"
-            )
+        assertReceiverPresentationParity(
+            "$declarations\nclass Holder\n  @value : ValueType\n  def use",
+            "@value",
+            expected,
+            "\n  end\nend"
         )
     }
 
     fun testDirectAndGroupedScalarLiteralCompletion() {
         addExpressionCompletionTypes()
         val cases = listOf(
-            "3" to "times",
-            "3.14" to "float_only",
-            "\"text\"" to "upcase",
-            "'x'" to "char_only",
-            ":name" to "symbol_only",
-            "true" to "bool_only",
-            "false" to "bool_only",
-            "nil" to "nil_only",
-            "/pattern/" to "regex_only",
-            "`echo test`" to "upcase"
+            "3" to "times|()|Int32|Method",
+            "3.14" to "float_only|()|Float64|Method",
+            "\"text\"" to "upcase|()|String|Method",
+            "'x'" to "char_only|()|Char|Method",
+            ":name" to "symbol_only|()|Symbol|Method",
+            "true" to "bool_only|()|Bool|Method",
+            "false" to "bool_only|()|Bool|Method",
+            "nil" to "nil_only|()|Nil|Method",
+            "/pattern/" to "regex_only|()|Regex|Method",
+            "`echo test`" to "upcase|()|String|Method"
         )
 
-        for ((receiver, expectedMethod) in cases) {
-            assertTrue("$receiver should offer $expectedMethod", completionNames("$receiver.<caret>").contains(expectedMethod))
-            assertTrue(
-                "Grouped $receiver should offer $expectedMethod",
-                completionNames("(($receiver)).<caret>").contains(expectedMethod)
-            )
+        for ((receiver, expectedPresentation) in cases) {
+            assertReceiverPresentationParity("", receiver, listOf(expectedPresentation))
         }
 
         val heredoc = "<<-TEXT\nhello\nTEXT"
-        assertTrue(completionNames("$heredoc\n.<caret>").contains("upcase"))
-        assertTrue(completionNames("($heredoc\n).<caret>").contains("upcase"))
+        val expectedHeredoc = listOf("upcase|()|String|Method")
+        assertEquals(expectedHeredoc, completionPresentations("$heredoc\n.<caret>"))
+        assertEquals(expectedHeredoc, completionPresentations("($heredoc\n).<caret>"))
+        assertEquals(expectedHeredoc, completionPresentations("(($heredoc\n)).<caret>"))
+
+        assertFalse(completionNames("3.<caret>").contains("float_only"))
+        assertFalse(completionNames("3.14.<caret>").contains("times"))
     }
 
     fun testCollectionOperatorAndMethodResultCompletion() {
         addExpressionCompletionTypes()
         val expressions = mapOf(
-            "[1, 2]" to "array_only",
-            "{\"one\" => 1}" to "hash_only",
-            "{1, \"two\"}" to "tuple_only",
-            "(1 + 2)" to "times"
+            "[1, 2]" to "array_only|()|Array|Method",
+            "{\"one\" => 1}" to "hash_only|()|Hash|Method",
+            "{1, \"two\"}" to "tuple_only|()|Tuple|Method",
+            "1 + 2" to "times|()|Int32|Method"
         )
-        for ((receiver, expectedMethod) in expressions) {
-            assertTrue("$receiver should offer $expectedMethod", completionNames("$receiver.<caret>").contains(expectedMethod))
+        for ((receiver, expectedPresentation) in expressions) {
+            assertReceiverPresentationParity("", receiver, listOf(expectedPresentation))
         }
 
         val methods = """
@@ -1564,8 +1637,16 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               3
             end
         """.trimIndent()
-        assertTrue(completionNames("$methods\nannotated_result().<caret>").contains("upcase"))
-        assertTrue(completionNames("$methods\n((inferred_result())).<caret>").contains("times"))
+        assertReceiverPresentationParity(
+            methods,
+            "annotated_result()",
+            listOf("upcase|()|String|Method")
+        )
+        assertReceiverPresentationParity(
+            methods,
+            "inferred_result()",
+            listOf("times|()|Int32|Method")
+        )
     }
 
     fun testUnionCompletionMergesAllBranchesByCanonicalSignature() {
@@ -1588,16 +1669,21 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
 
-            def use(value : First | Second)
-              value.<caret>
-            end
         """.trimIndent()
+        val expected = listOf(
+            "convert|(value : Int32)|First|Method",
+            "convert|(value : String)|Second|Method",
+            "first_only|()|First|Method",
+            "second_only|()|Second|Method",
+            "shared|(value : Int32)|First|Method"
+        )
 
-        val names = completionNameList(declarations)
-        assertEquals(1, names.count { it == "first_only" })
-        assertEquals(1, names.count { it == "second_only" })
-        assertEquals(1, names.count { it == "shared" })
-        assertEquals(2, names.count { it == "convert" })
+        assertReceiverPresentationParity(
+            "$declarations\ndef use(value : First | Second)",
+            "value",
+            expected,
+            "\nend"
+        )
     }
 
     fun testRuntimeValuesAndModulesDoNotOfferConstructorsOrStaticMethods() {
@@ -1623,6 +1709,68 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val moduleNames = completionNames("$declarations\n((Utility)).<caret>")
         assertEquals(setOf("module_only"), moduleNames)
         assertFalse(moduleNames.contains("new"))
+    }
+
+    fun testExplicitStaticNewOverloadsDoNotCreateSyntheticConstructor() {
+        val declarations = """
+            class Factory
+              def self.new(value : Int32) : Factory
+                Factory.allocate
+              end
+
+              def self.new(value : String) : Factory
+                Factory.allocate
+              end
+
+              def initialize(enabled : Bool)
+              end
+            end
+        """.trimIndent()
+        val expected = listOf(
+            "new|(value : Int32)|Factory → Factory|Method",
+            "new|(value : String)|Factory → Factory|Method"
+        )
+
+        assertReceiverPresentationParity(declarations, "Factory", expected)
+    }
+
+    fun testContributorCompletesLongMixedReceiverChainsConservatively() {
+        val declarations = """
+            class First
+              def second : Second
+                Second.new
+              end
+            end
+
+            class Second
+              def third : Third
+                Third.new
+              end
+            end
+
+            class Third
+              def finish
+              end
+            end
+
+            def unrelated_project_method
+            end
+        """.trimIndent()
+        val expected = listOf("finish|()|Third|Method")
+        val receivers = listOf(
+            "First.new.second.third",
+            "First.new().second().third()",
+            "((First.new.second)).third",
+            "((First.new())).second().third"
+        )
+
+        for (receiver in receivers) {
+            assertEquals(expected, completionPresentations("$declarations\n$receiver.<caret>"))
+        }
+        assertEquals(
+            emptyList<String>(),
+            completionPresentations("$declarations\nFirst.new.second[0].<caret>")
+        )
     }
 
     fun testNumericDotDisambiguationAndUnknownDotSuppression() {
@@ -1689,5 +1837,35 @@ class CrystalCompletionTest : BasePlatformTestCase() {
     private fun completionNameList(source: String): List<String> {
         myFixture.configureByText("main.cr", source)
         return myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty()
+    }
+
+    private fun completionPresentations(source: String): List<String> {
+        myFixture.configureByText("main.cr", source)
+        return myFixture.complete(CompletionType.BASIC).orEmpty().map { lookup ->
+            val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+            lookup.renderElement(presentation)
+            listOf(
+                lookup.lookupString,
+                presentation.tailText.orEmpty(),
+                presentation.typeText.orEmpty(),
+                if (presentation.icon == com.intellij.icons.AllIcons.Nodes.Method) "Method" else "Other"
+            ).joinToString("|")
+        }.sorted()
+    }
+
+    private fun assertReceiverPresentationParity(
+        prefix: String,
+        receiver: String,
+        expected: List<String>,
+        suffix: String = ""
+    ) {
+        val separator = if (prefix.isEmpty()) "" else "\n"
+        for (form in listOf(receiver, "($receiver)", "(($receiver))")) {
+            assertEquals(
+                "$form should have the exact lookup multiset",
+                expected.sorted(),
+                completionPresentations("$prefix$separator$form.<caret>$suffix")
+            )
+        }
     }
 }
