@@ -176,15 +176,15 @@ Calls to `.new` use constructor-specific precedence for every call syntax. Again
 2. Only when no `def self.new` definitions exist, all `initialize` definitions, including inherited definitions.
 3. Only when neither definition set exists, implicit zero-argument construction.
 
-A generic constructor receiver such as `Box(Int32).new` resolves to the exact root identity `Box` before applying this precedence. The direct constructor target and any downstream local assignment use the same structural extractor. Every generic argument must itself be a constant-only type root; call-valued, union, nilable, or otherwise composite arguments suppress resolution. Record collisions and exact identity ambiguity retain the same suppression rules as non-generic constructor receivers.
+A generic constructor receiver such as `Box(Int32).new` resolves to the exact root identity `Box` before applying this precedence. The direct constructor target and any downstream local assignment use the same structural extractor. Every generic argument must itself be a constant-only type root; call-valued, union, nilable, or otherwise composite arguments suppress resolution. Record/type collisions use the shared exact-identity constructor precedence described below.
 
 The `self.new` definition-set search traverses direct exact types and static superclasses only. It does not traverse `extend` edges or become incomplete from unresolved or macro-controlled extends, because extended module instance methods named `new` are not members of constructor precedence. The later `initialize` fallback retains normal instance superclass/include hierarchy semantics. Ordinary static method calls continue to treat unresolved relevant extend edges as incomplete.
 
 Constructor fallback depends only on definition-set presence, never on whether an overload accepts the supplied arguments. Once a non-empty `self.new` or `initialize` set is selected, the inspection evaluates that full overload set and reports against its uniquely closest overload when none accepts. It must not fall through to the next constructor source after selecting a non-empty set. Implicit construction supplies an exact zero-argument signature only when both explicit definition sets are empty; positional or named arguments are excess, resolved splat and double-splat counts are excess on the method name, unresolved expansions suppress validation, and a block pass does not count as an argument.
 
-Simple constant `.new` selects the nearest lexical identity across current-file records and exact indexed types. A record produces `RecordFallback` only when it occupies that selected identity; when a record and indexed type share the selected exact identity, the existing record-first behavior is retained. A nearer nested class or struct therefore takes precedence over a farther global record, while a nearer nested record takes precedence over a farther indexed type. Qualified record calls and inferred value receivers remain unsupported and suppress; records are not treated as ordinary indexed classes.
+Every constant `.new` spelling delegates to the shared neutral constructor resolver. Simple constants select the nearest lexical identity across current-file records and exact indexed types; qualified and absolute constants use their exact written identity. A record produces `RecordFallback` when it occupies the selected identity. When a record and indexed type share that exact identity, the record wins before class/struct constructor lookup. A nearer nested class or struct therefore takes precedence over a farther global record, while a nearer nested record takes precedence over a farther indexed type. Inferred record value receivers remain unsupported; records are not treated as ordinary indexed classes.
 
-Record fallback retains exact lexical identity. A record nested as `Other::Config` cannot satisfy top-level `Config.new`, while simple `Config.new` inside `Other` may select that nested record. A record declaration inside a file-level or type-level macro-control region is conditional evidence and suppresses resolution when its identity would otherwise be selected. Qualified record call syntax remains unsupported only when the reconstructed qualified record identity exactly matches the receiver; an unrelated `A::Config` does not suppress exact class `B::Config`. An exact abstract class is not constructible; `.new` suppresses rather than producing an implicit constructor.
+Record fallback retains exact identity. A record nested as `Other::Config` cannot satisfy top-level `Config.new`, while simple `Config.new` inside `Other` and explicit `Other::Config.new` both select that record. A record declaration inside a file-level or type-level macro-control region is conditional evidence and suppresses resolution when its identity would otherwise be selected. An unrelated `A::Config` does not suppress exact class `B::Config`. An exact abstract class is not constructible; `.new` suppresses rather than producing an implicit constructor.
 
 ## Suppression
 
@@ -195,7 +195,7 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - Conflicting local-variable receiver information that prevents one exact nearest assignment from being resolved.
 - Conflicting instance-variable assignment types.
 - A class-variable receiver.
-- A qualified record constructor or record instance method until records use exact generated-signature resolution.
+- A record instance method until record values use exact generated-signature resolution.
 - A macro-interpolated receiver, method name, or constructor target.
 
 Macro interpolation contained only inside an argument does not suppress an otherwise exact target. Task 4 decides whether and how that argument can be validated.
@@ -259,8 +259,8 @@ Automated tests must cover the following behavior across parenthesized, bare-arg
 - Local variables, regular parameters, destructured method/block/macro parameters, internal parameter names, type declarations, and same-named macros that shadow indexed method names.
 - Simple constant receivers resolved through an unambiguous enclosing lexical namespace, including rejection of ambiguous and unrelated namespace identities.
 - Simple record constructors validated through exact current-file `RecordFallback`, including argumentless calls and lexical collisions with indexed types.
-- Suppression for unknown, ambiguous, union, nilable, conflicting, class-variable, qualified or macro-controlled record, record-instance, and macro-interpolated targets.
+- Suppression for unknown, ambiguous, union, nilable, conflicting, class-variable, macro-controlled record, record-instance, and macro-interpolated targets.
 - Unknown methods and calls without an exact receiver-specific declaration.
 - Single ownership of every call site, with no duplicate diagnostics from nested DOT-call, call-expression, argument-list, or method-name PSI.
 
-Existing direct-call shadowing, parameter classification, excess-argument, named-argument, and splat-expansion behavior remains unchanged except where this contract explicitly unifies resolution across call syntax. Record instance calls and qualified record constructors remain suppressed pending the shared-resolver follow-up in `TODO.md`.
+Existing direct-call shadowing, parameter classification, excess-argument, named-argument, and splat-expansion behavior remains unchanged except where this contract explicitly unifies resolution across call syntax. Record instance calls remain suppressed pending exact generated-signature resolution; exact qualified record constructors use the shared constructor resolver now.

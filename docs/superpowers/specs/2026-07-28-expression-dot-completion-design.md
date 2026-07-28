@@ -59,7 +59,7 @@ Runtime expression analysis is owned by a neutral `de.magynhard.crystal.analysis
 
 The result is either an ordered, stably deduplicated set of known runtime types or `Unknown`. Numeric literal entries retain unsuffixed-literal metadata for compatibility with autocasting inspections.
 
-Variable resolution follows lexical PSI flow only. It walks preceding siblings and enclosing scopes up to the active file, method/macro, block, and type boundaries; it never scans all assignments in a containing file. Internal parameter names are used in bodies. Later assignments and declarations in sibling methods, nested types, or other files cannot contribute. Branch assignments merge only when every reachable path supplies known evidence.
+Variable resolution uses source-ordered flow composition from the active lexical boundary to the use site; it never scans all assignments in a containing file. Incoming and outgoing bindings are carried through ternary/logical expressions, postfix modifiers, loops, protected bodies, rescue/else/ensure, and blocks. Internal parameter names are used in bodies. Later assignments and declarations in sibling methods, nested types, or other files cannot contribute. Instance variables stop at the nearest enclosing type.
 
 Resolved type text is converted into a structured set of lookup types:
 
@@ -68,9 +68,9 @@ Resolved type text is converted into a structured set of lookup types:
 - Qualified type identities remain qualified until exact index filtering is complete.
 - Duplicate types are removed while preserving deterministic order.
 
-Control flow includes every `if`/`unless` main branch, every `elsif`, every `case when`/`in` clause in source order, and `else` or implicit `Nil`. Empty branches are `Nil`; any reachable unknown branch makes the result unknown. Assignment expressions resolve their nested assignment or RHS value.
+Control flow includes every `if`/`unless` main branch, every `elsif`, every `case when`/`in` clause, every rescue, and `else` or implicit `Nil`. Empty branches are `Nil`; any reachable unknown branch makes the result unknown. Logical operators use Crystal value/truthiness semantics. Structured reachability stops after unconditional returns and propagates all-branches termination through conditional and protected bodies.
 
-Method calls resolve against an exact receiver or lexical implicit-self scope. Unrelated same-name methods never contribute, top-level methods are considered only when no implicit-self candidate exists, ambiguous overload sets remain unknown, and direct or mutual recursion terminates as unknown. Unannotated methods merge all reachable explicit returns with the implicit final result.
+Method calls resolve against an exact receiver or lexical implicit-self scope through one session-cached hierarchy service. Unrelated same-name methods never contribute, top-level methods are considered only when no implicit-self candidate exists, ambiguous overload sets remain unknown, and direct or mutual recursion terminates as unknown. Unannotated methods merge all reachable explicit returns with a reachable implicit final result. Constructor classification is shared and accepts only complete concrete class/struct identities.
 
 For a union such as `Foo | Bar`, completion returns the union of methods available on either type, as explicitly selected. Identical method signatures are shown once; distinct overloads remain separate.
 
@@ -93,6 +93,9 @@ Add a neutral analysis layer with a structured type-set model and one scoped res
 - Lexical variable flow and parameter/body-name semantics.
 - Complete expression and control-flow type sets.
 - Exact DOT, implicit-self, hierarchy, top-level, overload, and method-return resolution.
+- Shared postfix-chain decomposition and source-adjacency classification.
+- Shared exact constructor classification and all-method hierarchy collection with depth,
+  precedence, receiver identity/mode, signature keys, and completeness.
 - StubIndex lookup caching, PSI memoization, and recursion guards.
 
 The focused completion receiver analyzer owns only:
@@ -102,7 +105,7 @@ The focused completion receiver analyzer owns only:
 - Delegating runtime expressions and completed calls to one neutral resolution session.
 - Expanding top-level unions and normalizing generic base types.
 
-Move reusable transparent receiver normalization into neutral PSI infrastructure. `CrystalExpressionTypeResolver` remains a compatibility facade over the neutral result, and `CrystalTypeInference` remains an adapter for existing string-returning consumers. Neither owns inference or project-wide fallback behavior.
+Move reusable transparent receiver normalization into neutral PSI infrastructure. `CrystalExpressionTypeResolver` remains a compatibility facade over the neutral result. `CrystalTypeInference` preserves annotation first-arm/base normalization while assignment-derived values retain full rendered generics/unions. PSI references consume neutral analysis directly and never depend on completion.
 
 Extend `CrystalCompletionHelper` with multi-type instance candidate collection so union merging and signature deduplication are implemented once.
 

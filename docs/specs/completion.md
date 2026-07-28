@@ -275,9 +275,9 @@ Only the **direct superclass** is queried (no hierarchy traversal for performanc
 
 #### Shared Receiver Normalization Contract
 
-`CrystalReceiverExpression` provides neutral PSI infrastructure for consumers that need a
-conservative DOT receiver identity. Inspection resolvers use it now; expression DOT completion
-does not consume it yet and is not integrated by this contract.
+`CrystalReceiverExpression` provides neutral PSI infrastructure for every consumer that needs a
+conservative DOT receiver identity. Inspection resolvers and the expression-completion receiver
+resolver both use the same normalization and exact constant-root contract.
 
 `normalize(receiver)` promotes variable-access leaves to their composite PSI and unwraps nested
 `CrystalExpression` and `CrystalGroupedExpression` nodes only while each wrapper contains exactly
@@ -296,11 +296,15 @@ ambiguous receiver identities return no exact constant root.
 #### Expression Receiver Analysis
 
 `CrystalCompletionReceiverResolver` is the completion-facing receiver boundary. It finds the
-member-access `DOT` immediately before IntelliJ's completion position and analyzes the complete
-semantic postfix prefix before that dot. The grammar can flatten a chain into
+member-access `DOT` immediately before IntelliJ's completion position. `CrystalPostfixChain` then
+decomposes the complete semantic postfix prefix for both completion and neutral expression
+analysis. The grammar can flatten a chain into
 multiple `CrystalDotCallAccess` siblings or attach an argumentless continuation as a
 `CrystalImplicitObjectCall` inside the preceding access's bare-argument PSI; both shapes are
 processed recursively in source order for arbitrarily long argumentless or mixed chains. Every
+attached implicit call is treated as a continuation only when its DOT is source-adjacent to the
+preceding call. Whitespace before the DOT denotes a genuine bare argument, such as
+`service.consume .helper`, and is not folded into the receiver chain. Every
 postfix component before the completion dot must be recognized; bracket/index access and other
 unsupported tails produce `Unknown` rather than allowing analysis of a shorter prefix. Receiver
 text is not rebuilt with source regexes. Transparent grouping
@@ -311,16 +315,18 @@ supported `if`, `case`, or ternary receiver do not invalidate that receiver.
 
 Exact constant paths are classified before value inference. All runtime values and completed calls
 delegate to one `CrystalTypeResolutionSession` from the neutral `de.magynhard.crystal.analysis`
-layer. The session owns ordered type sets, lexical variable flow, complete control-flow semantics,
-exact scoped method returns, memoization, recursion guards, and cached StubIndex lookups. It never
+layer. The session owns ordered type sets, forward incoming/outgoing flow, truthiness-aware logical
+values, rescue/else/ensure paths, structured reachability, exact constructor/type identities,
+method returns, recursion guards, and cached StubIndex/hierarchy lookups. It never
 collects assignments across a containing file or uses a project-wide first-name method fallback.
 
-A unique indexed declaration produces
+The nearest exact lexically visible indexed declaration produces
 a type object with its simple and qualified identity; qualified and absolute paths are marked as
-explicit identities, including qualified generic roots such as `Outer::Box(Int32)`. Other
-receivers use completion-specific union-preserving variable inference or expression type
-resolution and produce an ordered set of runtime lookup types. Completed constructors produce
-their exact receiver type. Completed methods require an exact indexed receiver identity and target
+explicit identities, including qualified generic roots such as `Outer::Box(Int32)`. The completion
+receiver resolver delegates every other receiver directly to the same neutral session and adapts
+its ordered type set without a completion-owned inference path. Completed constructors produce
+their exact receiver type only for complete concrete class and struct declarations; abstract
+classes, modules, and enums remain `Unknown`. Completed methods require an exact indexed receiver identity and target
 method; explicit return annotations are preserved, while unannotated returns use existing body
 inference. Exactly one method candidate must remain for each exact receiver identity after
 receiver, static/instance mode, and name filtering. Multiple overloads remain `Unknown` until
@@ -343,10 +349,13 @@ if any reachable branch has no type, receiver analysis returns `Unknown` instead
 typed sibling branches.
 
 `CrystalExpressionTypeResolver` and `CrystalTypeInference` are compatibility adapters over the
-neutral result; completion no longer depends on inspection-owned or legacy file-wide inference.
+neutral result. The legacy public inference API keeps annotation first-arm/base normalization while
+assignment-derived values retain full rendered generic/union types. Completion and PSI references
+do not depend on completion-owned or legacy file-wide inference.
 
-This analysis is not wired into `CrystalCompletionContributor` yet. It does not change popup
-dispatch or perform candidate lookup across the resulting type set.
+`CrystalCompletionContributor` does not yet dispatch through this receiver result or perform
+candidate lookup across its type set; that later integration does not change the direct neutral
+delegation already used by `CrystalCompletionReceiverResolver`.
 
 #### Static Method Completion (`CONSTANT.method`)
 

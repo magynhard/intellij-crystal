@@ -1,377 +1,123 @@
 # Type Inference
 
-Specs to define the behaviour of type inference across the Crystal plugin.
+## Ownership
+
+`de.magynhard.crystal.analysis` is the single owner of PSI-based type resolution. A
+`CrystalTypeResolutionSession` returns either an ordered `CrystalTypeResolution.Known` set or
+`Unknown`. Completion, expression inspections, PSI references, and legacy string APIs adapt this
+result; they do not call each other to infer types.
+
+Each session owns PSI memoization, method-return memoization and recursion guards, exact type and
+method caches, and one cached `CrystalMethodHierarchy`. Runtime lookup uses `CrystalIndexService`
+and never scans project files.
+
+## Sequential Variable Flow
+
+Variable lookup composes source-ordered PSI from the active lexical boundary to the use site. Each
+statement produces a binding with provenance, fall-through, and exceptional states. Joins merge
+only branches that reach the join. A reachable unsupported or unprovable path makes the merged
+result `Unknown`; the resolver never picks the first reverse descendant assignment.
+
+- Direct assignments replace the incoming binding.
+- `if`, `unless`, `case`, ternary, postfix modifiers, `&&`, and `||` preserve every reachable path.
+- Loops include the zero-iteration incoming binding and every observed intermediate body binding.
+- A protected `begin` records binding states at potential throw points. Rescue starts from the
+  proven exceptional state, so a pure `value = "ready"` before a potentially raising call is visible
+  in rescue. Call arguments are evaluated in source order, and the post-argument state is recorded
+  at the enclosing call operation, so `consume(value = "ready")` exposes `String` if `consume`
+  raises. If argument evaluation or an assignment itself may raise before establishing its result,
+  that exceptional state remains `Unknown` instead of being narrowed by a later operation state.
+  Else runs only after a normally falling-through body. Ensure transforms outgoing flow but does
+  not become the protected expression's value.
+- Method and block parameters are incoming bindings. External/internal parameter names use the
+  internal body name.
+- Local variables stop at the nearest method/macro or file boundary. Block parameters shadow outer
+  bindings only inside their block.
+- Instance variables stop at the nearest class, module, struct, or enum. Nested and sibling types
+  never inherit lexical instance-variable evidence from an outer type.
+
+## Expression Values
+
+Scalar literals resolve to Crystal's default runtime types. Arrays, hashes, and tuples preserve
+their structured rendered types, including ordered element/key/value unions. Unknown collection
+members make the collection unknown.
+
+Conditional expression values merge only falling-through paths. `if`, `unless`, and `case` share
+the same structured execution result, so a terminating arm contributes its return but not an
+assignment value. Missing `else` paths contribute `Nil`. Every `elsif`, `when`, `in`, and rescue
+path participates in source order; a reachable unknown path makes the result unknown.
+
+Logical operators return values, not a fixed `Bool`:
+
+- Always-truthy left operands make `left && right` return `right` and `left || right` return `left`.
+- `Nil` and literal `false` take the inverse paths.
+- `Bool` is mixed because it can represent true or false.
+- Mixed `Bool`/`Nil` unions retain only reachable short-circuit left alternatives and include the
+  right result only when the right operand can execute.
+
+Comparisons resolve to `Bool`. Arithmetic is supported only when both operand sets are the same
+known type; unsupported promotion or overload cases remain unknown.
+
+## Reachability And Returns
+
+Statement analysis produces return types, an optional falling-through value, and `fallsThrough`.
+An unconditional return stops its statement list. Conditional returns remain reachable alongside
+fall-through paths. If every branch of an `if`, `case`, or protected body terminates, later returns
+and implicit tails are unreachable and excluded.
+
+Unannotated method results merge every reachable explicit return with the reachable implicit tail.
+Method-level rescue, else, and ensure use the same protected-body semantics as `begin`. Ensure
+affects termination; its ordinary expression value does not replace the protected value. Direct and
+mutual recursion terminate as `Unknown`, and completed method results are memoized per session.
+
+## Type Identity And Hierarchy
+
+Simple constants resolve by ordered lexical identity: the nearest enclosing qualified candidate is
+checked first, then each outer candidate, then the global identity. The first exact identity shadows
+later candidates. Qualified and absolute references require their exact identity. Generic roots are
+normalized by one exact-root utility for receiver, superclass, include, and extend lookup.
+
+`CrystalMethodHierarchy` is session-owned and caches exact declarations, methods by exact type,
+edges, metadata, named results, and all-method collections. Named macro uncertainty is
+name-sensitive: a controlled `hidden` method does not suppress unconditional `visible`, while an
+interpolated unknown method name conservatively affects every named lookup. Hierarchy order is direct declaration,
+reverse include/extend exposure order, then superclass traversal. Results carry stable depth,
+precedence, exact receiver identity, receiver mode, and one shared canonical signature key.
+
+Named lookup filters the shared hierarchy while preserving name-specific completeness. The
+all-method API marks uncertain macro-controlled or cross-file duplicate metadata incomplete.
+Implicit-self methods take precedence. One exact top-level method remains a fallback only when the
+implicit-self hierarchy has no candidate; ambiguous top-level overloads are unknown.
+
+## Constructors
+
+Constructor and record collision classification is neutral and shared by DOT targets and PSI
+references. Ordered lexical candidates choose a record before a type at the same exact identity,
+then continue outward only when that identity has neither. An exact class or struct may resolve through
+`self.new`, then `initialize`, then implicit construction. Modules and enums are unavailable;
+abstract classes are rejected; macro-controlled or incomplete exact declarations are incomplete.
+Multiple constructor methods remain a multi-target result for navigation/inspection consumers, but
+a single PSI reference resolves them as ambiguous (`null`).
+Constructor expressions preserve the exact qualified receiver identity as their instance result.
+Record macro fallback remains a separate declaration path before normal type construction where
+the call consumer supports records.
 
-## Overview
+## Compatibility APIs
 
-The plugin has two type resolution systems:
-
-1. **`CrystalTypeInference`** (`completion/CrystalTypeInference.kt`) — Resolves the type of
-   a **variable** given its name and context. Used by code completion and Go to Definition.
-2. **`CrystalExpressionTypeResolver`** (`inspections/CrystalExpressionTypeResolver.kt`) —
-   Resolves the type of **any expression** PSI element. Used by the type-check inspection.
-   Delegates variable resolution to `CrystalTypeInference`.
+`CrystalTypeInference.inferType(...)` preserves pre-analysis behavior by evidence source:
 
-Both systems return a type name string (or `ResolvedType` wrapper). When a type cannot be
-determined, `null` is returned — callers treat this as "unknown type" and fall back
-(all methods shown for completion, no type-check applied for inspections).
+- Typed parameter annotations return the first union arm with outer generic arguments removed.
+- Assignment expression results return the full rendered type, such as `Array(Int32)`,
+  `Hash(String, Int32)`, or `Int32 | Nil`.
 
----
-
-## Consumers
-
-| Consumer | System Used | Purpose |
-|---|---|---|
-| `CrystalCompletionContributor` | `CrystalTypeInference` | Dot-completion on `variable.<caret>` |
-| `CrystalDotCallReference` | `CrystalTypeInference` | Go to Definition for DOT-call on variables |
-| `CrystalTypeCheckInspection` | `CrystalExpressionTypeResolver` | Validates argument types against parameter annotations |
-| Inlay Hints (future) | `CrystalTypeInference` | Show inferred types inline (Issue #2) |
-
----
-
-## Priority Tier 1 — Scalar Literal Assignments
-
-**Affects:** `CrystalTypeInference.inferTypeFromExpression`
-**Complexity:** Trivial
-
-Extend `inferTypeFromExpression` to recognize literal expressions as the RHS of an
-assignment. Currently only handles `Class.new`, `Class.method`, and bare `method_call`.
+Union-preserving completion and expression consumers use structured session results or the explicit
+preserving adapters. `CrystalExpressionTypeResolver` remains a nullable wrapper over neutral
+resolution for existing inspection callers.
 
-| Crystal Code | Inferred Type | Notes |
-|---|---|---|
-| `x = 1` | `Int32` | Unsuffixed integer defaults to Int32 |
-| `x = 1_i64` | `Int64` | Suffixed — parse suffix |
-| `x = 1.0` | `Float64` | Unsuffixed float defaults to Float64 |
-| `x = 1_f32` | `Float32` | Suffixed — parse suffix |
-| `x = "hello"` | `String` | Always String |
-| `x = 'a'` | `Char` | Always Char |
-| `x = :foo` | `Symbol` | Always Symbol |
-| `x = true` | `Bool` | Always Bool |
-| `x = false` | `Bool` | Always Bool |
-| `x = nil` | `Nil` | Always Nil |
+## Conservative Limits
 
-### Suffix Parsing Rules
-
-Integer suffixes: `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`.
-Float suffixes: `f32`, `f64`. Underscores in literals are ignored for suffix detection
-(e.g. `1_000_i64` → `Int64`).
-
-### Priority Tier 2 — Trivial Expression Types
-
-**Affects:** `CrystalExpressionTypeResolver`
-**Complexity:** Trivial
-
-These expressions always resolve to a fixed type regardless of context.
-
-| Expression PSI Class | Inferred Type | Crystal Example |
-|---|---|---|
-| `CrystalRegexExpression` | `Regex` | `/pattern/` |
-| `CrystalCommandExpression` | `String` | `` `ls` `` |
-| `CrystalHeredocLiteral` | `String` | `<<-HEREDOC ... HEREDOC` |
-| `CrystalSymbolStringExpression` | `Symbol` | `:"foo"` |
-| `CrystalSizeofExpression` | `UInt64` | `sizeof(Int32)` |
-| `CrystalInstanceSizeofExpression` | `UInt64` | `instance_sizeof(Foo)` |
-| `CrystalOffsetofExpression` | `UInt64` | `offsetof(Foo, @x)` |
-
-### Percent Literals
-
-| Syntax | Inferred Type | Crystal Example |
-|---|---|---|
-| `%w(...)` | `Array(String)` | `%w(a b c)` |
-| `%i(...)` | `Array(Symbol)` | `%i(a b c)` |
-| `%q(...)` / `%Q(...)` | `String` | `%q(hello)` |
-| `%r(...)` | `Regex` | `%r(foo)` |
-| `%b(...)` | `Bytes` | `%b(0x00)` |
-
----
-
-## Priority Tier 3 — Collection Literals
-
-**Affects:** `CrystalExpressionTypeResolver` + `CrystalTypeInference`
-**Complexity:** Medium
-
-### Array Literals
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `[1, 2, 3]` | `Array(Int32)` | Infer element types, all same → concrete type |
-| `[1, "hi"]` | `Array(Int32 \| String)` | Union of differing element types |
-| `[] of Int32` | `Array(Int32)` | Explicit `of Type` annotation |
-| `[1] of String` | Error (static) | Type mismatch — not inferable, skip |
-
-Resolution strategy:
-1. Check for `of Type` annotation → use annotated type.
-2. Otherwise, resolve each element's type and unify.
-3. If all elements resolve to the same type `T`, return `Array(T)`.
-4. If elements differ, return `Array(T1 | T2 | ...)`.
-5. If any element cannot be resolved, return `null` (unknown).
-
-### Hash Literals
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `{a: 1}` | `Hash(Symbol, Int32)` | Symbol key shorthand |
-| `{"a" => 1}` | `Hash(String, Int32)` | Explicit key/value |
-| `{} of String => Int32` | `Hash(String, Int32)` | Explicit `of K => V` |
-| `{a: 1, "b" => 2}` | `Hash(Symbol \| String, Int32)` | Union of key types |
-
-Resolution strategy:
-1. Check for `of K => V` annotation → use annotated types.
-2. Otherwise, resolve key types and value types separately, unify each.
-3. If both key and value resolve, return `Hash(K, V)`.
-4. If either cannot be resolved, return `null`.
-
-### Tuple Literals
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `{1, "hi"}` | `Tuple(Int32, String)` | Compound of element types |
-| `{1}` | `Tuple(Int32)` | Single-element tuple |
-| `{1, 2, 3}` | `Tuple(Int32, Int32, Int32)` | All element types |
-
-Resolution strategy: Resolve each element type in order. Return `Tuple(T1, T2, ...)`.
-If any element cannot be resolved, return `null`.
-
-### Proc Literals
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `-> { 1 }` | `Proc(Int32)` | No params, infer return from body |
-| `->(x : Int32) { x.to_s }` | `Proc(Int32, String)` | Explicit param types, infer return |
-| `->(x : Int32, y : String) { }` | `Proc(Int32, String, Nil)` | Explicit params, no body → Nil |
-
-Resolution strategy: Collect parameter types from the parameter list (must have type
-annotations). Infer return type from the body expression. If params lack annotations,
-return `null`.
-
----
-
-## Priority Tier 4 — Control-Flow Unions
-
-**Affects:** `CrystalTypeInference` + `CrystalExpressionTypeResolver`
-**Complexity:** High
-
-### Ternary Expressions
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `x = cond ? 1 : nil` | `Int32?` | Union of true-branch and false-branch types |
-| `x = cond ? 1 : "hi"` | `Int32 \| String` | Union of both branch types |
-| `x = cond ? 1 : 2` | `Int32` | Both branches same → concrete type |
-
-### If Expressions (as RHS)
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `x = if cond; 1; else; nil; end` | `Int32?` | Last expression per branch, union |
-| `x = if cond; 1; end` | `Int32 \| Nil` | Implicit else returns Nil |
-
-### Unless Expressions
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `x = unless cond; 1; end` | `Int32 \| Nil` | Body type union with Nil (implicit else) |
-| `x = unless cond; 1; else; nil; end` | `Int32?` | Union of both branches |
-
-### Case Expressions
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `x = case y; when Int; 1; when String; "a"; end` | `Int32 \| String` | Union of all `when` branch types |
-| `x = case y; when Int; 1; else; nil; end` | `Int32?` | Include else branch type |
-
-### Begin/Rescue Expressions
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `x = begin; 1; rescue; nil; end` | `Int32?` | Normal block type union with rescue block type |
-| `x = begin; 1; ensure; 2; end` | `Int32` | Ensure doesn't contribute to type |
-
-### Resolution Strategy for Control Flow
-
-1. Identify all branches (if/else, when clauses, rescue blocks, etc.).
-2. Resolve the type of the last expression in each branch.
-3. Unify all branch types into a union.
-4. If only one branch exists and no implicit nil, return that single type.
-5. If any branch cannot be resolved, return `null` (unknown) — conservative approach.
-
-### Typeof Expressions
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `typeof(x)` | Type of `x` | Delegate to variable inference |
-| `typeof(1 + 2)` | `Int32` | Resolve inner expression type |
-
----
-
-## Priority Tier 5 — Multi-Assignment & Instance Variables
-
-**Affects:** `CrystalTypeInference`
-**Complexity:** Medium
-
-### Instance Variable Assignments
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `@x = "hello"` | `String` | Same as local assignment inference |
-| `@x : Int32` | `Int32` | Type annotation (if supported in grammar) |
-
-Instance variable inference works like local variables but stores results scoped to
-the enclosing class. The existing `inferFromAssignment` already checks for `@name`
-patterns (line 76 of `CrystalTypeInference.kt`).
-
-### Multi-Assignment
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `a, b = [1, "hi"]` | `{Int32, String}` | Index into array/tuple type |
-| `a, b = 1, "hi"` | `{Int32, String}` | Tuple of RHS element types |
-
-Resolution strategy: Resolve the RHS type. If it is `Array(T)` or `Tuple(T1, T2, ...)`,
-index into it for each LHS variable. If RHS is a multi-value expression, assign
-by position.
-
-### Chained Assignments
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `a = b = value` | Type of `value` | Follow the rightmost (innermost) assignment |
-
----
-
-## Priority Tier 6 — Operator Result Types
-
-**Affects:** `CrystalExpressionTypeResolver`
-**Complexity:** High
-
-### Arithmetic Operators
-
-| Expression | Result Type | Notes |
-|---|---|---|
-| `Int + Int` | Same Int type | `1 + 2` → `Int32` |
-| `Float + Float` | Same Float type | `1.0 + 2.0` → `Float64` |
-| `Int + Float` | Float type | Mixed → Float |
-| `String + String` | `String` | Concatenation |
-| `Int * Int` | Same Int type | Multiplication |
-| `Int ** Int` | Same Int type | Power |
-| `Int // Int` | Same Int type | Integer division |
-| `Int / Int` | Same Int type | Crystal integer division |
-
-### Comparison Operators
-
-| Expression | Result Type |
-|---|---|
-| `x == y` | `Bool` |
-| `x != y` | `Bool` |
-| `x < y` | `Bool` |
-| `x > y` | `Bool` |
-| `x <= y` | `Bool` |
-| `x >= y` | `Bool` |
-| `x <=> y` | `Int32` |
-
-### Logical Operators
-
-| Expression | Result Type |
-|---|---|
-| `!x` | `Bool` |
-| `x && y` | Type of `y` (short-circuit) |
-| `x \|\| y` | Type of `x \| y` (union) |
-
-### Unary Operators
-
-| Expression | Result Type |
-|---|---|
-| `-x` | Same as `x` |
-| `+x` | Same as `x` |
-| `~x` | Same as `x` |
-
-### Strategy
-
-For binary operators: resolve both operand types. If both are the same concrete type,
-return that type. For mixed numeric types, follow Crystal's promotion rules. For
-comparison/logical operators, return the fixed result type.
-
-Note: Full operator overload resolution (custom `def +(other)`) is out of scope for
-the initial implementation. Only built-in type rules are supported.
-
----
-
-## Priority Tier 7 — Method Return Type Inference from Body
-
-**Affects:** `CrystalTypeInference.inferReturnTypeOfMethod`
-**Complexity:** Medium
-
-When a method has no explicit return type annotation, infer the return type from the
-method body. This enables variable hover to show the correct type when a variable
-holds a method's return value.
-
-| Crystal Code | Inferred Type | Strategy |
-|---|---|---|
-| `def foo; return "hi"; end` | `String` | First `return` statement's expression type |
-| `def bar(x : Int32); x + 1; end` | `Int32` | Last expression (implicit return) |
-| `def baz; end` | `Nil` | Empty body defaults to Nil |
-
-### Resolution Strategy
-
-1. **Return statements:** Scan all statements in the method body for `CrystalReturnStatement`.
-   Resolve the type of the return value expression via `CrystalExpressionTypeResolver`.
-   Use the first match found.
-2. **Implicit return (fallback):** If no `return` statement is found, resolve the type
-   of the last expression in the body (`CrystalExpressionStatement` → first expression).
-3. **Empty body:** If the body has no statements, return `null` (unknown).
-
-### Limitations
-
-- Only the **first** `return` statement is checked — multi-path return inference
-  (union of all return types) is not yet implemented.
-- The return expression must be resolvable by `CrystalExpressionTypeResolver` —
-  complex or deeply nested expressions may return `null`.
-
-### Integration with `inferFromAssignment`
-
-`inferFromAssignment` resolves variable types by finding the assignment whose LHS
-matches the variable name, then calling `inferTypeFromExpression` on the RHS. When
-the RHS is a bare method call (e.g. `ret = sahne "gogo"`), `inferTypeFromExpression`
-delegates to `inferReturnTypeOfMethod`, which now checks the method body when no
-explicit return type annotation exists.
-
-The LHS variable is identified by looking for `CrystalTypes.IDENTIFIER` as a direct
-child of `CrystalAssignment`, with a fallback to `assignment.firstChild` for cases
-where the variable is wrapped in `CrystalVariableReference`.
-
----
-
-## What This Spec Does NOT Cover
-
-- **Full multi-path method body return type inference** — inferring a union type from
-  all code paths in a method body (e.g. `def foo; if cond; 1; else; "hi"; end; end` →
-  `Int32 | String`). Only single-path inference is supported now (first `return` found,
-  or last expression).
-- **Generic type parameter resolution** — `Array(T)` where `T` is a type parameter.
-- **Module/mixin type composition** — resolving types from included modules.
-- **Nil-check narrowing** — `if x` narrowing `x` from `Int32?` to `Int32` inside the block.
-- **Instance variable type inference across files** — only same-file assignments are analyzed.
-- **Union type simplification** — `Int32 | Int32` → `Int32` deduplication.
-- **Abstract type resolution** — `Number`, `Comparable(T)` as inferred types.
-
----
-
-## Implementation Notes
-
-### Existing Code to Extend
-
-- `CrystalTypeInference.inferTypeFromExpression` (line 96) — add literal pattern matching
-  before the existing method-call regex patterns. Delegates to `CrystalExpressionTypeResolver`
-  for ternary/control-flow expressions (QUESTION/COLON detection).
-- `CrystalExpressionTypeResolver.resolveType` (line 29) — add cases for collection,
-  control-flow, and trivial expression PSI types in the `when` block.
-
-### Testing Strategy
-
-- Unit tests for `CrystalTypeInference` — test each literal type, collection, and
-  control-flow pattern in isolation.
-- Platform tests via `CrystalTypeCheckInspectionTest` — test that inferred types flow
-  into argument-type validation correctly.
-- Parser tests for new BNF rules (if any) — add `.cr` + `.txt` golden files.
-
----
+- Completed-call overload selection is not argument-aware; multiple exact candidates are unknown.
+- Generic type parameters are not substituted through method signatures.
+- Nil/type narrowing from conditions is not modeled.
+- Proc result inference and custom operator overload resolution are not modeled.
+- Cross-file reopening precedence remains incomplete when Crystal load order cannot be proven.

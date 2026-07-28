@@ -99,7 +99,7 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Expand unqualified call applicability** — support inherited unqualified methods and other unqualified calls that cannot yet resolve to one exact applicable overload set, without introducing name-only fallbacks.
 - [ ] **Make overload tie diagnostics deterministic** — define stable ranking when equally close overloads omit different required parameter names.
 - [ ] **Model complete call precedence** — distinguish all remaining declaration kinds that can share call syntax so argument inspections can suppress or resolve aliases and other non-method declarations without name-only guesses.
-- [ ] **Route records through the shared call resolver** — resolve record constructors and instance methods to exact generated or declared signatures before enabling call-argument diagnostics for record targets.
+- [ ] **Resolve record instance methods through the shared call resolver** — exact simple, qualified, and absolute record constructors already use shared constructor identity and precedence; model generated record instance signatures before enabling diagnostics for record values.
 - [ ] **Resolve class-variable receivers** — model exact class-variable types and assignment conflicts so DOT-calls on class variables can use the shared resolver without name-only guesses.
 - [ ] **Narrow union and nilable receivers** — use control-flow facts to reduce union or nilable receiver types to one exact non-nil type before resolving DOT-calls.
 - [ ] **Resolve macro-interpolated call targets** — resolve macro-interpolated receivers, method names, and constructor targets to one exact declaration before enabling call-argument diagnostics for those calls.
