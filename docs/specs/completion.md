@@ -273,6 +273,26 @@ Only the **direct superclass** is queried (no hierarchy traversal for performanc
 
 ### Dot-Completion
 
+#### Shared Receiver Normalization Contract
+
+`CrystalReceiverExpression` provides neutral PSI infrastructure for consumers that need a
+conservative DOT receiver identity. Inspection resolvers use it now; expression DOT completion
+does not consume it yet and is not integrated by this contract.
+
+`normalize(receiver)` promotes variable-access leaves to their composite PSI and unwraps nested
+`CrystalExpression` and `CrystalGroupedExpression` nodes only while each wrapper contains exactly
+one significant receiver expression. A grouped assignment is the nearest legal multi-expression
+parenthesized form in the current grammar and remains opaque. Parenthesized comma-separated
+expressions are not currently legal `grouped_expression` syntax; if such PSI becomes legal later,
+the comma guard must continue to keep it opaque.
+
+`extractExactConstantTypeRoot(receiver)` accepts complete constant identities such as `Foo`,
+`Outer::Foo`, and `::Foo`, plus generic type-object calls such as `Box(Int32)` when every argument
+is itself an exact type reference. It returns the written qualified root (`Box` for `Box(Int32)`).
+Lowercase or dynamic namespace roots such as `value::Foo`, grouped assignments, multiple
+expressions, macro interpolation, calls with value arguments, class variables, and otherwise
+ambiguous receiver identities return no exact constant root.
+
 #### Static Method Completion (`CONSTANT.method`)
 
 Shows all static methods (`def self.xxx`) of the given class.

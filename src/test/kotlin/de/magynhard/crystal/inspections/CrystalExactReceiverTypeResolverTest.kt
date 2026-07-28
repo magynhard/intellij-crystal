@@ -10,6 +10,7 @@ import com.intellij.testFramework.PsiTestUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import de.magynhard.crystal.psi.CrystalAssignment
 import de.magynhard.crystal.psi.CrystalDotCallAccess
+import de.magynhard.crystal.psi.CrystalGroupedExpression
 import de.magynhard.crystal.psi.CrystalPsiUtils
 import de.magynhard.crystal.psi.CrystalReceiverExpression
 import de.magynhard.crystal.psi.CrystalTypes
@@ -81,6 +82,15 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
         val expression = PsiTreeUtil.findChildOfType(file, CrystalAssignment::class.java)?.expression
         assertNull(CrystalReceiverExpression.extractExactConstantTypeRoot(requireNotNull(expression)))
+    }
+
+    fun testNeutralHelperDoesNotUnwrapLegalMultiExpressionGroup() {
+        val receiver = receiverCalls("(value = Foo).run").getValue("run")
+        assertTrue(receiver is CrystalGroupedExpression)
+        receiver as CrystalGroupedExpression
+        assertEquals(2, receiver.expressionList.size)
+
+        assertSame(receiver, CrystalReceiverExpression.unwrapTransparent(receiver))
     }
 
     fun testNeutralHelperRejectsLowercaseNamespaceRoot() {
