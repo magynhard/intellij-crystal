@@ -23,8 +23,8 @@ preserves the contributor's established dispatch order, ranking, deduplication, 
 
 | Trigger | Context | Popup Content |
 |---------|---------|---------------|
-| `.` after CONSTANT | Static methods of the class + `.new` |
-| `.` after identifier | Instance methods (via type inference) |
+| `.` after a type object | Static methods of the type + `.new` when constructible |
+| `.` after a value expression | Instance methods of every resolved receiver type |
 | `::` after CONSTANT | Nested types |
 | Ctrl+Space anywhere | Context-dependent (scope items, classes, etc.) |
 
@@ -57,8 +57,8 @@ Na     # ← scope items + class names starting with "Na"
 No completion is offered in these contexts:
 
 - Inside string literals (not interpolation)
-- After integer literals on the same line
-- After float literals on the same line
+- After integer literals on the same line, unless followed by a member-access DOT
+- After float literals on the same line, unless followed by a member-access DOT
 
 ```crystal
 "hello"     # ← no completion after the closing quote
@@ -361,9 +361,23 @@ with the same simple name do not leak methods across namespaces. Primitive and g
 use the same indexed declaration path as project types. The existing single-type helper delegates
 to this multi-type API.
 
-`CrystalCompletionContributor` does not yet dispatch through the receiver result or this multi-type
-candidate API. That later integration does not change the direct neutral delegation already used by
-`CrystalCompletionReceiverResolver` or the helper behavior specified above.
+`CrystalCompletionContributor` dispatches DOT completion exclusively through this receiver result.
+`TypeObject` receivers are delegated to a focused provider that preserves static-method rendering,
+qualified filtering, record constructor signatures, synthetic `new` behavior, icons, and priority.
+`ValueTypes` receivers are passed as one ordered set to the multi-type helper, so every union branch
+contributes methods, identical canonical signatures appear once, and distinct overloads remain
+separate. The contributor no longer classifies receivers from the token immediately before the DOT.
+
+Receiver dispatch runs before ordinary numeric-literal suppression. Consequently, `3.` is direct
+`Int32` member access and `3.14.` is `Float64` member access, while completion inside the float token
+in `3.1` is not DOT completion. A syntactically recognized member-access DOT whose receiver resolves
+to `Unknown` returns no candidates and never falls through to unrelated free-text project methods.
+
+Transparent grouping has full lookup parity: `Foo.`, `(Foo).`, and `((Foo)).` produce the same
+type-object candidates, and grouping likewise preserves qualified/absolute constants, modules,
+records, runtime variables, typed parameters, instance variables, scalar literals, collections,
+operators, and supported method-result expressions. Runtime values receive instance methods only;
+they do not receive constructors or static-only methods, and modules do not receive `new`.
 
 #### Static Method Completion (`CONSTANT.method`)
 
@@ -594,19 +608,6 @@ Classes without an explicit `initialize` method still offer `.new` but with no p
 ## Future Features (Not Yet Implemented)
 
 The following features are documented as potential future enhancements:
-
-### Method Chain Completion
-
-Completion after method chains would resolve the return type of the previous method:
-
-```crystal
-# Currently NOT supported:
-"hello".reverse.       # ← would need to know reverse returns String
-[1, 2, 3].first.      # ← would need to know first returns Int32
-users.select(&.active?).map(&.name).  # ← would need generic type resolution
-```
-
-**Challenges:** Requires a return-type table for all stdlib methods, generic type parameter resolution, and union-type handling. Crystal's compiler does this natively, but the PSI-based approach doesn't have access to the compiler's type system.
 
 ### Enum Value Completion
 

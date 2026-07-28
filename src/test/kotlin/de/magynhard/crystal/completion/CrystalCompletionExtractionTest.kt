@@ -28,8 +28,17 @@ class CrystalCompletionExtractionTest : TestCase() {
             "isInTypeAnnotationContext",
             "isInClassBodyNotMethod",
             "isInAnnotationContext",
+            "isDotCompletion",
             "isAfterNumericLiteral",
             "isInsideStringLiteral"
+        )
+        assertDeclaresMethods(
+            "de.magynhard.crystal.completion.CrystalCompletionReceiverResolver",
+            "resolve"
+        )
+        assertDeclaresMethods(
+            "de.magynhard.crystal.completion.CrystalTypeObjectCompletionProvider",
+            "addCompletions"
         )
     }
 

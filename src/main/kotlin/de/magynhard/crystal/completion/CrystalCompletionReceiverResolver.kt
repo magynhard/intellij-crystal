@@ -3,10 +3,11 @@ package de.magynhard.crystal.completion
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalConstructorResolution
+import de.magynhard.crystal.analysis.CrystalPostfixChain
 import de.magynhard.crystal.analysis.CrystalTypeResolution
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
-import de.magynhard.crystal.analysis.CrystalPostfixChain
 import de.magynhard.crystal.psi.*
 
 internal sealed interface CompletionReceiver {
@@ -144,7 +145,9 @@ internal object CrystalCompletionReceiverResolver {
     ): CompletionReceiver {
         val normalizedRoot = typeRoot.removePrefix("::")
         val explicitIdentity = typeRoot.startsWith("::") || normalizedRoot.contains("::")
-        val identity = session.resolveType(typeRoot, context) ?: return CompletionReceiver.Unknown
+        val identity = session.resolveType(typeRoot, context)
+            ?: (session.resolveConstructor(typeRoot, context) as? CrystalConstructorResolution.Record)?.identity
+            ?: return CompletionReceiver.Unknown
         return CompletionReceiver.TypeObject(identity.simpleName, identity.qualifiedName, explicitIdentity)
     }
 

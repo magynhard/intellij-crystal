@@ -1441,4 +1441,253 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain 'dance': $names", names.contains("dance"))
         assertTrue("Should contain 'sing': $names", names.contains("sing"))
     }
+
+    // ==================== Expression receiver dot completion ====================
+
+    fun testGroupedTypeObjectsHaveExactStaticCompletionParity() {
+        myFixture.addFileToProject("foo.cr", """
+            class Foo
+              def self.build
+              end
+              def self.parse(value : String)
+              end
+              def instance_only
+              end
+            end
+        """.trimIndent())
+
+        val expected = completionNames("Foo.<caret>")
+        assertEquals(setOf("build", "parse", "new"), expected)
+        assertEquals(expected, completionNames("(Foo).<caret>"))
+        assertEquals(expected, completionNames("((Foo)).<caret>"))
+    }
+
+    fun testQualifiedAbsoluteModuleAndRecordTypeObjectCompletion() {
+        val declarations = """
+            module Outer
+              class Service
+                def self.qualified_only
+                end
+              end
+            end
+
+            module Utility
+              def self.module_only
+              end
+            end
+
+            record Config, name : String
+        """.trimIndent()
+
+        val qualifiedNames = completionNames("$declarations\nOuter::Service.<caret>")
+        assertEquals(setOf("qualified_only"), qualifiedNames)
+        assertEquals(qualifiedNames, completionNames("$declarations\n(Outer::Service).<caret>"))
+        assertEquals(qualifiedNames, completionNames("$declarations\n::Outer::Service.<caret>"))
+        assertEquals(qualifiedNames, completionNames("$declarations\n(::Outer::Service).<caret>"))
+        assertEquals(setOf("module_only"), completionNames("$declarations\n(Utility).<caret>"))
+        assertEquals(setOf("new"), completionNames("$declarations\n((Config)).<caret>"))
+    }
+
+    fun testLocalParameterAndInstanceVariableCompletionUseValueTypes() {
+        val declarations = """
+            class ValueType
+              def value_only
+              end
+              def self.static_only
+              end
+            end
+        """.trimIndent()
+
+        assertEquals(
+            setOf("value_only"),
+            completionNames("$declarations\nvalue = ValueType.new\n(value).<caret>")
+        )
+        assertEquals(
+            setOf("value_only"),
+            completionNames("$declarations\ndef use(value : ValueType)\n  ((value)).<caret>\nend")
+        )
+        assertEquals(
+            setOf("value_only"),
+            completionNames(
+                "$declarations\nclass Holder\n  @value : ValueType\n" +
+                    "  def use\n    (@value).<caret>\n  end\nend"
+            )
+        )
+    }
+
+    fun testDirectAndGroupedScalarLiteralCompletion() {
+        addExpressionCompletionTypes()
+        val cases = listOf(
+            "3" to "times",
+            "3.14" to "float_only",
+            "\"text\"" to "upcase",
+            "'x'" to "char_only",
+            ":name" to "symbol_only",
+            "true" to "bool_only",
+            "false" to "bool_only",
+            "nil" to "nil_only",
+            "/pattern/" to "regex_only",
+            "`echo test`" to "upcase"
+        )
+
+        for ((receiver, expectedMethod) in cases) {
+            assertTrue("$receiver should offer $expectedMethod", completionNames("$receiver.<caret>").contains(expectedMethod))
+            assertTrue(
+                "Grouped $receiver should offer $expectedMethod",
+                completionNames("(($receiver)).<caret>").contains(expectedMethod)
+            )
+        }
+
+        val heredoc = "<<-TEXT\nhello\nTEXT"
+        assertTrue(completionNames("$heredoc\n.<caret>").contains("upcase"))
+        assertTrue(completionNames("($heredoc\n).<caret>").contains("upcase"))
+    }
+
+    fun testCollectionOperatorAndMethodResultCompletion() {
+        addExpressionCompletionTypes()
+        val expressions = mapOf(
+            "[1, 2]" to "array_only",
+            "{\"one\" => 1}" to "hash_only",
+            "{1, \"two\"}" to "tuple_only",
+            "(1 + 2)" to "times"
+        )
+        for ((receiver, expectedMethod) in expressions) {
+            assertTrue("$receiver should offer $expectedMethod", completionNames("$receiver.<caret>").contains(expectedMethod))
+        }
+
+        val methods = """
+            def annotated_result : String
+              "text"
+            end
+
+            def inferred_result
+              3
+            end
+        """.trimIndent()
+        assertTrue(completionNames("$methods\nannotated_result().<caret>").contains("upcase"))
+        assertTrue(completionNames("$methods\n((inferred_result())).<caret>").contains("times"))
+    }
+
+    fun testUnionCompletionMergesAllBranchesByCanonicalSignature() {
+        val declarations = """
+            class First
+              def first_only
+              end
+              def shared(value : Int32)
+              end
+              def convert(value : Int32)
+              end
+            end
+
+            class Second
+              def second_only
+              end
+              def shared(value : Int32)
+              end
+              def convert(value : String)
+              end
+            end
+
+            def use(value : First | Second)
+              value.<caret>
+            end
+        """.trimIndent()
+
+        val names = completionNameList(declarations)
+        assertEquals(1, names.count { it == "first_only" })
+        assertEquals(1, names.count { it == "second_only" })
+        assertEquals(1, names.count { it == "shared" })
+        assertEquals(2, names.count { it == "convert" })
+    }
+
+    fun testRuntimeValuesAndModulesDoNotOfferConstructorsOrStaticMethods() {
+        val declarations = """
+            class Service
+              def instance_only
+              end
+              def self.static_only
+              end
+            end
+
+            module Utility
+              def self.module_only
+              end
+            end
+        """.trimIndent()
+
+        val valueNames = completionNames("$declarations\nvalue = Service.new\n(value).<caret>")
+        assertEquals(setOf("instance_only"), valueNames)
+        assertFalse(valueNames.contains("new"))
+        assertFalse(valueNames.contains("static_only"))
+
+        val moduleNames = completionNames("$declarations\n((Utility)).<caret>")
+        assertEquals(setOf("module_only"), moduleNames)
+        assertFalse(moduleNames.contains("new"))
+    }
+
+    fun testNumericDotDisambiguationAndUnknownDotSuppression() {
+        addExpressionCompletionTypes()
+        myFixture.addFileToProject("unrelated.cr", "def unrelated_project_method\nend")
+
+        assertTrue(completionNames("3.<caret>").contains("times"))
+        assertTrue(completionNames("3.1<caret>").isEmpty())
+        assertTrue(completionNames("3.14.<caret>").contains("float_only"))
+        assertEquals(emptySet<String>(), completionNames("(missing).<caret>"))
+    }
+
+    private fun addExpressionCompletionTypes() {
+        myFixture.addFileToProject("stdlib/expression_types.cr", """
+            struct Int32
+              def times
+              end
+            end
+            struct Float64
+              def float_only
+              end
+            end
+            class String
+              def upcase
+              end
+            end
+            struct Char
+              def char_only
+              end
+            end
+            struct Symbol
+              def symbol_only
+              end
+            end
+            struct Bool
+              def bool_only
+              end
+            end
+            class Nil
+              def nil_only
+              end
+            end
+            class Regex
+              def regex_only
+              end
+            end
+            class Array(T)
+              def array_only
+              end
+            end
+            class Hash(K, V)
+              def hash_only
+              end
+            end
+            struct Tuple(*T)
+              def tuple_only
+              end
+            end
+        """.trimIndent())
+    }
+
+    private fun completionNames(source: String): Set<String> = completionNameList(source).toSet()
+
+    private fun completionNameList(source: String): List<String> {
+        myFixture.configureByText("main.cr", source)
+        return myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty()
+    }
 }

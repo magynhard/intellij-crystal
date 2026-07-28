@@ -130,6 +130,9 @@ internal fun isInAnnotationContext(position: PsiElement): Boolean {
     return beforeBracket.node.elementType == CrystalTypes.AT
 }
 
+internal fun isDotCompletion(position: PsiElement): Boolean =
+    getPreviousNonWhitespaceLeaf(position)?.node?.elementType == CrystalTypes.DOT
+
 internal fun isAfterNumericLiteral(position: PsiElement): Boolean {
     val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
     val tokenType = prev.node?.elementType

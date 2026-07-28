@@ -44,6 +44,13 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testResolvesRecordTypeObjectThroughSharedConstructorAnalysis() {
+        assertReceiver(
+            CompletionReceiver.TypeObject("Config", "Config", explicitIdentity = false),
+            "record Config, name : String\nConfig.<caret>"
+        )
+    }
+
     fun testRejectsNestedOnlySimpleTypeObjectAtTopLevel() {
         assertReceiver(
             CompletionReceiver.Unknown,

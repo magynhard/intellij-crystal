@@ -6,17 +6,16 @@ import com.intellij.codeInsight.completion.CompletionProvider
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.patterns.PlatformPatterns
-import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
-import de.magynhard.crystal.psi.CrystalNamespaceAccess
+import de.magynhard.crystal.psi.CrystalPsiUtils
 
 /**
  * Code completion contributor for Crystal.
  *
  * Provides 3 completion modes:
- * 1. Dot after CONSTANT (Class.): static methods of that class
- * 2. Dot after identifier (var.): instance methods based on inferred type
+ * 1. Dot after a type object: static methods of that type
+ * 2. Dot after a value expression: instance methods based on resolved types
  * 3. Free-text: all classes + all methods + local variables/parameters
  */
 class CrystalCompletionContributor : CompletionContributor() {
@@ -56,6 +55,20 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
 
             if (isInsideStringLiteral(position)) return
+
+            when (val receiver = CrystalCompletionReceiverResolver.resolve(position)) {
+                is CompletionReceiver.TypeObject -> {
+                    CrystalTypeObjectCompletionProvider.addCompletions(receiver, parameters, result)
+                    return
+                }
+                is CompletionReceiver.ValueTypes -> {
+                    CrystalCompletionHelper.getMethodsAsLookups(receiver.typeNames, project)
+                        .forEach(result::addElement)
+                    return
+                }
+                CompletionReceiver.Unknown -> if (isDotCompletion(position)) return
+            }
+
             if (isAfterNumericLiteral(position)) return
 
             val requirePrefix = result.prefixMatcher.prefix
@@ -95,56 +108,6 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
 
             val prevLeaf = getPreviousNonWhitespaceLeaf(position)
-            if (prevLeaf != null && prevLeaf.text == ".") {
-                val beforeDot = getPreviousNonWhitespaceLeaf(prevLeaf)
-                if (beforeDot != null) {
-                    val beforeDotText = beforeDot.text
-
-                    if (beforeDotText.isNotEmpty() && beforeDotText[0].isUpperCase()) {
-                        val nsAccess = PsiTreeUtil.getParentOfType(beforeDot, CrystalNamespaceAccess::class.java, false)
-                        val staticMethods = if (nsAccess != null) {
-                            val qualifiedName = de.magynhard.crystal.psi.CrystalPsiUtils.buildNamespacePath(nsAccess)
-                            val allMethods = CrystalCompletionHelper.getStaticMethods(beforeDotText, project)
-                            allMethods.filter { method ->
-                                val enclosing = de.magynhard.crystal.psi.CrystalPsiUtils.getEnclosingType(method)
-                                enclosing != null && de.magynhard.crystal.psi.CrystalPsiUtils.buildQualifiedName(enclosing) == qualifiedName
-                            }
-                        } else {
-                            CrystalCompletionHelper.getStaticMethods(beforeDotText, project)
-                        }
-                        for (method in staticMethods) {
-                            result.addElement(CrystalCompletionHelper.buildMethodLookup(method))
-                        }
-                        if (staticMethods.none { it.name == "new" }) {
-                            val recordDef = CrystalCompletionHelper.findRecordDefinition(beforeDotText, parameters.originalFile)
-                            if (recordDef != null) {
-                                result.addElement(CrystalCompletionHelper.buildRecordNewLookup(recordDef, beforeDotText))
-                            } else if (nsAccess == null && CrystalCompletionHelper.canInstantiate(beforeDotText, project)) {
-                                result.addElement(
-                                    CrystalCompletionHelper.buildNewLookup(
-                                        beforeDotText,
-                                        project,
-                                        parameters.originalFile
-                                    )
-                                )
-                            }
-                        }
-                        return
-                    }
-
-                    val cleanedText = beforeDotText.removePrefix("@")
-                    if (cleanedText.isNotEmpty() && cleanedText[0].isLowerCase()) {
-                        val inferredType = CrystalTypeInference.inferType(cleanedText, beforeDot, project)
-                        if (inferredType != null) {
-                            for (lookup in CrystalCompletionHelper.getMethodsAsLookups(inferredType, project)) {
-                                result.addElement(lookup)
-                            }
-                        }
-                        return
-                    }
-                }
-            }
-
             if (prevLeaf != null && prevLeaf.text == "::") {
                 val beforeDoubleColon = getPreviousNonWhitespaceLeaf(prevLeaf)
                 if (beforeDoubleColon != null) {
@@ -181,6 +144,32 @@ class CrystalCompletionContributor : CompletionContributor() {
                 CrystalSymbolCompletionProvider.addAllClasses(project, effectiveResult)
                 CrystalSymbolCompletionProvider.addFileLevelConstants(parameters.originalFile, effectiveResult)
             }
+        }
+    }
+}
+
+internal object CrystalTypeObjectCompletionProvider {
+    fun addCompletions(
+        receiver: CompletionReceiver.TypeObject,
+        parameters: CompletionParameters,
+        result: CompletionResultSet
+    ) {
+        val project = parameters.position.project
+        val staticMethods = CrystalCompletionHelper.getStaticMethods(receiver.simpleName, project).filter { method ->
+            if (!receiver.explicitIdentity) return@filter true
+            val enclosing = CrystalPsiUtils.getEnclosingType(method) ?: return@filter false
+            CrystalPsiUtils.buildQualifiedName(enclosing) == receiver.qualifiedName
+        }
+        staticMethods.map(CrystalCompletionHelper::buildMethodLookup).forEach(result::addElement)
+
+        if (staticMethods.any { it.name == "new" }) return
+        val record = CrystalCompletionHelper.findRecordDefinition(receiver.simpleName, parameters.originalFile)
+        if (record != null) {
+            result.addElement(CrystalCompletionHelper.buildRecordNewLookup(record, receiver.simpleName))
+        } else if (!receiver.explicitIdentity && CrystalCompletionHelper.canInstantiate(receiver.simpleName, project)) {
+            result.addElement(
+                CrystalCompletionHelper.buildNewLookup(receiver.simpleName, project, parameters.originalFile)
+            )
         }
     }
 }
