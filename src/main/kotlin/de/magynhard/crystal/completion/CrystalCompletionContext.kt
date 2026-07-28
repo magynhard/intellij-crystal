@@ -27,27 +27,53 @@ internal fun getPreviousNonWhitespaceLeaf(element: PsiElement): PsiElement? {
 }
 
 internal fun normalizeLookupTypes(typeName: String): List<String> {
+    val unwrapped = unwrapOuterTypeGrouping(typeName.trim())
+    if (unwrapped.isEmpty()) return emptyList()
+    val unionParts = splitTopLevelUnion(unwrapped)
+    if (unionParts.size > 1) {
+        return unionParts.flatMap(::normalizeLookupTypes).distinct()
+    }
+    val normalized = unwrapped.substringBefore('(').trim()
+    return if (normalized.isEmpty()) emptyList() else listOf(normalized)
+}
+
+private fun splitTopLevelUnion(typeName: String): List<String> {
     val result = mutableListOf<String>()
     var depth = 0
     var start = 0
-
-    fun addType(end: Int) {
-        val type = typeName.substring(start, end).trim()
-        if (type.isNotEmpty()) result.add(type.substringBefore('(').trim())
-    }
-
     typeName.forEachIndexed { index, char ->
         when (char) {
             '(' -> depth++
             ')' -> if (depth > 0) depth--
             '|' -> if (depth == 0) {
-                addType(index)
+                result.add(typeName.substring(start, index))
                 start = index + 1
             }
         }
     }
-    addType(typeName.length)
-    return result.distinct()
+    result.add(typeName.substring(start))
+    return result
+}
+
+private fun unwrapOuterTypeGrouping(typeName: String): String {
+    var current = typeName
+    while (current.startsWith('(') && current.endsWith(')')) {
+        var depth = 0
+        var wrapsEntireType = true
+        for (index in current.indices) {
+            when (current[index]) {
+                '(' -> depth++
+                ')' -> depth--
+            }
+            if (depth == 0 && index != current.lastIndex) {
+                wrapsEntireType = false
+                break
+            }
+        }
+        if (!wrapsEntireType || depth != 0) break
+        current = current.substring(1, current.lastIndex).trim()
+    }
+    return current
 }
 
 internal fun isAfterDefKeywordInClassBody(position: PsiElement): Boolean {

@@ -300,7 +300,10 @@ completion. It finds the member-access `DOT` immediately before IntelliJ's compl
 analyzes the complete semantic postfix prefix before that dot. The grammar can flatten a chain into
 multiple `CrystalDotCallAccess` siblings or attach an argumentless continuation as a
 `CrystalImplicitObjectCall` inside the preceding access's bare-argument PSI; both shapes are
-processed in source order. Receiver text is not rebuilt with source regexes. Transparent grouping
+processed recursively in source order for arbitrarily long argumentless or mixed chains. Every
+postfix component before the completion dot must be recognized; bracket/index access and other
+unsupported tails produce `Unknown` rather than allowing analysis of a shorter prefix. Receiver
+text is not rebuilt with source regexes. Transparent grouping
 is normalized through `CrystalReceiverExpression`; incomplete groups, direct or non-transparent
 grouped assignment receivers, macro-interpolated receivers, unknown variables, ambiguous type
 identities, and decimal points inside float tokens produce `Unknown`. Assignments nested inside a
@@ -313,11 +316,25 @@ receivers use completion-specific union-preserving variable inference or express
 resolution and produce an ordered set of runtime lookup types. Completed constructors produce
 their exact receiver type. Completed methods require an exact indexed receiver identity and target
 method; explicit return annotations are preserved, while unannotated returns use existing body
-inference. Unknown or ambiguous targets remain `Unknown`.
+inference. Exactly one method candidate must remain for each exact receiver identity after
+receiver, static/instance mode, and name filtering. Multiple overloads remain `Unknown` until
+argument-aware applicability is shared with completion. Unknown or ambiguous targets remain
+`Unknown`.
 
 Top-level unions are expanded in source order, so typed parameters and explicit method returns of
-`Foo | Bar` produce `Foo`, then `Bar`. Generic internals are not expanded:
-`Array(Int32 | String)` produces the single outer lookup type `Array`.
+`Foo | Bar` produce `Foo`, then `Bar`. Transparent outer type grouping is removed before splitting,
+so `(Foo | Bar)` and `((Foo | Bar))` produce the same ordered set. Generic argument parentheses are
+not transparent: `Array(Int32 | String)` produces the single outer lookup type `Array`. Empty
+normalized names are discarded.
+
+For parameters with external and internal names, receiver inference matches body references to the
+internal name (the second identifier); ordinary one-name parameters retain that sole identifier.
+Call-site external-name matching remains owned by argument handling and is unchanged.
+
+Assignment expressions have the type of their right-hand side. Completion accepts assignment-valued
+branches when the RHS resolves, but `if`, `case`, and ternary result inference is complete-or-unknown:
+if any reachable branch has no type, receiver analysis returns `Unknown` instead of narrowing to the
+typed sibling branches.
 
 This analysis is not wired into `CrystalCompletionContributor` yet. It does not change popup
 dispatch or perform candidate lookup across the resulting type set.

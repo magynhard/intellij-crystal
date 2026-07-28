@@ -105,6 +105,46 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testResolvesThreeStepArgumentlessPostfixChain() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Third")),
+            chainDeclarations() + "First.new.second.third.<caret>"
+        )
+    }
+
+    fun testResolvesFourStepMixedPostfixChain() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("String")),
+            chainDeclarations() + "First.new().second.third().fourth.<caret>"
+        )
+    }
+
+    fun testRejectsUnsupportedPostfixTail() {
+        assertReceiver(
+            CompletionReceiver.Unknown,
+            chainDeclarations() + "First.new.second[0].<caret>"
+        )
+    }
+
+    fun testRejectsAmbiguousCompletedCallOverloads() {
+        assertReceiver(
+            CompletionReceiver.Unknown,
+            "class Service\n" +
+                "  def value(input : Int32) : String\n    \"text\"\n  end\n" +
+                "  def value(input : String) : Int32\n    1\n  end\nend\n" +
+                "service = Service.new\nservice.value(1).<caret>"
+        )
+    }
+
+    fun testResolvesSingleCompletedCallCandidate() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("String")),
+            "class Service\n" +
+                "  def value(input : Int32) : String\n    \"text\"\n  end\nend\n" +
+                "service = Service.new\nservice.value(1).<caret>"
+        )
+    }
+
     fun testResolvesQualifiedGenericTypeObject() {
         assertReceiver(
             CompletionReceiver.TypeObject("Box", "Outer::Box", explicitIdentity = true),
@@ -117,6 +157,14 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
             CompletionReceiver.ValueTypes(listOf("Foo", "Bar")),
             "class Foo\nend\nclass Bar\nend\n" +
                 "def use(value : Foo | Bar)\n  value.<caret>\nend"
+        )
+    }
+
+    fun testPreservesExternalInternalTypedParameterUnion() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Foo", "Bar")),
+            "class Foo\nend\nclass Bar\nend\n" +
+                "def use(external internal : Foo | Bar)\n  internal.<caret>\nend"
         )
     }
 
@@ -145,8 +193,13 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
 
     fun testNormalizesOnlyTopLevelUnionAndOuterGenericBase() {
         assertEquals(listOf("Foo", "Bar"), normalizeLookupTypes("Foo | Bar"))
+        assertEquals(listOf("Foo", "Bar"), normalizeLookupTypes("(Foo | Bar)"))
+        assertEquals(listOf("Foo", "Bar"), normalizeLookupTypes("((Foo | Bar))"))
+        assertEquals(listOf("Foo", "Bar", "Baz"), normalizeLookupTypes("Foo | (Bar | Baz)"))
+        assertEquals(listOf("Array"), normalizeLookupTypes("Array(Foo | Bar)"))
         assertEquals(listOf("Array"), normalizeLookupTypes("Array(Int32 | String)"))
         assertEquals(listOf("Hash"), normalizeLookupTypes("Hash(String, Array(Int32 | Nil))"))
+        assertEquals(emptyList<String>(), normalizeLookupTypes("()"))
     }
 
     fun testLocatesReceiversAcrossGroupingWhitespaceAndNewlines() {
@@ -180,6 +233,34 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testResolvesAssignmentValuedIfBranch() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Int32", "String")),
+            "(if true\n  value = 1\nelse\n  \"text\"\nend).<caret>"
+        )
+    }
+
+    fun testRejectsIfWithUnknownReachableBranch() {
+        assertReceiver(
+            CompletionReceiver.Unknown,
+            "(if true\n  missing\nelse\n  \"text\"\nend).<caret>"
+        )
+    }
+
+    fun testRejectsCaseWithUnknownReachableBranch() {
+        assertReceiver(
+            CompletionReceiver.Unknown,
+            "(case 1\nwhen 1\n  missing\nelse\n  \"text\"\nend).<caret>"
+        )
+    }
+
+    fun testRejectsTernaryWithUnknownReachableBranch() {
+        assertReceiver(
+            CompletionReceiver.Unknown,
+            "(true ? missing : \"text\").<caret>"
+        )
+    }
+
     fun testRejectsCompletionInsideFloatTokenWithoutMemberAccessDot() {
         assertReceiver(CompletionReceiver.Unknown, "3.1<caret>")
     }
@@ -194,4 +275,9 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         val file = myFixture.configureByText("test.cr", completionSource)
         return file.findElementAt(myFixture.caretOffset) ?: error("No PSI element at completion offset")
     }
+
+    private fun chainDeclarations(): String =
+        "class First\n  def second : Second\n    Second.new\n  end\nend\n" +
+            "class Second\n  def third : Third\n    Third.new\n  end\nend\n" +
+            "class Third\n  def fourth : String\n    \"text\"\n  end\nend\n"
 }

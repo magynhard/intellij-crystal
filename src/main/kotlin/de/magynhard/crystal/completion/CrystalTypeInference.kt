@@ -2,6 +2,7 @@ package de.magynhard.crystal.completion
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.inspections.CrystalExpressionTypeResolver
@@ -37,7 +38,7 @@ object CrystalTypeInference {
     ): String? {
         val method = PsiTreeUtil.getParentOfType(context, CrystalMethodDefinition::class.java)
         val parameter = method?.parameterList?.parameterList?.firstOrNull {
-            CrystalCompletionHelper.extractParameterName(it) == variableName
+            (it as? PsiNameIdentifierOwner)?.name == variableName
         }
         parameter?.typeReference?.text?.let { return it }
         return inferFromAssignment(variableName, context, project)

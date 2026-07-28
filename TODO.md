@@ -106,3 +106,7 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Include inherited instance-variable type evidence** — define deterministic hierarchy precedence for inherited instance-variable declarations and assignments before using inherited type bodies for DOT-call receiver inference.
 - [ ] **Migrate all call consumers to the shared resolver** — move type checking, navigation, completion, and parameter info to the same receiver, hierarchy, constructor, and overload semantics used by call-argument inspections.
 - [ ] **Index Crystal load order for cross-file type reopenings** — preserve require-graph order when identical methods or include/extend edges are reopened across files; until load order is indexed, the shared resolver suppresses identical cross-file signatures and multiple relevant cross-file edges whose precedence cannot be proven, retains callable-distinct overloads, and keeps exact same-file source precedence.
+
+## Completion Follow-up
+
+- [ ] **Select completed-call overloads by arguments** — reuse exact argument applicability and overload ranking for expression receiver completion before inferring a completed call's return type. Until then, receiver analysis must return `Unknown` whenever multiple exact overload candidates remain.

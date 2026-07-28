@@ -77,3 +77,35 @@
 - Completed method calls intentionally return `Unknown` when a receiver identity or exact direct
   method target is ambiguous or unavailable. Contributor dispatch and multi-type candidate lookup
   remain outside Task 2.
+
+## Second Re-Review Evidence
+
+- RED: after adding long-chain, unsupported-tail, overload, assignment/control-flow, grouped-union,
+  empty-name, and external/internal parameter regressions, running
+  `./gradlew test --tests "de.magynhard.crystal.completion.CrystalCompletionReceiverResolverTest"
+  --tests "de.magynhard.crystal.inspections.CrystalExpressionTypeResolverTest"` executed 30 tests
+  and failed 11 for the reviewed behavior gaps. The single exact method candidate control passed.
+- PSI diagnosis: focused fixture output showed nested source-ordered `CrystalImplicitObjectCall` and
+  `CrystalDotCallAccess` components for three/four-step chains, and explicit bracket/list PSI for an
+  unsupported index tail. Temporary diagnostic output was removed before implementation.
+- Focused GREEN: the same receiver and expression-resolver command completed successfully after the
+  fixes.
+- Nested-grouping RED/GREEN: `Foo | (Bar | Baz)` initially remained one grouped lookup arm; the
+  focused normalization test failed, then passed after recursive transparent-group normalization.
+- Adjacent GREEN: `./gradlew test --tests
+  "de.magynhard.crystal.completion.CrystalCompletionReceiverResolverTest" --tests
+  "de.magynhard.crystal.CrystalTypeInferenceTest" --tests
+  "de.magynhard.crystal.inspections.CrystalExpressionTypeResolverTest" --tests
+  "de.magynhard.crystal.inspections.CrystalTypeCheckInspectionTest"` completed successfully.
+- Full-suite GREEN: `./gradlew test` completed successfully.
+
+## Second Re-Review Interfaces
+
+- `CrystalExpressionTypeResolver.resolveType(...)` now treats `CrystalAssignment` as the type of its
+  RHS and requires every reachable `if`, `case`, or ternary branch to resolve.
+- `normalizeLookupTypes(...)` now removes balanced transparent outer grouping, preserves generic
+  argument grouping, and omits empty normalized names.
+- Completion-specific parameter inference now reads `PsiNameIdentifierOwner.name`, preserving the
+  internal parameter name without changing call-site external-name behavior.
+- Completed-call resolution still exposes no argument-aware overload API; the actionable follow-up
+  is recorded in `TODO.md`.

@@ -49,11 +49,11 @@ internal object CrystalCompletionReceiverResolver {
         }
 
         var receiver = resolveBase(children.take(firstAccess))
-        for (access in children.drop(firstAccess).filterIsInstance<CrystalDotCallAccess>()) {
-            receiver = resolveCompletedCall(receiver, methodName(access), access)
-            if (receiver == CompletionReceiver.Unknown) return receiver
-            for (implicitCall in trailingImplicitCalls(access, completionDotOffset)) {
-                receiver = resolveCompletedCall(receiver, methodName(implicitCall), implicitCall)
+        for (element in children.drop(firstAccess)) {
+            val access = element as? CrystalDotCallAccess ?: return CompletionReceiver.Unknown
+            for (component in postfixComponents(access, completionDotOffset)) {
+                if (component == null) return CompletionReceiver.Unknown
+                receiver = resolveCompletedCall(receiver, methodName(component), component)
                 if (receiver == CompletionReceiver.Unknown) return receiver
             }
         }
@@ -134,8 +134,8 @@ internal object CrystalCompletionReceiverResolver {
                     CrystalPsiUtils.getEnclosingType(method)
                         ?.let(CrystalPsiUtils::buildQualifiedName) == identity.qualifiedName
             }
-            if (candidates.isEmpty()) return CompletionReceiver.Unknown
-            methods.addAll(candidates)
+            if (candidates.size != 1) return CompletionReceiver.Unknown
+            methods.add(candidates.single())
         }
         return resolveMethodResults(methods)
     }
@@ -150,7 +150,11 @@ internal object CrystalCompletionReceiverResolver {
             call.project,
             GlobalSearchScope.allScope(call.project)
         ).filter { CrystalPsiUtils.getEnclosingType(it) == null && !CrystalPsiUtils.isSelfMethod(it) }
-        return if (methods.isEmpty()) resolveExpressionType(call) else resolveMethodResults(methods)
+        return when (methods.size) {
+            0 -> resolveExpressionType(call)
+            1 -> resolveMethodResults(methods)
+            else -> CompletionReceiver.Unknown
+        }
     }
 
     private fun resolveMethodResults(methods: Collection<CrystalMethodDefinition>): CompletionReceiver {
@@ -215,15 +219,36 @@ internal object CrystalCompletionReceiverResolver {
         return identities.singleOrNull()?.let { TypeIdentity(simpleName, it) }
     }
 
-    private fun trailingImplicitCalls(
+    private fun postfixComponents(
         access: CrystalDotCallAccess,
         completionDotOffset: Int?
-    ): List<CrystalImplicitObjectCall> {
-        val argument = access.bareArgumentList?.bareArgumentList?.singleOrNull() ?: return emptyList()
-        val implicitCall = argument.implicitObjectCallList.singleOrNull() ?: return emptyList()
-        if (directSignificantChildren(argument) != listOf(implicitCall)) return emptyList()
-        return listOf(implicitCall).filter {
-            completionDotOffset == null || dotOffset(it) < completionDotOffset
+    ): List<PsiElement?> {
+        val components = mutableListOf<PsiElement?>(access)
+        val argument = access.bareArgumentList?.bareArgumentList?.singleOrNull() ?: return components
+        val argumentChildren = directSignificantChildren(argument)
+        if (argumentChildren.firstOrNull() !is CrystalImplicitObjectCall) return components
+        appendPostfixComponents(argumentChildren, completionDotOffset, components)
+        return components
+    }
+
+    private fun appendPostfixComponents(
+        elements: List<PsiElement>,
+        completionDotOffset: Int?,
+        result: MutableList<PsiElement?>
+    ) {
+        for (element in elements) {
+            if (element is CrystalImplicitObjectCall) {
+                if (completionDotOffset == null || dotOffset(element) < completionDotOffset) result.add(element)
+                continue
+            }
+            if (element is CrystalDotCallAccess) {
+                if (completionDotOffset != null && dotOffset(element) >= completionDotOffset) continue
+                result.addAll(postfixComponents(element, completionDotOffset))
+                continue
+            }
+            if (completionDotOffset == null || element.textRange.startOffset < completionDotOffset) {
+                result.add(null)
+            }
         }
     }
 

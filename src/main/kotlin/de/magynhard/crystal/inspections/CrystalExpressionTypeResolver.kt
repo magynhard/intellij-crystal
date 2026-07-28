@@ -49,6 +49,10 @@ object CrystalExpressionTypeResolver {
             return null
         }
 
+        if (expr is CrystalAssignment) {
+            return expr.expression?.let(::resolveType)
+        }
+
         val type = expr.node?.elementType
 
         // Literal types
@@ -122,13 +126,9 @@ object CrystalExpressionTypeResolver {
                     val falseExpr = astChildren.drop(colonIdx + 1).firstOrNull { it.psi !is PsiWhiteSpace }?.psi
                     val trueType = if (trueExpr != null) resolveType(trueExpr) else null
                     val falseType = if (falseExpr != null) resolveType(falseExpr) else null
-                    if (trueType != null && falseType != null) {
-                        if (trueType.typeName == falseType.typeName) return trueType
-                        return ResolvedType("${trueType.typeName} | ${falseType.typeName}")
-                    }
-                    if (trueType != null) return trueType
-                    if (falseType != null) return falseType
-                    return null
+                    if (trueType == null || falseType == null) return null
+                    if (trueType.typeName == falseType.typeName) return trueType
+                    return ResolvedType("${trueType.typeName} | ${falseType.typeName}")
                 }
             }
 
@@ -247,22 +247,14 @@ object CrystalExpressionTypeResolver {
         val branches = mutableListOf<ResolvedType>()
 
         val thenStatements = expr.statementList?.statementList
-        if (!thenStatements.isNullOrEmpty()) {
-            val lastThen = thenStatements.lastOrNull()
-            if (lastThen != null) {
-                val thenType = resolveType(lastThen)
-                if (thenType != null) branches.add(thenType)
-            }
-        }
+        val lastThen = thenStatements?.lastOrNull() ?: return null
+        branches.add(resolveType(lastThen) ?: return null)
 
         val elseClause = expr.elseClause
         if (elseClause != null) {
             val elseStatements = elseClause.statementList.statementList
-            val lastElse = elseStatements.lastOrNull()
-            if (lastElse != null) {
-                val elseType = resolveType(lastElse)
-                if (elseType != null) branches.add(elseType)
-            }
+            val lastElse = elseStatements.lastOrNull() ?: return null
+            branches.add(resolveType(lastElse) ?: return null)
         } else {
             branches.add(ResolvedType("Nil"))
         }
@@ -278,21 +270,17 @@ object CrystalExpressionTypeResolver {
 
         for (whenClause in expr.whenClauseList) {
             val thenStatements = whenClause.statementList.statementList
-            val lastThen = thenStatements.lastOrNull()
-            if (lastThen != null) {
-                val thenType = resolveType(lastThen)
-                if (thenType != null) branches.add(thenType)
-            }
+            val lastThen = thenStatements.lastOrNull() ?: return null
+            branches.add(resolveType(lastThen) ?: return null)
         }
 
         val elseClause = expr.elseClause
         if (elseClause != null) {
             val elseStatements = elseClause.statementList.statementList
-            val lastElse = elseStatements.lastOrNull()
-            if (lastElse != null) {
-                val elseType = resolveType(lastElse)
-                if (elseType != null) branches.add(elseType)
-            }
+            val lastElse = elseStatements.lastOrNull() ?: return null
+            branches.add(resolveType(lastElse) ?: return null)
+        } else {
+            branches.add(ResolvedType("Nil"))
         }
 
         if (branches.isEmpty()) return null
