@@ -155,7 +155,7 @@
 
 - `b5e054a refactor(analysis): centralize scoped type resolution`
 - `6e6fb58 fix(analysis): preserve scoped instance declarations`
-- Documentation subject: `docs(analysis): specify scoped type-set resolution`
+- `66251db docs(analysis): specify scoped type-set resolution`
 
 ### Concerns
 
