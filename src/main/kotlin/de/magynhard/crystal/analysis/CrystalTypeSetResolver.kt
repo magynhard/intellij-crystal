@@ -271,6 +271,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun flowEvidence(element: PsiElement, name: String): FlowEvidence {
         if (isScopeBoundary(element)) return FlowEvidence.Missing
+        val property = (element as? CrystalStatement)?.propertyDeclaration
+            ?: element as? CrystalPropertyDeclaration
+        if (property != null) {
+            val propertyName = property.instanceVarAccess?.text ?: property.classVarAccess?.text
+            if (propertyName == name) return FlowEvidence.Found(parseTypeSet(property.typeReference.text))
+        }
         val assignment = when (element) {
             is CrystalAssignment -> element
             is CrystalStatement -> element.assignment
@@ -311,6 +317,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         }
         if (element is CrystalBlock && containsAssignment(element, name)) {
             return FlowEvidence.Found(CrystalTypeResolution.Unknown)
+        }
+        for (child in element.children.reversed()) {
+            when (val nested = flowEvidence(child, name)) {
+                FlowEvidence.Missing -> Unit
+                is FlowEvidence.Found -> return nested
+            }
         }
         return FlowEvidence.Missing
     }
