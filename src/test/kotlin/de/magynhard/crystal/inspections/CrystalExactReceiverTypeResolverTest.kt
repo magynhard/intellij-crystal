@@ -8,14 +8,80 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.openapi.vfs.LocalFileSystem
+import de.magynhard.crystal.psi.CrystalAssignment
 import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalPsiUtils
+import de.magynhard.crystal.psi.CrystalReceiverExpression
 import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.stubs.CrystalIndexService
 import java.io.File
 import java.nio.file.Files
 
 class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
+
+    fun testNeutralHelperNormalizesTransparentReceiverForms() {
+        val calls = receiverCalls(
+            """
+                class Foo
+                end
+                module Outer
+                  class Foo
+                  end
+                end
+                class Runner
+                  @value : Foo
+
+                  def execute(parameter : Foo)
+                    local = Foo.new
+                    Foo.direct
+                    (Foo).grouped
+                    ((Foo)).nested
+                    Outer::Foo.qualified
+                    (Outer::Foo).grouped_qualified
+                    (::Foo).absolute
+                    local.local_call
+                    (parameter).parameter_call
+                    (@value).ivar_call
+                  end
+                end
+            """.trimIndent()
+        )
+
+        assertNormalizedReceiver(calls, "direct", "Foo", "Foo")
+        assertNormalizedReceiver(calls, "grouped", "Foo", "Foo")
+        assertNormalizedReceiver(calls, "nested", "Foo", "Foo")
+        assertNormalizedReceiver(calls, "qualified", "::Foo", "Outer::Foo")
+        assertNormalizedReceiver(calls, "grouped_qualified", "Outer::Foo", "Outer::Foo")
+        assertNormalizedReceiver(calls, "absolute", "::Foo", "::Foo")
+        assertNormalizedReceiver(calls, "local_call", "local", null)
+        assertNormalizedReceiver(calls, "parameter_call", "parameter", null)
+        assertNormalizedReceiver(calls, "ivar_call", "@value", null)
+    }
+
+    fun testNeutralHelperRejectsNonTransparentReceiverForms() {
+        val calls = receiverCalls(
+            """
+                class Foo
+                end
+                class Bar
+                end
+                value = Foo
+                (value = Foo).assignment
+                [Foo, Bar].multiple
+                (condition ? Foo : Bar).conditional
+                ({{ receiver }}).macro
+            """.trimIndent()
+        )
+
+        listOf("assignment", "multiple", "conditional", "macro").forEach { methodName ->
+            assertNull(CrystalReceiverExpression.extractExactConstantTypeRoot(calls.getValue(methodName)))
+        }
+
+        val file = myFixture.configureByText("descendant.cr", "value = identity(Foo.new)")
+        assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
+        val expression = PsiTreeUtil.findChildOfType(file, CrystalAssignment::class.java)?.expression
+        assertNull(CrystalReceiverExpression.extractExactConstantTypeRoot(requireNotNull(expression)))
+    }
 
     fun testResolvesNearestPrecedingLocalConstructorAssignment() {
         assertResolved(
@@ -834,6 +900,26 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
 
     private fun assertResolved(source: String, expected: ExactReceiverType) {
         assertEquals(expected, resolve(source))
+    }
+
+    private fun receiverCalls(source: String): Map<String, PsiElement> {
+        val file = myFixture.configureByText("test.cr", source)
+        assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
+        return PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java).associate { call ->
+            val descriptor = requireNotNull(CrystalCallExtractor.extractDotCall(call))
+            descriptor.methodName to descriptor.receiver
+        }
+    }
+
+    private fun assertNormalizedReceiver(
+        calls: Map<String, PsiElement>,
+        methodName: String,
+        normalizedText: String,
+        exactTypeRoot: String?
+    ) {
+        val receiver = calls.getValue(methodName)
+        assertEquals(normalizedText, CrystalReceiverExpression.normalize(receiver).text.filterNot(Char::isWhitespace))
+        assertEquals(exactTypeRoot, CrystalReceiverExpression.extractExactConstantTypeRoot(receiver))
     }
 
     private fun assertUnresolved(source: String) {

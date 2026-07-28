@@ -16,6 +16,7 @@ import de.magynhard.crystal.psi.CrystalNamedElement
 import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.CrystalParameterList
 import de.magynhard.crystal.psi.CrystalPsiUtils
+import de.magynhard.crystal.psi.CrystalReceiverExpression
 import de.magynhard.crystal.psi.CrystalStructDefinition
 import de.magynhard.crystal.psi.CrystalTypeReference
 import de.magynhard.crystal.psi.CrystalTypes
@@ -53,8 +54,8 @@ object CrystalDotCallTargetResolver {
             return DotCallResolution.Suppressed
         }
 
-        val normalizedReceiver = CrystalExactReceiverTypeResolver.normalizeReceiver(call.receiver)
-        val exactTypeRoot = CrystalExactReceiverTypeResolver.extractExactConstantTypeRoot(call.receiver)
+        val normalizedReceiver = CrystalReceiverExpression.normalize(call.receiver)
+        val exactTypeRoot = CrystalReceiverExpression.extractExactConstantTypeRoot(call.receiver)
         if (normalizedReceiver is CrystalMethodCallExpression && exactTypeRoot == null) {
             return DotCallResolution.Suppressed
         }

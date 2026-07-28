@@ -16,7 +16,7 @@ data class ExactReceiverType(
 internal object CrystalExactReceiverTypeResolver {
 
     fun resolve(receiver: PsiElement, call: CrystalDotCallAccess): ExactReceiverType? {
-        val receiverElement = normalizeReceiver(receiver)
+        val receiverElement = CrystalReceiverExpression.normalize(receiver)
         return when (receiverElement) {
             is CrystalVariableReference -> resolveLocal(receiverElement, call)
             is CrystalInstanceVarAccess -> resolveInstanceVariable(receiverElement, call)
@@ -272,110 +272,14 @@ internal object CrystalExactReceiverTypeResolver {
     ): ExactReceiverType? {
         if (assignment.node.findChildByType(CrystalTypes.ASSIGN) == null) return null
         val expression = assignment.expression ?: return null
-        val constructorRoot = unwrapTransparentExpression(expression) as? CrystalExpression ?: return null
+        val constructorRoot = CrystalReceiverExpression.unwrapTransparent(expression) as? CrystalExpression ?: return null
         val significantChildren = directSignificantChildren(constructorRoot)
         val constructor = significantChildren.lastOrNull() as? CrystalDotCallAccess ?: return null
         if (significantChildren.count { it is CrystalDotCallAccess } != 1) return null
         if (CrystalCallExtractor.extractMethodName(constructor) != "new") return null
-        val typeName = exactConstructorReceiverName(significantChildren.dropLast(1)) ?: return null
-        return resolveTypeIdentity(typeName, call)
-    }
-
-    private fun exactConstructorReceiverName(elements: List<PsiElement>): String? {
-        if (elements.size == 1) {
-            return extractExactConstantTypeRoot(elements.single())
-        }
-
-        return exactConstantPath(elements)
-    }
-
-    private fun exactConstantPath(elements: List<PsiElement>): String? {
-        val receiverElements = elements.dropWhile { it.node.elementType == CrystalTypes.DOUBLE_COLON }
-        val leadingDoubleColonCount = elements.size - receiverElements.size
-        if (leadingDoubleColonCount > 1) return null
-        val rootElement = receiverElements.firstOrNull() ?: return null
-        if (rootElement is CrystalNamespaceAccess) {
-            if (leadingDoubleColonCount != 0 || !isAbsoluteNamespaceRoot(rootElement) ||
-                receiverElements.drop(1).any { it !is CrystalNamespaceAccess }) {
-                return null
-            }
-            return "::${CrystalPsiUtils.buildNamespacePath(receiverElements.last() as CrystalNamespaceAccess)}"
-        }
-        val root = rootElement as? CrystalVariableReference ?: return null
-        if (root.node.findChildByType(CrystalTypes.CONSTANT) == null) return null
-        val namespaces = receiverElements.drop(1)
-        if (namespaces.any { it !is CrystalNamespaceAccess }) return null
-        val path = if (namespaces.isEmpty()) {
-            root.text
-        } else {
-            CrystalPsiUtils.buildNamespacePath(namespaces.last() as CrystalNamespaceAccess)
-        }
-        return if (leadingDoubleColonCount == 1) "::$path" else path
-    }
-
-    private fun isAbsoluteNamespaceRoot(namespace: CrystalNamespaceAccess): Boolean {
-        val children = directSignificantChildren(namespace)
-        return children.size == 2 &&
-            children[0].node.elementType == CrystalTypes.DOUBLE_COLON &&
-            children[1].node.elementType == CrystalTypes.CONSTANT
-    }
-
-    internal fun extractExactConstantTypeRoot(receiver: PsiElement): String? {
-        val normalized = unwrapTransparentExpression(promoteVariableAccess(receiver))
-        return when (normalized) {
-            is CrystalVariableReference -> exactConstantPath(listOf(normalized))
-            is CrystalExpression -> exactConstantPath(directSignificantChildren(normalized))
-            is CrystalMethodCallExpression -> exactGenericTypeRoot(normalized)
-            else -> null
-        }
-    }
-
-    private fun exactGenericTypeRoot(receiver: CrystalMethodCallExpression): String? {
-        val call = receiver
-        if (call.block != null || call.bareArgumentList != null) return null
-        val callArgs = call.callArgs ?: return null
-        val children = directSignificantChildren(call)
-        val root = children.firstOrNull()?.takeIf { it.node.elementType == CrystalTypes.CONSTANT }
+        val typeName = CrystalReceiverExpression.extractExactConstantTypeRoot(significantChildren.dropLast(1))
             ?: return null
-        if (children.size != 2 || children[1] !== callArgs) return null
-
-        val typeArguments = callArgs.argumentList?.argumentList.orEmpty()
-        if (typeArguments.isEmpty() || typeArguments.any { argument ->
-                val expression = argument.expression ?: return@any true
-                if (directSignificantChildren(argument) != listOf(expression)) return@any true
-                extractExactConstantTypeRoot(expression) == null
-            }) {
-            return null
-        }
-        return root.text
-    }
-
-    private fun unwrapTransparentExpression(expression: PsiElement): PsiElement {
-        var current: PsiElement = expression
-        while (true) {
-            current = when (current) {
-                is CrystalExpression -> {
-                    val children = directSignificantChildren(current)
-                    val wrapper = children.singleOrNull()
-                    if (wrapper is CrystalExpression || wrapper is CrystalGroupedExpression ||
-                        wrapper is CrystalMethodCallExpression || wrapper is CrystalVariableReference ||
-                        wrapper is CrystalInstanceVarAccess || wrapper is CrystalClassVarAccess) {
-                        wrapper
-                    } else {
-                        return current
-                    }
-                }
-                is CrystalGroupedExpression -> {
-                    if (current.expressionList.size != 1 ||
-                        current.node.findChildByType(CrystalTypes.ASSIGN) != null ||
-                        current.node.findChildByType(CrystalTypes.COMMA) != null) {
-                        return current
-                    }
-                    current.expressionList.single()
-                }
-                else -> return current
-            }
-        }
+        return resolveTypeIdentity(typeName, call)
     }
 
     private fun resolveExactTypeReference(
@@ -442,19 +346,6 @@ internal object CrystalExactReceiverTypeResolver {
 
     private fun directSignificantChildren(element: PsiElement): List<PsiElement> =
         element.node.getChildren(null).map { it.psi }.filterNot(::isTrivia)
-
-    internal fun normalizeReceiver(receiver: PsiElement): PsiElement {
-        return unwrapTransparentExpression(promoteVariableAccess(receiver))
-    }
-
-    private fun promoteVariableAccess(receiver: PsiElement): PsiElement =
-        when {
-            receiver is CrystalVariableReference || receiver is CrystalInstanceVarAccess ||
-                receiver is CrystalClassVarAccess -> receiver
-            receiver.parent is CrystalVariableReference || receiver.parent is CrystalInstanceVarAccess ||
-                receiver.parent is CrystalClassVarAccess -> receiver.parent
-            else -> receiver
-        }
 
     private fun isTypeBoundary(element: PsiElement): Boolean =
         element is CrystalClassDefinition || element is CrystalModuleDefinition ||

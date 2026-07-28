@@ -818,6 +818,29 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertSame(DotCallResolution.Suppressed, resolveCall(source, "run", "(@@service)").resolution)
     }
 
+    fun testGroupedNonTransparentReceiversRemainSuppressed() {
+        val source = """
+            class Service
+              def self.run
+              end
+            end
+            class Other
+              def self.run
+              end
+            end
+            value = Service
+            (value = Service).assignment
+            [Service, Other].multiple
+            (condition ? Service : Other).conditional
+            ({{ receiver }}).macro
+        """.trimIndent()
+
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "assignment", "(value = Service)").resolution)
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "multiple", "[Service, Other]").resolution)
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "conditional", "(condition ? Service : Other)").resolution)
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "macro", "({{ receiver }})").resolution)
+    }
+
     fun testResolvesGenericConstructorAssignmentToRootIdentity() {
         val methods = assertMethods(
             """
