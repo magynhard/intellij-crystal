@@ -83,6 +83,18 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         assertNull(CrystalReceiverExpression.extractExactConstantTypeRoot(requireNotNull(expression)))
     }
 
+    fun testNeutralHelperRejectsLowercaseNamespaceRoot() {
+        val receiver = receiverCalls("value::Foo.run").getValue("run")
+
+        assertNull(CrystalReceiverExpression.extractExactConstantTypeRoot(receiver))
+    }
+
+    fun testNeutralHelperExtractsGenericConstantRootDirectly() {
+        val receiver = receiverCalls("Box(Int32).run").getValue("run")
+
+        assertEquals("Box", CrystalReceiverExpression.extractExactConstantTypeRoot(receiver))
+    }
+
     fun testResolvesNearestPrecedingLocalConstructorAssignment() {
         assertResolved(
             """

@@ -84,14 +84,17 @@ object CrystalReceiverExpression {
             children[1].node.elementType == CrystalTypes.CONSTANT
     }
 
-    private fun exactNamespacePath(namespace: CrystalNamespaceAccess): String {
+    private fun exactNamespacePath(namespace: CrystalNamespaceAccess): String? {
         val path = CrystalPsiUtils.buildNamespacePath(namespace)
-        var current: PsiElement = namespace
+        var current = namespace
         while (true) {
             when (val previous = previousSignificantSibling(current)) {
                 is CrystalNamespaceAccess -> current = previous
-                is CrystalVariableReference -> return path
-                else -> return "::$path"
+                is CrystalVariableReference -> return path.takeIf {
+                    previous.node.findChildByType(CrystalTypes.CONSTANT) != null
+                }
+                null -> return "::$path".takeIf { isAbsoluteNamespaceRoot(current) }
+                else -> return null
             }
         }
     }
