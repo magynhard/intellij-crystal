@@ -386,6 +386,17 @@ Receiver dispatch runs before ordinary numeric-literal suppression. Consequently
 in `3.1` is not DOT completion. A syntactically recognized member-access DOT whose receiver resolves
 to `Unknown` returns no candidates and never falls through to unrelated free-text project methods.
 
+Direct literal receivers resolve to their Crystal runtime type, and transparent grouping produces
+the identical candidate set:
+
+```crystal
+3.          # ← Int32 instance methods (e.g. times)
+(3).        # ← identical to 3.
+3.14.       # ← Float64 instance methods
+"text".     # ← String instance methods (e.g. upcase)
+("text").   # ← identical to "text".
+```
+
 Transparent grouping has full lookup parity: `Foo.`, `(Foo).`, and `((Foo)).` produce the same
 type-object candidates, and grouping likewise preserves qualified/absolute constants, modules,
 records, runtime variables, typed parameters, instance variables, scalar literals, collections,
@@ -456,6 +467,12 @@ A record also wins when an indexed class shares its exact identity: with both to
 `record Config, record_value : String` and `class Config`, `Config.` renders
 `new(record_value : String)` rather than the class constructor, matching the shared DOT-call
 constructor precedence.
+
+Record constructor completion is scoped to the containing file. Records are collected from live
+file PSI and are not stub-indexed, so a `record Config` declared only in another file is invisible
+to the shared constructor classifier: when no indexed type carries the name, `Config.` resolves to
+`Unknown` and offers no candidates rather than leaking a cross-file record constructor (tracked as
+a completion follow-up in `TODO.md`).
 
 Synthetic `new` for lexically selected simple constants uses the exact resolved identity. With
 `Left::Service` and `Right::Service` defining different `initialize` signatures, `Service.` inside
