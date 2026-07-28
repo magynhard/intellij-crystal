@@ -22,7 +22,7 @@ processor.process
 
 Parenthesized, bare-argument, and argumentless calls differ only in how their arguments are extracted from PSI. Syntax must not change receiver resolution, hierarchy lookup, overload applicability, constructor precedence, or suppression.
 
-`CrystalTypeCheckInspection` matches named arguments against the parameter's external call-site name. Constructor shorthand parameters such as `initialize(@age : Int32)` expose `age` to callers, so `Boo.new age: value` must validate `value` against `Int32` exactly like `initialize(age : Int32)`.
+`CrystalTypeCheckInspection` matches named arguments against the parameter's call-site name. Constructor instance-variable assignment shorthand such as `initialize(@age : Int32)` derives that name by removing `@`, so `Boo.new age: value` must validate `value` against `Int32` exactly like `initialize(age : Int32)`. This shorthand is distinct from Crystal's separate `external internal` parameter-name syntax.
 
 FFI functions declared with `lib fun` are outside the current inspection scope because they require separate declaration indexing and call resolution.
 
@@ -117,7 +117,7 @@ end
 build # Missing required arguments: required, named_required
 ```
 
-Full enforcement of positional use after a named-only separator, external parameter names, and signature ordering is tracked separately in `TODO.md`.
+Full enforcement of positional use after a named-only separator and signature ordering is tracked separately in `TODO.md`.
 
 ## Call Discovery And Ownership
 
@@ -148,6 +148,8 @@ Every DOT-call must resolve its receiver to one distinct, exact type identity be
 
 Relevant instance-variable assignments are all assignments to that instance variable within the current enclosing type declaration, regardless of source order or control-flow branch. Assignments inside nested type declarations and assignments from inherited type bodies are excluded. Every relevant assignment must resolve to the same exact type; an unknown, ambiguous, union, nilable, or conflicting assignment suppresses resolution rather than selecting a type by proximity or source order. Support for inherited instance-variable declarations and assignments is deferred in `TODO.md`.
 
+Transparent parentheses do not change receiver identity. A grouped receiver is transparent only when it contains one expression whose complete structure is a local/instance-variable access or a constant path composed of an optional leading `::`, one constant root, and namespace accesses. The resolver preserves the full written qualified or absolute path through nested grouping. Assignment, comma, conditional, union, nilable, call-valued, or other composite expressions are not transparent and remain suppressed.
+
 Constant receivers search class methods. Inferred value receivers search instance methods. Top-level methods, instance methods on unrelated types, and class methods on unrelated types never enter the candidate set. Resolution and hierarchy lookup use StubIndex-backed declarations across project and synthetic-library scopes and must not scan project files or fall back to a method name alone.
 
 The receiver's exact type and its ancestors form one hierarchy lookup. All exact same-named overloads from that hierarchy form the candidate set and are evaluated independently. An unrelated declaration must not enter the set, and a rejecting declaration at a nearer hierarchy level must not block an inherited overload that accepts the call.
@@ -173,6 +175,8 @@ Calls to `.new` use constructor-specific precedence for every call syntax. Again
 1. All `def self.new` definitions, including inherited definitions.
 2. Only when no `def self.new` definitions exist, all `initialize` definitions, including inherited definitions.
 3. Only when neither definition set exists, implicit zero-argument construction.
+
+A generic constructor receiver such as `Box(Int32).new` resolves to the exact root identity `Box` before applying this precedence. The direct constructor target and any downstream local assignment use the same structural extractor. Every generic argument must itself be a constant-only type root; call-valued, union, nilable, or otherwise composite arguments suppress resolution. Record collisions and exact identity ambiguity retain the same suppression rules as non-generic constructor receivers.
 
 The `self.new` definition-set search traverses direct exact types and static superclasses only. It does not traverse `extend` edges or become incomplete from unresolved or macro-controlled extends, because extended module instance methods named `new` are not members of constructor precedence. The later `initialize` fallback retains normal instance superclass/include hierarchy semantics. Ordinary static method calls continue to treat unresolved relevant extend edges as incomplete.
 

@@ -669,6 +669,282 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertMethods(source, "ivar_call", "@service", "Service", "Service")
     }
 
+    fun testResolvesTransparentParenthesizedReceiverIdentities() {
+        val source = """
+            class Service
+              def local_call(value)
+              end
+
+              def parameter_call(value)
+              end
+
+              def ivar_call(value)
+              end
+
+              def self.class_call(value)
+              end
+            end
+
+            class Runner
+              @service : Service
+
+              def exercise(parameter : Service)
+                local = Service.new
+                (local).local_call
+                ((parameter)).parameter_call
+                (@service).ivar_call
+                (Service).class_call
+              end
+            end
+        """.trimIndent()
+
+        assertMethods(source, "local_call", "(local)", "Service", "Service")
+        assertMethods(source, "parameter_call", "((parameter))", "Service", "Service")
+        assertMethods(source, "ivar_call", "(@service)", "Service", "Service")
+        assertMethods(source, "class_call", "(Service)", "Service", "Service")
+    }
+
+    fun testResolvesTransparentParenthesizedConstructorReceiver() {
+        val methods = assertMethods(
+            """
+                class Service
+                  def initialize(value)
+                  end
+                end
+                (Service).new
+            """.trimIndent(),
+            "new",
+            "(Service)",
+            "Service",
+            "Service"
+        )
+
+        assertEquals("value", methods.methods.single().parameterList?.text)
+    }
+
+    fun testResolvesGroupedQualifiedAndAbsoluteConstantPaths() {
+        val source = """
+            class Service
+              def self.absolute_call(value)
+              end
+
+              def initialize(global_value)
+              end
+            end
+
+            module Outer
+              class Service
+                def self.qualified_call(value)
+                end
+
+                def self.nested_call(value)
+                end
+
+                def initialize(outer_value)
+                end
+              end
+            end
+
+            (Outer::Service).qualified_call
+            ((Outer::Service)).nested_call
+            (::Service).absolute_call
+            (Outer::Service).new
+            ((Outer::Service)).new
+            (::Service).new
+        """.trimIndent()
+
+        assertMethods(source, "qualified_call", "(Outer::Service)", "Outer::Service", "Outer::Service")
+        assertMethods(source, "nested_call", "((Outer::Service))", "Outer::Service", "Outer::Service")
+        assertMethods(source, "absolute_call", "(::Service)", "Service", "Service")
+        assertEquals(
+            "outer_value",
+            assertMethods(source, "new", "(Outer::Service)", "Outer::Service", "Outer::Service")
+                .methods.single().parameterList?.text
+        )
+        assertEquals(
+            "outer_value",
+            assertMethods(source, "new", "((Outer::Service))", "Outer::Service", "Outer::Service")
+                .methods.single().parameterList?.text
+        )
+        assertEquals(
+            "global_value",
+            assertMethods(source, "new", "(::Service)", "Service", "Service")
+                .methods.single().parameterList?.text
+        )
+    }
+
+    fun testGroupedQualifiedRecordCollisionRemainsSuppressed() {
+        val call = resolveCall(
+            """
+                module Outer
+                  class Service
+                    def initialize(value)
+                    end
+                  end
+
+                  record Service, record_value : Int32
+                end
+
+                (Outer::Service).new
+            """.trimIndent(),
+            "new",
+            "(Outer::Service)"
+        )
+
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testGroupedCompositeReceiversRemainSuppressed() {
+        val source = """
+            class Service
+              def run(value)
+              end
+            end
+            class Other
+              def run(value)
+              end
+            end
+            service = Service.new
+            other = Other.new
+            (condition ? service : other).run
+            (service || other).run
+            (identity(service)).run
+            (@@service).run
+        """.trimIndent()
+
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "run", "(condition ? service : other)").resolution)
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "run", "(service || other)").resolution)
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "run", "(identity(service))").resolution)
+        assertSame(DotCallResolution.Suppressed, resolveCall(source, "run", "(@@service)").resolution)
+    }
+
+    fun testResolvesGenericConstructorAssignmentToRootIdentity() {
+        val methods = assertMethods(
+            """
+                class Box(T)
+                  def unpack(value)
+                  end
+                end
+                value = Box(Int32).new
+                value.unpack
+            """.trimIndent(),
+            "unpack",
+            "value",
+            "Box",
+            "Box"
+        )
+
+        assertEquals("value", methods.methods.single().parameterList?.text)
+    }
+
+    fun testResolvesDirectGenericConstructorTargetToRootIdentity() {
+        val source = """
+            class Box(T)
+              def initialize(first, second)
+              end
+            end
+            Box(Int32).new
+            Box(Int32).new()
+            Box(Int32).new 1
+        """.trimIndent()
+
+        val calls = resolveCalls(source).filter {
+            it.descriptor.methodName == "new" && it.descriptor.receiverText == "Box(Int32)"
+        }
+        assertEquals(3, calls.size)
+        calls.forEach { call ->
+            val resolution = call.resolution as? DotCallResolution.Methods
+                ?: fail("Expected methods for Box(Int32).new, got ${call.resolution}")
+            resolution as DotCallResolution.Methods
+            assertEquals(ExactReceiverType("Box", "Box"), resolution.receiverType)
+            assertEquals(listOf("Box"), resolution.methods.map(::declaringIdentity))
+            assertEquals("first, second", resolution.methods.single().parameterList?.text)
+        }
+    }
+
+    fun testDirectGenericConstructorUsesSelfNewPrecedence() {
+        val methods = assertMethods(
+            """
+                class Box(T)
+                  def self.new(first, second)
+                  end
+
+                  def initialize(first)
+                  end
+                end
+                Box(Int32).new 1
+            """.trimIndent(),
+            "new",
+            "Box(Int32)",
+            "Box",
+            "Box"
+        )
+
+        assertTrue(CrystalPsiUtils.isSelfMethod(methods.methods.single()))
+        assertEquals("first, second", methods.methods.single().parameterList?.text)
+    }
+
+    fun testDirectGenericConstructorUsesImplicitConstructor() {
+        val call = resolveCall(
+            """
+                class Box(T)
+                end
+                Box(Int32).new 1
+            """.trimIndent(),
+            "new",
+            "Box(Int32)"
+        )
+
+        val resolution = call.resolution as? DotCallResolution.ImplicitConstructor
+            ?: fail("Expected implicit constructor for Box(Int32), got ${call.resolution}")
+        resolution as DotCallResolution.ImplicitConstructor
+        assertEquals(ExactReceiverType("Box", "Box"), resolution.receiverType)
+    }
+
+    fun testCallValuedGenericConstructorArgumentRemainsSuppressed() {
+        val call = resolveCall(
+            """
+                class Box(T)
+                  def unpack(value)
+                  end
+                end
+                value = Box(type_source()).new
+                value.unpack
+            """.trimIndent(),
+            "unpack",
+            "value"
+        )
+
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testDirectCallValuedGenericConstructorTargetRemainsSuppressed() {
+        val call = resolveCall(
+            """
+                class Box(T)
+                end
+                Box(type_source()).new
+            """.trimIndent(),
+            "new",
+            "Box(type_source())"
+        )
+
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testDirectCompositeGenericConstructorTargetsRemainSuppressed() {
+        val source = """
+            class Box(T)
+            end
+            Box(Int32 | String).new
+            Box(Int32?).new
+        """.trimIndent()
+        val calls = resolveCalls(source).filter { it.descriptor.methodName == "new" }
+
+        assertEquals(2, calls.size)
+        calls.forEach { assertSame(DotCallResolution.Suppressed, it.resolution) }
+    }
+
     fun testResolvesAssignmentInferredInstanceVariableReceiver() {
         val methods = assertMethods(
             """

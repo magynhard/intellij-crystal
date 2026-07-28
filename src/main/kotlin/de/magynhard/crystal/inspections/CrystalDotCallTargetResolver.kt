@@ -53,23 +53,31 @@ object CrystalDotCallTargetResolver {
             return DotCallResolution.Suppressed
         }
 
-        val constantReceiver = isConstantReceiver(call.receiverText)
-        if (constantReceiver && call.methodName == "new" && !call.receiverText.contains("::")) {
-            return resolveSimpleConstructor(call)
+        val normalizedReceiver = CrystalExactReceiverTypeResolver.normalizeReceiver(call.receiver)
+        val exactTypeRoot = CrystalExactReceiverTypeResolver.extractExactConstantTypeRoot(call.receiver)
+        if (normalizedReceiver is CrystalMethodCallExpression && exactTypeRoot == null) {
+            return DotCallResolution.Suppressed
+        }
+        val normalizedReceiverText = exactTypeRoot ?: call.receiverText
+        val constantReceiver = exactTypeRoot != null ||
+            normalizedReceiver === call.receiver && isConstantReceiver(call.receiverText)
+        if (constantReceiver && call.methodName == "new" && !normalizedReceiverText.contains("::")) {
+            return resolveSimpleConstructor(call, normalizedReceiverText)
         }
         val receiverType = if (constantReceiver) {
-            when (val identity = resolveTypeIdentity(call.receiverText, call.access)) {
+            when (val identity = resolveTypeIdentity(normalizedReceiverText, call.access)) {
                 is IdentityResolution.Exact -> identity.type
                 IdentityResolution.Ambiguous -> return DotCallResolution.Suppressed
-                IdentityResolution.Missing -> return resolveRecordFallback(call)
+                IdentityResolution.Missing -> return resolveRecordFallback(call, normalizedReceiverText)
             }
         } else {
-            CrystalExactReceiverTypeResolver.resolve(call.receiver, call.access)
+            CrystalExactReceiverTypeResolver.resolve(normalizedReceiver, call.access)
                 ?: return DotCallResolution.Suppressed
         }
 
         if (constantReceiver && call.methodName == "new") {
-            if (call.receiverText.contains("::") && hasExactQualifiedRecord(call)) {
+            if (normalizedReceiverText.contains("::") &&
+                hasExactQualifiedRecord(call, normalizedReceiverText)) {
                 return DotCallResolution.Suppressed
             }
             return resolveConstructor(call, receiverType)
@@ -123,16 +131,16 @@ object CrystalDotCallTargetResolver {
         return DotCallResolution.ImplicitConstructor(call, receiverType)
     }
 
-    private fun resolveSimpleConstructor(call: DotCallDescriptor): DotCallResolution {
+    private fun resolveSimpleConstructor(call: DotCallDescriptor, receiverName: String): DotCallResolution {
         val lexicalIdentities = CrystalPsiUtils.buildLexicalQualifiedNameCandidates(
-            call.receiverText,
+            receiverName,
             call.access
         ).sortedByDescending { it.count { character -> character == ':' } }
         val recordsByIdentity = CrystalPsiUtils.findRecordDefinitions(
-            call.receiverText,
+            receiverName,
             call.access.containingFile
         ).groupBy { it.qualifiedName }
-        val typeIdentities = findTypesBySimpleName(call.receiverText, call.access)
+        val typeIdentities = findTypesBySimpleName(receiverName, call.access)
             .mapNotNull(CrystalPsiUtils::buildQualifiedName)
             .toSet()
 
@@ -145,7 +153,7 @@ object CrystalDotCallTargetResolver {
             records.singleOrNull()?.let { record ->
                 return DotCallResolution.RecordFallback(
                     call,
-                    call.receiverText,
+                    receiverName,
                     record.qualifiedName,
                     record.call
                 )
@@ -153,7 +161,7 @@ object CrystalDotCallTargetResolver {
             if (identity in typeIdentities) {
                 return resolveConstructor(
                     call,
-                    ExactReceiverType(call.receiverText, identity)
+                    ExactReceiverType(receiverName, identity)
                 )
             }
         }
@@ -161,19 +169,19 @@ object CrystalDotCallTargetResolver {
         return DotCallResolution.Unresolved
     }
 
-    private fun resolveRecordFallback(call: DotCallDescriptor): DotCallResolution {
-        if (call.methodName != "new" || !call.receiverText.contains("::")) {
+    private fun resolveRecordFallback(call: DotCallDescriptor, receiverName: String): DotCallResolution {
+        if (call.methodName != "new" || !receiverName.contains("::")) {
             return DotCallResolution.Unresolved
         }
-        return if (hasExactQualifiedRecord(call)) {
+        return if (hasExactQualifiedRecord(call, receiverName)) {
             DotCallResolution.Suppressed
         } else {
             DotCallResolution.Unresolved
         }
     }
 
-    private fun hasExactQualifiedRecord(call: DotCallDescriptor): Boolean {
-        val qualifiedName = call.receiverText.removePrefix("::")
+    private fun hasExactQualifiedRecord(call: DotCallDescriptor, receiverName: String): Boolean {
+        val qualifiedName = receiverName.removePrefix("::")
         val simpleName = qualifiedName.substringAfterLast("::")
         return CrystalPsiUtils.findRecordDefinitions(simpleName, call.access.containingFile)
             .any { it.qualifiedName == qualifiedName }

@@ -738,6 +738,158 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testTransparentParenthesizedReceiversReportMissingArguments() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def local_call(value)
+              end
+
+              def parameter_call(value)
+              end
+
+              def ivar_call(value)
+              end
+
+              def self.class_call(value)
+              end
+            end
+
+            class Runner
+              @service : Service
+
+              def exercise(parameter : Service)
+                local = Service.new
+                (local).<error descr="Missing required argument(s): 'value'">local_call</error>
+                ((parameter)).<error descr="Missing required argument(s): 'value'">parameter_call</error>
+                (@service).<error descr="Missing required argument(s): 'value'">ivar_call</error>
+                (Service).<error descr="Missing required argument(s): 'value'">class_call</error>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTransparentParenthesizedConstructorReportsMissingArguments() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def initialize(value)
+              end
+            end
+            (Service).<error descr="Missing required argument(s): 'value'">new</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testGroupedQualifiedAndAbsoluteReceiversReportMissingArguments() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def self.absolute_call(value)
+              end
+
+              def initialize(global_value)
+              end
+            end
+
+            module Outer
+              class Service
+                def self.qualified_call(value)
+                end
+
+                def self.nested_call(value)
+                end
+
+                def initialize(outer_value)
+                end
+              end
+            end
+
+            (Outer::Service).<error descr="Missing required argument(s): 'value'">qualified_call</error>
+            ((Outer::Service)).<error descr="Missing required argument(s): 'value'">nested_call</error>
+            (::Service).<error descr="Missing required argument(s): 'value'">absolute_call</error>
+            (Outer::Service).<error descr="Missing required argument(s): 'outer_value'">new</error>
+            ((Outer::Service)).<error descr="Missing required argument(s): 'outer_value'">new</error>
+            (::Service).<error descr="Missing required argument(s): 'global_value'">new</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testGroupedQualifiedRecordCollisionRemainsSuppressed() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+              class Service
+                def initialize(value)
+                end
+              end
+
+              record Service, record_value : Int32
+            end
+
+            (Outer::Service).new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testGenericConstructorAssignmentUsesExactRootReceiver() {
+        myFixture.configureByText("test.cr", """
+            class Box(T)
+              def unpack(value)
+              end
+            end
+            value = Box(Int32).new
+            value.<error descr="Missing required argument(s): 'value'">unpack</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDirectGenericConstructorReportsMissingInitializeArgumentsForAllCallForms() {
+        myFixture.configureByText("test.cr", """
+            class Box(T)
+              def initialize(first, second)
+              end
+            end
+            Box(Int32).<error descr="Missing required argument(s): 'first', 'second'">new</error>
+            Box(Int32).<error descr="Missing required argument(s): 'first', 'second'">new</error>()
+            Box(Int32).<error descr="Missing required argument(s): 'second'">new</error> 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDirectGenericConstructorUsesSelfNewPrecedence() {
+        myFixture.configureByText("test.cr", """
+            class Box(T)
+              def self.new(first, second)
+              end
+
+              def initialize(first)
+              end
+            end
+            Box(Int32).<error descr="Missing required argument(s): 'second'">new</error> 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDirectGenericImplicitConstructorReportsExcessArgument() {
+        myFixture.configureByText("test.cr", """
+            class Box(T)
+            end
+            Box(Int32).new <error descr="Too many arguments: expected at most 0, got 1">1</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDirectInexactGenericConstructorTargetsRemainSuppressed() {
+        myFixture.configureByText("test.cr", """
+            class Box(T)
+              def initialize(value)
+              end
+            end
+            Box(type_source()).new
+            Box(Int32 | String).new
+            Box(Int32?).new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testNearestLocalAssignmentAndReassignmentControlResolution() {
         myFixture.configureByText("test.cr", """
             class First
