@@ -26,6 +26,30 @@ internal fun getPreviousNonWhitespaceLeaf(element: PsiElement): PsiElement? {
     return prev
 }
 
+internal fun normalizeLookupTypes(typeName: String): List<String> {
+    val result = mutableListOf<String>()
+    var depth = 0
+    var start = 0
+
+    fun addType(end: Int) {
+        val type = typeName.substring(start, end).trim()
+        if (type.isNotEmpty()) result.add(type.substringBefore('(').trim())
+    }
+
+    typeName.forEachIndexed { index, char ->
+        when (char) {
+            '(' -> depth++
+            ')' -> if (depth > 0) depth--
+            '|' -> if (depth == 0) {
+                addType(index)
+                start = index + 1
+            }
+        }
+    }
+    addType(typeName.length)
+    return result.distinct()
+}
+
 internal fun isAfterDefKeywordInClassBody(position: PsiElement): Boolean {
     val prev = getPreviousNonWhitespaceLeaf(position) ?: return false
     if (prev.node.elementType != CrystalTypes.DEF) return false
