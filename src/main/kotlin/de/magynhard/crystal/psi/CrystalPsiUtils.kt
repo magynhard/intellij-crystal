@@ -41,7 +41,7 @@ object CrystalPsiUtils {
     }
 
     fun buildLexicalQualifiedNameCandidates(simpleName: String, context: PsiElement): Set<String> {
-        val candidates = linkedSetOf(simpleName)
+        val candidates = linkedSetOf<String>()
         val enclosingParts = getEnclosingType(context)
             ?.let(::buildQualifiedName)
             ?.split("::")
@@ -49,6 +49,7 @@ object CrystalPsiUtils {
         for (size in enclosingParts.size downTo 1) {
             candidates.add(enclosingParts.take(size).joinToString("::") + "::$simpleName")
         }
+        candidates.add(simpleName)
         return candidates
     }
 

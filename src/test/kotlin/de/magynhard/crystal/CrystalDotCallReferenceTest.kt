@@ -48,13 +48,6 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
     }
 
     fun testStaticInstanceMethodDoesNotResolveViaClassDot() {
-        // `def essen` is an instance method, not a `def self.` static — Apfel.essen
-        // is called on `Apfel` (a CONSTANT class object), not an instance.
-        // The index keys CrystalMethodByClassIndex by enclosing class for BOTH
-        // static and instance methods, so this DOES resolve to the instance def
-        // (Crystal does allow you to call instance methods via the class in
-        // some syntactic contexts — e.g. enum constants). The test asserts that
-        // lookup returns the method.
         val resolved = resolveAtCaret("""
             class Apfel
               def essen
@@ -62,8 +55,7 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
             end
             Apfel.es<caret>sen
         """.trimIndent())
-        assertNotNull("Apfel.essen resolves to def essen via enclosing-class index", resolved)
-        assertEquals("essen", (resolved as CrystalMethodDefinition).name)
+        assertNull("Apfel.essen must not resolve an instance method", resolved)
     }
 
     fun testNestedClassMethodResolves() {
@@ -127,6 +119,24 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         assertNull("Should return null for unknown method on a known class", resolved)
     }
 
+    fun testIncludedInstanceMethodResolvesThroughNeutralHierarchy() {
+        val resolved = resolveAtCaret("""
+            module Feature
+              def work
+              end
+            end
+            class Service
+              include Feature
+            end
+            service = Service.new
+            service.wo<caret>rk
+        """.trimIndent())
+
+        assertNotNull(resolved)
+        assertEquals("work", (resolved as CrystalMethodDefinition).name)
+        assertEquals("Feature", CrystalPsiUtils.getEnclosingType(resolved)?.let(CrystalPsiUtils::buildQualifiedName))
+    }
+
     // ==================== .new constructor ====================
 
     fun testDotNewResolvesToInitialize() {
@@ -142,5 +152,33 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         assertTrue("Should resolve to a method named 'initialize'",
             resolved is de.magynhard.crystal.psi.CrystalMethodDefinition
                 && resolved.name == "initialize")
+    }
+
+    fun testRecordWinsSameIdentityConstructorCollisionLikeDotTargetResolver() {
+        val resolved = resolveAtCaret("""
+            record Config, value : Int32
+            class Config
+              def initialize(value : String)
+              end
+            end
+            Config.n<caret>ew
+        """.trimIndent())
+
+        assertTrue(resolved is CrystalMethodCallExpression)
+        assertTrue(resolved?.text?.startsWith("record Config") == true)
+    }
+
+    fun testOverloadedConstructorReferenceIsAmbiguous() {
+        val resolved = resolveAtCaret("""
+            class Service
+              def self.new(value : Int32)
+              end
+              def self.new(value : String)
+              end
+            end
+            Service.n<caret>ew
+        """.trimIndent())
+
+        assertNull(resolved)
     }
 }

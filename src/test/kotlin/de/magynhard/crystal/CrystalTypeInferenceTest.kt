@@ -95,6 +95,31 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         assertEquals("Array(Int32)", type)
     }
 
+    fun testLegacyAdapterNormalizesAnnotatedOuterGenericBase() {
+        myFixture.configureByText("test.cr", "def use(value : Array(Int32))\n  value\nend")
+        val value = myFixture.file.text.indexOf("value\nend")
+        val context = myFixture.file.findElementAt(value)!!
+        assertEquals("Array", CrystalTypeInference.inferType("value", context, project))
+    }
+
+    fun testLegacyAdapterUsesFirstAnnotatedUnionArm() {
+        myFixture.configureByText("test.cr", "def use(value : Int32 | String)\n  value\nend")
+        val value = myFixture.file.text.indexOf("value\nend")
+        val context = myFixture.file.findElementAt(value)!!
+        assertEquals("Int32", CrystalTypeInference.inferType("value", context, project))
+    }
+
+    fun testAssignmentReplacesTypedParameterAnnotationProvenance() {
+        myFixture.configureByText(
+            "test.cr",
+            "def use(value : Array(String))\n  value = [1, 2]\n  value\nend"
+        )
+        val offset = myFixture.file.text.lastIndexOf("value\nend")
+        val context = myFixture.file.findElementAt(offset)!!
+
+        assertEquals("Array(Int32)", CrystalTypeInference.inferType("value", context, project))
+    }
+
     fun testInferInstanceVariableFromAssignment() {
         myFixture.configureByText("test.cr", "@x = \"hello\"")
         val type = CrystalTypeInference.inferType("@x", myFixture.file, project)

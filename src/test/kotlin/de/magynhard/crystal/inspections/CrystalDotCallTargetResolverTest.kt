@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.psi.CrystalBareArgumentList
 import de.magynhard.crystal.psi.CrystalCallArgs
 import de.magynhard.crystal.psi.CrystalDotCallAccess
@@ -11,6 +12,25 @@ import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
 
 class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
+
+    fun testResolvesNamedTargetWithCallerOwnedNeutralSession() {
+        val file = myFixture.configureByText("test.cr", """
+            class Service
+              def self.run
+              end
+            end
+
+            Service.run
+        """.trimIndent())
+        val access = PsiTreeUtil.findChildOfType(file, CrystalDotCallAccess::class.java)
+            ?: error("Expected DOT-call access")
+        val session = CrystalTypeSetResolver.session(access)
+
+        val resolution = CrystalDotCallTargetResolver.resolve(access, session) as DotCallResolution.Methods
+
+        assertEquals("Service", resolution.receiverType.qualifiedName)
+        assertEquals("run", resolution.methods.single().name)
+    }
 
     fun testResolvesDirectQualifiedAbsoluteAndLexicalConstantIdentities() {
         val source = """
@@ -59,8 +79,8 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertMethods(source, "lexical_call", "Service", "Outer::Service", "Outer::Service")
     }
 
-    fun testAmbiguousLexicalSimpleConstantSuppressesResolution() {
-        val call = resolveCall(
+    fun testNearestLexicalSimpleConstantShadowsGlobalIdentity() {
+        val methods = assertMethods(
             """
                 class Service
                   def self.run
@@ -79,10 +99,11 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
                 end
             """.trimIndent(),
             "run",
-            "Service"
+            "Service",
+            "Outer::Service",
+            "Outer::Service"
         )
-
-        assertSame(DotCallResolution.Suppressed, call.resolution)
+        assertEquals("Outer::Service", declaringIdentity(methods.methods.single()))
     }
 
     fun testSeparatesStaticInstanceAndUnrelatedSameNamedMethods() {
@@ -355,7 +376,7 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertSame(DotCallResolution.Suppressed, call.resolution)
     }
 
-    fun testSuppressesAmbiguousIncludedAndExtendedModuleIdentities() {
+    fun testNearestLexicalIncludedAndExtendedModuleIdentitiesWin() {
         val included = resolveCall(
             """
                 module Feature
@@ -380,7 +401,8 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
             "work",
             "worker"
         )
-        assertSame(DotCallResolution.Suppressed, included.resolution)
+        val includedMethods = included.resolution as DotCallResolution.Methods
+        assertEquals("lexical_value", includedMethods.methods.single().parameterList?.text)
 
         val extended = resolveCall(
             """
@@ -405,7 +427,32 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
             "build",
             "Outer::Factory"
         )
-        assertSame(DotCallResolution.Suppressed, extended.resolution)
+        val extendedMethods = extended.resolution as DotCallResolution.Methods
+        assertEquals("lexical_value", extendedMethods.methods.single().parameterList?.text)
+    }
+
+    fun testStaticTargetUsesNearestNeutralLexicalIdentity() {
+        assertMethods(
+            """
+                class Service
+                  def self.value(global)
+                  end
+                end
+
+                module Outer
+                  class Service
+                    def self.value(lexical)
+                    end
+                  end
+
+                  Service.value(1)
+                end
+            """.trimIndent(),
+            "value",
+            "Service",
+            "Outer::Service",
+            "Outer::Service"
+        )
     }
 
     fun testUnresolvedEdgesInTheOtherExposureModeDoNotSuppress() {
@@ -773,7 +820,7 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testGroupedQualifiedRecordCollisionRemainsSuppressed() {
+    fun testGroupedQualifiedRecordCollisionUsesSharedRecordPrecedence() {
         val call = resolveCall(
             """
                 module Outer
@@ -791,7 +838,8 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
             "(Outer::Service)"
         )
 
-        assertSame(DotCallResolution.Suppressed, call.resolution)
+        val record = call.resolution as DotCallResolution.RecordFallback
+        assertEquals("Outer::Service", record.qualifiedName)
     }
 
     fun testGroupedCompositeReceiversRemainSuppressed() {
@@ -1514,7 +1562,8 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
             "new",
             "B::Config"
         )
-        assertSame(DotCallResolution.Suppressed, exactRecord.resolution)
+        val record = exactRecord.resolution as DotCallResolution.RecordFallback
+        assertEquals("B::Config", record.qualifiedName)
     }
 
     fun testExtractorPreservesMultilineQualifiedReceiverOwnership() {

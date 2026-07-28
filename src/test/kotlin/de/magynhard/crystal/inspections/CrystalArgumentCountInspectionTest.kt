@@ -547,7 +547,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testArgumentlessSimpleClassReceiverIsIgnoredWhenLexicalIdentityIsAmbiguous() {
+    fun testArgumentlessSimpleClassReceiverUsesNearestLexicalIdentity() {
         myFixture.configureByText("test.cr", """
             module Outer
               class Factory
@@ -559,7 +559,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
                   def self.create(name)
                   end
                 end
-                Factory.create
+                Factory.<error descr="Missing required argument(s): 'name'">create</error>
               end
             end
         """.trimIndent())
@@ -813,7 +813,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testGroupedQualifiedRecordCollisionRemainsSuppressed() {
+    fun testGroupedQualifiedRecordCollisionUsesRecordPrecedence() {
         myFixture.configureByText("test.cr", """
             module Outer
               class Service
@@ -824,7 +824,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
               record Service, record_value : Int32
             end
 
-            (Outer::Service).new
+            (Outer::Service).<error descr="Missing required argument(s): 'record_value'">new</error>
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -1089,7 +1089,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testAmbiguousRecordAndIncompleteHierarchyTargetsAreSuppressed() {
+    fun testNearestLexicalTargetResolvesWhileUnknownTargetsRemainSuppressed() {
         myFixture.configureByText("test.cr", """
             class Service
               def self.run(value)
@@ -1101,7 +1101,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
                 end
               end
               def self.exercise
-                Service.run
+                Service.<error descr="Missing required argument(s): 'value'">run</error>
               end
             end
             record Entry, value : Int32

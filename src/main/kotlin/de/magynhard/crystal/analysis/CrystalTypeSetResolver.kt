@@ -22,9 +22,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private val memo = IdentityHashMap<PsiElement, CrystalTypeResolution>()
     private val resolving = java.util.Collections.newSetFromMap(IdentityHashMap<PsiElement, Boolean>())
     private val resolvingMethods = java.util.Collections.newSetFromMap(IdentityHashMap<CrystalMethodDefinition, Boolean>())
+    private val methodReturnMemo = IdentityHashMap<CrystalMethodDefinition, CrystalTypeResolution>()
     private val typeCache = mutableMapOf<String, List<CrystalNamedElement>>()
     private val methodCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
-    private val classMethodCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
+    private val methodsByTypeCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
+    private val hierarchy = CrystalMethodHierarchy(context, ::types, ::classMethods)
 
     fun resolve(element: PsiElement): CrystalTypeResolution {
         val target = promote(element)
@@ -37,7 +39,10 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     fun resolveVariable(name: String, position: PsiElement): CrystalTypeResolution =
-        resolveVariableValue(name, position)
+        resolveVariableWithProvenance(name, position).resolution
+
+    fun resolveVariableWithProvenance(name: String, position: PsiElement): CrystalVariableResolution =
+        resolveVariableValue(name, position).toPublic()
 
     fun resolveCall(
         receiverTypeNames: List<String>,
@@ -48,11 +53,102 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val results = mutableListOf<CrystalTypeResolution>()
         for (typeName in receiverTypeNames) {
             val identity = resolveTypeIdentity(typeName, callContext) ?: return CrystalTypeResolution.Unknown
-            val candidates = findMethodsInHierarchy(identity, methodName, isStatic, callContext)
-            if (candidates.size != 1) return CrystalTypeResolution.Unknown
-            results.add(resolveMethodReturn(candidates.single()))
+            val collection = hierarchy.collectNamedMethods(
+                identity.toShared(),
+                if (isStatic) CrystalReceiverMode.STATIC else CrystalReceiverMode.INSTANCE,
+                methodName
+            )
+            if (!collection.complete || collection.methods.size != 1) return CrystalTypeResolution.Unknown
+            results.add(resolveMethodReturn(collection.methods.single()))
         }
         return mergeKnown(results)
+    }
+
+    fun resolveType(typeName: String, element: PsiElement): CrystalTypeIdentity? =
+        resolveTypeIdentity(typeName, element)?.toShared()
+
+    fun isConstructible(typeName: String, element: PsiElement): Boolean =
+        resolveConstructor(typeName, element).let {
+            it is CrystalConstructorResolution.Methods || it is CrystalConstructorResolution.Implicit ||
+                it is CrystalConstructorResolution.Record
+        }
+
+    fun collectMethods(
+        receiverType: CrystalTypeIdentity,
+        mode: CrystalReceiverMode
+    ): CrystalAllMethodCollection = hierarchy.collectMethods(receiverType, mode)
+
+    fun collectNamedMethods(
+        receiverType: CrystalTypeIdentity,
+        mode: CrystalReceiverMode,
+        methodName: String,
+        actualSelf: Boolean? = null,
+        includeModuleEdges: Boolean = true
+    ): CrystalMethodCollection = hierarchy.collectNamedMethods(
+        receiverType,
+        mode,
+        methodName,
+        actualSelf,
+        includeModuleEdges
+    )
+
+    fun resolveConstructor(typeName: String, element: PsiElement): CrystalConstructorResolution {
+        val root = normalizeExactTypeRoot(typeName) ?: typeName.removePrefix("::")
+        val simpleName = root.substringAfterLast("::")
+        val fallbackIdentity = CrystalTypeIdentity(simpleName, root)
+        val records = element.containingFile?.let { CrystalPsiUtils.findRecordDefinitions(simpleName, it) }
+            .orEmpty().groupBy { it.qualifiedName }
+        for (candidate in typeIdentityCandidates(root, typeName.startsWith("::"), element)) {
+            val recordCandidates = records[candidate].orEmpty()
+            if (recordCandidates.any { CrystalPsiUtils.isInsideMacroControlRegion(it.call) } ||
+                recordCandidates.size > 1) {
+                return CrystalConstructorResolution.Incomplete(CrystalTypeIdentity(simpleName, candidate))
+            }
+            recordCandidates.singleOrNull()?.let {
+                return CrystalConstructorResolution.Record(
+                    CrystalTypeIdentity(simpleName, candidate),
+                    it.call
+                )
+            }
+            val identities = exactTypeIdentities(simpleName, candidate)
+            if (identities.size > 1) return CrystalConstructorResolution.Incomplete(fallbackIdentity)
+            identities.singleOrNull()?.let { return resolveConstructor(it) }
+        }
+        return CrystalConstructorResolution.Unavailable(fallbackIdentity)
+    }
+
+    fun resolveConstructor(identity: CrystalTypeIdentity): CrystalConstructorResolution {
+        val declarations = hierarchy.findExactTypeDeclarations(identity)
+        if (declarations.isEmpty() || declarations.any(CrystalPsiUtils::isInsideMacroControlRegion)) {
+            return CrystalConstructorResolution.Incomplete(identity)
+        }
+        if (declarations.any { it.node.findChildByType(CrystalTypes.ABSTRACT) != null }) {
+            return CrystalConstructorResolution.Abstract(identity)
+        }
+        if (declarations.any { it !is CrystalClassDefinition && it !is CrystalStructDefinition }) {
+            return CrystalConstructorResolution.Unavailable(identity)
+        }
+        val selfNew = hierarchy.collectNamedMethods(
+            identity,
+            CrystalReceiverMode.STATIC,
+            "new",
+            actualSelf = true,
+            includeModuleEdges = false
+        )
+        if (!selfNew.complete) return CrystalConstructorResolution.Incomplete(identity)
+        if (selfNew.methods.isNotEmpty()) return CrystalConstructorResolution.Methods(identity, selfNew.methods)
+        val initializers = hierarchy.collectNamedMethods(
+            identity,
+            CrystalReceiverMode.INSTANCE,
+            "initialize",
+            actualSelf = false
+        )
+        if (!initializers.complete) return CrystalConstructorResolution.Incomplete(identity)
+        return if (initializers.methods.isEmpty()) {
+            CrystalConstructorResolution.Implicit(identity)
+        } else {
+            CrystalConstructorResolution.Methods(identity, initializers.methods)
+        }
     }
 
     private fun resolveUncached(element: PsiElement): CrystalTypeResolution {
@@ -87,8 +183,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             is CrystalIfStatement -> resolveIf(element)
             is CrystalUnlessStatement -> resolveUnless(element)
             is CrystalCaseStatement -> resolveCase(element)
-            is CrystalVariableReference -> resolveVariableValue(element.text, element)
-            is CrystalInstanceVarAccess -> resolveVariableValue(element.text, element)
+            is CrystalBeginStatement -> resolveBegin(element)
+            is CrystalVariableReference -> resolveVariableValue(element.text, element).result.let { variable ->
+                if (variable is CrystalTypeResolution.Unknown) resolveUnqualifiedCall(element.text, element) else variable
+            }
+            is CrystalInstanceVarAccess -> resolveVariableValue(element.text, element).result
             is CrystalMethodCallExpression -> resolveUnqualifiedCall(methodName(element), element)
             is CrystalBareMethodCallExpression -> resolveUnqualifiedCall(methodName(element), element)
             is CrystalGroupedExpression -> {
@@ -108,7 +207,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         statement.expressionStatement != null -> resolve(statement.expressionStatement!!)
         statement.ifStatement != null -> resolve(statement.ifStatement!!)
         statement.unlessStatement != null -> resolve(statement.unlessStatement!!)
-        statement.beginStatement != null -> resolveStatementList(statement.beginStatement!!.statementList)
+        statement.beginStatement != null -> resolveBegin(statement.beginStatement!!)
         statement.returnStatement != null -> resolve(statement.returnStatement!!)
         else -> knownType("Nil")
     }
@@ -139,12 +238,18 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
         for (access in children.drop(firstAccess)) {
             val dotAccess = access as? CrystalDotCallAccess ?: return CrystalTypeResolution.Unknown
-            for (component in postfixComponents(dotAccess)) {
+            for (component in CrystalPostfixChain.components(dotAccess)) {
                 val call = component ?: return CrystalTypeResolution.Unknown
                 val name = methodName(call) ?: return CrystalTypeResolution.Unknown
                 receiver = when (receiver) {
                     is ReceiverState.TypeObject -> {
                         if (name == "new") {
+                            when (resolveConstructor(receiver.identity.toShared())) {
+                                is CrystalConstructorResolution.Methods,
+                                is CrystalConstructorResolution.Implicit,
+                                is CrystalConstructorResolution.Record -> Unit
+                                else -> return CrystalTypeResolution.Unknown
+                            }
                             ReceiverState.Values(knownType(receiver.identity.qualifiedName))
                         } else {
                             ReceiverState.Values(
@@ -181,87 +286,69 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun resolveIf(statement: CrystalIfStatement): CrystalTypeResolution {
-        val branches = mutableListOf(resolveStatementList(statement.statementList))
-        branches.addAll(statement.elsifClauseList.map { resolveStatementList(it.statementList) })
-        branches.add(statement.elseClause?.statementList?.let(::resolveStatementList) ?: knownType("Nil"))
-        return mergeKnown(branches)
+        val execution = analyzeIf(statement)
+        return execution.value ?: CrystalTypeResolution.Unknown
     }
 
-    private fun resolveUnless(statement: CrystalUnlessStatement): CrystalTypeResolution = mergeKnown(
-        listOf(
-            resolveStatementList(statement.statementList),
-            statement.elseClause?.statementList?.let(::resolveStatementList) ?: knownType("Nil")
-        )
-    )
+    private fun resolveUnless(statement: CrystalUnlessStatement): CrystalTypeResolution =
+        analyzeUnless(statement).value ?: CrystalTypeResolution.Unknown
 
     private fun resolveCase(statement: CrystalCaseStatement): CrystalTypeResolution {
-        val clauses = significantChildren(statement)
-            .filter { it is CrystalWhenClause || it is CrystalInClause }
-            .map {
-                when (it) {
-                    is CrystalWhenClause -> resolveStatementList(it.statementList)
-                    is CrystalInClause -> resolveStatementList(it.statementList)
-                    else -> CrystalTypeResolution.Unknown
-                }
-            }
-            .toMutableList()
-        clauses.add(statement.elseClause?.statementList?.let(::resolveStatementList) ?: knownType("Nil"))
-        return mergeKnown(clauses)
+        return analyzeCase(statement).value ?: CrystalTypeResolution.Unknown
     }
+
+    private fun resolveBegin(statement: CrystalBeginStatement): CrystalTypeResolution =
+        analyzeProtectedBody(
+            statement.statementList,
+            statement.rescueClauseList,
+            statement.elseClause,
+            statement.ensureClause
+        ).value ?: CrystalTypeResolution.Unknown
 
     private fun resolveStatementList(statementList: CrystalStatementList?): CrystalTypeResolution {
         val statements = statementList?.statementList.orEmpty()
         return statements.lastOrNull()?.let(::resolve) ?: knownType("Nil")
     }
 
-    private fun resolveVariableValue(name: String, position: PsiElement): CrystalTypeResolution {
+    private fun resolveVariableValue(name: String, position: PsiElement): VariableState {
         val containingAssignment = PsiTreeUtil.getParentOfType(position, CrystalAssignment::class.java, false)
         if (containingAssignment != null && assignmentName(containingAssignment) == name) {
-            return resolve(containingAssignment.assignment ?: containingAssignment.expression
-                ?: return CrystalTypeResolution.Unknown)
+            return VariableState.Bound(
+                resolve(containingAssignment.assignment ?: containingAssignment.expression
+                    ?: return VariableState.Unknown),
+                CrystalVariableProvenance.ASSIGNMENT
+            )
         }
-        if (position is PsiFile) {
-            var child = position.lastChild
-            while (child != null) {
-                when (val evidence = flowEvidence(child, name)) {
-                    FlowEvidence.Missing -> Unit
-                    is FlowEvidence.Found -> return evidence.result
-                }
-                child = child.prevSibling
+        val boundary = lexicalBoundary(position, name) ?: return VariableState.Unknown
+        var state: VariableState = VariableState.Unbound
+        if (position === boundary) {
+            for (child in boundary.children) {
+                val flow = flowElement(child, name, state)
+                if (!flow.fallsThrough) return VariableState.Unknown
+                state = flow.state
             }
-            return CrystalTypeResolution.Unknown
+            return state
         }
-        var current: PsiElement = position
-        val file = position.containingFile ?: return CrystalTypeResolution.Unknown
-        while (current !== file) {
-            var sibling = current.prevSibling
-            while (sibling != null) {
-                when (val evidence = flowEvidence(sibling, name)) {
-                    FlowEvidence.Missing -> Unit
-                    is FlowEvidence.Found -> return evidence.result
-                }
-                sibling = sibling.prevSibling
+        val path = generateSequence(position) { it.parent }.takeWhile { it !== boundary }
+            .toList().asReversed()
+        var container = boundary
+        for (next in path) {
+            state = introduceParameter(container, name, state)
+            val branchState = protectedBranchIncoming(container, next, name, state)
+            if (branchState != null) {
+                state = branchState
+                container = next
+                continue
             }
-            val parent = current.parent ?: break
-            if (parent is CrystalBlock) {
-                parameterResult(parent.parameterList?.parameterList.orEmpty(), name)?.let { return it }
+            for (child in container.children) {
+                if (child === next) break
+                val flow = flowElement(child, name, state)
+                if (!flow.fallsThrough) return VariableState.Unknown
+                state = flow.state
             }
-            if (parent is CrystalMethodDefinition || parent is CrystalMacroDefinition) {
-                val parameters = when (parent) {
-                    is CrystalMethodDefinition -> parent.parameterList?.parameterList.orEmpty()
-                    is CrystalMacroDefinition -> parent.parameterList?.parameterList.orEmpty()
-                    else -> emptyList()
-                }
-                parameterResult(parameters, name)?.let { return it }
-                if (!name.startsWith("@")) return CrystalTypeResolution.Unknown
-            }
-            if (parent is CrystalClassDefinition || parent is CrystalModuleDefinition ||
-                parent is CrystalStructDefinition || parent is CrystalEnumDefinition) {
-                if (!name.startsWith("@")) return CrystalTypeResolution.Unknown
-            }
-            current = parent
+            container = next
         }
-        return CrystalTypeResolution.Unknown
+        return state
     }
 
     private fun parameterResult(parameters: List<CrystalParameter>, name: String): CrystalTypeResolution? {
@@ -269,13 +356,58 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return parameter.typeReference?.text?.let(::parseTypeSet) ?: CrystalTypeResolution.Unknown
     }
 
-    private fun flowEvidence(element: PsiElement, name: String): FlowEvidence {
-        if (isScopeBoundary(element)) return FlowEvidence.Missing
+    private fun lexicalBoundary(position: PsiElement, name: String): PsiElement? {
+        if (position is PsiFile) return position
+        if (name.startsWith("@")) {
+            return generateSequence(position.parent) { it.parent }.firstOrNull(::isTypeBoundary)
+        }
+        return generateSequence(position.parent) { it.parent }.firstOrNull {
+            it is CrystalMethodDefinition || it is CrystalMacroDefinition || it is PsiFile
+        }
+    }
+
+    private fun introduceParameter(container: PsiElement, name: String, incoming: VariableState): VariableState {
+        val parameters = when (container) {
+            is CrystalMethodDefinition -> container.parameterList?.parameterList.orEmpty()
+            is CrystalMacroDefinition -> container.parameterList?.parameterList.orEmpty()
+            is CrystalBlock -> container.parameterList?.parameterList.orEmpty()
+            else -> emptyList()
+        }
+        return parameterResult(parameters, name)?.let {
+            VariableState.Bound(it, CrystalVariableProvenance.ANNOTATION)
+        } ?: incoming
+    }
+
+    private fun protectedBranchIncoming(
+        container: PsiElement,
+        next: PsiElement,
+        name: String,
+        incoming: VariableState
+    ): VariableState? {
+        if (next !is CrystalRescueClause) return null
+        val body = when (container) {
+            is CrystalBeginStatement -> container.statementList
+            is CrystalMethodBody -> container.statementList
+            else -> return null
+        }
+        val flow = flowStatementList(body, name, incoming)
+        return exceptionalIncoming(flow, incoming)
+    }
+
+    private fun flowElement(element: PsiElement, name: String, incoming: VariableState): VariableFlow {
+        if (isScopeBoundary(element)) return VariableFlow.falling(incoming)
+        val returnStatement = (element as? CrystalStatement)?.returnStatement ?: element as? CrystalReturnStatement
+        if (returnStatement != null && returnStatement.postfixModifier == null) {
+            val exceptions = returnStatement.expression?.takeIf(::mayRaise)?.let { listOf(incoming) }.orEmpty()
+            return VariableFlow(incoming, fallsThrough = false, exceptionalStates = exceptions)
+        }
         val property = (element as? CrystalStatement)?.propertyDeclaration
             ?: element as? CrystalPropertyDeclaration
         if (property != null) {
             val propertyName = property.instanceVarAccess?.text ?: property.classVarAccess?.text
-            if (propertyName == name) return FlowEvidence.Found(parseTypeSet(property.typeReference.text))
+            if (propertyName == name) return VariableFlow.falling(
+                VariableState.Bound(parseTypeSet(property.typeReference.text), CrystalVariableProvenance.ANNOTATION)
+            )
         }
         val assignment = when (element) {
             is CrystalAssignment -> element
@@ -286,24 +418,71 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             var currentAssignment: CrystalAssignment? = assignment
             while (currentAssignment != null) {
                 if (assignmentName(currentAssignment) == name) {
-                    return FlowEvidence.Found(resolve(currentAssignment.assignment ?: currentAssignment.expression
-                        ?: return FlowEvidence.Found(CrystalTypeResolution.Unknown)))
+                    val rhs = currentAssignment.assignment ?: currentAssignment.expression
+                        ?: return VariableFlow.falling(VariableState.Unknown)
+                    val rhsResult = resolve(rhs)
+                    val assigned = VariableState.Bound(rhsResult, CrystalVariableProvenance.ASSIGNMENT)
+                    val exceptional = if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                    if (currentAssignment.postfixModifier == null) {
+                        return VariableFlow(assigned, true, exceptional)
+                    }
+                    return VariableFlow(mergeStates(listOf(incoming, assigned)), true, exceptional)
                 }
                 currentAssignment = currentAssignment.assignment
             }
+            return flowElement(
+                assignment.assignment ?: assignment.expression ?: return VariableFlow.falling(incoming),
+                name,
+                incoming
+            )
         }
         val ifStatement = (element as? CrystalStatement)?.ifStatement ?: element as? CrystalIfStatement
-        if (ifStatement != null) return branchFlow(
-            listOf(ifStatement.statementList) + ifStatement.elsifClauseList.map { it.statementList } +
-                listOf(ifStatement.elseClause?.statementList),
-            name
-        )
+        if (ifStatement != null) {
+            val branches = listOf(ifStatement.statementList) + ifStatement.elsifClauseList.map { it.statementList }
+            val branchFlows = branches.map { flowStatementList(it, name, incoming) }
+            return ifStatement.elseClause?.statementList?.let {
+                mergeFlows(branchFlows + flowStatementList(it, name, incoming))
+            } ?: mergeFlows(listOf(VariableFlow.falling(incoming)) + branchFlows)
+        }
         val unlessStatement = (element as? CrystalStatement)?.unlessStatement ?: element as? CrystalUnlessStatement
-        if (unlessStatement != null) return branchFlow(
-            listOf(unlessStatement.statementList, unlessStatement.elseClause?.statementList),
-            name
-        )
-        val expression = (element as? CrystalStatement)?.expressionStatement?.expressionList?.firstOrNull()
+        if (unlessStatement != null) {
+            val bodyFlow = flowStatementList(unlessStatement.statementList, name, incoming)
+            return unlessStatement.elseClause?.statementList?.let {
+                mergeFlows(listOf(bodyFlow, flowStatementList(it, name, incoming)))
+            } ?: mergeFlows(listOf(VariableFlow.falling(incoming), bodyFlow))
+        }
+        val begin = (element as? CrystalStatement)?.beginStatement ?: element as? CrystalBeginStatement
+        if (begin != null) return flowProtectedBody(begin, name, incoming)
+        val loopBody = when (element) {
+            is CrystalStatement -> element.whileStatement?.statementList
+                ?: element.untilStatement?.statementList
+                ?: element.forStatement?.statementList
+            is CrystalWhileStatement -> element.statementList
+            is CrystalUntilStatement -> element.statementList
+            is CrystalForStatement -> element.statementList
+            else -> null
+        }
+        if (loopBody != null) {
+            val observed = mutableListOf(incoming)
+            val bodyFlow = flowStatementList(loopBody, name, incoming, observed)
+            return VariableFlow(
+                mergeStates(observed),
+                fallsThrough = true,
+                exceptionalStates = bodyFlow.exceptionalStates
+            )
+        }
+        val expressionStatement = (element as? CrystalStatement)?.expressionStatement
+            ?: element as? CrystalExpressionStatement
+        if (expressionStatement != null) {
+            var flow = VariableFlow.falling(incoming)
+            for (expression in expressionStatement.expressionList) {
+                if (!flow.fallsThrough) break
+                val next = flowExpression(expression, name, flow.state)
+                flow = VariableFlow(next.state, next.fallsThrough, flow.exceptionalStates + next.exceptionalStates)
+            }
+            return flow
+        }
+        val expression = element as? CrystalExpression
         val caseStatement = expression?.let { PsiTreeUtil.findChildOfType(it, CrystalCaseStatement::class.java) }
         if (caseStatement != null) {
             val lists = significantChildren(caseStatement).mapNotNull {
@@ -312,38 +491,244 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                     is CrystalInClause -> it.statementList
                     else -> null
                 }
-            } + listOf(caseStatement.elseClause?.statementList)
-            return branchFlow(lists, name)
+            }
+            return mergeFlows(lists.map { flowStatementList(it, name, incoming) } +
+                (caseStatement.elseClause?.statementList?.let { listOf(flowStatementList(it, name, incoming)) }
+                    ?: listOf(VariableFlow.falling(incoming))))
         }
         if (element is CrystalBlock && containsAssignment(element, name)) {
-            return FlowEvidence.Found(CrystalTypeResolution.Unknown)
+            val body = element.statementList
+            return mergeFlows(listOf(VariableFlow.falling(incoming), flowStatementList(body, name, incoming)))
         }
-        for (child in element.children.reversed()) {
-            when (val nested = flowEvidence(child, name)) {
-                FlowEvidence.Missing -> Unit
-                is FlowEvidence.Found -> return nested
-            }
+        if (element is CrystalExpression || element is CrystalGroupedExpression || element is CrystalBareArgument) {
+            return flowExpression(element, name, incoming)
         }
-        return FlowEvidence.Missing
+        if (containsAssignment(element, name)) return flowNestedEvaluation(element, name, incoming)
+        return VariableFlow(incoming, true, if (mayRaise(element)) listOf(incoming) else emptyList())
     }
 
-    private fun branchFlow(statementLists: List<CrystalStatementList?>, name: String): FlowEvidence {
-        val branchResults = statementLists.map { list ->
-            val evidence = list?.statementList.orEmpty().asReversed()
-                .asSequence().map { flowEvidence(it, name) }
-                .firstOrNull { it is FlowEvidence.Found } ?: FlowEvidence.Missing
-            evidence
+    private fun flowStatementList(
+        statementList: CrystalStatementList?,
+        name: String,
+        incoming: VariableState,
+        observed: MutableList<VariableState>? = null
+    ): VariableFlow {
+        var state = incoming
+        var fallsThrough = true
+        val exceptional = mutableListOf<VariableState>()
+        for (statement in statementList?.statementList.orEmpty()) {
+            if (!fallsThrough) break
+            val flow = flowElement(statement, name, state)
+            exceptional.addAll(flow.exceptionalStates)
+            fallsThrough = flow.fallsThrough
+            state = flow.state
+            if (fallsThrough && state != incoming) observed?.add(state)
         }
-        if (branchResults.all { it is FlowEvidence.Missing }) return FlowEvidence.Missing
-        if (branchResults.any { it is FlowEvidence.Missing }) {
-            return FlowEvidence.Found(CrystalTypeResolution.Unknown)
-        }
-        return FlowEvidence.Found(mergeKnown(branchResults.filterIsInstance<FlowEvidence.Found>().map { it.result }))
+        return VariableFlow(state, fallsThrough, exceptional)
     }
+
+    private fun flowProtectedBody(
+        statement: CrystalBeginStatement,
+        name: String,
+        incoming: VariableState
+    ): VariableFlow {
+        val normal = flowStatementList(statement.statementList, name, incoming)
+        val normalResult = if (normal.fallsThrough && statement.elseClause != null) {
+            val elseFlow = flowStatementList(statement.elseClause!!.statementList, name, normal.state)
+            VariableFlow(elseFlow.state, elseFlow.fallsThrough, normal.exceptionalStates + elseFlow.exceptionalStates)
+        } else {
+            normal
+        }
+        val rescueIncoming = exceptionalIncoming(normal, incoming)
+        val rescues = statement.rescueClauseList.map { flowStatementList(it.statementList, name, rescueIncoming) }
+        val protected = mergeFlows(rescues + normalResult)
+        if (!protected.fallsThrough) return protected
+        val ensure = statement.ensureClause?.statementList?.let {
+            flowStatementList(it, name, protected.state)
+        } ?: return protected
+        return VariableFlow(
+            ensure.state,
+            ensure.fallsThrough,
+            protected.exceptionalStates + ensure.exceptionalStates
+        )
+    }
+
+    private fun flowExpression(element: PsiElement, name: String, incoming: VariableState): VariableFlow {
+        val caseStatement = PsiTreeUtil.findChildOfType(element, CrystalCaseStatement::class.java)
+        if (caseStatement != null) {
+            val branches = significantChildren(caseStatement).mapNotNull {
+                when (it) {
+                    is CrystalWhenClause -> flowStatementList(it.statementList, name, incoming)
+                    is CrystalInClause -> flowStatementList(it.statementList, name, incoming)
+                    else -> null
+                }
+            }
+            return mergeFlows(branches +
+                (caseStatement.elseClause?.statementList?.let { listOf(flowStatementList(it, name, incoming)) }
+                    ?: listOf(VariableFlow.falling(incoming))))
+        }
+        val assignment = PsiTreeUtil.getChildOfType(element, CrystalAssignment::class.java)
+        if (assignment != null) return flowElement(assignment, name, incoming)
+        val children = significantChildren(element)
+        val assignIndex = children.indexOfFirst { it.node.elementType == CrystalTypes.ASSIGN }
+        if (assignIndex > 0 && assignIndex < children.lastIndex) {
+            val assignedName = children.take(assignIndex).lastOrNull()?.text
+            if (assignedName == name) {
+                val rhs = children[assignIndex + 1]
+                return VariableFlow(
+                    VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT),
+                    true,
+                    if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                )
+            }
+        }
+        if (element is CrystalGroupedExpression && element.node.findChildByType(CrystalTypes.ASSIGN) != null) {
+            val expressions = element.expressionList
+            if (expressions.size >= 2 && expressions.first().text == name) {
+                val rhs = expressions.last()
+                return VariableFlow(
+                    VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT),
+                    true,
+                    if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                )
+            }
+        }
+        val question = children.indexOfFirst { it.node.elementType == CrystalTypes.QUESTION }
+        if (question >= 0) {
+            val colon = children.indexOfFirst { it.node.elementType == CrystalTypes.COLON }
+            if (colon <= question) return VariableFlow.falling(VariableState.Unknown)
+            val branches = listOf(
+                flowElement(children[question + 1], name, incoming),
+                flowElement(children[colon + 1], name, incoming)
+            )
+            return mergeFlows(branches.sortedBy { it.state != incoming })
+        }
+        val operatorIndex = children.indexOfFirst {
+            it.node.elementType == CrystalTypes.AND_AND || it.node.elementType == CrystalTypes.OR_OR
+        }
+        if (operatorIndex > 0 && operatorIndex < children.lastIndex) {
+            val left = children[operatorIndex - 1]
+            val leftFlow = flowElement(left, name, incoming)
+            if (!leftFlow.fallsThrough) return leftFlow
+            val rightFlow = flowElement(children[operatorIndex + 1], name, leftFlow.state)
+            return when (children[operatorIndex].node.elementType) {
+                CrystalTypes.AND_AND -> when (truthiness(left)) {
+                    Truthiness.ALWAYS_TRUTHY -> rightFlow.withPriorExceptions(leftFlow)
+                    Truthiness.ALWAYS_FALSY -> leftFlow
+                    Truthiness.MIXED -> mergeFlows(listOf(leftFlow, rightFlow.withPriorExceptions(leftFlow)))
+                }
+                else -> when (truthiness(left)) {
+                    Truthiness.ALWAYS_TRUTHY -> leftFlow
+                    Truthiness.ALWAYS_FALSY -> rightFlow.withPriorExceptions(leftFlow)
+                    Truthiness.MIXED -> mergeFlows(listOf(leftFlow, rightFlow.withPriorExceptions(leftFlow)))
+                }
+            }
+        }
+        var state = incoming
+        val exceptional = mutableListOf<VariableState>()
+        var sawAssignment = false
+        for (child in children) {
+            if (child is CrystalExpression || child is CrystalGroupedExpression || containsAssignment(child, name)) {
+                val next = flowElement(child, name, state)
+                exceptional.addAll(next.exceptionalStates)
+                if (!next.fallsThrough) return VariableFlow(next.state, false, exceptional)
+                if (next.state != state) sawAssignment = true
+                state = next.state
+            }
+        }
+        if (isPotentiallyRaisingOperation(element)) {
+            exceptional.add(state)
+        } else if (!sawAssignment && mayRaise(element)) {
+            exceptional.add(incoming)
+        }
+        return VariableFlow(if (sawAssignment) state else incoming, true, exceptional)
+    }
+
+    private fun flowNestedEvaluation(
+        element: PsiElement,
+        name: String,
+        incoming: VariableState
+    ): VariableFlow {
+        if (element is CrystalExpression || element is CrystalGroupedExpression || element is CrystalBareArgument) {
+            return flowExpression(element, name, incoming)
+        }
+        var state = incoming
+        val exceptional = mutableListOf<VariableState>()
+        for (child in significantChildren(element)) {
+            if (!containsAssignment(child, name)) continue
+            val next = if (child is CrystalAssignment) {
+                flowElement(child, name, state)
+            } else {
+                flowNestedEvaluation(child, name, state)
+            }
+            exceptional.addAll(next.exceptionalStates)
+            if (!next.fallsThrough) return VariableFlow(next.state, false, exceptional)
+            state = next.state
+        }
+        if (isPotentiallyRaisingOperation(element)) exceptional.add(state)
+        return VariableFlow(state, true, exceptional)
+    }
+
+    private fun mergeStates(states: List<VariableState>): VariableState {
+        if (states.all { it is VariableState.Unbound }) return VariableState.Unbound
+        if (states.any { it is VariableState.Unbound || it is VariableState.Unknown }) return VariableState.Unknown
+        val bound = states.filterIsInstance<VariableState.Bound>()
+        val provenance = bound.map { it.provenance }.distinct().singleOrNull() ?: CrystalVariableProvenance.MIXED
+        return VariableState.Bound(mergeKnown(bound.map { it.value }), provenance)
+    }
+
+    private fun mergeFlows(flows: List<VariableFlow>): VariableFlow {
+        val falling = flows.filter { it.fallsThrough }
+        return VariableFlow(
+            if (falling.isEmpty()) VariableState.Unknown else mergeStates(falling.map { it.state }),
+            falling.isNotEmpty(),
+            flows.flatMap { it.exceptionalStates }
+        )
+    }
+
+    private fun exceptionalIncoming(flow: VariableFlow, fallback: VariableState): VariableState =
+        flow.exceptionalStates.takeIf { it.isNotEmpty() }?.let(::mergeStates) ?: fallback
+
+    private fun mayRaise(element: PsiElement): Boolean {
+        if (element.node.elementType in setOf(
+                CrystalTypes.INTEGER_LITERAL,
+                CrystalTypes.FLOAT_LITERAL,
+                CrystalTypes.STRING_LITERAL,
+                CrystalTypes.CHAR_LITERAL,
+                CrystalTypes.SYMBOL_LITERAL,
+                CrystalTypes.TRUE,
+                CrystalTypes.FALSE,
+                CrystalTypes.NIL
+            )) return false
+        if (element is CrystalStringExpression || element is CrystalSymbolStringExpression ||
+            element is CrystalHeredocLiteral) return false
+        if (element is CrystalArrayLiteral) return element.expressionList?.expressionList.orEmpty().any(::mayRaise)
+        if (element is CrystalTupleLiteral) return element.expressionList.expressionList.any(::mayRaise)
+        if (element is CrystalHashLiteral) return element.hashEntryList?.hashEntryList.orEmpty()
+            .flatMap { it.expressionList }.any(::mayRaise)
+        if (element is CrystalMethodCallExpression || element is CrystalBareMethodCallExpression ||
+            element is CrystalDotCallAccess || element is CrystalCommandExpression) return true
+        if (PsiTreeUtil.findChildOfType(element, CrystalMethodCallExpression::class.java) != null ||
+            PsiTreeUtil.findChildOfType(element, CrystalBareMethodCallExpression::class.java) != null ||
+            PsiTreeUtil.findChildOfType(element, CrystalDotCallAccess::class.java) != null) return true
+        val variable = element as? CrystalVariableReference
+            ?: PsiTreeUtil.findChildOfType(element, CrystalVariableReference::class.java)
+        if (variable != null) return resolveVariableValue(variable.text, variable) !is VariableState.Bound
+        val children = significantChildren(element)
+        if (children.size == 1) return mayRaise(children.single())
+        return children.any(::mayRaise)
+    }
+
+    private fun isPotentiallyRaisingOperation(element: PsiElement): Boolean =
+        element is CrystalMethodCallExpression || element is CrystalBareMethodCallExpression ||
+            element is CrystalDotCallAccess || element is CrystalCommandExpression
 
     private fun containsAssignment(element: PsiElement, name: String): Boolean {
         if (isScopeBoundary(element) && element !is CrystalBlock) return false
         if (element is CrystalAssignment && assignmentName(element) == name) return true
+        val children = significantChildren(element)
+        val assignIndex = children.indexOfFirst { it.node.elementType == CrystalTypes.ASSIGN }
+        if (assignIndex > 0 && children.take(assignIndex).lastOrNull()?.text == name) return true
         return element.children.any { containsAssignment(it, name) }
     }
 
@@ -360,12 +745,17 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val identity = CrystalPsiUtils.buildQualifiedName(enclosingType)
                 ?.let { TypeIdentity(it.substringAfterLast("::"), it) }
             if (identity != null) {
-                val candidates = findMethodsInHierarchy(
-                    identity,
-                    name,
-                    enclosingMethod?.let(CrystalPsiUtils::isSelfMethod) == true,
-                    call
+                val collection = hierarchy.collectNamedMethods(
+                    identity.toShared(),
+                    if (enclosingMethod?.let(CrystalPsiUtils::isSelfMethod) == true) {
+                        CrystalReceiverMode.STATIC
+                    } else {
+                        CrystalReceiverMode.INSTANCE
+                    },
+                    name
                 )
+                if (!collection.complete) return CrystalTypeResolution.Unknown
+                val candidates = collection.methods
                 if (candidates.size > 1) return CrystalTypeResolution.Unknown
                 if (candidates.size == 1) return resolveMethodReturn(candidates.single())
             }
@@ -378,66 +768,159 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     fun resolveMethodReturn(method: CrystalMethodDefinition): CrystalTypeResolution {
         method.typeReference?.text?.let { return parseTypeSet(it) }
+        methodReturnMemo[method]?.let { return it }
         if (!resolvingMethods.add(method)) return CrystalTypeResolution.Unknown
         val body = method.methodBody
         if (body == null) {
             resolvingMethods.remove(method)
             return CrystalTypeResolution.Unknown
         }
-        val explicitReturns = mutableListOf<CrystalTypeResolution>()
-        collectReturns(body, explicitReturns)
-        val implicit = resolveStatementList(body.statementList)
-        val result = mergeKnown(explicitReturns + implicit)
+        val execution = analyzeProtectedBody(
+            body.statementList,
+            body.rescueClauseList,
+            body.elseClause,
+            body.ensureClause
+        )
+        val results = execution.returns + if (execution.fallsThrough) listOfNotNull(execution.value) else emptyList()
+        val result = mergeKnown(results)
         resolvingMethods.remove(method)
+        methodReturnMemo[method] = result
         return result
     }
 
-    private fun collectReturns(element: PsiElement, results: MutableList<CrystalTypeResolution>) {
-        if (element is CrystalMethodDefinition || element is CrystalMacroDefinition || isTypeBoundary(element)) return
-        if (element is CrystalReturnStatement) {
-            results.add(element.expression?.let(::resolve) ?: knownType("Nil"))
-            return
+    private fun analyzeStatementList(statementList: CrystalStatementList?): ExecutionResult {
+        val returns = mutableListOf<CrystalTypeResolution>()
+        var fallsThrough = true
+        var value: CrystalTypeResolution? = knownType("Nil")
+        for (statement in statementList?.statementList.orEmpty()) {
+            if (!fallsThrough) break
+            val execution = analyzeStatement(statement)
+            returns.addAll(execution.returns)
+            fallsThrough = execution.fallsThrough
+            value = if (fallsThrough) execution.value else null
         }
-        element.children.forEach { collectReturns(it, results) }
+        return ExecutionResult(returns, value, fallsThrough)
     }
 
-    private fun findMethodsInHierarchy(
-        identity: TypeIdentity,
-        name: String,
-        isStatic: Boolean,
-        callContext: PsiElement,
-        visited: MutableSet<String> = mutableSetOf()
-    ): List<CrystalMethodDefinition> {
-        if (!visited.add(identity.qualifiedName)) return emptyList()
-        val direct = classMethods(identity.simpleName).filter { method ->
-            method.name == name && CrystalPsiUtils.isSelfMethod(method) == isStatic &&
-                CrystalPsiUtils.getEnclosingType(method)?.let(CrystalPsiUtils::buildQualifiedName) == identity.qualifiedName
+    private fun analyzeStatement(statement: CrystalStatement): ExecutionResult {
+        statement.returnStatement?.let { returnStatement ->
+            val result = returnStatement.expression?.let(::resolve) ?: knownType("Nil")
+            return if (returnStatement.postfixModifier == null) {
+                ExecutionResult(listOf(result), null, false)
+            } else {
+                ExecutionResult(listOf(result), knownType("Nil"), true)
+            }
         }
-        if (direct.isNotEmpty()) return direct
-        val declaration = types(identity.simpleName).singleOrNull {
-            CrystalPsiUtils.buildQualifiedName(it) == identity.qualifiedName
-        } ?: return emptyList()
-        val superclass = when (declaration) {
-            is CrystalClassDefinition -> declaration.superclassClause?.typeReference?.text
-            is CrystalStructDefinition -> declaration.superclassClause?.typeReference?.text
-            else -> null
-        } ?: return emptyList()
-        val parent = resolveTypeIdentity(superclass, callContext) ?: return emptyList()
-        return findMethodsInHierarchy(parent, name, isStatic, callContext, visited)
+        statement.ifStatement?.let { return analyzeIf(it) }
+        statement.unlessStatement?.let { return analyzeUnless(it) }
+        statement.beginStatement?.let { begin ->
+            return analyzeProtectedBody(begin.statementList, begin.rescueClauseList, begin.elseClause, begin.ensureClause)
+        }
+        val case = statement.expressionStatement?.expressionList?.firstOrNull()?.let {
+            PsiTreeUtil.findChildOfType(it, CrystalCaseStatement::class.java)
+        }
+        if (case != null) return analyzeCase(case)
+        return ExecutionResult(emptyList(), resolve(statement), true)
+    }
+
+    private fun analyzeIf(statement: CrystalIfStatement): ExecutionResult = mergeExecutions(
+        listOf(analyzeStatementList(statement.statementList)) +
+            statement.elsifClauseList.map { analyzeStatementList(it.statementList) } +
+            (statement.elseClause?.statementList?.let { listOf(analyzeStatementList(it)) }
+                ?: listOf(ExecutionResult(emptyList(), knownType("Nil"), true)))
+    )
+
+    private fun analyzeUnless(statement: CrystalUnlessStatement): ExecutionResult = mergeExecutions(
+        listOf(analyzeStatementList(statement.statementList)) +
+            (statement.elseClause?.statementList?.let { listOf(analyzeStatementList(it)) }
+                ?: listOf(ExecutionResult(emptyList(), knownType("Nil"), true)))
+    )
+
+    private fun analyzeCase(statement: CrystalCaseStatement): ExecutionResult {
+        val branches = significantChildren(statement).mapNotNull {
+            when (it) {
+                is CrystalWhenClause -> analyzeStatementList(it.statementList)
+                is CrystalInClause -> analyzeStatementList(it.statementList)
+                else -> null
+            }
+        }
+        return mergeExecutions(
+            branches + (statement.elseClause?.statementList?.let { listOf(analyzeStatementList(it)) }
+                ?: listOf(ExecutionResult(emptyList(), knownType("Nil"), true)))
+        )
+    }
+
+    private fun analyzeProtectedBody(
+        body: CrystalStatementList?,
+        rescues: List<CrystalRescueClause>,
+        elseClause: CrystalElseClause?,
+        ensureClause: CrystalEnsureClause?
+    ): ExecutionResult {
+        val normal = analyzeStatementList(body)
+        val rescueResults = rescues.map { analyzeStatementList(it.statementList) }
+        val elseResult = if (elseClause != null && normal.fallsThrough) {
+            analyzeStatementList(elseClause.statementList)
+        } else {
+            null
+        }
+        val fallingValues = buildList {
+            if (elseResult == null && normal.fallsThrough) add(normal.value ?: CrystalTypeResolution.Unknown)
+            rescueResults.filter { it.fallsThrough }.forEach { add(it.value ?: CrystalTypeResolution.Unknown) }
+            if (elseResult?.fallsThrough == true) add(elseResult.value ?: CrystalTypeResolution.Unknown)
+        }
+        val protected = ExecutionResult(
+            normal.returns + rescueResults.flatMap { it.returns } + elseResult?.returns.orEmpty(),
+            fallingValues.takeIf { it.isNotEmpty() }?.let(::mergeKnown),
+            fallingValues.isNotEmpty()
+        )
+        val ensure = ensureClause?.statementList?.let(::analyzeStatementList) ?: return protected
+        return if (ensure.fallsThrough) {
+            ExecutionResult(protected.returns + ensure.returns, protected.value, protected.fallsThrough)
+        } else {
+            ExecutionResult(ensure.returns, null, false)
+        }
+    }
+
+    private fun mergeExecutions(executions: List<ExecutionResult>): ExecutionResult {
+        val falling = executions.filter { it.fallsThrough }
+        val value = if (falling.isEmpty()) null else mergeKnown(falling.map {
+            it.value ?: CrystalTypeResolution.Unknown
+        })
+        return ExecutionResult(executions.flatMap { it.returns }, value, falling.isNotEmpty())
     }
 
     private fun resolveTypeIdentity(typeName: String, element: PsiElement): TypeIdentity? {
         val normalized = typeName.substringBefore('(').removePrefix("::").trim()
         val simpleName = normalized.substringAfterLast("::")
         if (simpleName.isEmpty()) return null
-        val allowed = if (normalized.contains("::") || typeName.startsWith("::")) {
-            setOf(normalized)
-        } else {
-            CrystalPsiUtils.buildLexicalQualifiedNameCandidates(simpleName, element)
+        for (candidate in typeIdentityCandidates(normalized, typeName.startsWith("::"), element)) {
+            val identities = exactTypeIdentities(simpleName, candidate)
+            if (identities.size > 1) return null
+            identities.singleOrNull()?.let { return TypeIdentity(it.simpleName, it.qualifiedName) }
         }
-        val identities = types(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName)
-            .filter { it in allowed }.distinct()
-        return identities.singleOrNull()?.let { TypeIdentity(simpleName, it) }
+        return null
+    }
+
+    private fun exactTypeIdentities(simpleName: String, qualifiedName: String): List<CrystalTypeIdentity> =
+        types(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName)
+            .filter { it == qualifiedName }
+            .map { CrystalTypeIdentity(simpleName, it) }
+            .distinct()
+
+    private fun typeIdentityCandidates(
+        normalized: String,
+        absolute: Boolean,
+        element: PsiElement
+    ): List<String> {
+        if (absolute || normalized.contains("::")) return listOf(normalized)
+        val enclosing = CrystalPsiUtils.getEnclosingType(element)?.let(CrystalPsiUtils::buildQualifiedName)
+            ?.split("::").orEmpty()
+        return buildList {
+            for (size in enclosing.size downTo 1) {
+                add(enclosing.take(size).joinToString("::") + "::$normalized")
+            }
+            add(normalized)
+        }
     }
 
     private fun resolveArray(array: CrystalArrayLiteral): CrystalTypeResolution {
@@ -486,7 +969,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return when (children[1].node.elementType) {
             CrystalTypes.EQ, CrystalTypes.NEQ, CrystalTypes.LT, CrystalTypes.LTE,
             CrystalTypes.GT, CrystalTypes.GTE, CrystalTypes.SPACESHIP, CrystalTypes.CASE_EQ,
-            CrystalTypes.MATCH_OP, CrystalTypes.AND_AND, CrystalTypes.OR_OR -> knownType("Bool")
+            CrystalTypes.MATCH_OP -> knownType("Bool")
+            CrystalTypes.AND_AND -> resolveLogical(children[0], children[2], andOperator = true)
+            CrystalTypes.OR_OR -> resolveLogical(children[0], children[2], andOperator = false)
             CrystalTypes.PLUS, CrystalTypes.MINUS, CrystalTypes.STAR, CrystalTypes.SLASH,
             CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT, CrystalTypes.DOUBLE_STAR -> {
                 val left = resolve(children[0])
@@ -500,6 +985,44 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 }
             }
             else -> null
+        }
+    }
+
+    private fun resolveLogical(leftElement: PsiElement, rightElement: PsiElement, andOperator: Boolean): CrystalTypeResolution {
+        val left = resolve(leftElement) as? CrystalTypeResolution.Known ?: return CrystalTypeResolution.Unknown
+        val right by lazy { resolve(rightElement) }
+        return when (truthiness(leftElement)) {
+            Truthiness.ALWAYS_TRUTHY -> if (andOperator) right else left
+            Truthiness.ALWAYS_FALSY -> if (andOperator) left else right
+            Truthiness.MIXED -> {
+                val returnedLeft = left.types.filter { type ->
+                    if (andOperator) type.name == "Nil" || type.name == "Bool"
+                    else type.name != "Nil"
+                }
+                val rightReachable = left.types.any { it.name == "Bool" || if (andOperator) it.name != "Nil" else it.name == "Nil" }
+                mergeKnown(listOfNotNull(
+                    returnedLeft.takeIf { it.isNotEmpty() }?.let(CrystalTypeResolution::Known),
+                    right.takeIf { rightReachable }
+                ))
+            }
+        }
+    }
+
+    private fun truthiness(element: PsiElement): Truthiness {
+        val normalized = CrystalReceiverExpression.normalize(element)
+        return when (normalized.node.elementType) {
+            CrystalTypes.TRUE -> Truthiness.ALWAYS_TRUTHY
+            CrystalTypes.FALSE, CrystalTypes.NIL -> Truthiness.ALWAYS_FALSY
+            else -> {
+                val known = resolve(normalized) as? CrystalTypeResolution.Known ?: return Truthiness.MIXED
+                val canBeFalsy = known.types.any { it.name == "Nil" || it.name == "Bool" }
+                val canBeTruthy = known.types.any { it.name != "Nil" }
+                when {
+                    canBeFalsy && canBeTruthy -> Truthiness.MIXED
+                    canBeFalsy -> Truthiness.ALWAYS_FALSY
+                    else -> Truthiness.ALWAYS_TRUTHY
+                }
+            }
         }
     }
 
@@ -525,21 +1048,6 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val normalized = text.lowercase().replace("_", "")
         val name = if (normalized.endsWith("f32")) "Float32" else "Float64"
         return knownType(name, isUnsuffixedNumericLiteral = !normalized.endsWith("f32") && !normalized.endsWith("f64"))
-    }
-
-    private fun postfixComponents(access: CrystalDotCallAccess): List<PsiElement?> {
-        val components = mutableListOf<PsiElement?>(access)
-        val argument = access.bareArgumentList?.bareArgumentList?.singleOrNull() ?: return components
-        val children = significantChildren(argument)
-        if (children.firstOrNull() !is CrystalImplicitObjectCall) return components
-        for (child in children) {
-            when (child) {
-                is CrystalImplicitObjectCall -> components.add(child)
-                is CrystalDotCallAccess -> components.addAll(postfixComponents(child))
-                else -> components.add(null)
-            }
-        }
-        return components
     }
 
     private fun firstExpressionChild(element: PsiElement): PsiElement? = significantChildren(element).firstOrNull {
@@ -575,7 +1083,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         CrystalIndexService.findMethods(name, context.project, GlobalSearchScope.allScope(context.project)).toList()
     }
 
-    private fun classMethods(name: String): List<CrystalMethodDefinition> = classMethodCache.getOrPut(name) {
+    private fun classMethods(name: String): List<CrystalMethodDefinition> = methodsByTypeCache.getOrPut(name) {
         CrystalIndexService.findMethodsByClass(name, context.project, GlobalSearchScope.allScope(context.project)).toList()
     }
 
@@ -584,10 +1092,53 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         data class Values(val result: CrystalTypeResolution) : ReceiverState
     }
 
-    private sealed interface FlowEvidence {
-        data object Missing : FlowEvidence
-        data class Found(val result: CrystalTypeResolution) : FlowEvidence
+    private sealed interface VariableState {
+        val result: CrystalTypeResolution
+        val provenance: CrystalVariableProvenance
+
+        data object Unbound : VariableState {
+            override val result: CrystalTypeResolution = CrystalTypeResolution.Unknown
+            override val provenance: CrystalVariableProvenance = CrystalVariableProvenance.UNKNOWN
+        }
+
+        data object Unknown : VariableState {
+            override val result: CrystalTypeResolution = CrystalTypeResolution.Unknown
+            override val provenance: CrystalVariableProvenance = CrystalVariableProvenance.UNKNOWN
+        }
+
+        data class Bound(
+            val value: CrystalTypeResolution,
+            override val provenance: CrystalVariableProvenance
+        ) : VariableState {
+            override val result: CrystalTypeResolution = value
+        }
     }
 
+    private fun VariableState.toPublic(): CrystalVariableResolution =
+        CrystalVariableResolution(result, provenance)
+
+    private data class VariableFlow(
+        val state: VariableState,
+        val fallsThrough: Boolean,
+        val exceptionalStates: List<VariableState>
+    ) {
+        fun withPriorExceptions(prior: VariableFlow): VariableFlow =
+            copy(exceptionalStates = prior.exceptionalStates + exceptionalStates)
+
+        companion object {
+            fun falling(state: VariableState): VariableFlow = VariableFlow(state, true, emptyList())
+        }
+    }
+
+    private data class ExecutionResult(
+        val returns: List<CrystalTypeResolution>,
+        val value: CrystalTypeResolution?,
+        val fallsThrough: Boolean
+    )
+
+    private enum class Truthiness { ALWAYS_TRUTHY, ALWAYS_FALSY, MIXED }
+
     private data class TypeIdentity(val simpleName: String, val qualifiedName: String)
+
+    private fun TypeIdentity.toShared(): CrystalTypeIdentity = CrystalTypeIdentity(simpleName, qualifiedName)
 }

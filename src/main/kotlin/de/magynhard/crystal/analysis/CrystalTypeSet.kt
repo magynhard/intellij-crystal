@@ -15,6 +15,13 @@ internal sealed interface CrystalTypeResolution {
     data object Unknown : CrystalTypeResolution
 }
 
+internal enum class CrystalVariableProvenance { ANNOTATION, ASSIGNMENT, MIXED, UNKNOWN }
+
+internal data class CrystalVariableResolution(
+    val resolution: CrystalTypeResolution,
+    val provenance: CrystalVariableProvenance
+)
+
 internal fun knownType(
     name: String,
     isUnsuffixedNumericLiteral: Boolean = false

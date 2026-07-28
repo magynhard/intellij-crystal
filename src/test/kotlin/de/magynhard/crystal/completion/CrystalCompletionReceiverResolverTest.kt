@@ -36,6 +36,21 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testResolvesSimpleTypeObjectByLexicalIdentity() {
+        assertReceiver(
+            CompletionReceiver.TypeObject("Item", "One::Item", explicitIdentity = false),
+            "module One\n  class Item\n  end\n  Item.<caret>\nend\n" +
+                "module Two\n  class Item\n  end\nend"
+        )
+    }
+
+    fun testRejectsNestedOnlySimpleTypeObjectAtTopLevel() {
+        assertReceiver(
+            CompletionReceiver.Unknown,
+            "module Outer\n  class Item\n  end\nend\nItem.<caret>"
+        )
+    }
+
     fun testResolvesLocalsTypedParametersAndInstanceVariables() {
         assertReceiver(
             CompletionReceiver.ValueTypes(listOf("String")),
@@ -75,6 +90,13 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         assertReceiver(
             CompletionReceiver.ValueTypes(listOf("Foo")),
             "class Foo\nend\nFoo.new.<caret>"
+        )
+    }
+
+    fun testRejectsModuleConstructorResult() {
+        assertReceiver(
+            CompletionReceiver.Unknown,
+            "module Service\nend\nService.new.<caret>"
         )
     }
 

@@ -2,13 +2,12 @@ package de.magynhard.crystal.completion
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
-import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalTypeResolution
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalPostfixChain
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalIndexService
 
 internal sealed interface CompletionReceiver {
     data class TypeObject(
@@ -44,7 +43,7 @@ internal object CrystalCompletionReceiverResolver {
                 completionDotOffset == null -> true
                 child.textRange.endOffset <= completionDotOffset -> true
                 !child.textRange.containsOffset(completionDotOffset) -> false
-                child is CrystalDotCallAccess -> dotOffset(child) < completionDotOffset
+                child is CrystalDotCallAccess -> CrystalPostfixChain.dotOffset(child) < completionDotOffset
                 else -> false
             }
         }
@@ -52,7 +51,7 @@ internal object CrystalCompletionReceiverResolver {
 
         val firstAccess = children.indexOfFirst { it is CrystalDotCallAccess }
         if (firstAccess < 0) {
-            resolveExactTypeRoot(children, expression)?.let { return it }
+            resolveExactTypeRoot(children, expression, session)?.let { return it }
             val receiver = if (completionDotOffset == null) expression else children.singleOrNull()
                 ?: return CompletionReceiver.Unknown
             return resolveElement(receiver, session)
@@ -61,7 +60,7 @@ internal object CrystalCompletionReceiverResolver {
         var receiver = resolveBase(children.take(firstAccess), session)
         for (element in children.drop(firstAccess)) {
             val access = element as? CrystalDotCallAccess ?: return CompletionReceiver.Unknown
-            for (component in postfixComponents(access, completionDotOffset)) {
+            for (component in CrystalPostfixChain.components(access, completionDotOffset)) {
                 if (component == null) return CompletionReceiver.Unknown
                 receiver = resolveCompletedCall(receiver, methodName(component), component, session)
                 if (receiver == CompletionReceiver.Unknown) return receiver
@@ -75,7 +74,7 @@ internal object CrystalCompletionReceiverResolver {
         session: CrystalTypeResolutionSession
     ): CompletionReceiver {
         if (elements.isEmpty()) return CompletionReceiver.Unknown
-        resolveExactTypeRoot(elements, elements.last())?.let { return it }
+        resolveExactTypeRoot(elements, elements.last(), session)?.let { return it }
         return elements.singleOrNull()?.let { resolveElement(it, session) } ?: CompletionReceiver.Unknown
     }
 
@@ -86,12 +85,16 @@ internal object CrystalCompletionReceiverResolver {
         val normalized = CrystalReceiverExpression.normalize(element)
         if (isRejectedReceiver(normalized)) return CompletionReceiver.Unknown
         CrystalReceiverExpression.extractExactConstantTypeRoot(normalized)?.let {
-            return resolveTypeObject(it, normalized)
+            return resolveTypeObject(it, normalized, session)
         }
         return session.resolve(normalized).toCompletionReceiver()
     }
 
-    private fun resolveExactTypeRoot(elements: List<PsiElement>, context: PsiElement): CompletionReceiver.TypeObject? {
+    private fun resolveExactTypeRoot(
+        elements: List<PsiElement>,
+        context: PsiElement,
+        session: CrystalTypeResolutionSession
+    ): CompletionReceiver.TypeObject? {
         val callArgs = elements.lastOrNull() as? CrystalCallArgs
         val pathElements = if (callArgs == null) elements else elements.dropLast(1)
         val pathRoot = pathElements.lastOrNull()?.let(CrystalReceiverExpression::extractExactConstantTypeRoot)
@@ -105,7 +108,7 @@ internal object CrystalCompletionReceiverResolver {
                 return null
             }
         }
-        return resolveTypeObject(pathRoot, context) as? CompletionReceiver.TypeObject
+        return resolveTypeObject(pathRoot, context, session) as? CompletionReceiver.TypeObject
     }
 
     private fun resolveCompletedCall(
@@ -116,6 +119,7 @@ internal object CrystalCompletionReceiverResolver {
     ): CompletionReceiver {
         methodName ?: return CompletionReceiver.Unknown
         if (receiver is CompletionReceiver.TypeObject && methodName == "new") {
+            if (!session.isConstructible(receiver.qualifiedName, context)) return CompletionReceiver.Unknown
             val typeName = if (receiver.explicitIdentity) receiver.qualifiedName else receiver.simpleName
             return CompletionReceiver.ValueTypes(listOf(typeName))
         }
@@ -133,58 +137,15 @@ internal object CrystalCompletionReceiverResolver {
         return result.toCompletionReceiver()
     }
 
-    private fun resolveTypeObject(typeRoot: String, context: PsiElement): CompletionReceiver {
+    private fun resolveTypeObject(
+        typeRoot: String,
+        context: PsiElement,
+        session: CrystalTypeResolutionSession
+    ): CompletionReceiver {
         val normalizedRoot = typeRoot.removePrefix("::")
-        val simpleName = normalizedRoot.substringAfterLast("::")
         val explicitIdentity = typeRoot.startsWith("::") || normalizedRoot.contains("::")
-        val identities = CrystalIndexService.findTypes(
-            simpleName,
-            context.project,
-            GlobalSearchScope.allScope(context.project)
-        ).asSequence()
-            .mapNotNull(CrystalPsiUtils::buildQualifiedName)
-            .filter { !explicitIdentity || it == normalizedRoot }
-            .distinct()
-            .toList()
-
-        return if (identities.size == 1) {
-            CompletionReceiver.TypeObject(simpleName, identities.single(), explicitIdentity)
-        } else {
-            CompletionReceiver.Unknown
-        }
-    }
-
-    private fun postfixComponents(
-        access: CrystalDotCallAccess,
-        completionDotOffset: Int?
-    ): List<PsiElement?> {
-        val components = mutableListOf<PsiElement?>(access)
-        val argument = access.bareArgumentList?.bareArgumentList?.singleOrNull() ?: return components
-        val argumentChildren = directSignificantChildren(argument)
-        if (argumentChildren.firstOrNull() !is CrystalImplicitObjectCall) return components
-        appendPostfixComponents(argumentChildren, completionDotOffset, components)
-        return components
-    }
-
-    private fun appendPostfixComponents(
-        elements: List<PsiElement>,
-        completionDotOffset: Int?,
-        result: MutableList<PsiElement?>
-    ) {
-        for (element in elements) {
-            if (element is CrystalImplicitObjectCall) {
-                if (completionDotOffset == null || dotOffset(element) < completionDotOffset) result.add(element)
-                continue
-            }
-            if (element is CrystalDotCallAccess) {
-                if (completionDotOffset != null && dotOffset(element) >= completionDotOffset) continue
-                result.addAll(postfixComponents(element, completionDotOffset))
-                continue
-            }
-            if (completionDotOffset == null || element.textRange.startOffset < completionDotOffset) {
-                result.add(null)
-            }
-        }
+        val identity = session.resolveType(typeRoot, context) ?: return CompletionReceiver.Unknown
+        return CompletionReceiver.TypeObject(identity.simpleName, identity.qualifiedName, explicitIdentity)
     }
 
     private fun methodName(call: PsiElement): String? {
@@ -198,9 +159,6 @@ internal object CrystalCompletionReceiverResolver {
         }
         return null
     }
-
-    private fun dotOffset(call: PsiElement): Int =
-        call.node.findChildByType(CrystalTypes.DOT)?.startOffset ?: Int.MAX_VALUE
 
     private fun findCompletionDot(position: PsiElement): PsiElement? {
         var leaf = PsiTreeUtil.prevLeaf(position)
