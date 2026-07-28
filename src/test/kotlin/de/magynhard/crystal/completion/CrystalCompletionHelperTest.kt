@@ -4,6 +4,87 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class CrystalCompletionHelperTest : BasePlatformTestCase() {
 
+    fun testMergesMethodsFromMultipleExactTypesByCanonicalSignature() {
+        myFixture.configureByText("types.cr", """
+            class First
+              def first_only
+              end
+
+              def shared(value : Int32)
+              end
+
+              def convert(value : Int32)
+              end
+            end
+
+            class Second
+              def second_only
+              end
+
+              def shared(value : Int32)
+              end
+
+              def convert(value : String)
+              end
+            end
+        """.trimIndent())
+
+        val lookups = CrystalCompletionHelper.getMethodsAsLookups(listOf("First", "Second"), project)
+        val names = lookups.map { it.lookupString }
+
+        assertEquals(1, names.count { it == "first_only" })
+        assertEquals(1, names.count { it == "second_only" })
+        assertEquals(1, names.count { it == "shared" })
+        assertEquals(2, names.count { it == "convert" })
+    }
+
+    fun testQualifiedTypesOnlyContributeMethodsFromWrittenIdentities() {
+        myFixture.configureByText("qualified.cr", """
+            module Left
+              class Service
+                def from_left
+                end
+              end
+            end
+
+            module Right
+              class Service
+                def from_right
+                end
+              end
+            end
+
+            module Other
+              class Service
+                def from_other
+                end
+              end
+            end
+        """.trimIndent())
+
+        val names = CrystalCompletionHelper.getMethodsAsLookups(
+            listOf("Left::Service", "Right::Service"),
+            project
+        ).map { it.lookupString }
+
+        assertEquals(listOf("from_left", "from_right"), names)
+        assertFalse(names.contains("from_other"))
+    }
+
+    fun testFindsIndexedPrimitiveAndGenericBaseMethods() {
+        myFixture.addFileToProject("stdlib/int.cr", "struct Int32\n  def integer_method\n  end\nend")
+        myFixture.addFileToProject("stdlib/string.cr", "class String\n  def string_method\n  end\nend")
+        myFixture.addFileToProject("stdlib/array.cr", "class Array(T)\n  def array_method\n  end\nend")
+        myFixture.configureByText("usage.cr", "value = nil")
+
+        val names = CrystalCompletionHelper.getMethodsAsLookups(
+            listOf("Int32", "String", "Array"),
+            project
+        ).map { it.lookupString }
+
+        assertEquals(listOf("integer_method", "string_method", "array_method"), names)
+    }
+
     fun testFindTypeByNamePrefersCurrentFileAndFindsProjectTypes() {
         myFixture.addFileToProject("other.cr", """
             class SharedType

@@ -353,9 +353,17 @@ neutral result. The legacy public inference API keeps annotation first-arm/base 
 assignment-derived values retain full rendered generic/union types. Completion and PSI references
 do not depend on completion-owned or legacy file-wide inference.
 
-`CrystalCompletionContributor` does not yet dispatch through this receiver result or perform
-candidate lookup across its type set; that later integration does not change the direct neutral
-delegation already used by `CrystalCompletionReceiverResolver`.
+`CrystalCompletionHelper` accepts an ordered list of exact receiver type roots and resolves them
+through one neutral `CrystalTypeResolutionSession`. It collects instance methods with the shared
+hierarchy metadata, preserves receiver and hierarchy order, and merges identical canonical
+signatures across types while retaining distinct overloads. Qualified roots remain exact, so types
+with the same simple name do not leak methods across namespaces. Primitive and generic outer roots
+use the same indexed declaration path as project types. The existing single-type helper delegates
+to this multi-type API.
+
+`CrystalCompletionContributor` does not yet dispatch through the receiver result or this multi-type
+candidate API. That later integration does not change the direct neutral delegation already used by
+`CrystalCompletionReceiverResolver` or the helper behavior specified above.
 
 #### Static Method Completion (`CONSTANT.method`)
 

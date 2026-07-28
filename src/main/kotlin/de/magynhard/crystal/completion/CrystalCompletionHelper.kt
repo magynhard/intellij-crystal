@@ -5,10 +5,14 @@ import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.project.Project
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalReceiverMode
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 
@@ -153,34 +157,35 @@ object CrystalCompletionHelper {
      * Returns instance methods as LookupElements with hierarchy-based priority.
      * Own class methods get highest priority, inherited methods get progressively lower.
      */
-    fun getMethodsAsLookups(typeName: String, project: Project): List<LookupElement> {
-        val typeResult = findTypeByName(typeName, project) ?: return emptyList()
-        val hierarchy = collectFullHierarchy(typeResult).toMutableList()
+    fun getMethodsAsLookups(typeName: String, project: Project): List<LookupElement> =
+        getMethodsAsLookups(listOf(typeName), project)
 
-        val scope = GlobalSearchScope.allScope(project)
+    /**
+     * Returns merged instance methods for the requested exact type roots.
+     */
+    fun getMethodsAsLookups(typeNames: List<String>, project: Project): List<LookupElement> {
+        val psiManager = PsiManager.getInstance(project)
+        val projectDirectory = ProjectRootManager.getInstance(project).contentRoots
+            .firstNotNullOfOrNull(psiManager::findDirectory)
+            ?: return emptyList()
+        val session = CrystalTypeSetResolver.session(projectDirectory)
+        val methods = typeNames.distinct().flatMap { typeName ->
+            val identity = session.resolveType(typeName, projectDirectory) ?: return@flatMap emptyList()
+            val collection = session.collectMethods(identity, CrystalReceiverMode.INSTANCE)
+            if (collection.complete) collection.methods else emptyList()
+        }
         val result = mutableListOf<LookupElement>()
         val seen = mutableSetOf<String>()
-        var depth = 0
 
-        for (className in hierarchy) {
-            val priority = when (depth) {
+        for (collected in methods) {
+            if (!seen.add(collected.signatureKey)) continue
+            val priority = when (collected.depth) {
                 0 -> 10.0
                 1 -> 5.0
                 2 -> 2.0
                 else -> 1.0
             }
-            val elements = CrystalIndexService.findMethodsByClass(className, project, scope)
-            for (method in elements) {
-                if (isStaticMethod(method)) continue
-                val name = method.name ?: continue
-                // Deduplicate by name+signature so overloads with different params appear separately
-                val signature = getParameterSignature(method)
-                val key = "$name$signature"
-                if (seen.add(key)) {
-                    result.add(buildMethodLookup(method, priority))
-                }
-            }
-            depth++
+            result.add(buildMethodLookup(collected.method, priority))
         }
         return result
     }
