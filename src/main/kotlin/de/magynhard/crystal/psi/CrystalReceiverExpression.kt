@@ -2,6 +2,7 @@ package de.magynhard.crystal.psi
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.util.PsiTreeUtil
 
 object CrystalReceiverExpression {
 
@@ -13,10 +14,23 @@ object CrystalReceiverExpression {
         return when (normalized) {
             is CrystalVariableReference -> exactConstantPath(listOf(normalized))
             is CrystalNamespaceAccess -> exactNamespacePath(normalized)
+            is CrystalTypePath -> exactTypePath(normalized)
             is CrystalExpression -> exactConstantPath(directSignificantChildren(normalized))
             is CrystalMethodCallExpression -> exactGenericTypeRoot(normalized)
             else -> null
         }
+    }
+
+    fun extractExactConstantTypeRootBeforeDot(dot: PsiElement): String? {
+        val receiverLeaf = previousSignificantLeaf(dot) ?: return null
+        val receiver = receiverLeaf.parent.takeIf {
+            it is CrystalVariableReference || it is CrystalNamespaceAccess || it is CrystalTypePath
+        } ?: receiverLeaf
+        if (receiver is CrystalTypePath &&
+            previousSignificantLeaf(receiver)?.node?.elementType == CrystalTypes.DOUBLE_COLON) {
+            return null
+        }
+        return extractExactConstantTypeRoot(receiver)
     }
 
     internal fun extractExactConstantTypeRoot(receiverElements: List<PsiElement>): String? =
@@ -99,6 +113,24 @@ object CrystalReceiverExpression {
         }
     }
 
+    private fun exactTypePath(typePath: CrystalTypePath): String? {
+        val children = directSignificantChildren(typePath)
+        var index = 0
+        val absolute = children.firstOrNull()?.node?.elementType == CrystalTypes.DOUBLE_COLON
+        if (absolute) index++
+        val constants = mutableListOf<String>()
+        while (index < children.size) {
+            if (children[index].node.elementType != CrystalTypes.CONSTANT) return null
+            constants.add(children[index].text)
+            index++
+            if (index == children.size) break
+            if (children[index].node.elementType != CrystalTypes.DOUBLE_COLON) return null
+            index++
+        }
+        val path = constants.joinToString("::")
+        return path.takeIf { it.isNotEmpty() }?.let { if (absolute) "::$it" else it }
+    }
+
     private fun exactGenericTypeRoot(receiver: CrystalMethodCallExpression): String? {
         if (receiver.block != null || receiver.bareArgumentList != null) return null
         val callArgs = receiver.callArgs ?: return null
@@ -134,6 +166,12 @@ object CrystalReceiverExpression {
         var sibling = element.prevSibling
         while (sibling != null && isTrivia(sibling)) sibling = sibling.prevSibling
         return sibling
+    }
+
+    private fun previousSignificantLeaf(element: PsiElement): PsiElement? {
+        var leaf = PsiTreeUtil.prevLeaf(element)
+        while (leaf != null && isTrivia(leaf)) leaf = PsiTreeUtil.prevLeaf(leaf)
+        return leaf
     }
 
     private fun isTrivia(element: PsiElement): Boolean =

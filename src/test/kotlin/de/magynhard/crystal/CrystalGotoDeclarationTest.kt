@@ -1,9 +1,12 @@
 package de.magynhard.crystal
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
+import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalMethodDefinition
+import de.magynhard.crystal.psi.CrystalPsiUtils
 
 /**
  * Tests for Go to Definition on DOT-call expressions (e.g. Apfel.tanzen, obj.method).
@@ -217,5 +220,77 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
 
         assertNotNull("The exact polyvariant reference must be authoritative", targets)
         assertEquals("Ambiguous exact identity must not fall back to A::Service or B::Service", 0, targets!!.size)
+    }
+
+    fun testConstructorFallbackWithoutDotReferencePreservesExactReceiverIdentity() {
+        val declarations = """
+            module A
+              class Service
+                def initialize(value : Int32)
+                end
+              end
+            end
+            module B
+              class Service
+                def initialize(value : String)
+                end
+              end
+              {% if flag %}
+                class Uncertain
+                  def initialize
+                  end
+                end
+              {% end %}
+              CALL
+            end
+        """.trimIndent()
+
+        fun fallbackTargets(call: String): List<CrystalMethodDefinition> {
+            myFixture.configureByText("test.cr", declarations.replace("CALL", call))
+            val source = requireNotNull(myFixture.file.findElementAt(myFixture.caretOffset))
+            assertNull(
+                "The recovery call '$call' must exercise the handler fallback, not CrystalDotCallAccess",
+                PsiTreeUtil.getParentOfType(source, CrystalDotCallAccess::class.java, false)
+            )
+            return CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+                source,
+                myFixture.caretOffset,
+                myFixture.editor
+            ).orEmpty().filterIsInstance<CrystalMethodDefinition>()
+        }
+
+        listOf("alias Probe = A::Service.n<caret>ew", "alias Probe = ::A::Service.n<caret>ew").forEach { call ->
+            val targets = fallbackTargets(call)
+            assertEquals(1, targets.size)
+            assertEquals(
+                "A::Service",
+                CrystalPsiUtils.getEnclosingType(targets.single())?.let(CrystalPsiUtils::buildQualifiedName)
+            )
+        }
+
+        val simpleTargets = fallbackTargets("alias Probe = Service.n<caret>ew")
+        assertEquals(1, simpleTargets.size)
+        assertEquals(
+            "B::Service",
+            CrystalPsiUtils.getEnclosingType(simpleTargets.single())?.let(CrystalPsiUtils::buildQualifiedName)
+        )
+
+        assertEmpty(fallbackTargets("alias Probe = Uncertain.n<caret>ew"))
+        assertEmpty(fallbackTargets("alias Probe = A::::Service.n<caret>ew"))
+
+        myFixture.configureByText(
+            "test.cr",
+            declarations.replace("      CALL\n", "").replace("CALL", "") +
+                "\nalias Probe = Service.n<caret>ew"
+        )
+        val ambiguousSource = requireNotNull(myFixture.file.findElementAt(myFixture.caretOffset))
+        assertNull(PsiTreeUtil.getParentOfType(ambiguousSource, CrystalDotCallAccess::class.java, false))
+        assertNull(
+            CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+                ambiguousSource,
+                myFixture.caretOffset,
+                myFixture.editor
+            )
+        )
     }
 }

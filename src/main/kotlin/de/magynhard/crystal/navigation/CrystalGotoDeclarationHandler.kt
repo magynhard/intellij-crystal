@@ -97,20 +97,13 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
     }
 
     /**
-     * For "ClassName.new" — extracts the class name from the receiver before ".new".
-     * Returns null for non-class receivers (e.g. "obj.new" where obj is lowercase).
-     *
-     * Uses PsiTreeUtil.prevLeaf to cross composite boundaries: for "Senf.new" the leaf
-     * before DOT is the CONSTANT "Senf"; for "Outer::Inner.new" the last CONSTANT ("Inner")
-     * is returned, which is the correct key for CrystalMethodByClassIndex (immediate
-     * enclosing class).
+     * Extracts the complete proven constant identity before `.new`, including qualified
+     * and absolute paths. Incomplete or dynamic receiver shapes return null.
      */
     private fun findClassNameBeforeNewToken(newToken: PsiElement): String? {
         val dot = prevLeafSkipWhitespace(newToken) ?: return null
         if (dot.node.elementType != CrystalTypes.DOT) return null
-        val receiver = prevLeafSkipWhitespace(dot) ?: return null
-        if (receiver.node.elementType == CrystalTypes.CONSTANT) return receiver.text
-        return null
+        return CrystalReceiverExpression.extractExactConstantTypeRootBeforeDot(dot)
     }
 
     /**
