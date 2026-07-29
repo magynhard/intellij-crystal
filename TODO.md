@@ -104,7 +104,7 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Narrow union and nilable receivers** — use control-flow facts to reduce union or nilable receiver types to one exact non-nil type before resolving DOT-calls.
 - [ ] **Resolve macro-interpolated call targets** — resolve macro-interpolated receivers, method names, and constructor targets to one exact declaration before enabling call-argument diagnostics for those calls.
 - [ ] **Include inherited instance-variable type evidence** — define deterministic hierarchy precedence for inherited instance-variable declarations and assignments before using inherited type bodies for DOT-call receiver inference.
-- [ ] **Migrate all call consumers to the shared resolver** — move type checking, navigation, completion, and parameter info to the same receiver, hierarchy, constructor, and overload semantics used by call-argument inspections.
+- [ ] **Finish migrating call consumers to the shared resolver** — completion and DOT navigation now consume neutral receiver, hierarchy, constructor, and overload metadata; move the remaining type-checking and parameter-info paths to the same semantics.
 - [ ] **Index Crystal load order for cross-file type reopenings** — preserve require-graph order when identical methods or include/extend edges are reopened across files; until load order is indexed, the shared resolver suppresses identical cross-file signatures and multiple relevant cross-file edges whose precedence cannot be proven, retains callable-distinct overloads, and keeps exact same-file source precedence.
 
 ## Completion Follow-up

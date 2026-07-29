@@ -21,6 +21,15 @@
 - Generic value types normalize to their indexed base type for method lookup without flattening unions inside generic arguments.
 - Once a DOT receiver is recognized, unresolved type analysis must not fall through to unrelated free-text method completion.
 - Static methods and `new` belong only to type-object completion; runtime value completion returns instance methods.
+- All-method completion is best-effort for macro-heavy types: body interpolation is irrelevant to
+  method-name certainty, and only macro-controlled or dynamically named methods are filtered.
+  Exact named consumers remain strict for an uncertain requested name.
+- Concrete signed, unsigned, and floating primitives inherit methods through neutral implicit
+  `Int`, `UInt`, and `Float` hierarchy edges when those parents are indexed.
+- Range expressions resolve to the `Range` lookup base, constructor chains retain qualified
+  identity, and DOT references expose every exact overload through polyvariant resolution.
+- Candidate collection must fail the complete union when any branch identity or hierarchy is
+  missing, ambiguous, or incomplete; completion never narrows to indexed branches.
 - Follow strict RED/GREEN TDD for every behavior change.
 - Update `docs/specs/completion.md`, `README.md` only if its user-facing feature list needs clarification, `CHANGELOG.md`, and any actionable deferred cases in `TODO.md`.
 - Do not commit this architecture correction; leave the complete wave reviewable in the worktree.

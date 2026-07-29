@@ -80,14 +80,25 @@ normalized by one exact-root utility for receiver, superclass, include, and exte
 `CrystalMethodHierarchy` is session-owned and caches exact declarations, methods by exact type,
 edges, metadata, named results, and all-method collections. Named macro uncertainty is
 name-sensitive: a controlled `hidden` method does not suppress unconditional `visible`, while an
-interpolated unknown method name conservatively affects every named lookup. Hierarchy order is direct declaration,
-reverse include/extend exposure order, then superclass traversal. Results carry stable depth,
-precedence, exact receiver identity, receiver mode, and one shared canonical signature key.
+interpolated unknown method name conservatively affects every named lookup. Macro interpolation in
+a method body does not affect its method-name metadata. All-method completion is best-effort: it
+omits macro-controlled methods and dynamically named methods while retaining every certain method.
+Named lookup remains strict and incomplete when its requested name is uncertain. Hierarchy order is
+direct declaration, reverse include/extend exposure order, then superclass traversal. Results carry
+stable depth, precedence, exact receiver identity, receiver mode, and one shared canonical signature
+key.
 
 Named lookup filters the shared hierarchy while preserving name-specific completeness. The
-all-method API marks uncertain macro-controlled or cross-file duplicate metadata incomplete.
+all-method API remains incomplete for ambiguous hierarchy edges and cross-file duplicate metadata,
+but not merely because an unrelated method name is macro-controlled.
 Implicit-self methods take precedence. One exact top-level method remains a fallback only when the
 implicit-self hierarchy has no candidate; ambiguous top-level overloads are unknown.
+
+Crystal's compiler-implicit primitive hierarchy is represented as neutral exact hierarchy edges:
+signed `Int8`/`Int16`/`Int32`/`Int64`/`Int128` inherit `Int`, unsigned
+`UInt8`/`UInt16`/`UInt32`/`UInt64`/`UInt128` inherit `UInt`, and `Float32`/`Float64` inherit
+`Float`. Traversal uses the same visited set as explicit hierarchy traversal and remains cycle-safe.
+The edge contributes methods only when the parent declaration is indexed.
 
 ## Constructors
 
@@ -96,8 +107,10 @@ references. Ordered lexical candidates choose a record before a type at the same
 then continue outward only when that identity has neither. An exact class or struct may resolve through
 `self.new`, then `initialize`, then implicit construction. Modules and enums are unavailable;
 abstract classes are rejected; macro-controlled or incomplete exact declarations are incomplete.
-Multiple constructor methods remain a multi-target result for navigation/inspection consumers, but
-a single PSI reference resolves them as ambiguous (`null`).
+Multiple constructor methods remain a multi-target result. `CrystalDotCallReference.multiResolve()`
+returns every exact overload for IntelliJ's navigation chooser, while `resolve()` returns a target
+only when exactly one remains. The same polyvariant rule applies to regular static and instance
+methods.
 Constructor expressions preserve the exact qualified receiver identity as their instance result.
 Record macro fallback remains a separate declaration path before normal type construction where
 the call consumer supports records.
@@ -110,9 +123,14 @@ the call consumer supports records.
 - Assignment expression results return the full rendered type, such as `Array(Int32)`,
   `Hash(String, Int32)`, or `Int32 | Nil`.
 
-Union-preserving completion and expression consumers use structured session results or the explicit
-preserving adapters. `CrystalExpressionTypeResolver` remains a nullable wrapper over neutral
-resolution for existing inspection callers.
+Union-preserving completion and expression consumers use structured session results directly.
+`CrystalExpressionTypeResolver` remains a nullable wrapper over neutral resolution for existing
+inspection callers; unused union-preserving compatibility adapters are not retained.
+
+Unsuffixed decimal, hexadecimal (`0x`), octal (`0o`), and binary (`0b`) integer literals retain
+unsuffixed numeric metadata so compatibility checks can apply Crystal's literal autocasting rules.
+An explicit integer suffix such as `_i64` or `_u16` clears that metadata and preserves the declared
+type.
 
 ## Conservative Limits
 

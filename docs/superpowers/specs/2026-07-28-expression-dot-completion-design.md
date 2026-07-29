@@ -72,7 +72,7 @@ Control flow includes every `if`/`unless` main branch, every `elsif`, every `cas
 
 Method calls resolve against an exact receiver or lexical implicit-self scope through one session-cached hierarchy service. Unrelated same-name methods never contribute, top-level methods are considered only when no implicit-self candidate exists, ambiguous overload sets remain unknown, and direct or mutual recursion terminates as unknown. Unannotated methods merge all reachable explicit returns with a reachable implicit final result. Constructor classification is shared and accepts only complete concrete class/struct identities.
 
-For a union such as `Foo | Bar`, completion returns the union of methods available on either type, as explicitly selected. Identical method signatures are shown once; distinct overloads remain separate.
+For a union such as `Foo | Bar`, completion returns the union of methods available on either type only when every branch resolves to one exact, complete indexed hierarchy. A missing, ambiguous, or incomplete branch suppresses the whole union rather than narrowing it. Identical method signatures are shown once; distinct overloads remain separate.
 
 ## Candidate Collection
 
@@ -83,6 +83,13 @@ Static and instance candidate collection remain separate:
 - `ValueTypes(Foo, Bar)` merges instance methods from both hierarchies.
 
 Candidate deduplication uses method name plus callable parameter signature. Existing lookup rendering, priority, icons, constructor tails, and record presentation are preserved.
+
+All-method completion is best-effort for macro-heavy declarations: body-level interpolation does not contaminate method-name metadata, and only macro-controlled or dynamically named methods are filtered. Certain methods remain visible. Exact named resolution stays strict when the requested name is uncertain.
+
+Neutral hierarchy metadata supplies compiler-implicit numeric parent edges from concrete signed,
+unsigned, and floating primitives to `Int`, `UInt`, and `Float`. Range receivers normalize to
+`Range`, and constructor chains retain the resolved qualified identity. DOT-call references are
+polyvariant so navigation can present every exact overload instead of choosing one arbitrarily.
 
 Once a DOT receiver is recognized, completion must not fall through to unrelated free-text project methods. An unresolved receiver yields no receiver-specific result rather than name-only noise.
 

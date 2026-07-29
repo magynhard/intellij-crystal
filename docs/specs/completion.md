@@ -359,7 +359,20 @@ hierarchy metadata, preserves receiver and hierarchy order, and merges identical
 signatures across types while retaining distinct overloads. Qualified roots remain exact, so types
 with the same simple name do not leak methods across namespaces. Primitive and generic outer roots
 use the same indexed declaration path as project types. The existing single-type helper delegates
-to this multi-type API.
+to this multi-type API. Every union branch must resolve to one exact, complete indexed hierarchy;
+if any branch is missing, ambiguous, or incomplete, the helper returns no candidates for the whole
+union rather than narrowing it.
+
+All-method completion treats macro-heavy type bodies as best-effort metadata. A `{{ ... }}` inside a
+method body does not make the method name uncertain. Methods declared in `{% ... %}` regions and
+methods whose name itself is interpolated are omitted, while unrelated certain methods on
+`String`, `Time`, and similar stdlib-shaped types remain available. Exact named resolution used by
+inspections and call-result inference remains incomplete when that requested name is uncertain.
+
+The neutral hierarchy also supplies Crystal's compiler-implicit numeric parent edges, so an indexed
+`Int32` declaration without an explicit superclass receives indexed `Int` methods. Consequently,
+`3.` can offer `Int#times` in a realistic stdlib layout; unsigned and floating primitive families
+likewise inherit from indexed `UInt` and `Float` declarations.
 
 `CrystalCompletionContributor` dispatches DOT completion exclusively through this receiver result.
 `TypeObject` receivers are delegated to a focused provider that preserves static-method rendering,
@@ -406,6 +419,15 @@ Direct unwrapped operator receivers resolve the semantic expression prefix befor
 DOT, while single and nested grouping produce the identical lookup multiset. Completed
 argumentless, parenthesized, grouped, and mixed postfix chains are processed in source order;
 unsupported index/tail components make the whole receiver `Unknown` and suppress fallback.
+Inclusive and exclusive range expressions, including grouped and parseable beginless forms, resolve
+to the indexed `Range` base for completion. Their endpoint types do not leak methods into the popup.
+After `.new`, completed chains always carry the constructor's resolved qualified identity, including
+lexically selected same-simple-name nested types.
+
+DOT-call method names expose a polyvariant PSI reference. Navigation returns every exact overload
+for IntelliJ's chooser for both static and instance methods, including explicit constructor
+overloads. Single-target `resolve()` succeeds only for a unique target; constructor record and
+implicit handling retain their established precedence.
 
 #### Static Method Completion (`CONSTANT.method`)
 
