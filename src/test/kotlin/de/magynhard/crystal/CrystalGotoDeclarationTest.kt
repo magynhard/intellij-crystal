@@ -3,6 +3,8 @@ package de.magynhard.crystal
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalConstructorResolution
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalMethodDefinition
@@ -277,17 +279,80 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
 
         assertEmpty(fallbackTargets("alias Probe = Uncertain.n<caret>ew"))
         assertEmpty(fallbackTargets("alias Probe = A::::Service.n<caret>ew"))
+    }
+
+    fun testConstructorFallbackWithoutDotReferenceSuppressesUnavailableSimpleName() {
+        myFixture.configureByText(
+            "test.cr",
+            """
+                module A
+                  class Service
+                    def initialize
+                    end
+                  end
+                end
+                module B
+                  class Service
+                    def initialize
+                    end
+                  end
+                end
+                alias Probe = Service.n<caret>ew
+            """.trimIndent()
+        )
+        val source = requireNotNull(myFixture.file.findElementAt(myFixture.caretOffset))
+        assertNull(PsiTreeUtil.getParentOfType(source, CrystalDotCallAccess::class.java, false))
+
+        val resolution = CrystalTypeSetResolver.session(source).resolveConstructor("Service", source)
+        assertTrue(resolution is CrystalConstructorResolution.Unavailable)
+        assertNull(
+            CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+                source,
+                myFixture.caretOffset,
+                myFixture.editor
+            )
+        )
+    }
+
+    fun testConstructorFallbackWithoutDotReferenceSuppressesAmbiguousExactIdentity() {
+        myFixture.addFileToProject(
+            "one/service.cr",
+            """
+                class Service
+                  def initialize(value : Int32)
+                  end
+                end
+            """.trimIndent()
+        )
+        myFixture.addFileToProject(
+            "two/service.cr",
+            """
+                class Service
+                  def initialize(value : Int32)
+                  end
+                end
+            """.trimIndent()
+        )
 
         myFixture.configureByText(
             "test.cr",
-            declarations.replace("      CALL\n", "").replace("CALL", "") +
-                "\nalias Probe = Service.n<caret>ew"
+            "alias Probe = Service.n<caret>ew"
         )
-        val ambiguousSource = requireNotNull(myFixture.file.findElementAt(myFixture.caretOffset))
-        assertNull(PsiTreeUtil.getParentOfType(ambiguousSource, CrystalDotCallAccess::class.java, false))
+        val source = requireNotNull(myFixture.file.findElementAt(myFixture.caretOffset))
+        assertNull(
+            "Recovery syntax must bypass the normal polyvariant DOT reference",
+            PsiTreeUtil.getParentOfType(source, CrystalDotCallAccess::class.java, false)
+        )
+
+        val resolution = CrystalTypeSetResolver.session(source).resolveConstructor("Service", source)
+        assertTrue(
+            "Duplicate exact Service constructor signatures in separate files must be ambiguous",
+            resolution is CrystalConstructorResolution.Incomplete
+        )
+        assertEquals("Service", resolution.identity.qualifiedName)
         assertNull(
             CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
-                ambiguousSource,
+                source,
                 myFixture.caretOffset,
                 myFixture.editor
             )
