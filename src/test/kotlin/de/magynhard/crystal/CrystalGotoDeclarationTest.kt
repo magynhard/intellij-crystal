@@ -21,8 +21,8 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
      *   CrystalVariableReference for top-level calls)
      * - If the reference resolves, return that target — this is what
      *   IdentifierHighlightingComputer and the Documentation Provider both use.
-     * - If no reference resolves, fall back to the GotoDeclarationHandler
-     *   (handles the `.new` constructor resolution order).
+     * - If no reference resolves, ask the GotoDeclarationHandler, which returns all
+     *   polyvariant targets or an authoritative empty result for DOT references.
      */
     private fun gotoTargets(code: String): Array<out PsiElement>? {
         myFixture.configureByText("test.cr", code)
@@ -79,7 +79,7 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
      * returns no match. Resolution returns null (no false positives) instead of the
      * old behaviour of jumping to the first method named `greet` project-wide.
      */
-    fun testTopLevelMethodViaDotCallOnUnknownReceiverReturnsNull() {
+    fun testTopLevelMethodViaDotCallOnUnknownReceiverReturnsNoTargets() {
         val targets = gotoTargets("""
             def greet
             end
@@ -87,17 +87,19 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
             x.gre<caret>et
         """.trimIndent())
         // `greet` exists as a top-level def but is NOT a method of `Int` (x's type).
-        // No false-positive name-only matching — return null per the no-guessing rule.
-        assertNull("Should not resolve via name-only when receiver type is unknown/unrelated", targets)
+        // No false-positive name-only matching; the exact reference returns no targets.
+        assertNotNull("The exact DOT reference must remain authoritative", targets)
+        assertEquals("Should not resolve via name-only when receiver type is unknown/unrelated", 0, targets!!.size)
     }
 
-    fun testNonMethodIdentifierAfterDotReturnsNull() {
+    fun testNonMethodIdentifierAfterDotReturnsNoTargets() {
         val targets = gotoTargets("""
             x = 1
             x.nonexist<caret>ent
         """.trimIndent())
-        // No method named "nonexistent" — should return null
-        assertNull("Should return null for unknown method", targets)
+        // No method named "nonexistent"; the exact reference returns no targets.
+        assertNotNull("The exact DOT reference must remain authoritative", targets)
+        assertEquals("Should return no targets for unknown method", 0, targets!!.size)
     }
 
     fun testDotCallDoesNotTriggerWithoutDot() {
@@ -177,7 +179,7 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
             targets[0].text.contains("record"))
     }
 
-    fun testNewOnUnknownClassReturnsNull() {
+    fun testNewOnUnknownClassReturnsNoTargets() {
         val targets = gotoTargets("""
             class Senf
               def initialize
@@ -185,7 +187,35 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
             end
             Unbekannt.n<caret>ew
         """.trimIndent())
-        // No class "Unbekannt" — should return null, not every "new" method in the project.
-        assertNull("Should return null for unknown class .new", targets)
+        // No class "Unbekannt"; do not return every "new" method in the project.
+        assertNotNull("The exact DOT reference must remain authoritative", targets)
+        assertEquals("Should return no targets for unknown class .new", 0, targets!!.size)
+    }
+
+    fun testEmptyExactConstructorResultDoesNotFallBackToSameSimpleNameTypes() {
+        myFixture.configureByText("test.cr", """
+            module A
+              class Service
+                def self.new(value : Int32)
+                end
+              end
+            end
+            module B
+              class Service
+                def self.new(value : String)
+                end
+              end
+            end
+            Service.n<caret>ew(1)
+        """.trimIndent())
+        val source = myFixture.file.findElementAt(myFixture.caretOffset)
+        val targets = CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+            source,
+            myFixture.caretOffset,
+            myFixture.editor
+        )
+
+        assertNotNull("The exact polyvariant reference must be authoritative", targets)
+        assertEquals("Ambiguous exact identity must not fall back to A::Service or B::Service", 0, targets!!.size)
     }
 }

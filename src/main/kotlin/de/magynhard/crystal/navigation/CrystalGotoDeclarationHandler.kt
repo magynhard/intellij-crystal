@@ -5,10 +5,9 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.psi.search.GlobalSearchScope
-import de.magynhard.crystal.completion.CrystalCompletionHelper
+import de.magynhard.crystal.analysis.CrystalConstructorResolution
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Handles Go to Definition (Ctrl+Click / Ctrl+B) for:
@@ -57,7 +56,7 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         val polyvariant = dotCall?.reference as? PsiPolyVariantReference
         if (polyvariant != null) {
             val targets = polyvariant.multiResolve(false).mapNotNull { it.element }
-            if (targets.isNotEmpty()) return targets.toTypedArray()
+            return targets.toTypedArray()
         }
 
         val name = sourceElement.text
@@ -65,13 +64,11 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
 
         // The dot_call_access BNF rule now provides a CrystalDotCallReference via its
         // mixin, so the platform's TargetElementUtil resolves DOT-calls the same way as
-        // variable_reference (top-level calls). This handler is only reached as a
-        // fallback when the reference returned null (e.g. unknown-instance receiver).
+        // variable_reference (top-level calls). This handler reaches the fallback below
+        // only for PSI shapes without that exact reference.
         //
-        // The ONLY DOT-call case still handled here is the `.new` constructor, which
-        // has no dedicated `def new` in Crystal and therefore cannot resolve via
-        // CrystalMethodByClassIndex. The handler implements Crystal's constructor
-        // resolution order: self.new > record > initialize.
+        // The ONLY DOT-call case still handled here is the `.new` constructor. It uses
+        // the shared exact constructor resolver and its normal precedence.
         if (name == "new") {
             val className = findClassNameBeforeNewToken(sourceElement)
             if (className != null) {
@@ -124,23 +121,15 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
      * 3. "def initialize" in the class — called by the built-in "Class#new"
      */
     private fun findNewTargets(className: String, sourceElement: PsiElement): List<PsiElement> {
-        val project = sourceElement.project
-        val scope = GlobalSearchScope.allScope(project)
-
-        // 1. Explicit "def self.new" in the class — takes priority (overrides default "new")
-        val classMethods = CrystalIndexService.findMethodsByClass(className, project, scope)
-        val selfNew = classMethods.filter { it.name == "new" }
-        if (selfNew.isNotEmpty()) return selfNew.toList()
-
-        // 2. "record" macro — auto-generates "new" with the record fields as parameters
-        val recordDef = CrystalCompletionHelper.findRecordDefinition(className, sourceElement.containingFile)
-        if (recordDef != null) return listOf(recordDef)
-
-        // 3. Default: "def initialize" (called by the built-in "Class#new")
-        val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, sourceElement.containingFile)
-        if (initMethod != null) return listOf(initMethod)
-
-        return emptyList()
+        return when (val resolution = CrystalTypeSetResolver.session(sourceElement)
+            .resolveConstructor(className, sourceElement)) {
+            is CrystalConstructorResolution.Methods -> resolution.methods
+            is CrystalConstructorResolution.Record -> listOf(resolution.recordDefinition)
+            is CrystalConstructorResolution.Implicit,
+            is CrystalConstructorResolution.Abstract,
+            is CrystalConstructorResolution.Unavailable,
+            is CrystalConstructorResolution.Incomplete -> emptyList()
+        }
     }
 
     private fun prevLeafSkipWhitespace(element: PsiElement): PsiElement? {

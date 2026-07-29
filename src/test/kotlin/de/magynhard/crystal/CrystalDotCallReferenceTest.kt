@@ -42,6 +42,16 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         return reference.multiResolve(false).mapNotNull { it.element }
     }
 
+    private fun gotoTargetsAtCaret(code: String): List<PsiElement> {
+        myFixture.configureByText("test.cr", code)
+        val source = myFixture.file.findElementAt(myFixture.caretOffset) ?: return emptyList()
+        return CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+            source,
+            myFixture.caretOffset,
+            myFixture.editor
+        ).orEmpty().toList()
+    }
+
     // ==================== CONSTANT receiver (static class methods) ====================
 
     fun testStaticSelfMethodResolvesToDefinition() {
@@ -257,6 +267,7 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
 
         assertNull(resolveAtCaret(code))
         assertEquals(2, multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+        assertEquals(2, gotoTargetsAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
     }
 
     fun testGotoHandlerReturnsPolyvariantOverloadTargets() {
@@ -278,4 +289,126 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
 
         assertEquals(2, targets.filterIsInstance<CrystalMethodDefinition>().size)
     }
+
+    fun testGroupedStaticOverloadsExposeEveryExactTarget() {
+        val code = """
+            class Service
+              def self.build(value : Int32)
+              end
+              def self.build(value : String)
+              end
+            end
+            (Service).bu<caret>ild(1)
+        """.trimIndent()
+
+        assertNull(resolveAtCaret(code))
+        assertEquals(2, multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+        assertEquals(2, gotoTargetsAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+    }
+
+    fun testGroupedTypedParameterAndInstanceVariableOverloadsExposeEveryExactTarget() {
+        val declarations = """
+            class Service
+              def run(value : Int32)
+              end
+              def run(value : String)
+              end
+            end
+            class Runner
+              @service : Service
+
+              def execute(service : Service)
+                RECEIVER.ru<caret>n(1)
+              end
+            end
+        """.trimIndent()
+
+        listOf("((service))", "((@service))").forEach { receiver ->
+            val code = declarations.replace("RECEIVER", receiver)
+            assertEquals(2, multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+            assertEquals(2, gotoTargetsAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+        }
+    }
+
+    fun testGroupedInstanceOverloadsExposeEveryExactTarget() {
+        val code = """
+            class Service
+              def run(value : Int32)
+              end
+              def run(value : String)
+              end
+            end
+            service = Service.new
+            (service).ru<caret>n(1)
+        """.trimIndent()
+
+        assertNull(resolveAtCaret(code))
+        assertEquals(2, multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+        assertEquals(2, gotoTargetsAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+    }
+
+    fun testGroupedQualifiedAndAbsoluteOverloadsKeepExactIdentity() {
+        val declarations = """
+            module A
+              class Service
+                def self.build(value : Int32)
+                end
+                def self.build(value : String)
+                end
+              end
+            end
+            module B
+              class Service
+                def self.build(value : Bool)
+                end
+              end
+            end
+        """.trimIndent()
+
+        listOf("(A::Service).bu<caret>ild(1)", "(::A::Service).bu<caret>ild(1)").forEach { call ->
+            val targets = multiResolveAtCaret("$declarations\n$call").filterIsInstance<CrystalMethodDefinition>()
+            assertEquals(2, targets.size)
+            assertTrue(targets.all {
+                CrystalPsiUtils.getEnclosingType(it)?.let(CrystalPsiUtils::buildQualifiedName) == "A::Service"
+            })
+            val gotoTargets = gotoTargetsAtCaret("$declarations\n$call").filterIsInstance<CrystalMethodDefinition>()
+            assertEquals(2, gotoTargets.size)
+            assertTrue(gotoTargets.all {
+                CrystalPsiUtils.getEnclosingType(it)?.let(CrystalPsiUtils::buildQualifiedName) == "A::Service"
+            })
+        }
+    }
+
+    fun testNestedGroupedStaticOverloadsExposeEveryExactTarget() {
+        val code = """
+            class Service
+              def self.build(value : Int32)
+              end
+              def self.build(value : String)
+              end
+            end
+            (((Service))).bu<caret>ild(1)
+        """.trimIndent()
+
+        assertNull(resolveAtCaret(code))
+        assertEquals(2, multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+        assertEquals(2, gotoTargetsAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+    }
+
+    fun testGroupedConstructorOverloadsExposeEveryExactTarget() {
+        val code = """
+            class Service
+              def self.new(value : Int32)
+              end
+              def self.new(value : String)
+              end
+            end
+            (Service).n<caret>ew(1)
+        """.trimIndent()
+
+        assertNull(resolveAtCaret(code))
+        assertEquals(2, multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+        assertEquals(2, gotoTargetsAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+    }
+
 }

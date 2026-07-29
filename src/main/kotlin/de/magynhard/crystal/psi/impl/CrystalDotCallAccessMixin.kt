@@ -14,9 +14,8 @@ import de.magynhard.crystal.psi.CrystalDotCallReference
  * method names — the same PsiReference mechanism that [CrystalVariableReferenceMixin]
  * uses for top-level calls like `sahne`.
  *
- * The DOT and method-name token are children of this composite. The receiver
- * expression (e.g. `Apfel` in `Apfel.tanzen`) is the prevSibling in the flattened
- * `postfix_expression` sequence; the reference walks prevSibling to find it.
+ * The DOT and method-name token are children of this composite. Receiver and target
+ * resolution use the shared exact DOT-call analysis.
  */
 abstract class CrystalDotCallAccessMixin(node: ASTNode) :
     ASTWrapperPsiElement(node), CrystalDotCallAccess {
@@ -28,7 +27,7 @@ abstract class CrystalDotCallAccessMixin(node: ASTNode) :
         val name = identNode.text
         if (name.isBlank()) return null
         val startOffset = identNode.startOffset - node.startOffset
-        return CrystalDotCallReference(this, name, startOffset, identNode.textLength)
+        return CrystalDotCallReference(this, startOffset, identNode.textLength)
     }
 
     override fun getReferences(): Array<PsiReference> =
