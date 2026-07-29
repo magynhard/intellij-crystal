@@ -4,6 +4,17 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class CrystalTypeSetResolverTest : BasePlatformTestCase() {
 
+    fun testRadixIntegerLiteralsRetainUnsuffixedMetadata() {
+        listOf("0xff", "0o77", "0b1010").forEach { literal ->
+            val result = resolve("<caret>$literal") as CrystalTypeResolution.Known
+            assertEquals("Int32", result.types.single().name)
+            assertTrue("$literal should be unsuffixed", result.types.single().isUnsuffixedNumericLiteral)
+        }
+        val suffixed = resolve("<caret>0xff_i64") as CrystalTypeResolution.Known
+        assertEquals("Int64", suffixed.types.single().name)
+        assertFalse(suffixed.types.single().isUnsuffixedNumericLiteral)
+    }
+
     fun testPreservesOrderedStableTypeSetAndNumericMetadata() {
         val result = resolve("value = true ? 1 : 2_i64\n<caret>value")
         assertEquals(

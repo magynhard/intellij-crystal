@@ -126,8 +126,7 @@ internal object CrystalCompletionReceiverResolver {
         methodName ?: return CompletionReceiver.Unknown
         if (receiver is CompletionReceiver.TypeObject && methodName == "new") {
             if (!session.isConstructible(receiver.qualifiedName, context)) return CompletionReceiver.Unknown
-            val typeName = if (receiver.explicitIdentity) receiver.qualifiedName else receiver.simpleName
-            return CompletionReceiver.ValueTypes(listOf(typeName))
+            return CompletionReceiver.ValueTypes(listOf(receiver.qualifiedName))
         }
 
         val result = session.resolveCall(

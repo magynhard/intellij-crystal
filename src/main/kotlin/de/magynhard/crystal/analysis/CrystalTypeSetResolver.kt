@@ -234,6 +234,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val falseExpression = children.getOrNull(colon + 1) ?: return CrystalTypeResolution.Unknown
             return mergeKnown(listOf(resolve(trueExpression), resolve(falseExpression)))
         }
+        if (children.any {
+                it.node.elementType == CrystalTypes.DOTDOT || it.node.elementType == CrystalTypes.DOTDOTDOT
+            }) {
+            return knownType("Range")
+        }
         if (children.any { it is CrystalDotCallAccess }) return resolvePostfix(children, expression)
         resolveOperator(children)?.let { return it }
         return children.firstOrNull()?.let(::resolve) ?: knownType("Nil")
@@ -1053,7 +1058,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             normalized.endsWith("u128") -> "UInt128"
             else -> "Int32"
         }
-        return knownType(name, isUnsuffixedNumericLiteral = normalized.all(Char::isDigit))
+        val hasSuffix = INTEGER_SUFFIXES.any(normalized::endsWith)
+        return knownType(name, isUnsuffixedNumericLiteral = !hasSuffix)
     }
 
     private fun resolveFloat(text: String): CrystalTypeResolution {
@@ -1154,3 +1160,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun TypeIdentity.toShared(): CrystalTypeIdentity = CrystalTypeIdentity(simpleName, qualifiedName)
 }
+
+private val INTEGER_SUFFIXES = listOf(
+    "i8", "i16", "i32", "i64", "i128",
+    "u8", "u16", "u32", "u64", "u128"
+)

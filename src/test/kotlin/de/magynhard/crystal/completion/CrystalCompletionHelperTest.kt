@@ -116,6 +116,50 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
         assertEquals(listOf("integer_method", "string_method", "array_method"), names)
     }
 
+    fun testUnionLookupRequiresEveryExactBranch() {
+        myFixture.configureByText("types.cr", "class Foo\n  def foo_method\n  end\nend")
+
+        assertEquals(
+            emptyList<String>(),
+            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "NotIndexed"), project)
+                .map { it.lookupString }
+        )
+    }
+
+    fun testUnionLookupRetainsAllKnownBranches() {
+        myFixture.configureByText(
+            "types.cr",
+            "class Foo\n  def foo_method\n  end\nend\n" +
+                "class Bar\n  def bar_method\n  end\nend"
+        )
+
+        assertEquals(
+            listOf("foo_method", "bar_method"),
+            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "Bar"), project)
+                .map { it.lookupString }
+        )
+    }
+
+    fun testCompletionKeepsCertainMethodsFromMacroHeavyStdlibTypes() {
+        myFixture.configureByText(
+            "stdlib.cr",
+            "class String\n" +
+                "  def upcase\n    {{ body_value }}\n  end\n" +
+                "  {% if flag %}\n  def conditional\n  end\n  {% end %}\n" +
+                "end\n" +
+                "struct Time\n  def year\n  end\n  {% if flag %}\n  def zone\n  end\n  {% end %}\nend"
+        )
+
+        assertEquals(
+            listOf("upcase"),
+            CrystalCompletionHelper.getMethodsAsLookups("String", project).map { it.lookupString }
+        )
+        assertEquals(
+            listOf("year"),
+            CrystalCompletionHelper.getMethodsAsLookups("Time", project).map { it.lookupString }
+        )
+    }
+
     fun testFindTypeByNamePrefersCurrentFileAndFindsProjectTypes() {
         myFixture.addFileToProject("other.cr", """
             class SharedType

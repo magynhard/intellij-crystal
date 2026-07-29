@@ -71,11 +71,9 @@ internal class CrystalMethodHierarchy(
         val seenSignatures = mutableSetOf<String>()
         for (exposure in hierarchy.exposures) {
             val typeMetadata = metadata(exposure.type, exposure.declarationMode, includeModuleEdges)
-            if (typeMetadata.unknownMethodName || typeMetadata.uncertainMethodNames.isNotEmpty()) {
-                return@getOrPut CrystalAllMethodCollection(emptyList(), false)
-            }
             val exposedMethods = findExactMethods(exposure.type)
                 .filter { CrystalPsiUtils.isSelfMethod(it) == (exposure.declarationMode == CrystalReceiverMode.STATIC) }
+                .filter { it.macroInterpolation == null && it.name !in typeMetadata.uncertainMethodNames }
             val signatures = exposedMethods.groupBy(::canonicalSignature)
             if (signatures.values.any { group ->
                     group.map { it.containingFile?.virtualFile?.path }.distinct().size > 1
@@ -210,12 +208,7 @@ internal class CrystalMethodHierarchy(
                     semanticMembers(child).forEach { member ->
                         if (member is CrystalMethodDefinition &&
                             CrystalPsiUtils.isSelfMethod(member) == (mode == CrystalReceiverMode.STATIC)) {
-                            val interpolation = PsiTreeUtil.findChildOfType(
-                                member,
-                                CrystalMacroInterpolation::class.java,
-                                false
-                            )
-                            if (interpolation != null) {
+                            if (member.macroInterpolation != null) {
                                 unknownMethodName = true
                             } else if (macroDepth > 0) {
                                 member.name?.let(uncertainMethodNames::add) ?: run { unknownMethodName = true }
@@ -258,6 +251,10 @@ internal class CrystalMethodHierarchy(
             }
         }
 
+        if (superclasses.isEmpty()) {
+            implicitPrimitiveSuperclass(type)?.let(superclasses::add)
+        }
+
         val distinctSuperclasses = superclasses.distinct()
         if (distinctSuperclasses.size > 1 || edgeFiles.size > 1) complete = false
         return TypeMetadata(
@@ -285,6 +282,15 @@ internal class CrystalMethodHierarchy(
             identities.singleOrNull()?.let { return CrystalTypeIdentity(simpleName, it) }
         }
         return null
+    }
+
+    private fun implicitPrimitiveSuperclass(type: CrystalTypeIdentity): CrystalTypeIdentity? {
+        if (type.qualifiedName != type.simpleName) return null
+        val parentName = IMPLICIT_PRIMITIVE_SUPERCLASSES[type.simpleName] ?: return null
+        val declarations = findTypesByName(parentName).filter {
+            CrystalPsiUtils.buildQualifiedName(it) == parentName
+        }
+        return if (declarations.isEmpty()) null else CrystalTypeIdentity(parentName, parentName)
     }
 
     private fun findExactMethods(type: CrystalTypeIdentity): List<CrystalMethodDefinition> = methods.getOrPut(type) {
@@ -406,6 +412,21 @@ internal class CrystalMethodHierarchy(
     )
     private data class HierarchyCollection(val exposures: List<TypeExposure>, val complete: Boolean)
 }
+
+private val IMPLICIT_PRIMITIVE_SUPERCLASSES = mapOf(
+    "Int8" to "Int",
+    "Int16" to "Int",
+    "Int32" to "Int",
+    "Int64" to "Int",
+    "Int128" to "Int",
+    "UInt8" to "UInt",
+    "UInt16" to "UInt",
+    "UInt32" to "UInt",
+    "UInt64" to "UInt",
+    "UInt128" to "UInt",
+    "Float32" to "Float",
+    "Float64" to "Float"
+)
 
 internal fun normalizeExactTypeRoot(typeText: String): String? {
     val compact = typeText.filterNot(Char::isWhitespace).removePrefix("::")

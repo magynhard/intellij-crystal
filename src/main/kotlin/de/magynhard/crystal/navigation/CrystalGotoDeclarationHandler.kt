@@ -3,6 +3,7 @@ package de.magynhard.crystal.navigation
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.completion.CrystalCompletionHelper
@@ -50,6 +51,13 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
 
         if (elementType != CrystalTypes.IDENTIFIER && elementType != CrystalTypes.CONSTANT) {
             return null
+        }
+
+        val dotCall = PsiTreeUtil.getParentOfType(sourceElement, CrystalDotCallAccess::class.java, false)
+        val polyvariant = dotCall?.reference as? PsiPolyVariantReference
+        if (polyvariant != null) {
+            val targets = polyvariant.multiResolve(false).mapNotNull { it.element }
+            if (targets.isNotEmpty()) return targets.toTypedArray()
         }
 
         val name = sourceElement.text

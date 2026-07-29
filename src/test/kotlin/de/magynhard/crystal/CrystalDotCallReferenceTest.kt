@@ -1,8 +1,10 @@
 package de.magynhard.crystal
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
 
 /**
@@ -17,8 +19,8 @@ import de.magynhard.crystal.psi.*
  *   no false positives). Behaviour change from the old `GotoDeclarationHandler`
  *   which fell back to `CrystalDefinitionFinder.findDefinitions(name, project)`
  *   and would happily return any method named the same project-wide.
- * - `.new` constructor → returns null here (the dedicated constructor path in
- *   `CrystalGotoDeclarationHandler` and `CrystalDocumentationProvider` handles it).
+ * - `.new` constructor → resolves through shared constructor metadata; overloads are
+ *   exposed through the polyvariant reference and remain ambiguous to `resolve()`.
  */
 class CrystalDotCallReferenceTest : BasePlatformTestCase() {
 
@@ -29,6 +31,15 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         val dotCall = PsiTreeUtil.getParentOfType(leaf, CrystalDotCallAccess::class.java, false)
             ?: return null
         return dotCall.reference?.resolve()
+    }
+
+    private fun multiResolveAtCaret(code: String): List<PsiElement> {
+        myFixture.configureByText("test.cr", code)
+        val leaf = myFixture.file.findElementAt(myFixture.caretOffset) ?: return emptyList()
+        val dotCall = PsiTreeUtil.getParentOfType(leaf, CrystalDotCallAccess::class.java, false)
+            ?: return emptyList()
+        val reference = dotCall.reference as? PsiPolyVariantReference ?: return emptyList()
+        return reference.multiResolve(false).mapNotNull { it.element }
     }
 
     // ==================== CONSTANT receiver (static class methods) ====================
@@ -180,5 +191,91 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         """.trimIndent())
 
         assertNull(resolved)
+    }
+
+    fun testStaticOverloadsExposeEveryExactTargetThroughPolyvariantReference() {
+        val code = """
+            module Other
+              class Service
+                def self.build(value : Bool)
+                end
+              end
+            end
+            class Service
+              def self.build(value : Int32)
+              end
+              def self.build(value : String)
+              end
+            end
+            Service.bu<caret>ild(1)
+        """.trimIndent()
+
+        assertNull(resolveAtCaret(code))
+        val targets = multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>()
+        assertEquals(2, targets.size)
+        assertTrue(targets.all {
+            CrystalPsiUtils.getEnclosingType(it)?.let(CrystalPsiUtils::buildQualifiedName) == "Service"
+        })
+    }
+
+    fun testInstanceOverloadsExposeEveryExactTargetThroughPolyvariantReference() {
+        val code = """
+            module Other
+              class Service
+                def run(value : Bool)
+                end
+              end
+            end
+            class Service
+              def run(value : Int32)
+              end
+              def run(value : String)
+              end
+            end
+            service = Service.new
+            service.ru<caret>n(1)
+        """.trimIndent()
+
+        assertNull(resolveAtCaret(code))
+        val targets = multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>()
+        assertEquals(2, targets.size)
+        assertTrue(targets.all {
+            CrystalPsiUtils.getEnclosingType(it)?.let(CrystalPsiUtils::buildQualifiedName) == "Service"
+        })
+    }
+
+    fun testConstructorOverloadsExposeEveryExactTargetThroughPolyvariantReference() {
+        val code = """
+            class Service
+              def self.new(value : Int32)
+              end
+              def self.new(value : String)
+              end
+            end
+            Service.n<caret>ew(1)
+        """.trimIndent()
+
+        assertNull(resolveAtCaret(code))
+        assertEquals(2, multiResolveAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
+    }
+
+    fun testGotoHandlerReturnsPolyvariantOverloadTargets() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def self.build(value : Int32)
+              end
+              def self.build(value : String)
+              end
+            end
+            Service.bu<caret>ild(1)
+        """.trimIndent())
+        val source = myFixture.file.findElementAt(myFixture.caretOffset)
+        val targets = CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+            source,
+            myFixture.caretOffset,
+            myFixture.editor
+        ).orEmpty()
+
+        assertEquals(2, targets.filterIsInstance<CrystalMethodDefinition>().size)
     }
 }

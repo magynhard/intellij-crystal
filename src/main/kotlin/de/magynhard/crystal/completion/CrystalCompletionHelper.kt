@@ -11,6 +11,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalCollectedMethod
 import de.magynhard.crystal.analysis.CrystalReceiverMode
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.psi.*
@@ -183,10 +184,12 @@ object CrystalCompletionHelper {
             .firstNotNullOfOrNull(psiManager::findDirectory)
             ?: return emptyList()
         val session = CrystalTypeSetResolver.session(projectDirectory)
-        val methods = typeNames.distinct().flatMap { typeName ->
-            val identity = session.resolveType(typeName, projectDirectory) ?: return@flatMap emptyList()
+        val methods = mutableListOf<CrystalCollectedMethod>()
+        for (typeName in typeNames.distinct()) {
+            val identity = session.resolveType(typeName, projectDirectory) ?: return emptyList()
             val collection = session.collectMethods(identity, mode)
-            if (collection.complete) collection.methods else emptyList()
+            if (!collection.complete) return emptyList()
+            methods.addAll(collection.methods)
         }
         val result = mutableListOf<LookupElement>()
         val seen = mutableSetOf<String>()

@@ -1842,6 +1842,92 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertEquals(emptySet<String>(), completionNames("(missing).<caret>"))
     }
 
+    fun testRealisticPrimitiveHierarchyProvidesIntMethods() {
+        myFixture.addFileToProject("stdlib/number.cr", """
+            struct Int
+              def times
+              end
+            end
+            struct Int32
+              def own_int32
+              end
+            end
+        """.trimIndent())
+
+        assertEquals(setOf("own_int32", "times"), completionNames("3.<caret>"))
+        assertEquals(setOf("own_int32", "times"), completionNames("(3).<caret>"))
+    }
+
+    fun testMacroHeavyTypesKeepOnlyCertainCompletionCandidates() {
+        myFixture.addFileToProject("stdlib/macro_types.cr", """
+            class String
+              def upcase
+                {{ body_value }}
+              end
+              {% if flag %}
+              def conditional
+              end
+              {% end %}
+            end
+            struct Time
+              def year
+              end
+              {% if flag %}
+              def conditional
+              end
+              {% end %}
+            end
+        """.trimIndent())
+
+        assertEquals(setOf("upcase"), completionNames("\"text\".<caret>"))
+        assertEquals(
+            setOf("year"),
+            completionNames("def now : Time\n  Time.new\nend\nnow().<caret>")
+        )
+    }
+
+    fun testRangeCompletionUsesRangeMethodsInsteadOfEndpointMethods() {
+        myFixture.addFileToProject("stdlib/range.cr", """
+            struct Int32
+              def int_only
+              end
+            end
+            struct Range(B, E)
+              def each
+              end
+            end
+        """.trimIndent())
+
+        for (receiver in listOf("1..2", "1...2", "(1..2)", "(1...2)", "..2", "...2")) {
+            val names = completionNames("$receiver.<caret>")
+            assertTrue("$receiver should expose Range#each: $names", names.contains("each"))
+            assertFalse("$receiver must not expose Int32 methods: $names", names.contains("int_only"))
+        }
+    }
+
+    fun testLexicalConstructorChainsKeepQualifiedInstanceIdentity() {
+        val declarations = """
+            class Service
+              def global_only
+              end
+            end
+            module Outer
+              class Service
+                def nested_only
+                end
+              end
+        """.trimIndent()
+
+        assertEquals(
+            setOf("nested_only"),
+            completionNames("$declarations\nmodule Outer\n  Service.new.<caret>\nend")
+        )
+        assertEquals(
+            setOf("nested_only"),
+            completionNames("$declarations\nmodule Outer\n  (Service.new).<caret>\nend")
+        )
+    }
+
     // ==================== Constructor policy pinning ====================
 
     fun testAbstractClassTypeObjectSuppressesSyntheticNew() {

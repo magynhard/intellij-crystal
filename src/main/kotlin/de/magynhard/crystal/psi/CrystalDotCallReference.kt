@@ -2,7 +2,9 @@ package de.magynhard.crystal.psi
 
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiReferenceBase
+import com.intellij.psi.PsiElementResolveResult
+import com.intellij.psi.PsiPolyVariantReferenceBase
+import com.intellij.psi.ResolveResult
 import com.intellij.psi.PsiWhiteSpace
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalReceiverMode
@@ -15,42 +17,46 @@ class CrystalDotCallReference(
     private val methodName: String,
     rangeStart: Int,
     rangeLength: Int
-) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
+) : PsiPolyVariantReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
     private val receiverInfo: ReceiverInfo? by lazy { findReceiver() }
 
-    override fun resolve(): PsiElement? {
-        val info = receiverInfo ?: return null
+    override fun resolve(): PsiElement? = multiResolve(false).singleOrNull()?.element
+
+    override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> {
+        val info = receiverInfo ?: return ResolveResult.EMPTY_ARRAY
         val session = CrystalTypeSetResolver.session(element)
         val identity = if (info.isStatic) {
             session.resolveType(info.qualifiedName ?: info.rawName, element)
         } else {
-            val known = session.resolve(info.receiver) as? CrystalTypeResolution.Known ?: return null
-            if (known.types.size != 1) return null
+            val known = session.resolve(info.receiver) as? CrystalTypeResolution.Known ?: return ResolveResult.EMPTY_ARRAY
+            if (known.types.size != 1) return ResolveResult.EMPTY_ARRAY
             session.resolveType(known.types.single().name, element)
         }
 
         if (methodName == "new" && info.isStatic) {
-            return when (val constructor = session.resolveConstructor(
+            val targets: List<PsiElement> = when (val constructor = session.resolveConstructor(
                 info.qualifiedName ?: info.rawName,
                 element
             )) {
-                is CrystalConstructorResolution.Methods -> constructor.methods.singleOrNull()
-                is CrystalConstructorResolution.Record -> constructor.recordDefinition
+                is CrystalConstructorResolution.Methods -> constructor.methods
+                is CrystalConstructorResolution.Record -> listOf(constructor.recordDefinition)
                 is CrystalConstructorResolution.Implicit,
                 is CrystalConstructorResolution.Abstract,
                 is CrystalConstructorResolution.Unavailable,
-                is CrystalConstructorResolution.Incomplete -> null
+                is CrystalConstructorResolution.Incomplete -> emptyList()
             }
+            return targets.map(::PsiElementResolveResult).toTypedArray()
         }
 
-        identity ?: return null
+        identity ?: return ResolveResult.EMPTY_ARRAY
         val methods = session.collectNamedMethods(
             identity,
             if (info.isStatic) CrystalReceiverMode.STATIC else CrystalReceiverMode.INSTANCE,
             methodName
         )
-        return methods.methods.singleOrNull().takeIf { methods.complete }
+        if (!methods.complete) return ResolveResult.EMPTY_ARRAY
+        return methods.methods.map(::PsiElementResolveResult).toTypedArray()
     }
 
     override fun handleElementRename(newElementName: String): PsiElement {

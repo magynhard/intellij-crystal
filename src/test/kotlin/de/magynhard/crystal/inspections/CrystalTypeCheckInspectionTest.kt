@@ -162,6 +162,31 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testUnsuffixedRadixIntegersAutocastToFloatAndWiderIntegers() {
+        myFixture.configureByText("test.cr", """
+            def float_value(x : Float64)
+            end
+            def wide_value(x : Int64)
+            end
+            float_value(0xff)
+            float_value(0o77)
+            float_value(0b1010)
+            wide_value(0xff)
+            wide_value(0o77)
+            wide_value(0b1010)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSuffixedRadixIntegerDoesNotUseUnsuffixedFloatAutocast() {
+        myFixture.configureByText("test.cr", """
+            def float_value(x : Float64)
+            end
+            float_value(<error descr="Type mismatch: expected 'Float64', got 'Int64'">0xff_i64</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testSuffixedIntMatchesExactType() {
         myFixture.configureByText("test.cr", """
             def big(x : Int64)

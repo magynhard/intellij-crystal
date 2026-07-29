@@ -163,6 +163,26 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testConstructorChainPreservesLexicallyResolvedQualifiedIdentity() {
+        val declarations =
+            "class Service\nend\n" +
+                "module Outer\n" +
+                "  class Service\n  end\n" +
+                "  Service.new.<caret>\n" +
+                "end"
+        assertReceiver(CompletionReceiver.ValueTypes(listOf("Outer::Service")), declarations)
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Outer::Service")),
+            declarations.replace("Service.new.<caret>", "(Service.new).<caret>")
+        )
+    }
+
+    fun testResolvesInclusiveAndExclusiveRangesAsRange() {
+        listOf("1..2", "1...2", "(1..2)", "(1...2)", "..2", "...2").forEach { receiver ->
+            assertReceiver(CompletionReceiver.ValueTypes(listOf("Range")), "$receiver.<caret>")
+        }
+    }
+
     fun testRejectsModuleConstructorResult() {
         assertReceiver(
             CompletionReceiver.Unknown,
