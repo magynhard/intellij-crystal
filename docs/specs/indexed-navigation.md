@@ -30,6 +30,12 @@ Runtime project-wide `FileTypeIndex` scans, including iteration over every Cryst
 
 Go to Class exposes indexed classes, modules, structs, enums, aliases, annotations, and libraries. Go to Symbol exposes those definitions plus indexed methods and macros. Both contributors cheaply enumerate project-wide name candidates; only navigation items resolved through `processElementsWithName()` are constrained by `FindSymbolParameters.searchScope`. Type navigation items retain their concrete class, module, struct, or enum kind and icon.
 
+## DOT-Call Navigation
+
+`CrystalDotCallReference` delegates to the shared exact DOT-call target resolver. Transparent grouping therefore preserves static constants, qualified and absolute constant paths, locals, typed parameters, instance variables, and constructors through arbitrary parenthesis depth. `multiResolve()` returns every overload on the exact receiver identity, while `resolve()` returns a target only when that result is unique.
+
+An existing polyvariant DOT reference is authoritative even when exact resolution returns no targets. The Goto handler returns that empty result without attempting constructor or simple-name fallback, so incomplete, suppressed, unavailable, or ambiguous receivers cannot navigate to an unrelated same-simple-name type. Constructor fallback is limited to PSI shapes without an exact DOT reference and uses the shared exact constructor resolver with normal `self.new`, record, `initialize`, and implicit-constructor precedence.
+
 ## Completion Type Lookup
 
 Type lookup searches project scope before all scope. When multiple indexed classes, modules, structs, or enums have the same name and a current file is supplied, the definition in that file takes precedence.
