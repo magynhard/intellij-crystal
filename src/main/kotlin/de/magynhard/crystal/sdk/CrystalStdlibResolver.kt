@@ -23,10 +23,12 @@ object CrystalStdlibResolver {
 
     private val STDLIB_PATH_KEY = Key.create<VirtualFile>("crystal.stdlib.path.cache")
 
+    internal fun cachedStdlibPath(project: Project): VirtualFile? =
+        project.getUserData(STDLIB_PATH_KEY)?.takeIf(VirtualFile::isValid)
+
     fun resolveStdlibPath(project: Project): VirtualFile? {
         // Fast path: cached value, validated for existence.
-        val cached = project.getUserData(STDLIB_PATH_KEY)
-        if (cached != null && cached.isValid) return cached
+        cachedStdlibPath(project)?.let { return it }
 
         val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
         val crystalEnv = runCrystalEnv(crystalPath) ?: return null

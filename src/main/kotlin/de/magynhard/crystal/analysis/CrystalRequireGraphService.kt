@@ -8,6 +8,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
+import de.magynhard.crystal.sdk.CrystalStdlibResolver
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
 
@@ -32,7 +33,11 @@ internal class CrystalRequireGraphService private constructor(
     private val pathResolver: CrystalRequirePathResolver,
     @Suppress("UNUSED_PARAMETER") registerListeners: Boolean,
 ) {
-    constructor(project: Project) : this(project, CrystalRequirePathResolver(project), true)
+    constructor(project: Project) : this(
+        project,
+        CrystalRequirePathResolver(project) { CrystalStdlibResolver.cachedStdlibPath(project) },
+        true,
+    )
 
     internal constructor(project: Project, pathResolver: CrystalRequirePathResolver) :
         this(project, pathResolver, false)
@@ -51,23 +56,19 @@ internal class CrystalRequireGraphService private constructor(
 
     private data class PreludeFoundation(
         val generation: Long,
+        val closure: Closure?,
         val files: Set<VirtualFile>,
     )
 
     private data class PreludeBuild(
         val generation: Long,
-        val result: CompletableFuture<PreludeFoundation>,
+        val result: CompletableFuture<VirtualFile?>,
     )
 
     private data class EffectiveSnapshot(
         val foundation: PreludeFoundation,
         val closure: Closure,
         val sources: CrystalEffectiveSourceSet,
-    )
-
-    private data class NodeInput(
-        val directRequires: CrystalDirectRequires,
-        val modificationStamp: Long,
     )
 
     private object StaleGeneration : RuntimeException()
@@ -78,6 +79,7 @@ internal class CrystalRequireGraphService private constructor(
     private val closures = mutableMapOf<VirtualFile, Closure>()
     private val effectiveSnapshots = mutableMapOf<VirtualFile, EffectiveSnapshot>()
     private var preludeBuild: PreludeBuild? = null
+    private var cachedPreludeFoundation: PreludeFoundation? = null
     private var generation = 0L
     private var nextNodeVersion = 0L
     private var nodeBuilds = 0L
@@ -92,7 +94,11 @@ internal class CrystalRequireGraphService private constructor(
                 val foundation = preludeFoundation(capturedGeneration)
                 val closure = closure(root, capturedGeneration) ?: return EMPTY_SOURCES
                 synchronized(lock) {
-                    if (generation != capturedGeneration || !closureIsCurrent(closure)) {
+                    if (
+                        generation != capturedGeneration ||
+                        foundation.closure?.let(::closureIsCurrent) == false ||
+                        !closureIsCurrent(closure)
+                    ) {
                         return@synchronized
                     }
                     val cached = effectiveSnapshots[root]
@@ -118,6 +124,7 @@ internal class CrystalRequireGraphService private constructor(
             closures.clear()
             effectiveSnapshots.clear()
             preludeBuild = null
+            cachedPreludeFoundation = null
             fullInvalidations++
         }
     }
@@ -127,6 +134,23 @@ internal class CrystalRequireGraphService private constructor(
     }
 
     private fun preludeFoundation(capturedGeneration: Long): PreludeFoundation {
+        val root = preludeRoot(capturedGeneration)
+        val closure = root?.let { closure(it, capturedGeneration) }
+        synchronized(lock) {
+            if (generation != capturedGeneration) throw StaleGeneration
+            if (closure != null && !closureIsCurrent(closure)) throw StaleGeneration
+            cachedPreludeFoundation?.takeIf {
+                it.generation == capturedGeneration && it.closure === closure
+            }?.let { return it }
+            return PreludeFoundation(
+                capturedGeneration,
+                closure,
+                closure?.files ?: emptySet(),
+            ).also { cachedPreludeFoundation = it }
+        }
+    }
+
+    private fun preludeRoot(capturedGeneration: Long): VirtualFile? {
         var owner = false
         val build = synchronized(lock) {
             if (generation != capturedGeneration) throw StaleGeneration
@@ -141,23 +165,22 @@ internal class CrystalRequireGraphService private constructor(
         if (owner) {
             try {
                 val prelude = pathResolver.resolvePrelude()?.let(::physicalOriginalFile)
-                val files = if (prelude == null) {
-                    emptySet()
-                } else {
-                    closure(prelude, capturedGeneration)?.files ?: emptySet()
-                }
-                val foundation = PreludeFoundation(capturedGeneration, immutableSet(files))
                 synchronized(lock) {
                     if (generation != capturedGeneration) throw StaleGeneration
                 }
-                build.result.complete(foundation)
+                build.result.complete(prelude)
             } catch (error: Throwable) {
+                synchronized(lock) {
+                    if (preludeBuild === build) preludeBuild = null
+                }
                 build.result.completeExceptionally(error)
                 throw error
             }
         }
         return try {
             build.result.join()
+        } catch (error: java.util.concurrent.CancellationException) {
+            throw error.cause ?: error
         } catch (error: java.util.concurrent.CompletionException) {
             throw error.cause ?: error
         }
@@ -170,19 +193,19 @@ internal class CrystalRequireGraphService private constructor(
         }
         val files = linkedSetOf<VirtualFile>()
         val dependencyVersions = linkedMapOf<VirtualFile, Long>()
-
-        fun visit(file: VirtualFile) {
-            if (!files.add(file)) return
+        val pending = ArrayDeque<VirtualFile>()
+        pending.add(root)
+        while (pending.isNotEmpty()) {
+            val file = pending.removeFirst()
+            if (!files.add(file)) continue
             val node = node(file, capturedGeneration)
             if (node == null) {
                 files.remove(file)
-                return
+                continue
             }
             dependencyVersions[file] = node.version
-            node.outgoing.forEach(::visit)
+            node.outgoing.asReversed().forEach(pending::addFirst)
         }
-
-        visit(root)
         if (!dependencyVersions.containsKey(root)) return null
 
         synchronized(lock) {
@@ -204,21 +227,24 @@ internal class CrystalRequireGraphService private constructor(
             discardInvalidNode(file, capturedGeneration)
             return null
         }
-        while (true) {
-            val input = collectNodeInput(file) ?: run {
+        return ReadAction.computeBlocking<Node?, RuntimeException> {
+            val psiFile = PsiManager.getInstance(project).findFile(file)
+            if (psiFile == null || !psiFile.isValid || !psiFile.isPhysical || !isUsableCrystalFile(file)) {
                 discardInvalidNode(file, capturedGeneration)
-                return null
+                return@computeBlocking null
             }
+            val directRequires = CrystalRequireCollector.collect(psiFile)
             synchronized(lock) {
                 if (generation != capturedGeneration) throw StaleGeneration
-                nodes[file]?.takeIf { it.fingerprint == input.directRequires.fingerprint }?.let { return it }
+                nodes[file]?.takeIf { it.fingerprint == directRequires.fingerprint }?.let {
+                    return@computeBlocking it
+                }
             }
 
-            val resolutions = input.directRequires.paths.map { pathResolver.resolve(file, it) }
-            if (file.modificationStamp != input.modificationStamp) continue
+            val resolutions = directRequires.paths.map { pathResolver.resolve(file, it) }
             val outgoing = resolutions.asSequence()
                 .flatMap { it.files.asSequence() }
-                .mapNotNull(::physicalOriginalFile)
+                .mapNotNull(::physicalOriginalFileInReadAction)
                 .distinct()
                 .toList()
             val watchedDirectories = resolutions.asSequence()
@@ -228,17 +254,12 @@ internal class CrystalRequireGraphService private constructor(
 
             synchronized(lock) {
                 if (generation != capturedGeneration) throw StaleGeneration
-                nodes[file]?.takeIf { it.fingerprint == input.directRequires.fingerprint }?.let { return it }
-                publishNode(file, input.directRequires.fingerprint, outgoing, watchedDirectories)
-                    .let { return it }
+                nodes[file]?.takeIf { it.fingerprint == directRequires.fingerprint }?.let {
+                    return@computeBlocking it
+                }
+                publishNode(file, directRequires.fingerprint, outgoing, watchedDirectories)
             }
         }
-    }
-
-    private fun collectNodeInput(file: VirtualFile): NodeInput? = ReadAction.computeBlocking<NodeInput?, RuntimeException> {
-        val psiFile = PsiManager.getInstance(project).findFile(file) ?: return@computeBlocking null
-        if (!psiFile.isValid || !psiFile.isPhysical) return@computeBlocking null
-        NodeInput(CrystalRequireCollector.collect(psiFile), file.modificationStamp)
     }
 
     private fun publishNode(
@@ -279,6 +300,12 @@ internal class CrystalRequireGraphService private constructor(
             if (!affected.add(current)) continue
             reverseEdges[current].orEmpty().forEach(pending::addLast)
         }
+        val foundationInvalidated = cachedPreludeFoundation?.closure?.dependencyVersions?.keys
+            ?.any(affected::contains) == true
+        if (foundationInvalidated) {
+            cachedPreludeFoundation = null
+            effectiveSnapshots.clear()
+        }
         affected.forEach {
             closures.remove(it)
             effectiveSnapshots.remove(it)
@@ -300,10 +327,14 @@ internal class CrystalRequireGraphService private constructor(
 
     private fun physicalOriginalFile(file: VirtualFile): VirtualFile? =
         ReadAction.computeBlocking<VirtualFile?, RuntimeException> {
-            val psiFile = PsiManager.getInstance(project).findFile(file) ?: return@computeBlocking null
-            if (!psiFile.isValid || !psiFile.isPhysical) return@computeBlocking null
-            psiFile.originalFile.virtualFile?.takeIf(::isUsableCrystalFile)
+            physicalOriginalFileInReadAction(file)
         }
+
+    private fun physicalOriginalFileInReadAction(file: VirtualFile): VirtualFile? {
+        val psiFile = PsiManager.getInstance(project).findFile(file) ?: return null
+        if (!psiFile.isValid || !psiFile.isPhysical) return null
+        return psiFile.originalFile.virtualFile?.takeIf(::isUsableCrystalFile)
+    }
 
     private fun isUsableCrystalFile(file: VirtualFile): Boolean =
         file.isValid && !file.isDirectory && file.extension == "cr"

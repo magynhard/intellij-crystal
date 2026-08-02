@@ -67,8 +67,11 @@ transitively depend on it. Closure recomputation is lazy. Unsaved PSI/document c
 so adding, changing, or removing a require statement affects completion before the document is
 saved.
 
-The prelude closure is computed once per SDK and source-root configuration and reused as the static
-foundation for every file. These events invalidate the complete path-resolution and graph cache:
+The prelude root is resolved once per SDK and source-root configuration. Its closure is reused as the
+static foundation for every file while its complete dependency-version map remains current. A
+changed or deleted prelude node, or a new outgoing edge anywhere in that closure, rebuilds the
+foundation before another effective snapshot is published. These events invalidate the complete
+path-resolution and graph cache:
 
 - Crystal SDK or Crystal path changes.
 - Source-root changes.
@@ -80,8 +83,14 @@ Required-file rename or movement invalidates affected path results. Wildcard dir
 the targeted ownership described above rather than globally invalidating unrelated graph nodes.
 
 The service publishes immutable snapshots for concurrent completion reads. Graph mutation and
-reverse-edge invalidation are serialized. No Crystal compiler process runs during completion; SDK
-and Crystal-path discovery reuse the existing project-scoped cache.
+reverse-edge invalidation are serialized. Node collection, resolution, and publication share one
+IntelliJ read action, preventing a concurrent require edit from interleaving a stale candidate, while
+the graph mutation lock protects only in-memory state. Closure traversal is iterative so arbitrarily
+deep chains and cycles do not consume the thread stack.
+
+No Crystal compiler process runs during completion. The graph reads only an already cached,
+project-scoped stdlib root and conservatively omits the prelude when no cache exists; SDK setup and
+explicit refresh actions remain responsible for discovery.
 
 Effective snapshots normalize the query and every resolved edge through the physical original PSI
 file's `VirtualFile`. Nonphysical or invalid query files produce an empty snapshot, and membership
