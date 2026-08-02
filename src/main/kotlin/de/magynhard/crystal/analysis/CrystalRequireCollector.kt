@@ -1,9 +1,11 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.psi.PsiFile
+import com.intellij.psi.tree.TokenSet
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.inspections.CrystalRequireContext
 import de.magynhard.crystal.psi.CrystalRequireStatement
+import de.magynhard.crystal.psi.CrystalTypes
 
 internal data class CrystalDirectRequires(
     val paths: List<String>,
@@ -20,6 +22,10 @@ internal object CrystalRequireCollector {
 
                 val text = stringExpression.text
                 if (text.length < 2 || text.first() != '"' || text.last() != '"') return@mapNotNull null
+                val quoteCount = stringExpression.node
+                    .getChildren(TokenSet.create(CrystalTypes.STRING_LITERAL))
+                    .count { it.text == "\"" }
+                if (quoteCount != 2) return@mapNotNull null
                 text.substring(1, text.lastIndex)
             }
         val fingerprint = paths.joinToString("|") { "${it.length}:$it" }

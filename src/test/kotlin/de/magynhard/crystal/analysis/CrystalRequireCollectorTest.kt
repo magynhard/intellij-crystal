@@ -39,6 +39,24 @@ class CrystalRequireCollectorTest : BasePlatformTestCase() {
         assertTrue(CrystalRequireCollector.collect(file).paths.isEmpty())
     }
 
+    fun testExcludesCompoundDoubleQuotedRequireExpressions() {
+        val file = configure(
+            "require \"foo\" \"bar\"\n" +
+                "require \"baz\"\"qux\"",
+        )
+
+        assertTrue(CrystalRequireCollector.collect(file).paths.isEmpty())
+    }
+
+    fun testCollectsSingleDoubleQuotedLiteralWithEscapedContent() {
+        val file = configure("require \"foo\\\"bar\\\\baz\"")
+
+        assertEquals(
+            listOf("foo\\\"bar\\\\baz"),
+            CrystalRequireCollector.collect(file).paths,
+        )
+    }
+
     fun testFingerprintIgnoresMethodBodyEdits() {
         val original = fingerprint("require \"json\"\ndef load\n1\nend")
         val edited = fingerprint("require \"json\"\ndef load\nputs \"changed\"\nend")
