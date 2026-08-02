@@ -83,6 +83,12 @@ The service publishes immutable snapshots for concurrent completion reads. Graph
 reverse-edge invalidation are serialized. No Crystal compiler process runs during completion; SDK
 and Crystal-path discovery reuse the existing project-scoped cache.
 
+Effective snapshots normalize the query and every resolved edge through the physical original PSI
+file's `VirtualFile`. Nonphysical or invalid query files produce an empty snapshot, and membership
+checks reject unrelated nonphysical PSI copies. A stable direct-require fingerprint preserves the
+existing node, closure, and effective snapshot identity; a changed fingerprint publishes a new node
+version and lazily rebuilds only cached closures rooted at that node or its reverse dependents.
+
 ## Completion Integration
 
 The graph filters indexed symbols; it does not replace StubIndex as their source.
