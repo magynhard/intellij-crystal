@@ -86,8 +86,13 @@ internal class CrystalRequireGraphService private constructor(
     private var closureBuilds = 0L
     private var fullInvalidations = 0L
 
-    fun effectiveSources(context: PsiElement): CrystalEffectiveSourceSet {
-        val root = physicalOriginalFile(context) ?: return EMPTY_SOURCES
+    fun effectiveSources(context: PsiElement): CrystalEffectiveSourceSet =
+        ReadAction.computeBlocking<CrystalEffectiveSourceSet, RuntimeException> {
+            val root = physicalOriginalFileInReadAction(context) ?: return@computeBlocking EMPTY_SOURCES
+            effectiveSources(root)
+        }
+
+    private fun effectiveSources(root: VirtualFile): CrystalEffectiveSourceSet {
         while (true) {
             val capturedGeneration = synchronized(lock) { generation }
             try {
@@ -167,6 +172,7 @@ internal class CrystalRequireGraphService private constructor(
                 val prelude = pathResolver.resolvePrelude()?.let(::physicalOriginalFile)
                 synchronized(lock) {
                     if (generation != capturedGeneration) throw StaleGeneration
+                    if (prelude == null && preludeBuild === build) preludeBuild = null
                 }
                 build.result.complete(prelude)
             } catch (error: Throwable) {
@@ -317,12 +323,10 @@ internal class CrystalRequireGraphService private constructor(
 
     private fun closureIsCurrent(closure: Closure): Boolean = versionsAreCurrent(closure.dependencyVersions)
 
-    private fun physicalOriginalFile(context: PsiElement): VirtualFile? {
-        return ReadAction.computeBlocking<VirtualFile?, RuntimeException> {
-            val file: PsiFile = context.containingFile?.originalFile ?: return@computeBlocking null
-            if (!file.isPhysical) return@computeBlocking null
-            file.virtualFile?.takeIf(::isUsableCrystalFile)
-        }
+    private fun physicalOriginalFileInReadAction(context: PsiElement): VirtualFile? {
+        val file: PsiFile = context.containingFile?.originalFile ?: return null
+        if (!file.isPhysical) return null
+        return file.virtualFile?.takeIf(::isUsableCrystalFile)
     }
 
     private fun physicalOriginalFile(file: VirtualFile): VirtualFile? =

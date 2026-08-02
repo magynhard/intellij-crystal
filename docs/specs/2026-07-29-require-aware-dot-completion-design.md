@@ -83,14 +83,17 @@ Required-file rename or movement invalidates affected path results. Wildcard dir
 the targeted ownership described above rather than globally invalidating unrelated graph nodes.
 
 The service publishes immutable snapshots for concurrent completion reads. Graph mutation and
-reverse-edge invalidation are serialized. Node collection, resolution, and publication share one
-IntelliJ read action, preventing a concurrent require edit from interleaving a stale candidate, while
-the graph mutation lock protects only in-memory state. Closure traversal is iterative so arbitrarily
-deep chains and cycles do not consume the thread stack.
+reverse-edge invalidation are serialized. The complete prelude and root traversal, including node
+collection, resolution, and publication, shares one IntelliJ read action. An atomic write therefore
+cannot produce one effective snapshot containing nodes from states on opposite sides of that write.
+The graph mutation lock protects only already materialized in-memory state. Closure traversal is
+iterative so arbitrarily deep chains and cycles do not consume the thread stack.
 
 No Crystal compiler process runs during completion. The graph reads only an already cached,
 project-scoped stdlib root and conservatively omits the prelude when no cache exists; SDK setup and
-explicit refresh actions remain responsible for discovery.
+explicit refresh actions remain responsible for discovery. A missing cached root is not retained as
+a successful generation result, so a root populated later during project startup becomes visible on
+the next query without requiring graph invalidation.
 
 Effective snapshots normalize the query and every resolved edge through the physical original PSI
 file's `VirtualFile`. Nonphysical or invalid query files produce an empty snapshot, and membership

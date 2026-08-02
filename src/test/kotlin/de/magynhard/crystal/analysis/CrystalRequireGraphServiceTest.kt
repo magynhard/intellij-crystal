@@ -2,6 +2,7 @@ package de.magynhard.crystal.analysis
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
@@ -74,6 +75,44 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
             assertTrue(sources.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
             assertEquals("Completion must reuse the cached root", 1L, Files.size(marker))
+        } finally {
+            settings.state.crystalPath = originalCrystalPath
+            CrystalStdlibResolver.clearCachedStdlibPath(project)
+            File(tempDirectory.toString()).deleteRecursively()
+        }
+    }
+
+    fun testProductionServiceObservesStdlibCachedAfterColdFirstQuery() {
+        files("src/main.cr" to "")
+        val tempDirectory = Files.createTempDirectory("crystal-require-graph-startup-order")
+        val marker = tempDirectory.resolve("compiler-invocations")
+        val stdlib = Files.createDirectory(tempDirectory.resolve("stdlib"))
+        Files.writeString(stdlib.resolve("prelude.cr"), "")
+        val executable = Files.writeString(
+            tempDirectory.resolve("fake-crystal"),
+            "#!/bin/sh\nprintf x >> \"$marker\"\necho \"$stdlib\"\n",
+        )
+        assertTrue(executable.toFile().setExecutable(true))
+        val settings = CrystalSettings.getInstance(project)
+        val originalCrystalPath = settings.state.crystalPath
+        try {
+            settings.state.crystalPath = executable.toString()
+            CrystalStdlibResolver.clearCachedStdlibPath(project)
+            val service = CrystalRequireGraphService(project)
+
+            assertEquals(
+                setOf(vf("src/main.cr")),
+                service.effectiveSources(elementIn("src/main.cr")).files,
+            )
+            assertFalse(Files.exists(marker))
+
+            val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
+            assertEquals(1L, Files.size(marker))
+            val updated = service.effectiveSources(elementIn("src/main.cr"))
+
+            assertTrue(updated.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
+            assertEquals("The graph query must not launch discovery", 1L, Files.size(marker))
+            assertEquals(0, service.cacheStats().fullInvalidations)
         } finally {
             settings.state.crystalPath = originalCrystalPath
             CrystalStdlibResolver.clearCachedStdlibPath(project)
@@ -258,7 +297,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             },
         )
         val context = elementIn("src/main.cr")
-        val document = requireNotNull(PsiDocumentManager.getInstance(project).getDocument(psiFile("src/main.cr")))
+        val document = document("src/main.cr")
         val initialSources = CompletableFuture.supplyAsync(
             { service.effectiveSources(context) },
             AppExecutorUtil.getAppExecutorService(),
@@ -296,6 +335,76 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         val updated = service.effectiveSources(elementIn("src/main.cr"))
         assertFalse(updated.files.contains(vf("stdlib/old_dependency.cr")))
         assertTrue(updated.files.contains(vf("stdlib/new_dependency.cr")))
+    }
+
+    fun testEffectiveSnapshotCannotMixNodesAcrossAtomicWrite() {
+        files(
+            "stdlib/prelude.cr" to "",
+            "stdlib/b.cr" to "require \"./old_b\"",
+            "stdlib/old_b.cr" to "",
+            "stdlib/new_b.cr" to "",
+            "src/main.cr" to "require \"./a\"",
+            "src/a.cr" to "require \"./old_a\"\nrequire \"b\"",
+            "src/old_a.cr" to "",
+            "src/new_a.cr" to "",
+        )
+        val resolverEntered = CountDownLatch(1)
+        val releaseResolver = CountDownLatch(1)
+        val stdlibLookups = AtomicInteger()
+        val service = CrystalRequireGraphService(
+            project,
+            CrystalRequirePathResolver(project) {
+                if (stdlibLookups.incrementAndGet() == 2) {
+                    resolverEntered.countDown()
+                    assertTrue(releaseResolver.await(10, TimeUnit.SECONDS))
+                }
+                directory("stdlib")
+            },
+        )
+        val context = elementIn("src/main.cr")
+        val aDocument = document("src/a.cr")
+        val bDocument = document("stdlib/b.cr")
+        val initialSources = CompletableFuture.supplyAsync(
+            { service.effectiveSources(context) },
+            AppExecutorUtil.getAppExecutorService(),
+        )
+        assertTrue(resolverEntered.await(10, TimeUnit.SECONDS))
+        val writeStarted = CountDownLatch(1)
+        val writeFinished = CountDownLatch(1)
+        val writer = CompletableFuture<Void>()
+        ApplicationManager.getApplication().invokeLater {
+            try {
+                writeStarted.countDown()
+                ApplicationManager.getApplication().runWriteAction {
+                    aDocument.setText("require \"./new_a\"\nrequire \"b\"")
+                    bDocument.setText("require \"./new_b\"")
+                    PsiDocumentManager.getInstance(project).commitDocument(aDocument)
+                    PsiDocumentManager.getInstance(project).commitDocument(bDocument)
+                }
+                writer.complete(null)
+            } catch (error: Throwable) {
+                writer.completeExceptionally(error)
+            } finally {
+                writeFinished.countDown()
+            }
+        }
+
+        assertTrue(writeStarted.await(10, TimeUnit.SECONDS))
+        assertFalse(writeFinished.await(250, TimeUnit.MILLISECONDS))
+        releaseResolver.countDown()
+        val initial = initialSources.get(10, TimeUnit.SECONDS)
+        writer.get(10, TimeUnit.SECONDS)
+
+        assertTrue(initial.files.contains(vf("src/old_a.cr")))
+        assertTrue(initial.files.contains(vf("stdlib/old_b.cr")))
+        assertFalse(initial.files.contains(vf("src/new_a.cr")))
+        assertFalse(initial.files.contains(vf("stdlib/new_b.cr")))
+
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertFalse(updated.files.contains(vf("src/old_a.cr")))
+        assertFalse(updated.files.contains(vf("stdlib/old_b.cr")))
+        assertTrue(updated.files.contains(vf("src/new_a.cr")))
+        assertTrue(updated.files.contains(vf("stdlib/new_b.cr")))
     }
 
     fun testMissingPreludeAndUnresolvedEdgesProduceConservativeSet() {
@@ -434,9 +543,12 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
     private fun directory(path: String): VirtualFile =
         requireNotNull(myFixture.tempDirFixture.getFile(path))
 
+    private fun document(path: String) = ReadAction.computeBlocking<Document, RuntimeException> {
+        requireNotNull(PsiDocumentManager.getInstance(project).getDocument(psiFile(path)))
+    }
+
     private fun replaceText(path: String, text: String) {
-        val file = psiFile(path)
-        val document = requireNotNull(PsiDocumentManager.getInstance(project).getDocument(file))
+        val document = document(path)
         ApplicationManager.getApplication().invokeAndWait {
             ApplicationManager.getApplication().runWriteAction { document.setText(text) }
             PsiDocumentManager.getInstance(project).commitDocument(document)
