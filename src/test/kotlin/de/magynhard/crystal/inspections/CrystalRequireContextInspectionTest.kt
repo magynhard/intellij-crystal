@@ -1,6 +1,8 @@
 package de.magynhard.crystal.inspections
 
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.psi.CrystalRequireStatement
 
 class CrystalRequireContextInspectionTest : BasePlatformTestCase() {
 
@@ -21,6 +23,17 @@ class CrystalRequireContextInspectionTest : BasePlatformTestCase() {
             {% end %}
         """.trimIndent())
         myFixture.checkHighlighting()
+    }
+
+    fun testSharedContextClassifiesMacroControlledTopLevelRequireAsValid() {
+        val file = myFixture.configureByText("test.cr", """
+            {% if flag?(:win32) %}
+              require "./windows"
+            {% end %}
+        """.trimIndent())
+        val statement = PsiTreeUtil.findChildOfType(file, CrystalRequireStatement::class.java)
+
+        assertTrue(CrystalRequireContext.isValidTopLevel(requireNotNull(statement)))
     }
 
     fun testRequireInRuntimeIfIsDynamic() {

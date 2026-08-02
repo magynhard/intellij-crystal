@@ -114,6 +114,12 @@ Only the `require` keyword is highlighted. The path remains independently naviga
 | Inside macro interpolation or a macro-control directive | `Can't execute Require in a macro` |
 | Runtime control flow, blocks, assignments, arguments, conditions, and other nested expressions | `Can't require dynamically` |
 
+## Static Dependency Collection
+
+Require-aware analysis collects direct dependency paths from complete, interpolation-free double-quoted strings in valid file-scope `CrystalRequireStatement` nodes. This includes requires conditionally surrounded by top-level macro-control directives.
+
+Collection preserves source order. Requires rejected by the context inspection, requires executed inside macro directives, interpolated paths, and incomplete strings do not become dependency edges. An ordered length-prefixed fingerprint changes when a valid path is added, removed, reordered, or edited, but remains stable when unrelated method bodies change.
+
 ## Path Completion
 
 Path completion is active only when the caret is inside the string expression of a `CrystalRequireStatement`. Other string literals retain normal string-completion suppression.

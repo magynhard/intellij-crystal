@@ -23,7 +23,7 @@ class CrystalRequireContextInspection : LocalInspectionTool() {
             override fun visitElement(element: PsiElement) {
                 when (element) {
                     is CrystalRequireStatement -> {
-                        val message = errorMessage(element) ?: return
+                        val message = CrystalRequireContext.errorMessage(element) ?: return
                         val keyword = element.node.findChildByType(CrystalTypes.REQUIRE)?.psi ?: element
                         holder.registerProblem(keyword, message, ProblemHighlightType.GENERIC_ERROR)
                     }
@@ -32,7 +32,28 @@ class CrystalRequireContextInspection : LocalInspectionTool() {
             }
         }
 
-    private fun errorMessage(statement: CrystalRequireStatement): String? {
+    private fun checkMacroControl(control: CrystalMacroControl, holder: ProblemsHolder) {
+        val requireTokens = PsiTreeUtil.collectElements(control) {
+            it.node.elementType == CrystalTypes.REQUIRE
+        }
+        for (keyword in requireTokens) {
+            var previous = PsiTreeUtil.prevLeaf(keyword)
+            while (previous != null && previous.text.isBlank()) {
+                previous = PsiTreeUtil.prevLeaf(previous)
+            }
+            if (previous?.node?.elementType == CrystalTypes.DOT) continue
+
+            holder.registerProblem(
+                keyword,
+                "Can't execute Require in a macro",
+                ProblemHighlightType.GENERIC_ERROR,
+            )
+        }
+    }
+}
+
+internal object CrystalRequireContext {
+    fun errorMessage(statement: CrystalRequireStatement): String? {
         if (statement.stringExpression == null) return null
 
         if (PsiTreeUtil.getParentOfType(statement, CrystalMethodDefinition::class.java) != null) {
@@ -56,22 +77,5 @@ class CrystalRequireContextInspection : LocalInspectionTool() {
         return "Can't require dynamically"
     }
 
-    private fun checkMacroControl(control: CrystalMacroControl, holder: ProblemsHolder) {
-        val requireTokens = PsiTreeUtil.collectElements(control) {
-            it.node.elementType == CrystalTypes.REQUIRE
-        }
-        for (keyword in requireTokens) {
-            var previous = PsiTreeUtil.prevLeaf(keyword)
-            while (previous != null && previous.text.isBlank()) {
-                previous = PsiTreeUtil.prevLeaf(previous)
-            }
-            if (previous?.node?.elementType == CrystalTypes.DOT) continue
-
-            holder.registerProblem(
-                keyword,
-                "Can't execute Require in a macro",
-                ProblemHighlightType.GENERIC_ERROR,
-            )
-        }
-    }
+    fun isValidTopLevel(statement: CrystalRequireStatement): Boolean = errorMessage(statement) == null
 }
