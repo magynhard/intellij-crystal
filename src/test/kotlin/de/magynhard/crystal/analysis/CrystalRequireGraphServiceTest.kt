@@ -2,8 +2,11 @@ package de.magynhard.crystal.analysis
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.util.ProgressIndicatorBase
 import com.intellij.openapi.roots.ModuleRootListener
 import com.intellij.openapi.roots.impl.ModuleRootEventImpl
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -11,32 +14,51 @@ import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileCopyEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent
 import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
+import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.PsiManager
+import com.intellij.psi.impl.PsiTreeChangeEventImpl
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.concurrency.AppExecutorUtil
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.psi.CrystalRequireStatement
 import de.magynhard.crystal.sdk.CrystalSettings
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
+    private val listenerDisposables = mutableListOf<Disposable>()
+    private val fixtureFiles = mutableMapOf<String, VirtualFile>()
+
     override fun runInDispatchThread(): Boolean = false
 
+    override fun tearDown() {
+        try {
+            listenerDisposables.forEach(Disposer::dispose)
+            listenerDisposables.clear()
+            fixtureFiles.clear()
+        } finally {
+            super.tearDown()
+        }
+    }
+
     fun testProductionServiceDoesNotDiscoverStdlibDuringCompletion() {
-        files("src/main.cr" to "")
+        files("task4_no_discovery/main.cr" to "")
         val tempDirectory = Files.createTempDirectory("crystal-require-graph")
         val marker = tempDirectory.resolve("compiler-invoked")
         val executable = Files.writeString(
@@ -50,9 +72,9 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             settings.state.crystalPath = executable.toString()
             CrystalStdlibResolver.clearCachedStdlibPath(project)
 
-            val sources = CrystalRequireGraphService(project).effectiveSources(elementIn("src/main.cr"))
+            val sources = productionService().effectiveSources(elementIn("task4_no_discovery/main.cr"))
 
-            assertEquals(setOf(vf("src/main.cr")), sources.files)
+            assertEquals(setOf(vf("task4_no_discovery/main.cr")), sources.files)
             assertFalse("Completion must not launch Crystal stdlib discovery", Files.exists(marker))
         } finally {
             settings.state.crystalPath = originalCrystalPath
@@ -62,7 +84,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
     }
 
     fun testProductionServiceReusesPreviouslyDiscoveredStdlib() {
-        files("src/main.cr" to "")
+        files("task4_cached_stdlib/main.cr" to "")
         val tempDirectory = Files.createTempDirectory("crystal-require-graph-cached")
         val marker = tempDirectory.resolve("compiler-invocations")
         val stdlib = Files.createDirectory(tempDirectory.resolve("stdlib"))
@@ -80,7 +102,8 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
             assertEquals(1L, Files.size(marker))
 
-            val sources = CrystalRequireGraphService(project).effectiveSources(elementIn("src/main.cr"))
+            val sources = productionService(clearStdlibCache = false)
+                .effectiveSources(elementIn("task4_cached_stdlib/main.cr"))
 
             assertTrue(sources.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
             assertEquals("Completion must reuse the cached root", 1L, Files.size(marker))
@@ -92,7 +115,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
     }
 
     fun testProductionServiceObservesStdlibCachedAfterColdFirstQuery() {
-        files("src/main.cr" to "")
+        files("task4_late_stdlib/main.cr" to "")
         val tempDirectory = Files.createTempDirectory("crystal-require-graph-startup-order")
         val marker = tempDirectory.resolve("compiler-invocations")
         val stdlib = Files.createDirectory(tempDirectory.resolve("stdlib"))
@@ -107,17 +130,17 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         try {
             settings.state.crystalPath = executable.toString()
             CrystalStdlibResolver.clearCachedStdlibPath(project)
-            val service = CrystalRequireGraphService(project)
+            val service = productionService()
 
             assertEquals(
-                setOf(vf("src/main.cr")),
-                service.effectiveSources(elementIn("src/main.cr")).files,
+                setOf(vf("task4_late_stdlib/main.cr")),
+                service.effectiveSources(elementIn("task4_late_stdlib/main.cr")).files,
             )
             assertFalse(Files.exists(marker))
 
             val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
             assertEquals(1L, Files.size(marker))
-            val updated = service.effectiveSources(elementIn("src/main.cr"))
+            val updated = service.effectiveSources(elementIn("task4_late_stdlib/main.cr"))
 
             assertTrue(updated.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
             assertEquals("The graph query must not launch discovery", 1L, Files.size(marker))
@@ -260,15 +283,15 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
     fun testUnsavedTopLevelRequireEditInvalidatesDependentClosure() {
         files(
-            "src/main.cr" to "require \"./old_feature\"",
-            "src/old_feature.cr" to "",
-            "src/new_feature.cr" to "",
+            "task4_unsaved_require/main.cr" to "require \"./old_feature\"",
+            "task4_unsaved_require/old_feature.cr" to "",
+            "task4_unsaved_require/new_feature.cr" to "",
         )
-        myFixture.configureFromTempProjectFile("src/main.cr")
+        myFixture.configureFromTempProjectFile("task4_unsaved_require/main.cr")
         val service = productionService()
         val initial = service.effectiveSources(myFixture.file)
         val initialStats = service.cacheStats()
-        assertTrue(initial.files.contains(vf("src/old_feature.cr")))
+        assertTrue(initial.files.contains(vf("task4_unsaved_require/old_feature.cr")))
 
         replaceEditorText("require \"./new_feature\"")
 
@@ -276,19 +299,19 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertEquals(
             "The committed document edit must remain unsaved for this regression",
             "require \"./old_feature\"",
-            String(vf("src/main.cr").contentsToByteArray()),
+            String(vf("task4_unsaved_require/main.cr").contentsToByteArray()),
         )
         val updated = service.effectiveSources(myFixture.file)
-        assertFalse(updated.files.contains(vf("src/old_feature.cr")))
-        assertTrue(updated.files.contains(vf("src/new_feature.cr")))
+        assertFalse(updated.files.contains(vf("task4_unsaved_require/old_feature.cr")))
+        assertTrue(updated.files.contains(vf("task4_unsaved_require/new_feature.cr")))
     }
 
     fun testUnsavedMethodBodyEditRetainsRequireCaches() {
         files(
-            "src/main.cr" to "require \"./feature\"\ndef value\n1\nend",
-            "src/feature.cr" to "",
+            "task4_unsaved_method/main.cr" to "require \"./feature\"\ndef value\n1\nend",
+            "task4_unsaved_method/feature.cr" to "",
         )
-        myFixture.configureFromTempProjectFile("src/main.cr")
+        myFixture.configureFromTempProjectFile("task4_unsaved_method/main.cr")
         val service = productionService()
         val initial = service.effectiveSources(myFixture.file)
         val initialStats = service.cacheStats()
@@ -328,103 +351,107 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
     fun testRequiredFileRequireEditInvalidatesOnlyTransitiveDependents() {
         files(
-            "src/main.cr" to "require \"./feature\"",
-            "src/feature.cr" to "require \"./old_extension\"",
-            "src/old_extension.cr" to "",
-            "src/new_extension.cr" to "",
-            "src/unrelated.cr" to "require \"./stable\"",
-            "src/stable.cr" to "",
+            "task4_required_edit/main.cr" to "require \"./feature\"",
+            "task4_required_edit/feature.cr" to "require \"./old_extension\"",
+            "task4_required_edit/old_extension.cr" to "",
+            "task4_required_edit/new_extension.cr" to "",
+            "task4_required_edit/unrelated.cr" to "require \"./stable\"",
+            "task4_required_edit/stable.cr" to "",
         )
         val service = productionService()
-        val main = service.effectiveSources(elementIn("src/main.cr"))
-        val feature = service.effectiveSources(elementIn("src/feature.cr"))
-        val unrelated = service.effectiveSources(elementIn("src/unrelated.cr"))
+        val main = service.effectiveSources(elementIn("task4_required_edit/main.cr"))
+        val feature = service.effectiveSources(elementIn("task4_required_edit/feature.cr"))
+        val unrelated = service.effectiveSources(elementIn("task4_required_edit/unrelated.cr"))
         val before = service.cacheStats()
 
-        replaceText("src/feature.cr", "require \"./new_extension\"")
+        replaceText("task4_required_edit/feature.cr", "require \"./new_extension\"")
 
         assertEquals(before.targetedInvalidations + 1, service.cacheStats().targetedInvalidations)
-        val updatedMain = service.effectiveSources(elementIn("src/main.cr"))
+        val updatedMain = service.effectiveSources(elementIn("task4_required_edit/main.cr"))
         assertNotSame(main, updatedMain)
-        assertFalse(updatedMain.files.contains(vf("src/old_extension.cr")))
-        assertTrue(updatedMain.files.contains(vf("src/new_extension.cr")))
-        assertNotSame(feature, service.effectiveSources(elementIn("src/feature.cr")))
-        assertSame(unrelated, service.effectiveSources(elementIn("src/unrelated.cr")))
+        assertFalse(updatedMain.files.contains(vf("task4_required_edit/old_extension.cr")))
+        assertTrue(updatedMain.files.contains(vf("task4_required_edit/new_extension.cr")))
+        assertNotSame(feature, service.effectiveSources(elementIn("task4_required_edit/feature.cr")))
+        assertSame(unrelated, service.effectiveSources(elementIn("task4_required_edit/unrelated.cr")))
     }
 
     fun testSavedOrdinaryRequiredFileEditRetainsCaches() {
         files(
-            "src/main.cr" to "require \"./feature\"",
-            "src/feature.cr" to "def value\n1\nend",
+            "task4_saved_method/main.cr" to "require \"./feature\"",
+            "task4_saved_method/feature.cr" to "def value\n1\nend",
         )
         val service = productionService()
-        val main = service.effectiveSources(elementIn("src/main.cr"))
+        val main = service.effectiveSources(elementIn("task4_saved_method/main.cr"))
         val before = service.cacheStats()
 
-        replaceText("src/feature.cr", "def value\n2\nend")
-        service.handleVfsEvents(listOf(VFileContentChangeEvent(this, vf("src/feature.cr"), 1, 2)))
+        replaceText("task4_saved_method/feature.cr", "def value\n2\nend")
+        service.handleVfsEvents(
+            listOf(VFileContentChangeEvent(this, vf("task4_saved_method/feature.cr"), 1, 2)),
+        )
 
         assertEquals(before, service.cacheStats())
-        assertSame(main, service.effectiveSources(elementIn("src/main.cr")))
+        assertSame(main, service.effectiveSources(elementIn("task4_saved_method/main.cr")))
     }
 
     fun testRequiredFileRenameInvalidatesOnlyDependentClosure() {
         files(
-            "src/main.cr" to "require \"./feature\"",
-            "src/feature.cr" to "",
-            "src/unrelated.cr" to "",
+            "task4_required_rename/main.cr" to "require \"./feature\"",
+            "task4_required_rename/feature.cr" to "",
+            "task4_required_rename/unrelated.cr" to "",
         )
         val service = productionService()
-        val main = service.effectiveSources(elementIn("src/main.cr"))
-        val unrelated = service.effectiveSources(elementIn("src/unrelated.cr"))
-        val feature = vf("src/feature.cr")
+        val main = service.effectiveSources(elementIn("task4_required_rename/main.cr"))
+        val unrelated = service.effectiveSources(elementIn("task4_required_rename/unrelated.cr"))
+        val feature = vf("task4_required_rename/feature.cr")
 
         ApplicationManager.getApplication().runWriteAction { feature.rename(this, "renamed.cr") }
 
-        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        val updated = service.effectiveSources(elementIn("task4_required_rename/main.cr"))
         assertNotSame(main, updated)
         assertFalse(updated.files.contains(feature))
-        assertSame(unrelated, service.effectiveSources(elementIn("src/unrelated.cr")))
+        assertSame(unrelated, service.effectiveSources(elementIn("task4_required_rename/unrelated.cr")))
     }
 
     fun testRequiredFileDeleteInvalidatesDependentClosure() {
         files(
-            "src/main.cr" to "require \"./feature\"",
-            "src/feature.cr" to "",
+            "task4_required_delete/main.cr" to "require \"./feature\"",
+            "task4_required_delete/feature.cr" to "",
         )
         val service = productionService()
-        val feature = vf("src/feature.cr")
-        assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(feature))
+        val feature = vf("task4_required_delete/feature.cr")
+        assertTrue(service.effectiveSources(elementIn("task4_required_delete/main.cr")).files.contains(feature))
 
         ApplicationManager.getApplication().runWriteAction { feature.delete(this) }
 
-        assertFalse(service.effectiveSources(elementIn("src/main.cr")).files.contains(feature))
+        assertFalse(service.effectiveSources(elementIn("task4_required_delete/main.cr")).files.contains(feature))
     }
 
     fun testRequiredFileMoveInvalidatesDependentClosure() {
         files(
-            "src/main.cr" to "require \"./feature\"",
-            "src/feature.cr" to "",
-            "archive/keep.txt" to "",
+            "task4_required_move/main.cr" to "require \"./feature\"",
+            "task4_required_move/feature.cr" to "",
+            "task4_required_move/archive/keep.txt" to "",
         )
         val service = productionService()
-        val feature = vf("src/feature.cr")
-        assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(feature))
+        val feature = vf("task4_required_move/feature.cr")
+        assertTrue(service.effectiveSources(elementIn("task4_required_move/main.cr")).files.contains(feature))
 
-        ApplicationManager.getApplication().runWriteAction { feature.move(this, directory("archive")) }
+        ApplicationManager.getApplication().runWriteAction {
+            feature.move(this, directory("task4_required_move/archive"))
+        }
 
-        assertFalse(service.effectiveSources(elementIn("src/main.cr")).files.contains(feature))
+        assertFalse(service.effectiveSources(elementIn("task4_required_move/main.cr")).files.contains(feature))
     }
 
     fun testShardManifestAndLockChangesFullyInvalidateLazily() {
         removeProjectPath("shard.yml")
         removeProjectPath("shard.lock")
-        files("src/main.cr" to "")
+        files("task4_shard_metadata/main.cr" to "")
         val shardYaml = projectFile("shard.yml")
         val shardLock = projectFile("shard.lock")
         try {
             val service = productionService()
-            service.effectiveSources(elementIn("src/main.cr"))
+            service.effectiveSources(elementIn("task4_shard_metadata/main.cr"))
             var before = service.cacheStats()
 
             ApplicationManager.getApplication().runWriteAction { VfsUtil.saveText(shardYaml, "name: changed") }
@@ -433,7 +460,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             assertEquals(before.fullInvalidations + 1, invalidated.fullInvalidations)
             assertEquals(before.nodeBuilds, invalidated.nodeBuilds)
             assertEquals(before.closureBuilds, invalidated.closureBuilds)
-            service.effectiveSources(elementIn("src/main.cr"))
+            service.effectiveSources(elementIn("task4_shard_metadata/main.cr"))
             before = service.cacheStats()
 
             ApplicationManager.getApplication().runWriteAction { VfsUtil.saveText(shardLock, "version: 2") }
@@ -449,9 +476,9 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
     }
 
     fun testProjectRootChangeFullyInvalidatesLazily() {
-        files("src/main.cr" to "")
+        files("task4_root_change/main.cr" to "")
         val service = productionService()
-        service.effectiveSources(elementIn("src/main.cr"))
+        service.effectiveSources(elementIn("task4_root_change/main.cr"))
         val before = service.cacheStats()
 
         val event = ModuleRootEventImpl(project, false)
@@ -464,7 +491,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertEquals(before.fullInvalidations + 1, invalidated.fullInvalidations)
         assertEquals(before.nodeBuilds, invalidated.nodeBuilds)
         assertEquals(before.closureBuilds, invalidated.closureBuilds)
-        service.effectiveSources(elementIn("src/main.cr"))
+        service.effectiveSources(elementIn("task4_root_change/main.cr"))
         assertTrue(service.cacheStats().nodeBuilds > invalidated.nodeBuilds)
     }
 
@@ -503,29 +530,29 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
     fun testLocalWildcardCreateDeleteRenameAndMoveInvalidateOnlyOwningClosure() {
         files(
-            "src/main.cr" to "require \"./models/*\"",
-            "src/models/initial.cr" to "",
-            "src/archive/keep.txt" to "",
-            "src/unrelated.cr" to "require \"./other/*\"",
-            "src/other/stable.cr" to "",
+            "task4_local/main.cr" to "require \"./models/*\"",
+            "task4_local/models/initial.cr" to "",
+            "task4_local/archive/keep.txt" to "",
+            "task4_local/unrelated.cr" to "require \"./other/*\"",
+            "task4_local/other/stable.cr" to "",
         )
         val service = productionService()
 
         exerciseWildcardLifecycle(
             service,
-            "src/main.cr",
-            "src/models",
-            "src/archive",
+            "task4_local/main.cr",
+            "task4_local/models",
+            "task4_local/archive",
             manualEvents = false,
-            unrelatedPath = "src/unrelated.cr",
+            unrelatedPath = "task4_local/unrelated.cr",
         )
     }
 
     fun testShardWildcardCreateDeleteRenameAndMoveInvalidateOnlyOwningClosure() {
         files(
-            "src/main.cr" to "require \"task4_shard/src/extensions/**\"",
-            "src/unrelated.cr" to "require \"./other/*\"",
-            "src/other/stable.cr" to "",
+            "task4_shard_context/main.cr" to "require \"task4_shard/src/extensions/**\"",
+            "task4_shard_context/unrelated.cr" to "require \"./other/*\"",
+            "task4_shard_context/other/stable.cr" to "",
         )
         removeProjectPath("lib/task4_shard")
         try {
@@ -535,11 +562,11 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
             exerciseWildcardLifecycle(
                 service,
-                "src/main.cr",
+                "task4_shard_context/main.cr",
                 "lib/task4_shard/src/extensions",
                 "lib/task4_shard/src/archive",
                 manualEvents = false,
-                unrelatedPath = "src/unrelated.cr",
+                unrelatedPath = "task4_shard_context/unrelated.cr",
                 projectBaseTarget = true,
             )
         } finally {
@@ -552,33 +579,515 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             "stdlib/prelude.cr" to "",
             "stdlib/extensions/initial.cr" to "",
             "stdlib/archive/keep.txt" to "",
-            "src/main.cr" to "require \"extensions/**\"",
-            "src/unrelated.cr" to "require \"./other/*\"",
-            "src/other/stable.cr" to "",
+            "task4_stdlib_context/main.cr" to "require \"extensions/**\"",
+            "task4_stdlib_context/unrelated.cr" to "require \"./other/*\"",
+            "task4_stdlib_context/other/stable.cr" to "",
         )
         val service = service()
 
         exerciseWildcardLifecycle(
             service,
-            "src/main.cr",
+            "task4_stdlib_context/main.cr",
             "stdlib/extensions",
             "stdlib/archive",
             manualEvents = true,
-            unrelatedPath = "src/unrelated.cr",
+            unrelatedPath = "task4_stdlib_context/unrelated.cr",
         )
     }
 
     fun testMissingWildcardDirectoryWatchesNearestExistingParent() {
         files(
-            "src/main.cr" to "require \"./models/*\"",
-            "src/keep.txt" to "",
+            "task4_missing_watch/main.cr" to "require \"./models/*\"",
+            "task4_missing_watch/keep.txt" to "",
         )
         val service = productionService()
-        assertFalse(service.effectiveSources(elementIn("src/main.cr")).files.any { it.name == "created.cr" })
+        assertFalse(
+            service.effectiveSources(elementIn("task4_missing_watch/main.cr")).files.any { it.name == "created.cr" },
+        )
 
-        myFixture.addFileToProject("src/models/created.cr", "")
+        myFixture.addFileToProject("task4_missing_watch/models/created.cr", "")
 
-        assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(vf("src/models/created.cr")))
+        assertTrue(
+            service.effectiveSources(elementIn("task4_missing_watch/main.cr")).files
+                .contains(vf("task4_missing_watch/models/created.cr")),
+        )
+    }
+
+    fun testCreateIntoUnresolvedRelativeExactCandidateInvalidatesOwner() {
+        files("src/main.cr" to "require \"./feature\"", "src/unrelated.cr" to "")
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val unrelated = service.effectiveSources(elementIn("src/unrelated.cr"))
+        val event = VFileCreateEvent(this, directory("src"), "feature.cr", false, null, null, null)
+
+        val feature = myFixture.addFileToProject("src/feature.cr", "").virtualFile
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(feature))
+        assertSame(unrelated, service.effectiveSources(elementIn("src/unrelated.cr")))
+    }
+
+    fun testCopyIntoUnresolvedRelativeExactCandidateInvalidatesOwner() {
+        files("src/main.cr" to "require \"./feature\"", "templates/feature.cr" to "")
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val source = vf("templates/feature.cr")
+        val event = VFileCopyEvent(this, source, directory("src"), "feature.cr")
+
+        val feature = ApplicationManager.getApplication().runWriteAction<VirtualFile> {
+            VfsUtil.copyFile(this, source, directory("src"), "feature.cr")
+        }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(feature))
+    }
+
+    fun testRenameIntoUnresolvedRelativeExactCandidateInvalidatesOwner() {
+        files("src/main.cr" to "require \"./feature\"", "src/pending.cr" to "")
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val pending = vf("src/pending.cr")
+        val event = VFilePropertyChangeEvent(
+            this,
+            pending,
+            VirtualFile.PROP_NAME,
+            "pending.cr",
+            "feature.cr",
+        )
+
+        ApplicationManager.getApplication().runWriteAction { pending.rename(this, "feature.cr") }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(pending))
+    }
+
+    fun testMoveIntoUnresolvedRelativeExactCandidateInvalidatesOwner() {
+        files("src/main.cr" to "require \"./feature\"", "archive/feature.cr" to "")
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val pending = vf("archive/feature.cr")
+        val event = VFileMoveEvent(this, pending, directory("src"))
+
+        ApplicationManager.getApplication().runWriteAction { pending.move(this, directory("src")) }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(pending))
+    }
+
+    fun testCreateIntoUnresolvedStdlibExactCandidateInvalidatesOwner() {
+        files(
+            "stdlib/prelude.cr" to "",
+            "src/main.cr" to "require \"task4_stdlib_exact\"",
+        )
+        val service = service()
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val event = VFileCreateEvent(
+            this,
+            directory("stdlib"),
+            "task4_stdlib_exact.cr",
+            false,
+            null,
+            null,
+            null,
+        )
+
+        val feature = myFixture.addFileToProject("stdlib/task4_stdlib_exact.cr", "").virtualFile
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(feature))
+    }
+
+    fun testCreateIntoUnresolvedShardExactCandidateInvalidatesOwner() {
+        projectFile("lib/task4_exact/.keep")
+        removeProjectPath("lib/task4_exact/src")
+        files("src/main.cr" to "require \"task4_exact\"")
+        try {
+            val service = service(stdlib = null)
+            val initial = service.effectiveSources(elementIn("src/main.cr"))
+            val parent = wildcardDirectory("lib/task4_exact", projectBaseTarget = true)
+            val event = VFileCreateEvent(this, parent, "src", true, null, null, null)
+
+            val feature = projectFile("lib/task4_exact/src/task4_exact.cr")
+            service.handleVfsEvents(listOf(event))
+
+            val updated = service.effectiveSources(elementIn("src/main.cr"))
+            assertNotSame(initial, updated)
+            assertTrue(updated.files.contains(feature))
+        } finally {
+            removeProjectPath("lib/task4_exact")
+        }
+    }
+
+    fun testHigherPriorityProjectCandidateCreationReplacesStdlibExactTarget() {
+        projectFile("lib/.keep")
+        removeProjectPath("lib/task4_priority.cr")
+        files(
+            "stdlib/prelude.cr" to "",
+            "stdlib/task4_priority.cr" to "",
+            "src/main.cr" to "require \"task4_priority\"",
+        )
+        try {
+            val service = service()
+            val initial = service.effectiveSources(elementIn("src/main.cr"))
+            val stdlibTarget = vf("stdlib/task4_priority.cr")
+            assertTrue(initial.files.contains(stdlibTarget))
+            val event = VFileCreateEvent(
+                this,
+                wildcardDirectory("lib", projectBaseTarget = true),
+                "task4_priority.cr",
+                false,
+                null,
+                null,
+                null,
+            )
+
+            val projectTarget = projectFile("lib/task4_priority.cr")
+            service.handleVfsEvents(listOf(event))
+
+            val updated = service.effectiveSources(elementIn("src/main.cr"))
+            assertNotSame(initial, updated)
+            assertTrue(updated.files.contains(projectTarget))
+            assertFalse(updated.files.contains(stdlibTarget))
+        } finally {
+            removeProjectPath("lib/task4_priority.cr")
+            removeProjectPath("lib/.keep")
+        }
+    }
+
+    fun testExactCandidateMatchesDirectoryRenamedIntoPlaceAsAncestor() {
+        files(
+            "app/main.cr" to "require \"../shared/feature\"",
+            "pending/feature.cr" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("app/main.cr"))
+        val pending = directory("pending")
+        val event = VFilePropertyChangeEvent(
+            this,
+            pending,
+            VirtualFile.PROP_NAME,
+            "pending",
+            "shared",
+        )
+
+        ApplicationManager.getApplication().runWriteAction { pending.rename(this, "shared") }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("app/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.any { it.path.endsWith("/shared/feature.cr") })
+    }
+
+    fun testExactCandidateMatchesContainingDirectoryRenamedAway() {
+        files(
+            "app/main.cr" to "require \"../shared/feature\"",
+            "shared/feature.cr" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("app/main.cr"))
+        val shared = directory("shared")
+        val event = VFilePropertyChangeEvent(
+            this,
+            shared,
+            VirtualFile.PROP_NAME,
+            "shared",
+            "renamed",
+        )
+
+        ApplicationManager.getApplication().runWriteAction { shared.rename(this, "renamed") }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("app/main.cr"))
+        assertNotSame(initial, updated)
+        assertFalse(updated.files.any { it.path.endsWith("/renamed/feature.cr") })
+    }
+
+    fun testExactCandidateMatchesContainingDirectoryDelete() {
+        files(
+            "app/main.cr" to "require \"../shared/feature\"",
+            "shared/feature.cr" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("app/main.cr"))
+        val shared = directory("shared")
+        val event = VFileDeleteEvent(this, shared)
+
+        ApplicationManager.getApplication().runWriteAction { shared.delete(this) }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("app/main.cr"))
+        assertNotSame(initial, updated)
+        assertFalse(updated.files.any { it.name == "feature.cr" })
+    }
+
+    fun testWildcardMatchesDirectoryRenamedIntoPlaceAsAncestor() {
+        files(
+            "app/main.cr" to "require \"../shared/models/*\"",
+            "pending/models/feature.cr" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("app/main.cr"))
+        val pending = directory("pending")
+        val event = VFilePropertyChangeEvent(
+            this,
+            pending,
+            VirtualFile.PROP_NAME,
+            "pending",
+            "shared",
+        )
+
+        ApplicationManager.getApplication().runWriteAction { pending.rename(this, "shared") }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("app/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.any { it.path.endsWith("/shared/models/feature.cr") })
+    }
+
+    fun testWildcardMatchesContainingDirectoryMoveAway() {
+        files(
+            "app/main.cr" to "require \"../shared/models/*\"",
+            "shared/models/feature.cr" to "",
+            "archive/keep.txt" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("app/main.cr"))
+        val shared = directory("shared")
+        val event = VFileMoveEvent(this, shared, directory("archive"))
+
+        ApplicationManager.getApplication().runWriteAction { shared.move(this, directory("archive")) }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("app/main.cr"))
+        assertNotSame(initial, updated)
+        assertFalse(updated.files.any { it.path.endsWith("/archive/shared/models/feature.cr") })
+    }
+
+    fun testWildcardModesFilterIrrelevantStructuralEvents() {
+        files(
+            "src/direct.cr" to "require \"./models/*\"",
+            "src/recursive.cr" to "require \"./models/**\"",
+            "src/models/existing.cr" to "",
+            "src/models/nested/deep.cr" to "",
+            "src/models/nested/readme.md" to "",
+        )
+        val service = service(stdlib = null)
+        val direct = service.effectiveSources(elementIn("src/direct.cr"))
+        val recursive = service.effectiveSources(elementIn("src/recursive.cr"))
+        val before = service.cacheStats()
+
+        service.handleVfsEvents(
+            listOf(
+                VFileCreateEvent(this, directory("src/models"), "readme.md", false, null, null, null),
+                VFileCreateEvent(this, directory("src/models/nested"), "other.md", false, null, null, null),
+            ),
+        )
+
+        assertEquals(before, service.cacheStats())
+        assertSame(direct, service.effectiveSources(elementIn("src/direct.cr")))
+        assertSame(recursive, service.effectiveSources(elementIn("src/recursive.cr")))
+    }
+
+    fun testDirectWildcardIgnoresDeepCrystalEventWhileRecursiveWildcardInvalidates() {
+        files(
+            "src/direct.cr" to "require \"./models/*\"",
+            "src/recursive.cr" to "require \"./models/**\"",
+            "src/models/existing.cr" to "",
+            "src/models/nested/deep.cr" to "",
+        )
+        val service = service(stdlib = null)
+        val direct = service.effectiveSources(elementIn("src/direct.cr"))
+        val recursive = service.effectiveSources(elementIn("src/recursive.cr"))
+
+        service.handleVfsEvents(
+            listOf(VFileCreateEvent(this, directory("src/models/nested"), "new.cr", false, null, null, null)),
+        )
+
+        assertSame(direct, service.effectiveSources(elementIn("src/direct.cr")))
+        assertNotSame(recursive, service.effectiveSources(elementIn("src/recursive.cr")))
+    }
+
+    fun testNearestParentWatchIgnoresSiblingAndMatchesIntendedPath() {
+        files(
+            "src/main.cr" to "require \"./models/generated/*\"",
+            "src/other/existing.cr" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val before = service.cacheStats()
+
+        service.handleVfsEvents(
+            listOf(VFileCreateEvent(this, directory("src/other"), "sibling.cr", false, null, null, null)),
+        )
+
+        assertEquals(before, service.cacheStats())
+        assertSame(initial, service.effectiveSources(elementIn("src/main.cr")))
+
+        val intended = VFileCreateEvent(this, directory("src"), "models", true, null, null, null)
+        myFixture.addFileToProject("src/models/generated/feature.cr", "")
+        service.handleVfsEvents(listOf(intended))
+        assertTrue(
+            service.effectiveSources(elementIn("src/main.cr")).files
+                .contains(vf("src/models/generated/feature.cr")),
+        )
+    }
+
+    fun testCopyIntoWildcardTargetInvalidatesOwner() {
+        files(
+            "src/main.cr" to "require \"./models/*\"",
+            "src/models/existing.cr" to "",
+            "templates/copied.cr" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val source = vf("templates/copied.cr")
+        val event = VFileCopyEvent(this, source, directory("src/models"), "copied.cr")
+
+        val copied = ApplicationManager.getApplication().runWriteAction<VirtualFile> {
+            VfsUtil.copyFile(this, source, directory("src/models"), "copied.cr")
+        }
+        service.handleVfsEvents(listOf(event))
+
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(copied))
+    }
+
+    fun testMixedBatchDoesNotUseContentPathForWildcardMatching() {
+        files(
+            "src/main.cr" to "require \"./models/*\"",
+            "src/models/existing.cr" to "",
+            "src/unrelated/keep.txt" to "",
+        )
+        val service = service(stdlib = null)
+        val initial = service.effectiveSources(elementIn("src/main.cr"))
+        val before = service.cacheStats()
+
+        service.handleVfsEvents(
+            listOf(
+                VFileContentChangeEvent(this, vf("src/models/existing.cr"), 1, 2),
+                VFileCreateEvent(this, directory("src/unrelated"), "note.txt", false, null, null, null),
+            ),
+        )
+
+        assertEquals(before, service.cacheStats())
+        assertSame(initial, service.effectiveSources(elementIn("src/main.cr")))
+    }
+
+    fun testVfsContentCallbackDefersFingerprintValidationUntilNextQuery() {
+        files(
+            "src/main.cr" to "require \"./old_feature\"",
+            "src/old_feature.cr" to "",
+            "src/new_feature.cr" to "",
+        )
+        val queued = mutableListOf<Runnable>()
+        val service = CrystalRequireGraphService(
+            project,
+            CrystalRequirePathResolver(project) { null },
+            Executor(queued::add),
+        )
+        service.effectiveSources(elementIn("src/main.cr"))
+        replaceText("src/main.cr", "require \"./new_feature\"")
+        val beforeCallback = service.cacheStats()
+
+        service.handleVfsEvents(listOf(VFileContentChangeEvent(this, vf("src/main.cr"), 1, 2)))
+
+        assertEquals(1, queued.size)
+        assertEquals(beforeCallback, service.cacheStats())
+        queued.single().run()
+        val updated = service.effectiveSources(elementIn("src/main.cr"))
+        assertFalse(updated.files.contains(vf("src/old_feature.cr")))
+        assertTrue(updated.files.contains(vf("src/new_feature.cr")))
+    }
+
+    fun testCanceledMixedBatchStillProcessesStructuralInvalidation() {
+        files(
+            "src/main.cr" to "require \"./created\"",
+            "src/edited.cr" to "require \"./old_feature\"",
+            "src/old_feature.cr" to "",
+            "src/new_feature.cr" to "",
+        )
+        val service = service(stdlib = null)
+        service.effectiveSources(elementIn("src/main.cr"))
+        service.effectiveSources(elementIn("src/edited.cr"))
+        replaceText("src/edited.cr", "require \"./new_feature\"")
+        val createEvent = VFileCreateEvent(this, directory("src"), "created.cr", false, null, null, null)
+        val created = myFixture.addFileToProject("src/created.cr", "").virtualFile
+        val indicator = ProgressIndicatorBase().apply { cancel() }
+
+        ProgressManager.getInstance().executeProcessUnderProgress(
+            {
+                service.handleVfsEvents(
+                    listOf(
+                        VFileContentChangeEvent(this, vf("src/edited.cr"), 1, 2),
+                        createEvent,
+                    ),
+                )
+            },
+            indicator,
+        )
+
+        assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(created))
+    }
+
+    fun testChildMovedPsiEventInvalidatesChangedRequireFingerprint() {
+        files(
+            "src/main.cr" to "require \"./old_feature\"",
+            "src/old_feature.cr" to "",
+            "src/new_feature.cr" to "",
+        )
+        val service = service(stdlib = null)
+        service.effectiveSources(elementIn("src/main.cr"))
+        replaceText("src/main.cr", "require \"./new_feature\"")
+        val file = psiFile("src/main.cr")
+        val statement = ReadAction.computeBlocking<CrystalRequireStatement, RuntimeException> {
+            requireNotNull(PsiTreeUtil.findChildOfType(file, CrystalRequireStatement::class.java))
+        }
+        val event = PsiTreeChangeEventImpl(PsiManager.getInstance(project)).apply {
+            setFile(file)
+            setChild(statement)
+            setOldParent(file)
+            setNewParent(file)
+        }
+        val before = service.cacheStats()
+
+        ApplicationManager.getApplication().runReadAction { service.handlePsiChange(event) }
+
+        assertEquals(before.targetedInvalidations + 1, service.cacheStats().targetedInvalidations)
+    }
+
+    fun testPropertyChangedPsiEventInvalidatesChangedRequireFingerprint() {
+        files(
+            "src/main.cr" to "require \"./old_feature\"",
+            "src/old_feature.cr" to "",
+            "src/new_feature.cr" to "",
+        )
+        val service = service(stdlib = null)
+        service.effectiveSources(elementIn("src/main.cr"))
+        replaceText("src/main.cr", "require \"./new_feature\"")
+        val file = psiFile("src/main.cr")
+        val statement = ReadAction.computeBlocking<CrystalRequireStatement, RuntimeException> {
+            requireNotNull(PsiTreeUtil.findChildOfType(file, CrystalRequireStatement::class.java))
+        }
+        val event = PsiTreeChangeEventImpl(PsiManager.getInstance(project)).apply {
+            setElement(statement)
+            setPropertyName("require")
+        }
+        val before = service.cacheStats()
+
+        ApplicationManager.getApplication().runReadAction { service.handlePsiChange(event) }
+
+        assertEquals(before.targetedInvalidations + 1, service.cacheStats().targetedInvalidations)
     }
 
     fun testNodeBuildPublishesBeforeAConcurrentRequireEditCanInterleave() {
@@ -829,26 +1338,37 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
     private fun service(stdlib: VirtualFile? = directory("stdlib")): CrystalRequireGraphService =
         CrystalRequireGraphService(project, CrystalRequirePathResolver(project) { stdlib })
 
-    private fun productionService(): CrystalRequireGraphService {
-        CrystalStdlibResolver.clearCachedStdlibPath(project)
-        return CrystalRequireGraphService.getInstance(project)
+    private fun productionService(clearStdlibCache: Boolean = true): CrystalRequireGraphService {
+        if (clearStdlibCache) CrystalStdlibResolver.clearCachedStdlibPath(project)
+        val listenerDisposable = Disposer.newDisposable().also(listenerDisposables::add)
+        return CrystalRequireGraphService(
+            project,
+            CrystalRequirePathResolver(project) { CrystalStdlibResolver.cachedStdlibPath(project) },
+            listenerDisposable,
+        )
     }
 
     private fun files(vararg files: Pair<String, String>) {
-        files.forEach { (path, text) -> myFixture.addFileToProject(path, text) }
+        files.forEach { (path, text) ->
+            fixtureFiles[path] = myFixture.addFileToProject(path, text).virtualFile
+        }
     }
 
-    private fun elementIn(path: String): PsiElement = ReadAction.computeBlocking<PsiElement, RuntimeException> {
+    private fun elementIn(path: String): PsiElement {
         val file = psiFile(path)
-        file.firstChild ?: file
+        return ReadAction.computeBlocking<PsiElement, RuntimeException> { file.firstChild ?: file }
     }
 
-    private fun psiFile(path: String): PsiFile = ReadAction.computeBlocking<PsiFile, RuntimeException> {
-        requireNotNull(PsiManager.getInstance(project).findFile(vf(path)))
+    private fun psiFile(path: String): PsiFile {
+        val file = vf(path)
+        return ReadAction.computeBlocking<PsiFile, RuntimeException> {
+            requireNotNull(PsiManager.getInstance(project).findFile(file))
+        }
     }
 
     private fun vf(path: String): VirtualFile =
-        requireNotNull(myFixture.tempDirFixture.getFile(path))
+        fixtureFiles[path]?.takeIf(VirtualFile::isValid)
+            ?: requireNotNull(myFixture.tempDirFixture.getFile(path))
 
     private fun directory(path: String): VirtualFile =
         requireNotNull(myFixture.tempDirFixture.getFile(path))

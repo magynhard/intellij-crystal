@@ -3,16 +3,19 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.ProjectTopics
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootEvent
 import com.intellij.openapi.roots.ModuleRootListener
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileCopyEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
@@ -24,11 +27,13 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiTreeChangeAdapter
 import com.intellij.psi.PsiTreeChangeEvent
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.concurrency.AppExecutorUtil
 import de.magynhard.crystal.CrystalFile
 import de.magynhard.crystal.psi.CrystalRequireStatement
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 
 internal data class CrystalEffectiveSourceSet(val files: Set<VirtualFile>) {
     fun contains(element: PsiElement): Boolean {
@@ -51,21 +56,43 @@ internal class CrystalRequireGraphService private constructor(
     private val project: Project,
     private val pathResolver: CrystalRequirePathResolver,
     registerListeners: Boolean,
+    private val contentExecutor: Executor,
 ) {
     constructor(project: Project) : this(
         project,
         CrystalRequirePathResolver(project) { CrystalStdlibResolver.cachedStdlibPath(project) },
         true,
+        AppExecutorUtil.getAppExecutorService(),
     )
 
     internal constructor(project: Project, pathResolver: CrystalRequirePathResolver) :
-        this(project, pathResolver, false)
+        this(project, pathResolver, false, AppExecutorUtil.getAppExecutorService())
+
+    internal constructor(
+        project: Project,
+        pathResolver: CrystalRequirePathResolver,
+        contentExecutor: Executor,
+    ) : this(project, pathResolver, false, contentExecutor)
+
+    internal constructor(
+        project: Project,
+        pathResolver: CrystalRequirePathResolver,
+        listenerDisposable: Disposable,
+    ) : this(project, pathResolver, false, AppExecutorUtil.getAppExecutorService()) {
+        registerListeners(listenerDisposable)
+    }
 
     private data class Node(
         val fingerprint: String,
         val outgoing: List<VirtualFile>,
-        val watchedDirectoryPaths: Set<String>,
+        val exactCandidatePaths: Set<String>,
+        val wildcardWatches: Set<NodeWildcardWatch>,
         val version: Long,
+    )
+
+    private data class NodeWildcardWatch(
+        val targetPath: String,
+        val mode: CrystalWildcardMode,
     )
 
     private data class StructuralVfsChange(
@@ -103,6 +130,7 @@ internal class CrystalRequireGraphService private constructor(
     private val reverseEdges = mutableMapOf<VirtualFile, MutableSet<VirtualFile>>()
     private val closures = mutableMapOf<VirtualFile, Closure>()
     private val effectiveSnapshots = mutableMapOf<VirtualFile, EffectiveSnapshot>()
+    private val pendingContentRevalidations = mutableMapOf<VirtualFile, CompletableFuture<Unit>>()
     private var preludeBuild: PreludeBuild? = null
     private var cachedPreludeFoundation: PreludeFoundation? = null
     private var generation = 0L
@@ -111,16 +139,20 @@ internal class CrystalRequireGraphService private constructor(
     private var closureBuilds = 0L
     private var fullInvalidations = 0L
     private var targetedInvalidations = 0L
+    @Volatile
+    private var contentRevalidationActive = true
 
     init {
-        if (registerListeners) registerListeners()
+        if (registerListeners) registerListeners(project)
     }
 
-    fun effectiveSources(context: PsiElement): CrystalEffectiveSourceSet =
-        ReadAction.computeBlocking<CrystalEffectiveSourceSet, RuntimeException> {
+    fun effectiveSources(context: PsiElement): CrystalEffectiveSourceSet {
+        awaitPendingContentRevalidations()
+        return ReadAction.computeBlocking<CrystalEffectiveSourceSet, RuntimeException> {
             val root = physicalOriginalFileInReadAction(context) ?: return@computeBlocking EMPTY_SOURCES
             effectiveSources(root)
         }
+    }
 
     private fun effectiveSources(root: VirtualFile): CrystalEffectiveSourceSet {
         while (true) {
@@ -166,6 +198,10 @@ internal class CrystalRequireGraphService private constructor(
 
     internal fun invalidateRequireFile(file: VirtualFile) {
         if (synchronized(lock) { !nodes.containsKey(file) }) return
+        if (!file.isValid) {
+            synchronized(lock) { removeNode(file) }
+            return
+        }
         val current = ReadAction.computeBlocking<Pair<VirtualFile, String>?, RuntimeException> {
             val psiFile = PsiManager.getInstance(project).findFile(file)
             if (psiFile == null || !psiFile.isValid || !psiFile.isPhysical) return@computeBlocking null
@@ -185,31 +221,46 @@ internal class CrystalRequireGraphService private constructor(
         CrystalRequireCacheStats(nodeBuilds, closureBuilds, fullInvalidations, targetedInvalidations)
     }
 
-    private fun registerListeners() {
+    private fun registerListeners(parentDisposable: Disposable) {
+        Disposer.register(parentDisposable) { contentRevalidationActive = false }
         PsiManager.getInstance(project).addPsiTreeChangeListener(object : PsiTreeChangeAdapter() {
             override fun childAdded(event: PsiTreeChangeEvent) = handlePsiChange(event)
             override fun childRemoved(event: PsiTreeChangeEvent) = handlePsiChange(event)
             override fun childReplaced(event: PsiTreeChangeEvent) = handlePsiChange(event)
+            override fun childMoved(event: PsiTreeChangeEvent) = handlePsiChange(event)
             override fun childrenChanged(event: PsiTreeChangeEvent) = handlePsiChange(event)
-        }, project)
-        project.messageBus.connect(project).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+            override fun propertyChanged(event: PsiTreeChangeEvent) = handlePsiChange(event)
+        }, parentDisposable)
+        project.messageBus.connect(parentDisposable).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
             override fun after(events: List<VFileEvent>) = handleVfsEvents(events)
         })
-        project.messageBus.connect(project).subscribe(ProjectTopics.PROJECT_ROOTS, object : ModuleRootListener {
+        project.messageBus.connect(parentDisposable).subscribe(ProjectTopics.PROJECT_ROOTS, object : ModuleRootListener {
             override fun rootsChanged(event: ModuleRootEvent) = invalidateAll()
         })
     }
 
-    private fun handlePsiChange(event: PsiTreeChangeEvent) {
-        val file = event.file as? CrystalFile ?: return
+    internal fun handlePsiChange(event: PsiTreeChangeEvent) {
+        val file = (event.file?.takeIf(PsiFile::isValid) ?: sequenceOf(
+            event.element,
+            event.child,
+            event.oldChild,
+            event.newChild,
+            event.parent,
+            event.oldParent,
+            event.newParent,
+        ).filterNotNull().filter(PsiElement::isValid).mapNotNull(PsiElement::getContainingFile).firstOrNull())
+            as? CrystalFile ?: return
         val virtualFile = file.virtualFile ?: return
         val fileLevelChange = sequenceOf(event.parent, event.oldParent, event.newParent).any { it is PsiFile }
-        if (!fileLevelChange && sequenceOf(event.child, event.oldChild, event.newChild).none(::affectsRequire)) return
+        if (
+            !fileLevelChange &&
+            sequenceOf(event.child, event.oldChild, event.newChild, event.element).none(::affectsRequire)
+        ) return
         invalidateRequireFile(virtualFile)
     }
 
     private fun affectsRequire(element: PsiElement?): Boolean {
-        if (element == null) return false
+        if (element == null || !element.isValid) return false
         return element is CrystalRequireStatement ||
             PsiTreeUtil.getParentOfType(element, CrystalRequireStatement::class.java, false) != null ||
             PsiTreeUtil.findChildOfType(element, CrystalRequireStatement::class.java) != null
@@ -218,10 +269,10 @@ internal class CrystalRequireGraphService private constructor(
     internal fun handleVfsEvents(events: List<VFileEvent>) {
         val projectPath = project.basePath?.trimEnd('/')
         val structuralChanges = events.mapNotNull(::structuralVfsChange)
-        val allPaths = events.asSequence().map(VFileEvent::getPath).toMutableSet().apply {
+        val metadataPaths = events.asSequence().map(VFileEvent::getPath).toMutableSet().apply {
             structuralChanges.flatMapTo(this) { it.paths }
         }
-        if (projectPath != null && allPaths.any { it == "$projectPath/shard.yml" || it == "$projectPath/shard.lock" }) {
+        if (projectPath != null && metadataPaths.any { it == "$projectPath/shard.yml" || it == "$projectPath/shard.lock" }) {
             invalidateAll()
             return
         }
@@ -234,31 +285,68 @@ internal class CrystalRequireGraphService private constructor(
             invalidateAll()
             return
         }
+        if (structuralChanges.isNotEmpty()) {
+            synchronized(lock) {
+                val affected = linkedSetOf<VirtualFile>()
+                nodes.forEach { (file, node) ->
+                    if (
+                        node.exactCandidatePaths.any { candidate ->
+                            structuralChanges.any { change -> change.affectsExactCandidate(candidate) }
+                        } || node.wildcardWatches.any { watch ->
+                            structuralChanges.any { change -> change.affectsWildcard(watch) }
+                        }
+                    ) {
+                        affected += file
+                    }
+                }
+                structuralChanges.mapNotNull(StructuralVfsChange::file).forEach { changedFile ->
+                    affected += changedFile
+                    affected += reverseEdges[changedFile].orEmpty()
+                }
+                affected.forEach(::removeNode)
+            }
+        }
         events.asSequence()
             .filterIsInstance<VFileContentChangeEvent>()
             .map(VFileContentChangeEvent::getFile)
             .filter { it.extension == "cr" }
             .distinct()
-            .forEach(::invalidateRequireFile)
+            .forEach(::scheduleContentRevalidation)
+    }
 
-        if (structuralChanges.isEmpty()) return
-        synchronized(lock) {
-            val affected = linkedSetOf<VirtualFile>()
-            nodes.forEach { (file, node) ->
-                if (node.watchedDirectoryPaths.any { watched -> allPaths.any { path -> isWithin(path, watched) } }) {
-                    affected += file
-                }
+    private fun scheduleContentRevalidation(file: VirtualFile) {
+        val completion = synchronized(lock) {
+            if (!nodes.containsKey(file) || pendingContentRevalidations.containsKey(file)) return
+            CompletableFuture<Unit>().also { pendingContentRevalidations[file] = it }
+        }
+        contentExecutor.execute {
+            try {
+                if (contentRevalidationActive && file.isValid) invalidateRequireFile(file)
+                else synchronized(lock) { removeNode(file) }
+            } catch (_: Exception) {
+                synchronized(lock) { removeNode(file) }
+            } finally {
+                synchronized(lock) { pendingContentRevalidations.remove(file) }
+                completion.complete(Unit)
             }
-            structuralChanges.mapNotNull(StructuralVfsChange::file).forEach { changedFile ->
-                affected += changedFile
-                affected += reverseEdges[changedFile].orEmpty()
-            }
-            affected.forEach(::removeNode)
+        }
+    }
+
+    private fun awaitPendingContentRevalidations() {
+        while (true) {
+            val pending = synchronized(lock) { pendingContentRevalidations.values.toList() }
+            if (pending.isEmpty()) return
+            pending.forEach(CompletableFuture<Unit>::join)
         }
     }
 
     private fun structuralVfsChange(event: VFileEvent): StructuralVfsChange? = when (event) {
         is VFileCreateEvent -> StructuralVfsChange(event.file, setOf(event.path), event.isDirectory)
+        is VFileCopyEvent -> StructuralVfsChange(
+            event.findCreatedFile(),
+            setOf(path(event.newParent.path, event.newChildName)),
+            event.file.isDirectory,
+        )
         is VFileDeleteEvent -> StructuralVfsChange(event.file, setOf(event.path), event.file.isDirectory)
         is VFileMoveEvent -> StructuralVfsChange(
             event.file,
@@ -277,8 +365,24 @@ internal class CrystalRequireGraphService private constructor(
         else -> null
     }
 
-    private fun isWithin(path: String, directoryPath: String): Boolean =
-        path == directoryPath || path.startsWith("$directoryPath/")
+    private fun StructuralVfsChange.affectsExactCandidate(candidatePath: String): Boolean =
+        paths.any { path -> pathsOverlap(path, candidatePath) }
+
+    private fun StructuralVfsChange.affectsWildcard(watch: NodeWildcardWatch): Boolean = paths.any { path ->
+        if (isAncestorOrSame(path, watch.targetPath)) return@any isDirectory || path == watch.targetPath
+        if (!isAncestorOrSame(watch.targetPath, path)) return@any false
+        if (isDirectory) return@any watch.mode == CrystalWildcardMode.RECURSIVE
+        if (path.substringAfterLast('.', "") != "cr") return@any false
+        watch.mode == CrystalWildcardMode.RECURSIVE || path.substringBeforeLast('/', "") == watch.targetPath
+    }
+
+    private fun pathsOverlap(first: String, second: String): Boolean =
+        isAncestorOrSame(first, second) || isAncestorOrSame(second, first)
+
+    private fun isAncestorOrSame(ancestor: String, path: String): Boolean =
+        path == ancestor || path.startsWith("${ancestor.trimEnd('/')}/")
+
+    private fun path(parent: String, child: String): String = "${parent.trimEnd('/')}/$child"
 
     private fun preludeFoundation(capturedGeneration: Long): PreludeFoundation {
         val root = preludeRoot(capturedGeneration)
@@ -395,9 +499,12 @@ internal class CrystalRequireGraphService private constructor(
                 .mapNotNull(::physicalOriginalFileInReadAction)
                 .distinct()
                 .toList()
-            val watchedDirectories = resolutions.asSequence()
-                .flatMap { it.watchedDirectories.asSequence() }
-                .filter { it.isValid && it.isDirectory }
+            val exactCandidatePaths = resolutions.asSequence()
+                .flatMap { it.exactCandidatePaths.asSequence() }
+                .toSet()
+            val wildcardWatches = resolutions.asSequence()
+                .flatMap { it.wildcardWatches.asSequence() }
+                .map { NodeWildcardWatch(it.targetPath, it.mode) }
                 .toSet()
 
             synchronized(lock) {
@@ -405,7 +512,13 @@ internal class CrystalRequireGraphService private constructor(
                 nodes[file]?.takeIf { it.fingerprint == directRequires.fingerprint }?.let {
                     return@computeBlocking it
                 }
-                publishNode(file, directRequires.fingerprint, outgoing, watchedDirectories)
+                publishNode(
+                    file,
+                    directRequires.fingerprint,
+                    outgoing,
+                    exactCandidatePaths,
+                    wildcardWatches,
+                )
             }
         }
     }
@@ -414,13 +527,15 @@ internal class CrystalRequireGraphService private constructor(
         file: VirtualFile,
         fingerprint: String,
         outgoing: List<VirtualFile>,
-        watchedDirectories: Set<VirtualFile>,
+        exactCandidatePaths: Set<String>,
+        wildcardWatches: Set<NodeWildcardWatch>,
     ): Node {
         nodes[file]?.outgoing?.forEach { dependency -> reverseEdges[dependency]?.remove(file) }
         val node = Node(
             fingerprint,
             Collections.unmodifiableList(outgoing.toList()),
-            immutableSet(watchedDirectories.map(VirtualFile::getPath)),
+            immutableSet(exactCandidatePaths),
+            immutableSet(wildcardWatches),
             ++nextNodeVersion,
         )
         nodes[file] = node

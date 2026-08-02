@@ -11,9 +11,20 @@ import java.util.concurrent.TimeUnit
 
 class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
 
-    fun testApplyInvalidatesRequireGraphBeforeResolvingNewRoots() {
+    fun testApplyInvalidatesRequireGraphAfterPublishingNewRoots() {
+        val context = myFixture.addFileToProject("src/main.cr", "")
         val service = CrystalRequireGraphService.getInstance(project)
         val before = service.cacheStats()
+        var invalidationsAtRootPublication = -1L
+        var nodeBuildsAtRootPublication = -1L
+        project.messageBus.connect(testRootDisposable).subscribe(
+            AdditionalLibraryRootsListener.TOPIC,
+            AdditionalLibraryRootsListener { _, _, _, _ ->
+                invalidationsAtRootPublication = service.cacheStats().fullInvalidations
+                service.effectiveSources(context)
+                nodeBuildsAtRootPublication = service.cacheStats().nodeBuilds
+            },
+        )
         val configurable = CrystalSettingsConfigurable(project)
         val field = TextFieldWithBrowseButton().apply {
             text = CrystalSettings.getInstance(project).state.crystalPath
@@ -25,7 +36,12 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
 
         configurable.apply()
 
+        assertEquals(before.fullInvalidations, invalidationsAtRootPublication)
         assertEquals(before.fullInvalidations + 1, service.cacheStats().fullInvalidations)
+        assertTrue(nodeBuildsAtRootPublication > before.nodeBuilds)
+        val afterApply = service.cacheStats()
+        service.effectiveSources(context)
+        assertTrue(service.cacheStats().nodeBuilds > afterApply.nodeBuilds)
     }
 
     fun testForceReindexDoesNothingOutsideCrystalProject() {

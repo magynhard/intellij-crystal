@@ -96,8 +96,9 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
         // Invalidate any cached stdlib path so the next call re-runs
         // `crystal env CRYSTAL_PATH` against the newly configured SDK.
         CrystalStdlibResolver.clearCachedStdlibPath(project)
+        val newRoots = resolveStdlibRoots()
+        CrystalStdlibIndexRefresher.refresh(project, oldRoots, newRoots)
         CrystalRequireGraphService.getInstance(project).invalidateAll()
-        CrystalStdlibIndexRefresher.refresh(project, oldRoots, resolveStdlibRoots())
     }
 
     override fun reset() {

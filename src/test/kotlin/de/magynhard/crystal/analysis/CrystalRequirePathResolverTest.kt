@@ -175,6 +175,73 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         assertEquals(emptySet<VirtualFile>(), resolution.watchedDirectories)
     }
 
+    fun testUnresolvedRelativeExactRequireOwnsEveryCandidatePath() {
+        val source = file("src/main.cr")
+
+        val resolution = resolver().resolve(source, "./feature")
+
+        assertEquals(emptyList<VirtualFile>(), resolution.files)
+        assertEquals(emptySet<VirtualFile>(), resolution.watchedDirectories)
+        assertEquals(
+            setOf(
+                "${directory("src").path}/feature.cr",
+                "${directory("src").path}/feature/feature.cr",
+            ),
+            resolution.exactCandidatePaths,
+        )
+    }
+
+    fun testStdlibExactRequireOwnsHigherPrecedenceProjectCandidates() {
+        val source = file("src/main.cr")
+        projectFile("lib/.keep")
+        val stdlibFile = file("stdlib/json.cr")
+
+        val resolution = resolver(directory("stdlib")).resolve(source, "json")
+
+        val projectLib = projectDirectory("lib").path
+        assertEquals(listOf(stdlibFile), resolution.files)
+        assertEquals(
+            setOf(
+                "$projectLib/json.cr",
+                "$projectLib/json/json.cr",
+                "$projectLib/json/src/json.cr",
+                "$projectLib/json/src/json/json.cr",
+                "${directory("stdlib").path}/json.cr",
+            ),
+            resolution.exactCandidatePaths,
+        )
+    }
+
+    fun testWildcardWatchRetainsIntendedTargetAndMode() {
+        val source = file("src/main.cr")
+        file("src/models/existing.cr")
+
+        val direct = resolver().resolve(source, "./models/*")
+        val recursiveMissing = resolver().resolve(source, "./models/generated/**")
+
+        assertEquals(
+            setOf(
+                CrystalWildcardWatch(
+                    directory("src/models"),
+                    "${directory("src/models").path}",
+                    CrystalWildcardMode.DIRECT,
+                ),
+            ),
+            direct.wildcardWatches,
+        )
+        assertEquals(
+            setOf(
+                CrystalWildcardWatch(
+                    directory("src/models"),
+                    "${directory("src/models").path}/generated",
+                    CrystalWildcardMode.RECURSIVE,
+                ),
+            ),
+            recursiveMissing.wildcardWatches,
+        )
+        assertEquals(setOf(directory("src/models")), recursiveMissing.watchedDirectories)
+    }
+
     private fun resolver(stdlibRoot: VirtualFile? = null): CrystalRequirePathResolver =
         CrystalRequirePathResolver(project) { stdlibRoot }
 

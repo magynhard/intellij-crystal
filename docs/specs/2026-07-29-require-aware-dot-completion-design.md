@@ -51,10 +51,12 @@ A focused `CrystalRequirePathResolver` resolves graph edges according to Crystal
 - Missing or ambiguous paths contribute no edge.
 - Resolution never scans all Crystal project files and never uses `FileTypeIndex`.
 
-Each wildcard edge records every concrete directory whose children can change its expansion. File
-creation, deletion, rename, or movement below one of those directories invalidates the owning node
-and its transitive dependents. This applies equally to local paths such as `src/models/*`, shard
-paths below `lib/`, and standard-library paths.
+Each exact edge records the normalized candidate-path prefix through its selected file, including
+missing and higher-precedence project/shard candidates that could replace a standard-library result.
+Each wildcard edge separately records every concrete watch directory, its intended target path, and
+whether expansion is direct (`*`) or recursive (`**`). The public `watchedDirectories` metadata
+continues to contain only wildcard directory watches. These rules apply equally to local paths such
+as `src/models/*`, shard paths below `lib/`, and standard-library paths.
 
 ## Caching And Invalidation
 
@@ -81,14 +83,25 @@ path-resolution and graph cache:
 - Relevant `lib/` creation, deletion, rename, or movement caused by operations such as
   `shards install`.
 
-Required-file rename or movement invalidates affected path results. Wildcard directory events use
-the targeted ownership described above rather than globally invalidating unrelated graph nodes.
-Create, delete, rename, and move events are processed after VFS completion using stable old and new
-paths; each wildcard owns its resolved directory or the nearest existing parent when the target is
-missing. Content changes to graph nodes use the same require-fingerprint comparison as unsaved PSI
-changes. The PSI, VFS, and project-root listeners are all registered with project disposal. Changes
-to SDK settings clear the cached stdlib root and invalidate the graph before resolving replacement
-roots.
+Create, copy, delete, rename, and move events are processed after VFS completion using stable old and
+new paths. A structural path matches an exact candidate or wildcard target when it is the path, lies
+inside it, or is an ancestor containing it. Direct wildcard watches react only to immediate `.cr`
+children, while recursive watches react to `.cr` files and potentially containing directories at any
+depth. A nearest-existing-parent watch still matches only structural changes along or below its
+intended missing target, not unrelated siblings. Mixed batches use structural-event paths only for
+this matching.
+
+The synchronous VFS callback performs only immutable path matching, structural cache invalidation,
+and coalesced content-task scheduling; it never opens PSI or a read action. Saved content changes are
+fingerprint-validated on the application executor, and the next graph query waits for pending tasks
+before entering its existing outer read action. Unsaved PSI changes continue to compare their fresh
+fingerprint immediately. This keeps VFS event delivery nonblocking and ensures cancellation cannot
+discard structural invalidation; failed or canceled content tasks conservatively remove their node.
+`childMoved` and PSI property events participate in the same targeted comparison, with query-time
+validation as a final correctness backstop. The PSI, VFS, and project-root listeners are all
+registered with project disposal, and queued tasks avoid PSI after disposal. SDK settings clear and
+resolve the new stdlib root, publish replacement roots, and then invalidate the graph so nodes built
+anywhere in that transition cannot survive with stale root metadata.
 
 The service publishes immutable snapshots for concurrent completion reads. Graph mutation and
 reverse-edge invalidation are serialized. The complete prelude and root traversal, including node
