@@ -1,0 +1,159 @@
+package de.magynhard.crystal.analysis
+
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
+
+class CrystalRequirePathResolverTest : BasePlatformTestCase() {
+
+    fun testResolvesRelativeFileAndDirectoryMain() {
+        val source = file("src/main.cr")
+        val direct = file("src/models/user.cr")
+        assertEquals(listOf(direct), resolver().resolve(source, "./models/user").files)
+
+        ApplicationManager.getApplication().runWriteAction { direct.delete(this) }
+        val directoryMain = file("src/models/user/user.cr")
+        assertEquals(listOf(directoryMain), resolver().resolve(source, "./models/user").files)
+    }
+
+    fun testResolvesRelativeParentPath() {
+        val source = file("src/features/main.cr")
+        val helper = file("src/helpers.cr")
+
+        assertEquals(listOf(helper), resolver().resolve(source, "../helpers").files)
+    }
+
+    fun testResolvesBareFileAndDirectoryMainFromProjectLib() {
+        val source = file("src/main.cr")
+        val direct = file("lib/support/helpers.cr")
+        val directoryMain = file("lib/support/helpers/helpers.cr")
+
+        assertEquals(listOf(direct), resolver().resolve(source, "support/helpers").files)
+
+        ApplicationManager.getApplication().runWriteAction { direct.delete(this) }
+        assertEquals(listOf(directoryMain), resolver().resolve(source, "support/helpers").files)
+    }
+
+    fun testResolvesBareShardMainUnderSrc() {
+        val source = file("src/main.cr")
+        val kemal = file("lib/kemal/src/kemal.cr")
+
+        assertEquals(listOf(kemal), resolver().resolve(source, "kemal").files)
+    }
+
+    fun testResolvesNestedShardPathInCandidateOrder() {
+        val source = file("src/main.cr")
+        val direct = file("lib/kemal/helpers.cr")
+        val directoryMain = file("lib/kemal/helpers/helpers.cr")
+        val shardDirect = file("lib/kemal/src/helpers.cr")
+        val shardDirectoryMain = file("lib/kemal/src/helpers/helpers.cr")
+
+        assertEquals(listOf(direct), resolver().resolve(source, "kemal/helpers").files)
+
+        ApplicationManager.getApplication().runWriteAction { direct.delete(this) }
+        assertEquals(listOf(directoryMain), resolver().resolve(source, "kemal/helpers").files)
+
+        ApplicationManager.getApplication().runWriteAction { directoryMain.delete(this) }
+        assertEquals(listOf(shardDirect), resolver().resolve(source, "kemal/helpers").files)
+
+        ApplicationManager.getApplication().runWriteAction { shardDirect.delete(this) }
+        assertEquals(listOf(shardDirectoryMain), resolver().resolve(source, "kemal/helpers").files)
+    }
+
+    fun testProjectLibTakesPrecedenceOverStdlib() {
+        val source = file("src/main.cr")
+        val projectFile = file("lib/json.cr")
+        val stdlibFile = file("stdlib/json.cr")
+
+        assertEquals(
+            listOf(projectFile),
+            resolver(directory("stdlib")).resolve(source, "json").files,
+        )
+        assertNotSame(projectFile, stdlibFile)
+    }
+
+    fun testResolvesPreludeFromConfiguredStdlibRoot() {
+        val prelude = file("stdlib/prelude.cr")
+
+        assertEquals(prelude, resolver(directory("stdlib")).resolvePrelude())
+        assertNull(resolver().resolvePrelude())
+    }
+
+    fun testSingleStarExpandsOnlyDirectCrystalFilesInStableOrder() {
+        val source = file("src/main.cr")
+        val second = file("src/models/b.cr")
+        val first = file("src/models/a.cr")
+        file("src/models/README.md")
+        file("src/models/nested/c.cr")
+
+        val resolution = resolver().resolve(source, "./models/*")
+
+        assertEquals(listOf(first, second), resolution.files)
+        assertEquals(setOf(directory("src/models")), resolution.watchedDirectories)
+    }
+
+    fun testDoubleStarExpandsRecursively() {
+        val source = file("src/main.cr")
+        val direct = file("src/models/a.cr")
+        val nested = file("src/models/nested/b.cr")
+        val deeplyNested = file("src/models/nested/deep/c.cr")
+        file("src/models/nested/README.md")
+
+        val resolution = resolver().resolve(source, "./models/**")
+
+        assertEquals(listOf(direct, nested, deeplyNested), resolution.files)
+        assertEquals(setOf(directory("src/models")), resolution.watchedDirectories)
+    }
+
+    fun testMissingWildcardTargetWatchesNearestExistingDirectory() {
+        val source = file("src/main.cr")
+        file("src/models/existing.cr")
+
+        val resolution = resolver().resolve(source, "./models/generated/**")
+
+        assertEquals(emptyList<VirtualFile>(), resolution.files)
+        assertEquals(setOf(directory("src/models")), resolution.watchedDirectories)
+    }
+
+    fun testBareWildcardFallsBackToStdlibAndWatchesHigherPrecedenceAncestor() {
+        val source = file("src/main.cr")
+        val stdlibFile = file("stdlib/extras/feature.cr")
+
+        val resolution = resolver(directory("stdlib")).resolve(source, "extras/*")
+
+        assertEquals(listOf(stdlibFile), resolution.files)
+        assertEquals(
+            setOf(directory(""), directory("stdlib/extras")),
+            resolution.watchedDirectories,
+        )
+    }
+
+    fun testRecognizesOnlyTerminalWildcardSuffixes() {
+        val source = file("src/main.cr")
+        file("src/models/nested/user.cr")
+
+        val resolution = resolver().resolve(source, "./models/*/user")
+
+        assertEquals(emptyList<VirtualFile>(), resolution.files)
+        assertEquals(emptySet<VirtualFile>(), resolution.watchedDirectories)
+    }
+
+    fun testNonWildcardLookupDoesNotWatchDirectories() {
+        val source = file("src/main.cr")
+        val target = file("src/models/user.cr")
+
+        val resolution = resolver().resolve(source, "./models/user")
+
+        assertEquals(listOf(target), resolution.files)
+        assertEquals(emptySet<VirtualFile>(), resolution.watchedDirectories)
+    }
+
+    private fun resolver(stdlibRoot: VirtualFile? = null): CrystalRequirePathResolver =
+        CrystalRequirePathResolver(project) { stdlibRoot }
+
+    private fun file(path: String): VirtualFile =
+        myFixture.addFileToProject(path, "").virtualFile
+
+    private fun directory(path: String): VirtualFile =
+        requireNotNull(myFixture.tempDirFixture.findOrCreateDir("").findFileByRelativePath(path))
+}
