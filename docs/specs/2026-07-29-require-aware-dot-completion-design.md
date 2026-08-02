@@ -65,7 +65,9 @@ method bodies do not invalidate direct edges or transitive closures.
 When a direct-require fingerprint changes, the service invalidates that node and only the nodes that
 transitively depend on it. Closure recomputation is lazy. Unsaved PSI/document changes participate,
 so adding, changing, or removing a require statement affects completion before the document is
-saved.
+saved. The project service listens only to Crystal PSI changes that touch a require subtree or can
+replace a file-level structure containing one, then compares the fresh fingerprint before mutating
+the graph. Ordinary method-body edits therefore retain node, closure, and effective-snapshot caches.
 
 The prelude root is resolved once per SDK and source-root configuration. Its closure is reused as the
 static foundation for every file while its complete dependency-version map remains current. A
@@ -81,6 +83,12 @@ path-resolution and graph cache:
 
 Required-file rename or movement invalidates affected path results. Wildcard directory events use
 the targeted ownership described above rather than globally invalidating unrelated graph nodes.
+Create, delete, rename, and move events are processed after VFS completion using stable old and new
+paths; each wildcard owns its resolved directory or the nearest existing parent when the target is
+missing. Content changes to graph nodes use the same require-fingerprint comparison as unsaved PSI
+changes. The PSI, VFS, and project-root listeners are all registered with project disposal. Changes
+to SDK settings clear the cached stdlib root and invalidate the graph before resolving replacement
+roots.
 
 The service publishes immutable snapshots for concurrent completion reads. Graph mutation and
 reverse-edge invalidation are serialized. The complete prelude and root traversal, including node

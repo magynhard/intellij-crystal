@@ -1,13 +1,32 @@
 package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.roots.AdditionalLibraryRootsListener
+import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
+
+    fun testApplyInvalidatesRequireGraphBeforeResolvingNewRoots() {
+        val service = CrystalRequireGraphService.getInstance(project)
+        val before = service.cacheStats()
+        val configurable = CrystalSettingsConfigurable(project)
+        val field = TextFieldWithBrowseButton().apply {
+            text = CrystalSettings.getInstance(project).state.crystalPath
+        }
+        configurable.javaClass.getDeclaredField("crystalPathField").apply {
+            isAccessible = true
+            set(configurable, field)
+        }
+
+        configurable.apply()
+
+        assertEquals(before.fullInvalidations + 1, service.cacheStats().fullInvalidations)
+    }
 
     fun testForceReindexDoesNothingOutsideCrystalProject() {
         val tempDir = Files.createTempDirectory("crystal-settings-reindex-test")
