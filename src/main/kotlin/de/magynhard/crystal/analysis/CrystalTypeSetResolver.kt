@@ -19,6 +19,7 @@ internal object CrystalTypeSetResolver {
 }
 
 internal class CrystalTypeResolutionSession(private val context: PsiElement) {
+    private val effectiveSources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
     private val memo = IdentityHashMap<PsiElement, CrystalTypeResolution>()
     private val resolving = java.util.Collections.newSetFromMap(IdentityHashMap<PsiElement, Boolean>())
     private val resolvingMethods = java.util.Collections.newSetFromMap(IdentityHashMap<CrystalMethodDefinition, Boolean>())
@@ -1094,15 +1095,21 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             element is CrystalStructDefinition || element is CrystalEnumDefinition
 
     private fun types(name: String): List<CrystalNamedElement> = typeCache.getOrPut(name) {
-        CrystalIndexService.findTypes(name, context.project, GlobalSearchScope.allScope(context.project)).toList()
+        CrystalIndexService.findTypes(name, context.project, GlobalSearchScope.allScope(context.project))
+            .filter(effectiveSources::contains)
+            .toList()
     }
 
     private fun methods(name: String): List<CrystalMethodDefinition> = methodCache.getOrPut(name) {
-        CrystalIndexService.findMethods(name, context.project, GlobalSearchScope.allScope(context.project)).toList()
+        CrystalIndexService.findMethods(name, context.project, GlobalSearchScope.allScope(context.project))
+            .filter(effectiveSources::contains)
+            .toList()
     }
 
     private fun classMethods(name: String): List<CrystalMethodDefinition> = methodsByTypeCache.getOrPut(name) {
-        CrystalIndexService.findMethodsByClass(name, context.project, GlobalSearchScope.allScope(context.project)).toList()
+        CrystalIndexService.findMethodsByClass(name, context.project, GlobalSearchScope.allScope(context.project))
+            .filter(effectiveSources::contains)
+            .toList()
     }
 
     private sealed interface ReceiverState {

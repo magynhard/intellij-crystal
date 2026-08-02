@@ -39,7 +39,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Apfel.tan<caret>zen")
+        myFixture.configureByText("main.cr", "require \"./apfel\"\nApfel.tan<caret>zen")
 
         val targets = dotCallTargets()
 
@@ -57,6 +57,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfel"
             a = Apfel.new
             a.es<caret>sen
         """.trimIndent())
@@ -75,7 +76,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
             def greet
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "greet")
+        myFixture.configureByText("main.cr", "require \"./helpers\"\ngreet")
 
         val varRefs = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalVariableReference::class.java)
         val greetRef = varRefs.find { it.text == "greet" }
@@ -93,7 +94,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
             class Apfel
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "x = Apfel.new")
+        myFixture.configureByText("main.cr", "require \"./models\"\nx = Apfel.new")
 
         val varRefs = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalVariableReference::class.java)
         val apfelRef = varRefs.find { it.text == "Apfel" }
@@ -115,7 +116,7 @@ class CrystalCrossFileGotoTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Utils.hel<caret>per")
+        myFixture.configureByText("main.cr", "require \"./utils\"\nUtils.hel<caret>per")
 
         val targets = dotCallTargets()
 

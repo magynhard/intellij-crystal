@@ -11,6 +11,18 @@ Each session owns PSI memoization, method-return memoization and recursion guard
 method caches, and one cached `CrystalMethodHierarchy`. Runtime lookup uses `CrystalIndexService`
 and never scans project files.
 
+Each session also captures exactly one immutable effective-source snapshot from its PSI context.
+Neutral StubIndex candidate lists for types, named methods, and methods by enclosing type are
+filtered against that snapshot before exact identity, hierarchy metadata, ambiguity, duplicate
+signature, or completeness logic runs. The visible program consists of the current file, its
+forward transitive require closure, and the configured prelude closure. Reverse dependents,
+unrequired sibling files, and optional reopenings outside that set cannot affect resolution.
+
+Consumers must construct sessions from the actual PSI location being analyzed. Completion passes
+its completion position for both value and type-object receivers; a `Project` or project directory
+is not a valid substitute because it has no file load context. Missing or incomplete effective
+sources remain authoritative and do not trigger an all-project fallback.
+
 ## Sequential Variable Flow
 
 Variable lookup composes source-ordered PSI from the active lexical boundary to the use site. Each
@@ -139,3 +151,8 @@ type.
 - Nil/type narrowing from conditions is not modeled.
 - Proc result inference and custom operator overload resolution are not modeled.
 - Cross-file reopening precedence remains incomplete when Crystal load order cannot be proven.
+- Declarations outside the effective source snapshot are ignored rather than used to resolve an
+  otherwise missing type or method.
+- Nonphysical injected PSI, including Crystal fragments inside ECR files, has no exact Crystal file
+  load context and therefore receives an empty snapshot. DOT candidates remain suppressed until a
+  caller-aware host load context can be modeled; an all-project fallback is forbidden.

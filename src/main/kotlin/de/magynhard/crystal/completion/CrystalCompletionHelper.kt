@@ -5,10 +5,8 @@ import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.project.Project
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalCollectedMethod
@@ -158,35 +156,31 @@ object CrystalCompletionHelper {
      * Returns instance methods as LookupElements with hierarchy-based priority.
      * Own class methods get highest priority, inherited methods get progressively lower.
      */
-    fun getMethodsAsLookups(typeName: String, project: Project): List<LookupElement> =
-        getMethodsAsLookups(listOf(typeName), project)
+    fun getMethodsAsLookups(typeName: String, context: PsiElement): List<LookupElement> =
+        getMethodsAsLookups(listOf(typeName), context)
 
     /**
      * Returns static methods for one exact qualified type identity.
      */
-    fun getStaticMethodsAsLookups(typeName: String, project: Project): List<LookupElement> =
-        getMethodsAsLookups(listOf(typeName), project, CrystalReceiverMode.STATIC)
+    fun getStaticMethodsAsLookups(typeName: String, context: PsiElement): List<LookupElement> =
+        getMethodsAsLookups(listOf(typeName), context, CrystalReceiverMode.STATIC)
 
     /**
      * Returns merged instance methods for the requested exact type roots.
      */
-    fun getMethodsAsLookups(typeNames: List<String>, project: Project): List<LookupElement> {
-        return getMethodsAsLookups(typeNames, project, CrystalReceiverMode.INSTANCE)
+    fun getMethodsAsLookups(typeNames: List<String>, context: PsiElement): List<LookupElement> {
+        return getMethodsAsLookups(typeNames, context, CrystalReceiverMode.INSTANCE)
     }
 
     private fun getMethodsAsLookups(
         typeNames: List<String>,
-        project: Project,
+        context: PsiElement,
         mode: CrystalReceiverMode
     ): List<LookupElement> {
-        val psiManager = PsiManager.getInstance(project)
-        val projectDirectory = ProjectRootManager.getInstance(project).contentRoots
-            .firstNotNullOfOrNull(psiManager::findDirectory)
-            ?: return emptyList()
-        val session = CrystalTypeSetResolver.session(projectDirectory)
+        val session = CrystalTypeSetResolver.session(context)
         val methods = mutableListOf<CrystalCollectedMethod>()
         for (typeName in typeNames.distinct()) {
-            val identity = session.resolveType(typeName, projectDirectory) ?: return emptyList()
+            val identity = session.resolveType(typeName, context) ?: return emptyList()
             val collection = session.collectMethods(identity, mode)
             if (!collection.complete) return emptyList()
             methods.addAll(collection.methods)

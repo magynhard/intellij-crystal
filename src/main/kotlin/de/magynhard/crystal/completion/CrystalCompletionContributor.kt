@@ -64,7 +64,7 @@ class CrystalCompletionContributor : CompletionContributor() {
                     return
                 }
                 is CompletionReceiver.ValueTypes -> {
-                    CrystalCompletionHelper.getMethodsAsLookups(receiver.typeNames, project)
+                    CrystalCompletionHelper.getMethodsAsLookups(receiver.typeNames, position)
                         .forEach(result::addElement)
                     return
                 }
@@ -156,8 +156,10 @@ internal object CrystalTypeObjectCompletionProvider {
         parameters: CompletionParameters,
         result: CompletionResultSet
     ) {
-        val project = parameters.position.project
-        val staticLookups = CrystalCompletionHelper.getStaticMethodsAsLookups(receiver.qualifiedName, project)
+        val staticLookups = CrystalCompletionHelper.getStaticMethodsAsLookups(
+            receiver.qualifiedName,
+            parameters.position
+        )
         staticLookups.forEach(result::addElement)
 
         if (staticLookups.any { it.lookupString == "new" }) return

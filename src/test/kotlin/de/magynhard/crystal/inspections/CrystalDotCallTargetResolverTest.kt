@@ -1830,6 +1830,8 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
 
         val duplicate = resolveCall(
             """
+                require "./first"
+                require "./second"
                 value = CrossFile.new
                 value.duplicate(1)
             """.trimIndent(),
@@ -1840,6 +1842,8 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
 
         val distinct = assertMethods(
             """
+                require "./first"
+                require "./second"
                 value = CrossFile.new
                 value.distinct(1)
             """.trimIndent(),
@@ -1882,6 +1886,8 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
 
         val call = resolveCall(
             """
+                require "./first-edge"
+                require "./second-edge"
                 worker = CrossFileWorker.new
                 worker.work(1)
             """.trimIndent(),

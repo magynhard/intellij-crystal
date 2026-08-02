@@ -4,6 +4,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.navigation.NavigationItem
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.util.Processor
 import com.intellij.util.indexing.FindSymbolParameters
 
@@ -78,6 +79,8 @@ class CrystalGoToContributorTest : BasePlatformTestCase() {
     fun testGoToContributorsEnumerateCandidateOutsideScopeButDoNotResolveIt() {
         val included = myFixture.addFileToProject("included.cr", "class IncludedScopeType\nend")
         myFixture.addFileToProject("excluded.cr", "class ExcludedScopeType\nend")
+        myFixture.configureFromExistingVirtualFile(included.virtualFile)
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
         val scope = GlobalSearchScope.fileScope(included)
 
         for (contributor in listOf(CrystalGoToClassContributor(), CrystalGoToSymbolContributor())) {

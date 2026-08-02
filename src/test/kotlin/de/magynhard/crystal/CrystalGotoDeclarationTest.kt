@@ -336,7 +336,7 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
 
         myFixture.configureByText(
             "test.cr",
-            "alias Probe = Service.n<caret>ew"
+            "require \"./one/service\"\nrequire \"./two/service\"\nalias Probe = Service.n<caret>ew"
         )
         val source = requireNotNull(myFixture.file.findElementAt(myFixture.caretOffset))
         assertNull(

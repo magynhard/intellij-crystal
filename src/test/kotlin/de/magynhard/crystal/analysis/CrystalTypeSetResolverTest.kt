@@ -458,6 +458,27 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testTypeResolutionUsesOnlyCurrentAndForwardRequiredSources() {
+        myFixture.addFileToProject("loaded.cr", "class Loaded\nend")
+        myFixture.addFileToProject("not_loaded.cr", "class Hidden\nend")
+        val context = myFixture.configureByText(
+            "main.cr",
+            "require \"./loaded\"\nclass Current\nend\nLoaded.new"
+        )
+        val session = CrystalTypeSetResolver.session(context)
+
+        assertEquals(CrystalTypeIdentity("Current", "Current"), session.resolveType("Current", context))
+        assertEquals(CrystalTypeIdentity("Loaded", "Loaded"), session.resolveType("Loaded", context))
+        assertNull(session.resolveType("Hidden", context))
+    }
+
+    fun testUnqualifiedCallUsesOnlyForwardRequiredMethods() {
+        myFixture.addFileToProject("loaded.cr", "def value : String\n  \"loaded\"\nend")
+        myFixture.addFileToProject("not_loaded.cr", "def value : Int32\n  1\nend")
+
+        assertTypes("require \"./loaded\"\nresult = value\n<caret>result", "String")
+    }
+
     private fun assertTypes(source: String, vararg expected: String) {
         val result = resolve(source)
         assertTrue("Expected known types ${expected.toList()}, got $result", result is CrystalTypeResolution.Known)

@@ -3,13 +3,46 @@ package de.magynhard.crystal
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.sdk.CrystalStdlibResolver
+import java.io.File
 
 /**
  * Tests for `require` statement synthesis and file-path completion inside the
  * require string. See `docs/specs/require.md` for the behavioural spec.
  */
 class CrystalRequireCompletionTest : BasePlatformTestCase() {
+
+    override fun setUp() {
+        super.setUp()
+        if (!stdlibRootAllowed) {
+            CrystalStdlibResolver.resolveStdlibPath(project)?.let { root ->
+                val property = "vfs.additional-allowed-roots"
+                val allowedRoots = System.getProperty(property).orEmpty()
+                    .split(File.pathSeparator)
+                    .filter(String::isNotBlank)
+                    .toMutableSet()
+                allowedRoots.add(root.path)
+                System.setProperty(property, allowedRoots.joinToString(File.pathSeparator))
+                stdlibRootAllowed = true
+            }
+            CrystalStdlibResolver.clearCachedStdlibPath(project)
+        }
+    }
+
+    override fun tearDown() {
+        try {
+            CrystalStdlibResolver.clearCachedStdlibPath(project)
+            ApplicationManager.getApplication().runWriteAction {
+                REQUIRE_FIXTURE_ROOTS.mapNotNull(myFixture.tempDirFixture::getFile)
+                    .filter { it.isValid }
+                    .forEach { it.delete(this) }
+            }
+        } finally {
+            super.tearDown()
+        }
+    }
 
     // ==================== Keyword mode ====================
 
@@ -529,6 +562,23 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
             "Caret should be between the inserted quotes",
             text.lastIndexOf("require \"") + "require \"".length,
             myFixture.editor.caretModel.offset,
+        )
+    }
+
+    private companion object {
+        var stdlibRootAllowed = false
+        val REQUIRE_FIXTURE_ROOTS = listOf(
+            "helper.cr",
+            "lib",
+            "main.cr",
+            "models",
+            "other.cr",
+            "sibling.cr",
+            "spec",
+            "src",
+            "sub",
+            "user.cr",
+            "util.cr"
         )
     }
 }

@@ -154,4 +154,90 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
             )
         }
     }
+
+    fun testMethodHierarchyUsesOnlyForwardRequireClosure() {
+        myFixture.addFileToProject("loaded.cr", "class Service\n  def loaded\n  end\nend")
+        myFixture.addFileToProject("not_loaded.cr", "class Service\n  def leaked\n  end\nend")
+        val context = myFixture.configureByText("main.cr", "require \"./loaded\"\nService.new")
+        val session = CrystalTypeSetResolver.session(context)
+        val identity = CrystalTypeIdentity("Service", "Service")
+
+        val all = session.collectMethods(identity, CrystalReceiverMode.INSTANCE)
+        val loaded = session.collectNamedMethods(identity, CrystalReceiverMode.INSTANCE, "loaded")
+        val leaked = session.collectNamedMethods(identity, CrystalReceiverMode.INSTANCE, "leaked")
+
+        assertTrue(all.complete)
+        assertEquals(listOf("loaded"), all.methods.map { it.method.name })
+        assertTrue(loaded.complete)
+        assertEquals(listOf("loaded"), loaded.methods.map { it.name })
+        assertTrue(leaked.complete)
+        assertTrue(leaked.methods.isEmpty())
+    }
+
+    fun testInvisibleDuplicateReopeningDoesNotMakeCollectionIncomplete() {
+        myFixture.addFileToProject(
+            "loaded.cr",
+            "class Service\n  def convert(value : Int32)\n  end\nend"
+        )
+        myFixture.addFileToProject(
+            "not_loaded.cr",
+            "class Service\n  def convert(value : Int32)\n  end\nend"
+        )
+        val context = myFixture.configureByText("main.cr", "require \"./loaded\"\nService.new")
+
+        val result = CrystalTypeSetResolver.session(context).collectMethods(
+            CrystalTypeIdentity("Service", "Service"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(listOf("convert"), result.methods.map { it.method.name })
+        assertEquals("loaded.cr", result.methods.single().method.containingFile.name)
+    }
+
+    fun testIncludeAndExtendEdgesUseOnlyForwardRequireClosure() {
+        myFixture.addFileToProject(
+            "loaded.cr",
+            "module LoadedFeature\n  def loaded_instance\n  end\nend\n" +
+                "module LoadedFactory\n  def loaded_static\n  end\nend\n" +
+                "class Service\n  include LoadedFeature\n  extend LoadedFactory\nend"
+        )
+        myFixture.addFileToProject(
+            "not_loaded.cr",
+            "module HiddenFeature\n  def leaked_instance\n  end\nend\n" +
+                "module HiddenFactory\n  def leaked_static\n  end\nend\n" +
+                "class Service\n  include HiddenFeature\n  extend HiddenFactory\nend"
+        )
+        val context = myFixture.configureByText("main.cr", "require \"./loaded\"\nService.new")
+        val session = CrystalTypeSetResolver.session(context)
+        val identity = CrystalTypeIdentity("Service", "Service")
+
+        val instanceMethods = session.collectMethods(identity, CrystalReceiverMode.INSTANCE)
+        val staticMethods = session.collectMethods(identity, CrystalReceiverMode.STATIC)
+
+        assertTrue(instanceMethods.complete)
+        assertEquals(listOf("loaded_instance"), instanceMethods.methods.map { it.method.name })
+        assertTrue(staticMethods.complete)
+        assertEquals(listOf("loaded_static"), staticMethods.methods.map { it.method.name })
+    }
+
+    fun testSuperclassUsesOnlyForwardRequireClosure() {
+        myFixture.addFileToProject(
+            "loaded.cr",
+            "class LoadedParent\n  def loaded_parent\n  end\nend\nclass Service < LoadedParent\nend"
+        )
+        myFixture.addFileToProject(
+            "not_loaded.cr",
+            "class HiddenParent\n  def leaked_parent\n  end\nend\nclass Service < HiddenParent\nend"
+        )
+        val context = myFixture.configureByText("main.cr", "require \"./loaded\"\nService.new")
+
+        val result = CrystalTypeSetResolver.session(context).collectMethods(
+            CrystalTypeIdentity("Service", "Service"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(listOf("loaded_parent"), result.methods.map { it.method.name })
+    }
 }

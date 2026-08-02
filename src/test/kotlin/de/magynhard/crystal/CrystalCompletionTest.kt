@@ -1,12 +1,27 @@
 package de.magynhard.crystal
 
 import com.intellij.codeInsight.completion.CompletionType
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 /**
  * Tests for CrystalCompletionContributor.
  */
 class CrystalCompletionTest : BasePlatformTestCase() {
+
+    override fun tearDown() {
+        try {
+            CrystalStdlibResolver.clearCachedStdlibPath(project)
+            ApplicationManager.getApplication().runWriteAction {
+                COMPLETION_FIXTURE_ROOTS.mapNotNull(myFixture.tempDirFixture::getFile)
+                    .filter { it.isValid }
+                    .forEach { it.delete(this) }
+            }
+        } finally {
+            super.tearDown()
+        }
+    }
 
     // ==================== Free-text completion ====================
 
@@ -288,7 +303,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Apfel.<caret>")
+        myFixture.configureByText("main.cr", "require \"./apfel\"\nApfel.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
@@ -302,7 +317,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             class Birne
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Birne.<caret>")
+        myFixture.configureByText("main.cr", "require \"./birne\"\nBirne.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
@@ -316,7 +331,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Apfel.<caret>")
+        myFixture.configureByText("main.cr", "require \"./apfel\"\nApfel.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val newElement = lookups.first { it.lookupString == "new" }
@@ -333,7 +348,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Birne.<caret>")
+        myFixture.configureByText("main.cr", "require \"./birne\"\nBirne.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val newElement = lookups.first { it.lookupString == "new" }
@@ -350,7 +365,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Kirsche.<caret>")
+        myFixture.configureByText("main.cr", "require \"./kirsche\"\nKirsche.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val newElement = lookups.first { it.lookupString == "new" }
@@ -371,7 +386,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "MathHelper.<caret>")
+        myFixture.configureByText("main.cr", "require \"./helper\"\nMathHelper.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
@@ -387,7 +402,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Utils.<caret>")
+        myFixture.configureByText("main.cr", "require \"./utils\"\nUtils.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
@@ -416,6 +431,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfel"
             a = Apfel.new
             a.<caret>
         """.trimIndent())
@@ -444,6 +460,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfel"
             a = Apfel.new "lol", 123
             a.<caret>
         """.trimIndent())
@@ -477,6 +494,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfel"
             def foo(a : Apfel)
               a.<caret>
             end
@@ -505,6 +523,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfel"
             class Foo
               @apfel : Apfel
               def initialize
@@ -533,6 +552,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfel"
             a = Apfel.new
             a.<caret>
         """.trimIndent())
@@ -553,12 +573,14 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.addFileToProject("apfel.cr", """
+            require "./frucht"
             class Apfel < Frucht
               def essen
               end
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfel"
             a = Apfel.new
             a.<caret>
         """.trimIndent())
@@ -978,6 +1000,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./apfelsaft"
             a = Apfelsaft.new("hi", 1)
             a.<caret>
         """.trimIndent())
@@ -1014,7 +1037,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Apfelsaft.<caret>")
+        myFixture.configureByText("main.cr", "require \"./apfelsaft2\"\nApfelsaft.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val newLookup = lookups.find { it.lookupString == "new" }
@@ -1185,6 +1208,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./base"
             class Derived < Base
               def test
                 base_local = 1
@@ -1377,7 +1401,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Apfelsaft::<caret>")
+        myFixture.configureByText("main.cr", "require \"./apfelsaft\"\nApfelsaft::<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
@@ -1394,7 +1418,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Hamster::<caret>")
+        myFixture.configureByText("main.cr", "require \"./hamster\"\nHamster::<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         val names = lookups?.map { it.lookupString } ?: emptyList()
         assertTrue("Should contain 'WEIGHT': $names", names.contains("WEIGHT"))
@@ -1434,7 +1458,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.configureByText("main.cr", "Apfelsaft::Tools.<caret>")
+        myFixture.configureByText("main.cr", "require \"./apfelsaft\"\nApfelsaft::Tools.<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
         val names = lookups.map { it.lookupString }
@@ -1456,10 +1480,10 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
 
-        val expected = completionNames("Foo.<caret>")
+        val expected = completionNames("require \"./foo\"\nFoo.<caret>")
         assertEquals(setOf("build", "parse", "new"), expected)
-        assertEquals(expected, completionNames("(Foo).<caret>"))
-        assertEquals(expected, completionNames("((Foo)).<caret>"))
+        assertEquals(expected, completionNames("require \"./foo\"\n(Foo).<caret>"))
+        assertEquals(expected, completionNames("require \"./foo\"\n((Foo)).<caret>"))
     }
 
     fun testQualifiedAbsoluteModuleAndRecordTypeObjectCompletion() {
@@ -1662,17 +1686,17 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         )
 
         for ((receiver, expectedPresentation) in cases) {
-            assertReceiverPresentationParity("", receiver, listOf(expectedPresentation))
+            assertReceiverPresentationParity(EXPRESSION_TYPES_REQUIRE, receiver, listOf(expectedPresentation))
         }
 
         val heredoc = "<<-TEXT\nhello\nTEXT"
         val expectedHeredoc = listOf("upcase|()|String|Method")
-        assertEquals(expectedHeredoc, completionPresentations("$heredoc\n.<caret>"))
-        assertEquals(expectedHeredoc, completionPresentations("($heredoc\n).<caret>"))
-        assertEquals(expectedHeredoc, completionPresentations("(($heredoc\n)).<caret>"))
+        assertEquals(expectedHeredoc, completionPresentations("$EXPRESSION_TYPES_REQUIRE\n$heredoc\n.<caret>"))
+        assertEquals(expectedHeredoc, completionPresentations("$EXPRESSION_TYPES_REQUIRE\n($heredoc\n).<caret>"))
+        assertEquals(expectedHeredoc, completionPresentations("$EXPRESSION_TYPES_REQUIRE\n(($heredoc\n)).<caret>"))
 
-        assertFalse(completionNames("3.<caret>").contains("float_only"))
-        assertFalse(completionNames("3.14.<caret>").contains("times"))
+        assertFalse(completionNames("$EXPRESSION_TYPES_REQUIRE\n3.<caret>").contains("float_only"))
+        assertFalse(completionNames("$EXPRESSION_TYPES_REQUIRE\n3.14.<caret>").contains("times"))
     }
 
     fun testCollectionOperatorAndMethodResultCompletion() {
@@ -1684,7 +1708,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             "1 + 2" to "times|()|Int32|Method"
         )
         for ((receiver, expectedPresentation) in expressions) {
-            assertReceiverPresentationParity("", receiver, listOf(expectedPresentation))
+            assertReceiverPresentationParity(EXPRESSION_TYPES_REQUIRE, receiver, listOf(expectedPresentation))
         }
 
         val methods = """
@@ -1697,12 +1721,12 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent()
         assertReceiverPresentationParity(
-            methods,
+            "$EXPRESSION_TYPES_REQUIRE\n$methods",
             "annotated_result()",
             listOf("upcase|()|String|Method")
         )
         assertReceiverPresentationParity(
-            methods,
+            "$EXPRESSION_TYPES_REQUIRE\n$methods",
             "inferred_result()",
             listOf("times|()|Int32|Method")
         )
@@ -1836,9 +1860,9 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         addExpressionCompletionTypes()
         myFixture.addFileToProject("unrelated.cr", "def unrelated_project_method\nend")
 
-        assertTrue(completionNames("3.<caret>").contains("times"))
+        assertTrue(completionNames("$EXPRESSION_TYPES_REQUIRE\n3.<caret>").contains("times"))
         assertTrue(completionNames("3.1<caret>").isEmpty())
-        assertTrue(completionNames("3.14.<caret>").contains("float_only"))
+        assertTrue(completionNames("$EXPRESSION_TYPES_REQUIRE\n3.14.<caret>").contains("float_only"))
         assertEquals(emptySet<String>(), completionNames("(missing).<caret>"))
     }
 
@@ -1854,8 +1878,8 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
 
-        assertEquals(setOf("own_int32", "times"), completionNames("3.<caret>"))
-        assertEquals(setOf("own_int32", "times"), completionNames("(3).<caret>"))
+        assertEquals(setOf("own_int32", "times"), completionNames("require \"./stdlib/number\"\n3.<caret>"))
+        assertEquals(setOf("own_int32", "times"), completionNames("require \"./stdlib/number\"\n(3).<caret>"))
     }
 
     fun testMacroHeavyTypesKeepOnlyCertainCompletionCandidates() {
@@ -1879,10 +1903,10 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
 
-        assertEquals(setOf("upcase"), completionNames("\"text\".<caret>"))
+        assertEquals(setOf("upcase"), completionNames("require \"./stdlib/macro_types\"\n\"text\".<caret>"))
         assertEquals(
             setOf("year"),
-            completionNames("def now : Time\n  Time.new\nend\nnow().<caret>")
+            completionNames("require \"./stdlib/macro_types\"\ndef now : Time\n  Time.new\nend\nnow().<caret>")
         )
     }
 
@@ -1899,7 +1923,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         """.trimIndent())
 
         for (receiver in listOf("1..2", "1...2", "(1..2)", "(1...2)", "..2", "...2")) {
-            val names = completionNames("$receiver.<caret>")
+            val names = completionNames("require \"./stdlib/range\"\n$receiver.<caret>")
             assertTrue("$receiver should expose Range#each: $names", names.contains("each"))
             assertFalse("$receiver must not expose Int32 methods: $names", names.contains("int_only"))
         }
@@ -2048,6 +2072,28 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
+    }
+
+    private companion object {
+        const val EXPRESSION_TYPES_REQUIRE = "require \"./stdlib/expression_types\""
+        val COMPLETION_FIXTURE_ROOTS = listOf(
+            "apfel.cr",
+            "apfelsaft.cr",
+            "apfelsaft2.cr",
+            "base.cr",
+            "birne.cr",
+            "config.cr",
+            "foo.cr",
+            "frucht.cr",
+            "hamster.cr",
+            "helper.cr",
+            "helpers.cr",
+            "kirsche.cr",
+            "main.cr",
+            "stdlib",
+            "unrelated.cr",
+            "utils.cr"
+        )
     }
 
     private fun completionNames(source: String): Set<String> = completionNameList(source).toSet()

@@ -5,7 +5,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 class CrystalCompletionHelperTest : BasePlatformTestCase() {
 
     fun testMergesMethodsFromMultipleExactTypesByCanonicalSignature() {
-        myFixture.configureByText("types.cr", """
+        val context = myFixture.configureByText("types.cr", """
             class First
               def first_only
               end
@@ -29,7 +29,7 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
             end
         """.trimIndent())
 
-        val lookups = CrystalCompletionHelper.getMethodsAsLookups(listOf("First", "Second"), project)
+        val lookups = CrystalCompletionHelper.getMethodsAsLookups(listOf("First", "Second"), context)
         val names = lookups.map { it.lookupString }
 
         assertEquals(1, names.count { it == "first_only" })
@@ -39,7 +39,7 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
     }
 
     fun testQualifiedTypesOnlyContributeMethodsFromWrittenIdentities() {
-        myFixture.configureByText("qualified.cr", """
+        val context = myFixture.configureByText("qualified.cr", """
             module Left
               class Service
                 def from_left
@@ -64,7 +64,7 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
 
         val names = CrystalCompletionHelper.getMethodsAsLookups(
             listOf("Left::Service", "Right::Service"),
-            project
+            context
         ).map { it.lookupString }
 
         assertEquals(listOf("from_left", "from_right"), names)
@@ -72,7 +72,7 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
     }
 
     fun testStaticMethodsUseExactQualifiedIdentityAndRetainOverloads() {
-        myFixture.configureByText("qualified_static.cr", """
+        val context = myFixture.configureByText("qualified_static.cr", """
             module Left
               class Service
                 def self.from_left
@@ -94,7 +94,7 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
             end
         """.trimIndent())
 
-        val lookups = CrystalCompletionHelper.getStaticMethodsAsLookups("Left::Service", project)
+        val lookups = CrystalCompletionHelper.getStaticMethodsAsLookups("Left::Service", context)
         val names = lookups.map { it.lookupString }
 
         assertEquals(1, names.count { it == "from_left" })
@@ -106,28 +106,31 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
         myFixture.addFileToProject("stdlib/int.cr", "struct Int32\n  def integer_method\n  end\nend")
         myFixture.addFileToProject("stdlib/string.cr", "class String\n  def string_method\n  end\nend")
         myFixture.addFileToProject("stdlib/array.cr", "class Array(T)\n  def array_method\n  end\nend")
-        myFixture.configureByText("usage.cr", "value = nil")
+        val context = myFixture.configureByText(
+            "usage.cr",
+            "require \"./stdlib/int\"\nrequire \"./stdlib/string\"\nrequire \"./stdlib/array\"\nvalue = nil"
+        )
 
         val names = CrystalCompletionHelper.getMethodsAsLookups(
             listOf("Int32", "String", "Array"),
-            project
+            context
         ).map { it.lookupString }
 
         assertEquals(listOf("integer_method", "string_method", "array_method"), names)
     }
 
     fun testUnionLookupRequiresEveryExactBranch() {
-        myFixture.configureByText("types.cr", "class Foo\n  def foo_method\n  end\nend")
+        val context = myFixture.configureByText("types.cr", "class Foo\n  def foo_method\n  end\nend")
 
         assertEquals(
             emptyList<String>(),
-            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "NotIndexed"), project)
+            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "NotIndexed"), context)
                 .map { it.lookupString }
         )
     }
 
     fun testUnionLookupRetainsAllKnownBranches() {
-        myFixture.configureByText(
+        val context = myFixture.configureByText(
             "types.cr",
             "class Foo\n  def foo_method\n  end\nend\n" +
                 "class Bar\n  def bar_method\n  end\nend"
@@ -135,13 +138,13 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
 
         assertEquals(
             listOf("foo_method", "bar_method"),
-            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "Bar"), project)
+            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "Bar"), context)
                 .map { it.lookupString }
         )
     }
 
     fun testCompletionKeepsCertainMethodsFromMacroHeavyStdlibTypes() {
-        myFixture.configureByText(
+        val context = myFixture.configureByText(
             "stdlib.cr",
             "class String\n" +
                 "  def upcase\n    {{ body_value }}\n  end\n" +
@@ -152,12 +155,23 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
 
         assertEquals(
             listOf("upcase"),
-            CrystalCompletionHelper.getMethodsAsLookups("String", project).map { it.lookupString }
+            CrystalCompletionHelper.getMethodsAsLookups("String", context).map { it.lookupString }
         )
         assertEquals(
             listOf("year"),
-            CrystalCompletionHelper.getMethodsAsLookups("Time", project).map { it.lookupString }
+            CrystalCompletionHelper.getMethodsAsLookups("Time", context).map { it.lookupString }
         )
+    }
+
+    fun testMethodLookupsUseOnlyForwardRequiredReopenings() {
+        myFixture.addFileToProject("loaded.cr", "class Service\n  def loaded\n  end\nend")
+        myFixture.addFileToProject("not_loaded.cr", "class Service\n  def leaked\n  end\nend")
+        val context = myFixture.configureByText("main.cr", "require \"./loaded\"\nService.new")
+
+        val names = CrystalCompletionHelper.getMethodsAsLookups("Service", context)
+            .map { it.lookupString }
+
+        assertEquals(listOf("loaded"), names)
     }
 
     fun testFindTypeByNamePrefersCurrentFileAndFindsProjectTypes() {

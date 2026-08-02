@@ -27,6 +27,7 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.impl.PsiTreeChangeEventImpl
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.util.concurrency.AppExecutorUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.CrystalRequireStatement
@@ -52,6 +53,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             listenerDisposables.forEach(Disposer::dispose)
             listenerDisposables.clear()
             fixtureFiles.clear()
+            CrystalStdlibResolver.clearCachedStdlibPath(project)
         } finally {
             super.tearDown()
         }
@@ -325,6 +327,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
                 "require \"./chain_$target\"",
             )
         }
+        flushFixtureFiles()
 
         val sources = service().effectiveSources(elementIn("src/chain_0.cr"))
 
@@ -1503,6 +1506,15 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
     private fun files(vararg files: Pair<String, String>) {
         files.forEach { (path, text) ->
             fixtureFiles[path] = myFixture.addFileToProject(path, text).virtualFile
+        }
+        flushFixtureFiles()
+    }
+
+    private fun flushFixtureFiles() {
+        ApplicationManager.getApplication().invokeAndWait {
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+            PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
         }
     }
 

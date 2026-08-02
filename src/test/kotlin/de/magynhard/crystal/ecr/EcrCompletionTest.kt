@@ -61,7 +61,7 @@ class EcrCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain Int32, got: $names", names.contains("Int32"))
     }
 
-    fun testDotCompletesTypeObjectInsideInjectedCrystal() {
+    fun testDotCompletionWithoutLoadContextIsSuppressedForTypeObjectInsideInjectedCrystal() {
         myFixture.addFileToProject("service.cr", """
             class Service
               def self.build
@@ -69,10 +69,10 @@ class EcrCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
 
-        assertEquals(setOf("build", "new"), completionNames("<% Service.<caret> %>"))
+        assertEquals(emptySet<String>(), completionNames("<% Service.<caret> %>"))
     }
 
-    fun testDotCompletesGroupedLiteralInsideInjectedCrystal() {
+    fun testDotCompletionWithoutLoadContextIsSuppressedForGroupedLiteralInsideInjectedCrystal() {
         myFixture.addFileToProject("int.cr", """
             struct Int32
               def times
@@ -80,7 +80,7 @@ class EcrCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
 
-        assertEquals(setOf("times"), completionNames("<% ((3)).<caret> %>"))
+        assertEquals(emptySet<String>(), completionNames("<% ((3)).<caret> %>"))
     }
 
     fun testUnknownDotReceiverIsSuppressedInsideInjectedCrystal() {
