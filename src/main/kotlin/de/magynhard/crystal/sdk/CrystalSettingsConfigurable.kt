@@ -10,6 +10,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
@@ -17,7 +18,15 @@ import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import javax.swing.JComponent
 import javax.swing.JLabel
 
-class CrystalSettingsConfigurable(private val project: Project) : Configurable {
+class CrystalSettingsConfigurable private constructor(
+    private val project: Project,
+    private val refreshStdlibRoots: (oldRoots: List<VirtualFile>, newRoots: List<VirtualFile>) -> Unit,
+) : Configurable {
+
+    constructor(project: Project) : this(
+        project,
+        { oldRoots, newRoots -> CrystalStdlibIndexRefresher.refresh(project, oldRoots, newRoots) },
+    )
 
     private lateinit var crystalPathField: TextFieldWithBrowseButton
     private var versionLabel: JLabel = JBLabel("")
@@ -96,9 +105,14 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
         // Invalidate any cached stdlib path so the next call re-runs
         // `crystal env CRYSTAL_PATH` against the newly configured SDK.
         CrystalStdlibResolver.clearCachedStdlibPath(project)
-        val newRoots = resolveStdlibRoots()
-        CrystalStdlibIndexRefresher.refresh(project, oldRoots, newRoots)
-        CrystalRequireGraphService.getInstance(project).invalidateAll()
+        val requireGraph = CrystalRequireGraphService.getInstance(project)
+        try {
+            requireGraph.invalidateAll()
+            val newRoots = resolveStdlibRoots()
+            refreshStdlibRoots(oldRoots, newRoots)
+        } finally {
+            requireGraph.invalidateAll()
+        }
     }
 
     override fun reset() {
@@ -166,4 +180,11 @@ class CrystalSettingsConfigurable(private val project: Project) : Configurable {
         } else {
             emptyList()
         }
+
+    companion object {
+        internal fun forTest(
+            project: Project,
+            refreshStdlibRoots: (oldRoots: List<VirtualFile>, newRoots: List<VirtualFile>) -> Unit,
+        ): CrystalSettingsConfigurable = CrystalSettingsConfigurable(project, refreshStdlibRoots)
+    }
 }

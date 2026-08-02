@@ -92,16 +92,24 @@ intended missing target, not unrelated siblings. Mixed batches use structural-ev
 this matching.
 
 The synchronous VFS callback performs only immutable path matching, structural cache invalidation,
-and coalesced content-task scheduling; it never opens PSI or a read action. Saved content changes are
-fingerprint-validated on the application executor, and the next graph query waits for pending tasks
-before entering its existing outer read action. Unsaved PSI changes continue to compare their fresh
-fingerprint immediately. This keeps VFS event delivery nonblocking and ensures cancellation cannot
-discard structural invalidation; failed or canceled content tasks conservatively remove their node.
-`childMoved` and PSI property events participate in the same targeted comparison, with query-time
-validation as a final correctness backstop. The PSI, VFS, and project-root listeners are all
-registered with project disposal, and queued tasks avoid PSI after disposal. SDK settings clear and
-resolve the new stdlib root, publish replacement roots, and then invalidate the graph so nodes built
-anywhere in that transition cannot survive with stale root metadata.
+and dirty marking for already materialized content-changed nodes; it never opens PSI, starts a read
+action, or schedules executor work. The graph has no global pending-content barrier. A query validates
+the current require fingerprint of each node only while traversing its prelude or requested closure
+inside the existing outer read action. Unrelated dirty nodes neither gate nor rebuild that closure.
+An unchanged fingerprint, including an ordinary body edit, retains node, closure, and snapshot
+versions; a require edit publishes its replacement before that query returns. IntelliJ cancellation
+propagates from the read-consistent traversal and leaves dirty state retryable. Unsaved PSI changes
+continue to compare their fresh fingerprint immediately. `childMoved` and PSI property events
+participate in the same targeted comparison. The PSI, VFS, and project-root listeners are all
+registered with project disposal.
+
+Every query atomically captures the current cached stdlib-root identity together with the graph
+generation and uses that one root for prelude and bare-path resolution. Any observed `null` to root,
+root to different root, or root to `null` transition invalidates the generation before traversal;
+stale retries capture both values again. This applies even when a component other than SDK settings
+populates the resolver cache. SDK apply separately invalidates immediately after clearing the old
+root, then resolves and publishes replacement roots, and guarantees a final invalidation in `finally`
+even when resolution, refresh, or a synchronous publication callback fails.
 
 The service publishes immutable snapshots for concurrent completion reads. Graph mutation and
 reverse-edge invalidation are serialized. The complete prelude and root traversal, including node
@@ -112,9 +120,9 @@ iterative so arbitrarily deep chains and cycles do not consume the thread stack.
 
 No Crystal compiler process runs during completion. The graph reads only an already cached,
 project-scoped stdlib root and conservatively omits the prelude when no cache exists; SDK setup and
-explicit refresh actions remain responsible for discovery. A missing cached root is not retained as
-a successful generation result, so a root populated later during project startup becomes visible on
-the next query without requiring graph invalidation.
+explicit refresh actions remain responsible for discovery. A cached-root identity transition is part
+of graph validity, so a root populated later during project startup makes the prelude, bare exact
+requires, and bare wildcards visible on the next query without an external invalidation callback.
 
 Effective snapshots normalize the query and every resolved edge through the physical original PSI
 file's `VirtualFile`. Nonphysical or invalid query files produce an empty snapshot, and membership
@@ -171,6 +179,11 @@ Automated tests must cover:
   target directories.
 - Invalidation after `shard.yml`, `shard.lock`, SDK/root, `lib/`, and required-file changes.
 - Cache reuse after ordinary source edits and targeted dependent invalidation after require edits.
+- Query-local saved-content validation without executor barriers, including write-access queries,
+  cancellation, and unrelated dirty nodes.
+- Cold bare exact and wildcard graphs after another component publishes the stdlib root, plus
+  `null`/root/different-root transitions.
+- SDK replacement during discovery, synchronous root-publication queries, and failed publication.
 - Unsaved require edits, cycles, unresolved paths, ambiguity, missing prelude, and dumb-mode safety.
 - Preservation of exact namespaces, overloads, hierarchy ordering, unions, macro uncertainty, and
   optional-extension suppression.

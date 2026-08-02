@@ -39,9 +39,22 @@ internal class CrystalRequirePathResolver(
         val file: VirtualFile?,
     )
 
-    fun resolve(requiringFile: VirtualFile, requirePath: String): CrystalRequireResolution {
+    fun resolve(requiringFile: VirtualFile, requirePath: String): CrystalRequireResolution =
+        resolve(requiringFile, requirePath, stdlibRoot)
+
+    internal fun resolve(
+        requiringFile: VirtualFile,
+        requirePath: String,
+        capturedStdlibRoot: VirtualFile?,
+    ): CrystalRequireResolution = resolve(requiringFile, requirePath) { capturedStdlibRoot }
+
+    private fun resolve(
+        requiringFile: VirtualFile,
+        requirePath: String,
+        stdlibRoot: () -> VirtualFile?,
+    ): CrystalRequireResolution {
         wildcard(requirePath)?.let { (path, recursive) ->
-            return resolveWildcard(requiringFile, path, recursive)
+            return resolveWildcard(requiringFile, path, recursive, stdlibRoot)
         }
 
         val roots = if (requirePath.startsWith("./") || requirePath.startsWith("../")) {
@@ -73,10 +86,16 @@ internal class CrystalRequirePathResolver(
     fun resolvePrelude(): VirtualFile? =
         stdlibRoot()?.findChild("prelude.cr")?.takeIf(::isCrystalFile)
 
+    internal fun resolvePrelude(capturedStdlibRoot: VirtualFile?): VirtualFile? =
+        capturedStdlibRoot?.findChild("prelude.cr")?.takeIf(::isCrystalFile)
+
+    internal fun currentStdlibRoot(): VirtualFile? = stdlibRoot()?.takeIf(VirtualFile::isValid)
+
     private fun resolveWildcard(
         requiringFile: VirtualFile,
         path: String,
         recursive: Boolean,
+        stdlibRoot: () -> VirtualFile?,
     ): CrystalRequireResolution {
         val locations = if (path.startsWith("./") || path.startsWith("../")) {
             listOfNotNull(requiringFile.parent?.let { it to path })
