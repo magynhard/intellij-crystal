@@ -1,7 +1,6 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
@@ -24,7 +23,7 @@ internal class CrystalRequirePathResolver(
             listOfNotNull(requiringFile.parent?.let { it to false })
         } else {
             listOfNotNull(
-                projectLibRoot(requiringFile)?.let { it to true },
+                projectLibRoot()?.let { it to true },
                 stdlibRoot()?.let { it to false },
             )
         }
@@ -48,7 +47,7 @@ internal class CrystalRequirePathResolver(
             listOfNotNull(requiringFile.parent?.let { it to path })
         } else {
             listOfNotNull(
-                projectRoot(requiringFile)?.let { it to "lib/$path" },
+                projectRoot()?.let { it to "lib/$path" },
                 stdlibRoot()?.let { it to path },
             )
         }
@@ -122,15 +121,11 @@ internal class CrystalRequirePathResolver(
         return result
     }
 
-    private fun projectLibRoot(requiringFile: VirtualFile): VirtualFile? {
-        return projectRoot(requiringFile)?.findChild("lib")
+    private fun projectLibRoot(): VirtualFile? {
+        return projectRoot()?.findChild("lib")
     }
 
-    private fun projectRoot(requiringFile: VirtualFile): VirtualFile? {
-        ProjectRootManager.getInstance(project).fileIndex
-            .getContentRootForFile(requiringFile)
-            ?.let { return it }
-
+    private fun projectRoot(): VirtualFile? {
         val basePath = project.basePath ?: return null
         return LocalFileSystem.getInstance().findFileByPath(basePath)
     }

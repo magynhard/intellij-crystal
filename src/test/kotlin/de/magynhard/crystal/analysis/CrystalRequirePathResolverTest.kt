@@ -1,6 +1,9 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -25,8 +28,8 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
     fun testResolvesBareFileAndDirectoryMainFromProjectLib() {
         val source = file("src/main.cr")
-        val direct = file("lib/support/helpers.cr")
-        val directoryMain = file("lib/support/helpers/helpers.cr")
+        val direct = projectFile("lib/support/helpers.cr")
+        val directoryMain = projectFile("lib/support/helpers/helpers.cr")
 
         assertEquals(listOf(direct), resolver().resolve(source, "support/helpers").files)
 
@@ -36,17 +39,17 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
     fun testResolvesBareShardMainUnderSrc() {
         val source = file("src/main.cr")
-        val kemal = file("lib/kemal/src/kemal.cr")
+        val kemal = projectFile("lib/kemal/src/kemal.cr")
 
         assertEquals(listOf(kemal), resolver().resolve(source, "kemal").files)
     }
 
     fun testResolvesNestedShardPathInCandidateOrder() {
         val source = file("src/main.cr")
-        val direct = file("lib/kemal/helpers.cr")
-        val directoryMain = file("lib/kemal/helpers/helpers.cr")
-        val shardDirect = file("lib/kemal/src/helpers.cr")
-        val shardDirectoryMain = file("lib/kemal/src/helpers/helpers.cr")
+        val direct = projectFile("lib/kemal/helpers.cr")
+        val directoryMain = projectFile("lib/kemal/helpers/helpers.cr")
+        val shardDirect = projectFile("lib/kemal/src/helpers.cr")
+        val shardDirectoryMain = projectFile("lib/kemal/src/helpers/helpers.cr")
 
         assertEquals(listOf(direct), resolver().resolve(source, "kemal/helpers").files)
 
@@ -62,7 +65,7 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
     fun testProjectLibTakesPrecedenceOverStdlib() {
         val source = file("src/main.cr")
-        val projectFile = file("lib/json.cr")
+        val projectFile = projectFile("lib/json.cr")
         val stdlibFile = file("stdlib/json.cr")
 
         assertEquals(
@@ -70,6 +73,16 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
             resolver(directory("stdlib")).resolve(source, "json").files,
         )
         assertNotSame(projectFile, stdlibFile)
+    }
+
+    fun testBareExactUsesProjectBaseLibInsteadOfRequiringFileContentRoot() {
+        val source = file("module/src/main.cr")
+        val contentRootFile = file("lib/support.cr")
+        val projectBaseFile = projectFile("lib/support.cr")
+
+        assertFalse(VfsUtilCore.isAncestor(projectBaseRoot(), source, false))
+        assertEquals(listOf(projectBaseFile), resolver().resolve(source, "support").files)
+        assertNotSame(projectBaseFile, contentRootFile)
     }
 
     fun testResolvesPreludeFromConfiguredStdlibRoot() {
@@ -117,15 +130,29 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
     fun testBareWildcardFallsBackToStdlibAndWatchesHigherPrecedenceAncestor() {
         val source = file("src/main.cr")
+        projectFile("lib/installed/existing.cr")
         val stdlibFile = file("stdlib/extras/feature.cr")
 
         val resolution = resolver(directory("stdlib")).resolve(source, "extras/*")
 
         assertEquals(listOf(stdlibFile), resolution.files)
         assertEquals(
-            setOf(directory(""), directory("stdlib/extras")),
+            setOf(projectDirectory("lib"), directory("stdlib/extras")),
             resolution.watchedDirectories,
         )
+    }
+
+    fun testBareWildcardUsesProjectBaseLibInsteadOfRequiringFileContentRoot() {
+        val source = file("module/src/main.cr")
+        val contentRootFile = file("lib/features/content.cr")
+        val projectBaseFile = projectFile("lib/features/project.cr")
+
+        val resolution = resolver().resolve(source, "features/*")
+
+        assertFalse(VfsUtilCore.isAncestor(projectBaseRoot(), source, false))
+        assertEquals(listOf(projectBaseFile), resolution.files)
+        assertEquals(setOf(projectDirectory("lib/features")), resolution.watchedDirectories)
+        assertFalse(resolution.files.contains(contentRootFile))
     }
 
     fun testRecognizesOnlyTerminalWildcardSuffixes() {
@@ -153,6 +180,23 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
     private fun file(path: String): VirtualFile =
         myFixture.addFileToProject(path, "").virtualFile
+
+    private fun projectFile(path: String): VirtualFile {
+        var result: VirtualFile? = null
+        ApplicationManager.getApplication().runWriteAction {
+            val parentPath = path.substringBeforeLast('/', missingDelimiterValue = "")
+            val parent = VfsUtil.createDirectories("${requireNotNull(project.basePath)}/$parentPath")
+            val name = path.substringAfterLast('/')
+            result = parent.findChild(name) ?: parent.createChildData(this, name)
+        }
+        return requireNotNull(result)
+    }
+
+    private fun projectDirectory(path: String): VirtualFile =
+        requireNotNull(projectBaseRoot().findFileByRelativePath(path))
+
+    private fun projectBaseRoot(): VirtualFile =
+        requireNotNull(LocalFileSystem.getInstance().findFileByPath(requireNotNull(project.basePath)))
 
     private fun directory(path: String): VirtualFile =
         requireNotNull(myFixture.tempDirFixture.findOrCreateDir("").findFileByRelativePath(path))
