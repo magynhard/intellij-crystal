@@ -2,7 +2,7 @@
 
 ## Project Language
 
-**English is the project language.** All code comments, commit messages, documentation, and agent responses MUST be in English. This rule is mandatory and must be followed at all times.
+**English is the project language.** All code comments, commit messages, documentation MUST be in English. Only chatting/prompting with the developer (agent responses) is in the developers language. This rule is mandatory and must be followed at all times.
 
 ## Design Philosophy
 
