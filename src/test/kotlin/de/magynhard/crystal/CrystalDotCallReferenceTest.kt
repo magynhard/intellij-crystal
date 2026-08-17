@@ -5,6 +5,8 @@ import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalRequirePathResolver
 import de.magynhard.crystal.psi.*
 
 /**
@@ -23,6 +25,15 @@ import de.magynhard.crystal.psi.*
  *   exposed through the polyvariant reference and remain ambiguous to `resolve()`.
  */
 class CrystalDotCallReferenceTest : BasePlatformTestCase() {
+
+    override fun setUp() {
+        super.setUp()
+        CrystalRequireGraphService.installForTests(
+            project,
+            CrystalRequirePathResolver(project) { null },
+            testRootDisposable,
+        )
+    }
 
     /** Walks to the `CrystalDotCallAccess` composite at the caret and returns its reference target. */
     private fun resolveAtCaret(code: String): PsiElement? {

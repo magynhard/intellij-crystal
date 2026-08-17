@@ -4,9 +4,8 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.PsiWhiteSpace
-import com.intellij.psi.search.GlobalSearchScope
+import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.psi.*
-import de.magynhard.crystal.stubs.CrystalIndexService
 
 data class ExactReceiverType(
     val simpleName: String,
@@ -15,48 +14,59 @@ data class ExactReceiverType(
 
 internal object CrystalExactReceiverTypeResolver {
 
-    fun resolve(receiver: PsiElement, call: CrystalDotCallAccess): ExactReceiverType? {
+    fun resolve(
+        receiver: PsiElement,
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
+    ): ExactReceiverType? {
         val receiverElement = CrystalReceiverExpression.normalize(receiver)
         return when (receiverElement) {
-            is CrystalVariableReference -> resolveLocal(receiverElement, call)
-            is CrystalInstanceVarAccess -> resolveInstanceVariable(receiverElement, call)
+            is CrystalVariableReference -> resolveLocal(receiverElement, call, session)
+            is CrystalInstanceVarAccess -> resolveInstanceVariable(receiverElement, call, session)
             is CrystalClassVarAccess -> null
             else -> null
         }
     }
 
-    private fun resolveLocal(receiver: CrystalVariableReference, call: CrystalDotCallAccess): ExactReceiverType? {
+    private fun resolveLocal(
+        receiver: CrystalVariableReference,
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
+    ): ExactReceiverType? {
         val nameNode = receiver.node.findChildByType(CrystalTypes.IDENTIFIER) ?: return null
-        val evidence = findLocalEvidence(receiver, nameNode.text, call)
+        val evidence = findLocalEvidence(receiver, nameNode.text, call, session)
         return if (evidence.found) evidence.type else null
     }
 
     private fun findLocalEvidence(
         receiver: PsiElement,
         name: String,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ResolutionEvidence {
-        val assignment = findLinearAssignmentEvidence(receiver, name, call)
+        val assignment = findLinearAssignmentEvidence(receiver, name, call, session)
         if (assignment.found) return assignment
-        return findEnclosingParameterEvidence(receiver, name, call)
+        return findEnclosingParameterEvidence(receiver, name, call, session)
     }
 
     private fun findParameterEvidence(
         parameters: List<CrystalParameter>,
         name: String,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ResolutionEvidence {
         val parameter = parameters.firstOrNull {
             (it as? PsiNameIdentifierOwner)?.name == name
         } ?: return ResolutionEvidence.NONE
-        val type = parameter.typeReference?.let { resolveExactTypeReference(it, call) }
+        val type = parameter.typeReference?.let { resolveExactTypeReference(it, call, session) }
         return ResolutionEvidence(true, type)
     }
 
     private fun findLinearAssignmentEvidence(
         receiver: PsiElement,
         name: String,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ResolutionEvidence {
         var statement = findEnclosingStatement(receiver) ?: return ResolutionEvidence.NONE
 
@@ -76,7 +86,7 @@ internal object CrystalExactReceiverTypeResolver {
 
             val preceding = container.children.filterIsInstance<CrystalStatement>()
                 .takeWhile { it !== statement }
-            val evidence = scanLinearStatements(preceding, name, call)
+            val evidence = scanLinearStatements(preceding, name, call, session)
             if (evidence.found) return evidence
 
             val begin = container.parent as? CrystalBeginStatement ?: return ResolutionEvidence.NONE
@@ -88,14 +98,15 @@ internal object CrystalExactReceiverTypeResolver {
     private fun scanLinearStatements(
         statements: List<CrystalStatement>,
         name: String,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ResolutionEvidence {
         var nearest = ResolutionEvidence.NONE
         for (statement in statements) {
             val directAssignment = statement.assignment
             if (directAssignment != null && assignmentName(directAssignment) == name) {
                 if (directAssignment.postfixModifier != null) return ResolutionEvidence.UNKNOWN
-                nearest = ResolutionEvidence(true, resolveAssignment(directAssignment, call))
+                nearest = ResolutionEvidence(true, resolveAssignment(directAssignment, call, session))
                 continue
             }
 
@@ -105,7 +116,8 @@ internal object CrystalExactReceiverTypeResolver {
                 val nested = scanLinearStatements(
                     begin.statementList?.statementList.orEmpty(),
                     name,
-                    call
+                    call,
+                    session,
                 )
                 if (nested.found) {
                     if (nested.type == null) return ResolutionEvidence.UNKNOWN
@@ -122,7 +134,8 @@ internal object CrystalExactReceiverTypeResolver {
     private fun findEnclosingParameterEvidence(
         receiver: PsiElement,
         name: String,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ResolutionEvidence {
         var current: PsiElement? = receiver.parent
         while (current != null && current !is PsiFile) {
@@ -131,12 +144,13 @@ internal object CrystalExactReceiverTypeResolver {
                     val parameter = findParameterEvidence(
                         current.parameterList?.parameterList.orEmpty(),
                         name,
-                        call
+                        call,
+                        session,
                     )
                     if (parameter.found) return parameter
                 }
                 is CrystalMethodDefinition ->
-                    return findParameterEvidence(current.parameterList?.parameterList.orEmpty(), name, call)
+                    return findParameterEvidence(current.parameterList?.parameterList.orEmpty(), name, call, session)
                 is CrystalMacroDefinition,
                 is CrystalClassDefinition,
                 is CrystalModuleDefinition,
@@ -224,7 +238,8 @@ internal object CrystalExactReceiverTypeResolver {
 
     private fun resolveInstanceVariable(
         receiver: CrystalInstanceVarAccess,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ExactReceiverType? {
         val name = receiver.name ?: return null
         val enclosingType = CrystalPsiUtils.getEnclosingType(call) ?: return null
@@ -233,10 +248,10 @@ internal object CrystalExactReceiverTypeResolver {
         collectInstanceVariableEvidence(enclosingType, enclosingType, name, declarations, assignments)
 
         if (declarations.isNotEmpty()) {
-            return resolveConsistentTypes(declarations.map { resolveExactTypeReference(it, call) })
+            return resolveConsistentTypes(declarations.map { resolveExactTypeReference(it, call, session) })
         }
         if (assignments.isEmpty()) return null
-        return resolveConsistentTypes(assignments.map { resolveAssignment(it, call) })
+        return resolveConsistentTypes(assignments.map { resolveAssignment(it, call, session) })
     }
 
     private fun collectInstanceVariableEvidence(
@@ -268,7 +283,8 @@ internal object CrystalExactReceiverTypeResolver {
 
     private fun resolveAssignment(
         assignment: CrystalAssignment,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ExactReceiverType? {
         if (assignment.node.findChildByType(CrystalTypes.ASSIGN) == null) return null
         val expression = assignment.expression ?: return null
@@ -279,12 +295,13 @@ internal object CrystalExactReceiverTypeResolver {
         if (CrystalCallExtractor.extractMethodName(constructor) != "new") return null
         val typeName = CrystalReceiverExpression.extractExactConstantTypeRoot(significantChildren.dropLast(1))
             ?: return null
-        return resolveTypeIdentity(typeName, call)
+        return resolveTypeIdentity(typeName, call, session)
     }
 
     private fun resolveExactTypeReference(
         typeReference: CrystalTypeReference,
-        call: CrystalDotCallAccess
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
     ): ExactReceiverType? {
         val exactReference = unwrapParenthesizedTypeReference(typeReference) ?: return null
         val typePath = exactReference.typePathList.singleOrNull() ?: return null
@@ -293,7 +310,7 @@ internal object CrystalExactReceiverTypeResolver {
         val significantChildren = directSignificantChildren(exactReference)
         if (significantChildren.any { it !is CrystalTypePath && it !is CrystalTypeArguments }) return null
         if (significantChildren.count { it is CrystalTypePath } != 1) return null
-        return resolveTypeIdentity(typePath.text.filterNot(Char::isWhitespace), call)
+        return resolveTypeIdentity(typePath.text.filterNot(Char::isWhitespace), call, session)
     }
 
     private fun unwrapParenthesizedTypeReference(typeReference: CrystalTypeReference): CrystalTypeReference? {
@@ -308,24 +325,12 @@ internal object CrystalExactReceiverTypeResolver {
         return current
     }
 
-    private fun resolveTypeIdentity(typeName: String, context: PsiElement): ExactReceiverType? {
-        val normalizedName = typeName.removePrefix("::")
-        val simpleName = normalizedName.substringAfterLast("::")
-        if (simpleName.isEmpty()) return null
-
-        val possibleIdentities = CrystalPsiUtils.buildLexicalQualifiedNameCandidates(simpleName, context)
-        val hasExplicitIdentity = typeName.startsWith("::") || normalizedName.contains("::")
-
-        val identities = CrystalIndexService.findTypes(
-            simpleName,
-            context.project,
-            GlobalSearchScope.allScope(context.project)
-        ).mapNotNull(CrystalPsiUtils::buildQualifiedName)
-            .filter { if (hasExplicitIdentity) it == normalizedName else it in possibleIdentities }
-            .distinct()
-
-        val qualifiedName = identities.singleOrNull() ?: return null
-        return ExactReceiverType(simpleName, qualifiedName)
+    private fun resolveTypeIdentity(
+        typeName: String,
+        context: PsiElement,
+        session: CrystalTypeResolutionSession,
+    ): ExactReceiverType? = session.resolveType(typeName, context)?.let {
+        ExactReceiverType(it.simpleName, it.qualifiedName)
     }
 
     private fun resolveConsistentTypes(types: List<ExactReceiverType?>): ExactReceiverType? {

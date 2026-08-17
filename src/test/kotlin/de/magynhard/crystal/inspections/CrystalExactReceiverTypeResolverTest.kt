@@ -8,6 +8,9 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.openapi.vfs.LocalFileSystem
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalRequirePathResolver
 import de.magynhard.crystal.psi.CrystalAssignment
 import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalGroupedExpression
@@ -19,6 +22,15 @@ import java.io.File
 import java.nio.file.Files
 
 class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
+
+    override fun setUp() {
+        super.setUp()
+        CrystalRequireGraphService.installForTests(
+            project,
+            CrystalRequirePathResolver(project) { null },
+            testRootDisposable,
+        )
+    }
 
     fun testNeutralHelperNormalizesTransparentReceiverForms() {
         val calls = receiverCalls(
@@ -870,7 +882,7 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testResolvesTypedParameterAndLocalConstructorFromLibraryScope() {
+    fun testExcludesTypedParameterAndLocalConstructorFromUnrequiredLibraryScope() {
         val tempDir = Files.createTempDirectory("crystal-exact-receiver-library")
         Files.writeString(tempDir.resolve("library_service.cr"), "class LibraryService; end")
         val root = requireNotNull(
@@ -899,20 +911,18 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                 ).mapNotNull(CrystalPsiUtils::buildQualifiedName)
             )
 
-            assertResolved(
+            assertUnresolved(
                 """
                     def execute(value : LibraryService)
                       value.run
                     end
-                """.trimIndent(),
-                ExactReceiverType("LibraryService", "LibraryService")
+                """.trimIndent()
             )
-            assertResolved(
+            assertUnresolved(
                 """
                     value = LibraryService.new
                     value.run
-                """.trimIndent(),
-                ExactReceiverType("LibraryService", "LibraryService")
+                """.trimIndent()
             )
         } finally {
             PsiTestUtil.removeLibrary(module, library)
@@ -963,7 +973,7 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         val call = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java)
             .single { CrystalCallExtractor.extractMethodName(it) == "run" }
         val receiver = previousSignificantSibling(call)
-        return CrystalExactReceiverTypeResolver.resolve(receiver, call)
+        return CrystalExactReceiverTypeResolver.resolve(receiver, call, CrystalTypeSetResolver.session(call))
     }
 
     private fun previousSignificantSibling(element: PsiElement): PsiElement {

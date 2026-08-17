@@ -66,7 +66,7 @@ object CrystalDotCallTargetResolver {
                 ?: return DotCallResolution.Suppressed
             ExactReceiverType(identity.simpleName, identity.qualifiedName)
         } else {
-            CrystalExactReceiverTypeResolver.resolve(normalizedReceiver, call.access)
+            CrystalExactReceiverTypeResolver.resolve(normalizedReceiver, call.access, session)
                 ?: return DotCallResolution.Suppressed
         }
 

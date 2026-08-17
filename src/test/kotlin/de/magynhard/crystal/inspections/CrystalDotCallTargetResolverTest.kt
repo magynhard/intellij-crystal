@@ -5,6 +5,8 @@ import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalRequirePathResolver
 import de.magynhard.crystal.psi.CrystalBareArgumentList
 import de.magynhard.crystal.psi.CrystalCallArgs
 import de.magynhard.crystal.psi.CrystalDotCallAccess
@@ -12,6 +14,15 @@ import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
 
 class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
+
+    override fun setUp() {
+        super.setUp()
+        CrystalRequireGraphService.installForTests(
+            project,
+            CrystalRequirePathResolver(project) { null },
+            testRootDisposable,
+        )
+    }
 
     fun testResolvesNamedTargetWithCallerOwnedNeutralSession() {
         val file = myFixture.configureByText("test.cr", """
