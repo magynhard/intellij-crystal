@@ -260,3 +260,55 @@ The documentation/report commit is recorded by the repository history containing
 - `ca090f3` `test(analysis): cover final release gate regressions`
 - `7dc3388` `fix(analysis): close remaining release gates`
 - The report append is recorded by the repository history containing this section.
+
+## Adversarial Medium Findings at `36e401d`
+
+### Result
+
+**DONE.** All three medium findings were closed by `9191a1f`
+(`fix(analysis): resolve canonical candidates and preludes`) after dedicated regression commits
+`a41bfae` and `f4cf40e`. The pre-existing SDK library-provider fixture was aligned with the new
+prelude requirement in `603639e`. No release-blocking concerns remain.
+
+### Closed Findings
+
+- Unresolved exact candidates and missing wildcard targets now canonicalize their longest existing VFS
+  prefix and append every unresolved segment. Exact event ownership includes lexical and canonical paths;
+  wildcard ownership retains the lexical nearest-parent watch plus the safe canonical intended target.
+  Canonical-path fallback resolution makes external shard-cache create, delete, rename, and move events
+  visible immediately. Recursive project-root canonical suppression remains unchanged.
+- `CRYSTAL_PATH` discovery parses all ordered absolute candidates and selects the first candidate root or
+  optional `src/` child that actually contains `prelude.cr`. A preceding custom root without the prelude
+  no longer disables the core foundation or completion. Full participation of arbitrary custom roots in
+  bare exact/wildcard requires and path completion is explicitly tracked in `TODO.md` with acceptance criteria.
+- The pure path parser recognizes Unix absolute paths, Windows drive-letter paths, UNC paths, extended-length
+  drive paths, and extended-length UNC paths. Production supplies `File.pathSeparatorChar` and real file
+  predicates; pure tests inject existence checks and invoke no process.
+
+### TDD Evidence
+
+#### RED
+
+- The initial focused SDK/resolver command failed test compilation because
+  `selectCrystalPathPreludeRoot` and `parseAbsoluteCrystalPathCandidates` did not exist.
+- After the first implementation pass, the new missing direct/recursive wildcard and exact shard lifecycle
+  tests invalidated their owners but still failed effective-source membership. This exposed stale lexical
+  symlink VFS children and led to canonical fallback resolution rather than a test-only refresh.
+
+#### GREEN
+
+- Focused resolver, graph, SDK, and completion matrix: passed in 3m42s.
+- Final `./gradlew test`: 1,405 tests passed in 5m48s.
+- Final `./gradlew build`: passed, including searchable options, in 754ms.
+- `git diff --check 36e401d`: passed.
+- Production forbidden scan for `FileTypeIndex`, `processFiles(`, `CRYSTAL DEBUG`, and hardcoded
+  `split(":")`: no matches.
+- Pure SDK parser process scan found no `ProcessBuilder` or `crystal env` invocation.
+
+### Commits
+
+- `a41bfae` `test(analysis): cover remaining adversarial findings`
+- `f4cf40e` `test(completion): protect selected prelude root`
+- `9191a1f` `fix(analysis): resolve canonical candidates and preludes`
+- `603639e` `test(sdk): make library fixture a valid stdlib`
+- The report append is recorded by the repository history containing this section.
