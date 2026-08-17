@@ -2007,6 +2007,22 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testEscapedPreludeDependencyRetainsStdlibOnlyResolution() {
+        installEscapedFixtureStdlib()
+        addPreludeCollisions()
+        myFixture.addFileToProject(
+            "lib/extensions/project.cr",
+            "class String\n  def project_wildcard_shadow\n  end\nend",
+        )
+
+        assertEquals(
+            setOf("upcase", "downcase", "stdlib_wildcard_method"),
+            completionNames("escaped_prelude_string.cr", "\"text\".<caret>"),
+        )
+        assertEquals(setOf("times"), completionNames("escaped_prelude_int.cr", "3.<caret>"))
+        assertEquals(setOf("each"), completionNames("escaped_prelude_array.cr", "[1, 2].<caret>"))
+    }
+
     fun testOptionalStdlibExtensionRequiresDirectOrTransitiveForwardEdge() {
         installFixtureStdlib()
         myFixture.addFileToProject("fixture-stdlib/json.cr", "require \"./json/to_json\"")
@@ -2323,6 +2339,38 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent()).virtualFile
         installFixtureGraph(requireNotNull(enumerable.parent))
+    }
+
+    private fun installEscapedFixtureStdlib() {
+        myFixture.addFileToProject("fixture-stdlib/prelude.cr", "require \"../shared/core\"")
+        myFixture.addFileToProject("shared/core.cr", """
+            require "string"
+            require "int"
+            require "array"
+            require "indexable"
+            require "enumerable"
+            require "extensions/*"
+        """.trimIndent())
+        myFixture.addFileToProject("fixture-stdlib/string.cr", """
+            class String
+              def upcase
+              end
+              def downcase
+              end
+            end
+        """.trimIndent())
+        myFixture.addFileToProject("fixture-stdlib/int.cr", "struct Int\n  def times\n  end\nend\nstruct Int32\nend")
+        myFixture.addFileToProject("fixture-stdlib/array.cr", "class Array(T)\n  include Indexable(T)\nend")
+        myFixture.addFileToProject(
+            "fixture-stdlib/indexable.cr",
+            "module Indexable(T)\n  include Enumerable(T)\nend",
+        )
+        myFixture.addFileToProject("fixture-stdlib/enumerable.cr", "module Enumerable(T)\n  def each\n  end\nend")
+        val wildcard = myFixture.addFileToProject(
+            "fixture-stdlib/extensions/core.cr",
+            "class String\n  def stdlib_wildcard_method\n  end\nend",
+        ).virtualFile
+        installFixtureGraph(requireNotNull(wildcard.parent.parent))
     }
 
     private fun addPreludeCollisions() {

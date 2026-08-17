@@ -21,6 +21,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 - **Restore realistic stdlib DOT completion** — core `String`, numeric, and collection methods now resolve through the configured `prelude.cr` closure, including implicit `Int32 -> Int` and `Array -> Indexable -> Enumerable` hierarchy edges. Optional stdlib extensions, shard methods, and project reopenings appear only through direct or transitive forward requires, including top-level macro-control and wildcard requires. Injected ECR fragments receive the same prelude foundation for core literals without gaining project, shard, reverse, or host context.
 - **Protect the prelude from project shadowing** — requires originating under the configured stdlib root now stay within that root, so project `lib/string.cr`, `lib/int.cr`, and collection reopenings cannot replace core prelude dependencies or leak globally into Crystal and ECR completion. Disposable fixture graph overrides are now atomically stacked and restored without exposing the production SDK-backed service between replacements.
+- **Preserve prelude resolution across escaped relative dependencies** — stdlib-only resolution is now traversal provenance rather than a per-file path classification. Support files reached outside the configured stdlib root continue resolving bare exact and wildcard dependencies from that stdlib when traversed by the prelude, while independent project traversals of the same file retain project-first semantics.
 
 ### Changed
 

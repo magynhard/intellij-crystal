@@ -18,9 +18,11 @@ import de.magynhard.crystal.analysis.CrystalRequirePathResolver
 class EcrCompletionTest : BasePlatformTestCase() {
 
     private var fixtureGraphDisposable: Disposable? = null
+    private lateinit var fixtureRoot: VirtualFile
 
     override fun setUp() {
         super.setUp()
+        fixtureRoot = myFixture.tempDirFixture.findOrCreateDir("")
         installFixtureGraph(null)
     }
 
@@ -128,6 +130,22 @@ class EcrCompletionTest : BasePlatformTestCase() {
         assertEquals(setOf("each"), completionNames("<% [1, 2].<caret> %>"))
     }
 
+    fun testEscapedPreludeDependencyRetainsStdlibOnlyResolutionInsideInjectedCrystal() {
+        installEscapedFixtureStdlib()
+        addPreludeCollisions()
+        myFixture.addFileToProject(
+            "lib/extensions/project.cr",
+            "class String\n  def project_wildcard_shadow; end\nend",
+        )
+
+        assertEquals(
+            setOf("upcase", "downcase", "stdlib_wildcard_method"),
+            completionNames("<% \"text\".<caret> %>"),
+        )
+        assertEquals(setOf("times"), completionNames("<% 3.<caret> %>"))
+        assertEquals(setOf("each"), completionNames("<% [1, 2].<caret> %>"))
+    }
+
     fun testUnknownDotReceiverIsSuppressedInsideInjectedCrystal() {
         myFixture.addFileToProject("helpers.cr", "def unrelated_project_method\nend")
 
@@ -166,6 +184,34 @@ class EcrCompletionTest : BasePlatformTestCase() {
         installFixtureGraph(requireNotNull(enumerable.parent))
     }
 
+    private fun installEscapedFixtureStdlib() {
+        myFixture.addFileToProject("fixture-stdlib/prelude.cr", "require \"../shared/core\"")
+        myFixture.addFileToProject("shared/core.cr", """
+            require "string"
+            require "int"
+            require "array"
+            require "indexable"
+            require "enumerable"
+            require "extensions/*"
+        """.trimIndent())
+        myFixture.addFileToProject(
+            "fixture-stdlib/string.cr",
+            "class String\n  def upcase; end\n  def downcase; end\nend",
+        )
+        myFixture.addFileToProject("fixture-stdlib/int.cr", "struct Int\n  def times; end\nend\nstruct Int32\nend")
+        myFixture.addFileToProject("fixture-stdlib/array.cr", "class Array(T)\n  include Indexable(T)\nend")
+        myFixture.addFileToProject(
+            "fixture-stdlib/indexable.cr",
+            "module Indexable(T)\n  include Enumerable(T)\nend",
+        )
+        myFixture.addFileToProject("fixture-stdlib/enumerable.cr", "module Enumerable(T)\n  def each; end\nend")
+        val wildcard = myFixture.addFileToProject(
+            "fixture-stdlib/extensions/core.cr",
+            "class String\n  def stdlib_wildcard_method; end\nend",
+        ).virtualFile
+        installFixtureGraph(requireNotNull(wildcard.parent.parent))
+    }
+
     private fun addPreludeCollisions() {
         myFixture.addFileToProject("lib/string.cr", "class String\n  def project_string_shadow; end\nend")
         myFixture.addFileToProject("lib/int.cr", "struct Int\n  def project_int_shadow; end\nend")
@@ -183,7 +229,7 @@ class EcrCompletionTest : BasePlatformTestCase() {
             CrystalRequirePathResolver(
                 project,
                 { stdlibRoot },
-                { myFixture.tempDirFixture.findOrCreateDir("") },
+                { fixtureRoot },
             ),
             graphDisposable,
         )

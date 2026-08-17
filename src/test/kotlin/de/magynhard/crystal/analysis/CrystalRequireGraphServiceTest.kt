@@ -255,6 +255,39 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         }
     }
 
+    fun testPreludeFoundationKeepsStdlibProvenanceAfterRelativeEdgeEscapesRoot() {
+        files(
+            "stdlib/prelude.cr" to "require \"../shared/core\"",
+            "shared/core.cr" to "require \"string\"\nrequire \"extensions/*\"",
+            "stdlib/string.cr" to "",
+            "stdlib/extensions/core.cr" to "",
+            "src/main.cr" to "",
+            "src/project_main.cr" to "require \"../shared/core\"",
+        )
+        val projectString = projectFile("lib/string.cr")
+        val projectWildcard = projectFile("lib/extensions/project.cr")
+        try {
+            val graph = service()
+            val sources = graph.effectiveSources(elementIn("src/main.cr")).files
+
+            assertTrue(sources.contains(vf("shared/core.cr")))
+            assertTrue(sources.contains(vf("stdlib/string.cr")))
+            assertTrue(sources.contains(vf("stdlib/extensions/core.cr")))
+            assertFalse(sources.contains(projectString))
+            assertFalse(sources.contains(projectWildcard))
+
+            val projectSources = graph.effectiveSources(elementIn("src/project_main.cr")).files
+            assertTrue(projectSources.contains(vf("shared/core.cr")))
+            assertTrue(projectSources.contains(vf("stdlib/string.cr")))
+            assertTrue(projectSources.contains(vf("stdlib/extensions/core.cr")))
+            assertTrue(projectSources.contains(projectString))
+            assertTrue(projectSources.contains(projectWildcard))
+        } finally {
+            removeProjectPath("lib/string.cr")
+            removeProjectPath("lib/extensions")
+        }
+    }
+
     fun testFixtureOverrideNestedDisposalRestoresPreviousService() {
         val production = requireNotNull(project.getService(CrystalRequireGraphService::class.java))
         val outerDisposable = Disposer.newDisposable()
