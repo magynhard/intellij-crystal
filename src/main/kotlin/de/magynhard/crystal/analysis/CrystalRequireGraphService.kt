@@ -11,6 +11,8 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootEvent
 import com.intellij.openapi.roots.ModuleRootListener
+import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
@@ -133,6 +135,7 @@ internal class CrystalRequireGraphService private constructor(
         val generation: Long,
         val closure: Closure?,
         val files: Set<VirtualFile>,
+        val sources: CrystalEffectiveSourceSet,
     )
 
     private data class PreludeBuild(
@@ -175,8 +178,25 @@ internal class CrystalRequireGraphService private constructor(
 
     fun effectiveSources(context: PsiElement): CrystalEffectiveSourceSet {
         return ReadAction.computeBlocking<CrystalEffectiveSourceSet, RuntimeException> {
-            val root = physicalOriginalFileInReadAction(context) ?: return@computeBlocking EMPTY_SOURCES
+            val file = context.containingFile?.originalFile ?: return@computeBlocking EMPTY_SOURCES
+            if (!file.isPhysical || file.virtualFile?.extension != "cr") {
+                return@computeBlocking preludeSources()
+            }
+            val root = file.virtualFile?.takeIf(::isUsableCrystalFile) ?: return@computeBlocking EMPTY_SOURCES
             effectiveSources(root)
+        }
+    }
+
+    private fun preludeSources(): CrystalEffectiveSourceSet {
+        while (true) {
+            ProgressManager.checkCanceled()
+            val stdlibRoot = pathResolver.currentStdlibRoot()
+            val capturedGeneration = captureGeneration(stdlibRoot)
+            try {
+                return preludeFoundation(capturedGeneration, stdlibRoot).sources
+            } catch (_: StaleGeneration) {
+                // A full invalidation raced this read; retry against the new generation.
+            }
         }
     }
 
@@ -443,10 +463,12 @@ internal class CrystalRequireGraphService private constructor(
                 preludeClosureDirty = false
                 return it
             }
+            val files = closure?.files ?: emptySet()
             return PreludeFoundation(
                 capturedGeneration,
                 closure,
-                closure?.files ?: emptySet(),
+                files,
+                CrystalEffectiveSourceSet(files),
             ).also {
                 cachedPreludeFoundation = it
                 preludeClosureDirty = false
@@ -719,7 +741,23 @@ internal class CrystalRequireGraphService private constructor(
 
     companion object {
         private val EMPTY_SOURCES = CrystalEffectiveSourceSet(emptySet())
+        private val TEST_INSTANCE = Key.create<CrystalRequireGraphService>("crystal.require.graph.test.instance")
 
-        fun getInstance(project: Project): CrystalRequireGraphService = project.service()
+        fun getInstance(project: Project): CrystalRequireGraphService =
+            project.getUserData(TEST_INSTANCE) ?: project.service()
+
+        internal fun installForTests(
+            project: Project,
+            pathResolver: CrystalRequirePathResolver,
+            parentDisposable: Disposable,
+        ) {
+            val service = CrystalRequireGraphService(project, pathResolver, parentDisposable)
+            project.putUserData(TEST_INSTANCE, service)
+            Disposer.register(parentDisposable) {
+                if (project.getUserData(TEST_INSTANCE) === service) {
+                    project.putUserData(TEST_INSTANCE, null)
+                }
+            }
+        }
     }
 }

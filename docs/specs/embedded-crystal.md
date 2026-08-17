@@ -503,7 +503,11 @@ The injection works identically for both `.ecr` and `.html.ecr` files — the fi
 
 #### Effective Sources And Record Fast Path
 
-Injected Crystal PSI is nonphysical and has no `.cr` load context, so its effective-source
-snapshot is empty and DOT completion is suppressed rather than falling back to project files.
-The constructor classifier also skips its same-file record shortcut, so records declared in an
-ECR fragment do not offer `new`. A caller-aware ECR load-context model remains future work.
+Injected Crystal PSI is nonphysical and has no exact compiling `.cr` caller context. Its
+effective-source snapshot therefore contains only the configured `prelude.cr` closure. Core literal
+completion remains useful: `"text".` receives `String` methods, `3.` receives inherited `Int`
+methods, and `[1, 2].` receives included `Indexable`/`Enumerable` methods. The plugin does not infer
+project, shard, current-host, reverse, or sibling context from the `.ecr` file, so an unrequired
+`Service.` remains suppressed and there is no all-project fallback. The constructor classifier also
+skips its physical same-file record shortcut, so a record declared in an injected fragment does not
+offer `new`.

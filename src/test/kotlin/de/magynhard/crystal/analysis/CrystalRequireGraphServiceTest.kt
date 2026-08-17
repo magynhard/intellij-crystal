@@ -1506,7 +1506,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         )
     }
 
-    fun testInvalidRootAndUnrelatedNonphysicalElementsAreExcluded() {
+    fun testInvalidRootIsExcludedAndNonphysicalContextGetsOnlyPrelude() {
         files(
             "stdlib/prelude.cr" to "",
             "src/main.cr" to "",
@@ -1524,12 +1524,15 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
         assertTrue(sources.contains(elementIn("src/main.cr")))
         assertFalse(sources.contains(nonphysical))
-        assertTrue(service.effectiveSources(nonphysical).files.isEmpty())
+        assertEquals(
+            setOf(vf("stdlib/prelude.cr")),
+            service.effectiveSources(nonphysical).files,
+        )
         ApplicationManager.getApplication().runWriteAction { vf("src/main.cr").delete(this) }
         assertTrue(service.effectiveSources(context).files.isEmpty())
     }
 
-    fun testAmbiguousNonphysicalRootCandidateProducesEmptySet() {
+    fun testNonphysicalContextDoesNotInferSameNamedPhysicalRoot() {
         files(
             "stdlib/prelude.cr" to "",
             "src/main.cr" to "",
@@ -1543,7 +1546,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         )
 
         assertEquals(
-            emptySet<VirtualFile>(),
+            setOf(vf("stdlib/prelude.cr")),
             service().effectiveSources(sameNamedNonphysicalCandidate).files,
         )
     }

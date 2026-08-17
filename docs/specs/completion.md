@@ -383,6 +383,25 @@ The neutral hierarchy also supplies Crystal's compiler-implicit numeric parent e
 `3.` can offer `Int#times` in a realistic stdlib layout; unsigned and floating primitive families
 likewise inherit from indexed `UInt` and `Float` declarations.
 
+DOT candidates come from StubIndex but are filtered to one effective source snapshot before exact
+identity, hierarchy, overload, union, and macro rules run. For a physical `.cr` file this snapshot is
+the configured `prelude.cr` closure plus the current file's forward transitive require closure. It
+does not include reverse dependents, unrequired siblings, or every indexed stdlib/project reopening.
+This produces the following core behavior with a normal split standard library:
+
+```crystal
+"text".                 # String#upcase and String#downcase from the prelude
+3.                      # Int#times through the implicit Int32 -> Int edge
+[1, 2].                 # Enumerable#each through Array -> Indexable -> Enumerable
+items = [1, 2, 3, 4]
+items.                   # The same collection hierarchy after local inference
+```
+
+Optional extensions such as `String#to_json` appear only when their file is reached by a direct or
+transitive require. Shard methods, relative project reopenings, macro-control-wrapped top-level
+requires, and wildcard requires follow the same boundary. Unknown or incomplete receivers still
+have no name-only or all-index fallback.
+
 `CrystalCompletionContributor` dispatches DOT completion exclusively through this receiver result.
 `TypeObject` receivers are delegated to a focused provider that preserves static-method rendering,
 record constructor signatures, synthetic `new` behavior, icons, and priority. Static candidates are

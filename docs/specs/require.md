@@ -120,6 +120,27 @@ Require-aware analysis collects direct dependency paths from exactly one complet
 
 Collection preserves source order. Requires rejected by the context inspection, requires executed inside macro directives, interpolated paths, and incomplete strings do not become dependency edges. An ordered length-prefixed fingerprint changes when a valid path is added, removed, reordered, or edited, but remains stable when unrelated method bodies change.
 
+## Runtime Path Resolution
+
+Require-aware analysis resolves edges without running the Crystal compiler and without scanning the
+project. Relative paths start at the requiring file's directory. Bare paths use compiler precedence:
+the project's `lib/` root first, then the configured stdlib root. Exact candidates support both
+`path.cr` and `path/path.cr`. A shard path additionally maps `require "kemal"` to
+`lib/kemal/src/kemal.cr`; nested shard paths use the corresponding location below `src/`.
+
+Top-level requires surrounded by macro-control directives are static graph edges regardless of the
+active flags. Runtime, type-body, method, macro interpolation, and other dynamic requires are not.
+The effective set is forward-only: requiring a file never gives that file the caller's dependencies,
+and sibling branches do not leak into one another.
+
+Terminal `/*` expands direct `.cr` children in stable path order. Terminal `/**` additionally walks
+descendant directories. Each wildcard records its concrete or nearest existing target so creation,
+copy, deletion, rename, and movement invalidate matching closures. Exact candidates record missing
+and higher-precedence alternatives for the same reason. Require PSI edits, relevant required-file
+content changes, stdlib-root changes, source-root changes, shard metadata changes, and relevant
+`lib/` structural changes invalidate the affected cache scope. The next query rebuilds lazily; a
+new matching wildcard file is therefore visible without restarting the fixture or IDE.
+
 ## Path Completion
 
 Path completion is active only when the caret is inside the string expression of a `CrystalRequireStatement`. Other string literals retain normal string-completion suppression.

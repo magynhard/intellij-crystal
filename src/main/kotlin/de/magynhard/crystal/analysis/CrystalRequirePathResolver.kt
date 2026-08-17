@@ -24,10 +24,23 @@ internal data class CrystalRequireResolution(
     val wildcardWatches: Set<CrystalWildcardWatch> = emptySet(),
 )
 
-internal class CrystalRequirePathResolver(
+internal class CrystalRequirePathResolver private constructor(
     private val project: Project,
-    private val stdlibRoot: () -> VirtualFile? = { CrystalStdlibResolver.resolveStdlibPath(project) },
+    private val stdlibRoot: () -> VirtualFile?,
+    private val projectRoot: () -> VirtualFile?,
+    @Suppress("UNUSED_PARAMETER") marker: Unit,
 ) {
+    constructor(
+        project: Project,
+        stdlibRoot: () -> VirtualFile? = { CrystalStdlibResolver.resolveStdlibPath(project) },
+    ) : this(project, stdlibRoot, { resolveProjectRoot(project) }, Unit)
+
+    internal constructor(
+        project: Project,
+        stdlibRoot: () -> VirtualFile?,
+        projectRoot: () -> VirtualFile?,
+    ) : this(project, stdlibRoot, projectRoot, Unit)
+
     private data class ExactRoot(
         val directory: VirtualFile?,
         val path: String,
@@ -191,11 +204,13 @@ internal class CrystalRequirePathResolver(
     private fun path(root: String, relativePath: String): String =
         FileUtil.toCanonicalPath("${root.trimEnd('/')}/$relativePath", '/')
 
-    private fun projectRoot(): VirtualFile? {
-        val basePath = project.basePath ?: return null
-        return LocalFileSystem.getInstance().findFileByPath(basePath)
-    }
-
     private fun isCrystalFile(file: VirtualFile?): Boolean =
         file != null && file.isValid && !file.isDirectory && file.extension == "cr"
+
+    private companion object {
+        fun resolveProjectRoot(project: Project): VirtualFile? {
+            val basePath = project.basePath ?: return null
+            return LocalFileSystem.getInstance().findFileByPath(basePath)
+        }
+    }
 }

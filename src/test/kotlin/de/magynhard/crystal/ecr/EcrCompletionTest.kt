@@ -1,7 +1,12 @@
 package de.magynhard.crystal.ecr
 
 import com.intellij.codeInsight.completion.CompletionType
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalRequirePathResolver
 
 /**
  * Tests that Crystal code completion works inside `<% %>` tags in ECR templates.
@@ -11,6 +16,22 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
  * navigation, etc.) within ECR template tags.
  */
 class EcrCompletionTest : BasePlatformTestCase() {
+
+    private var fixtureGraphDisposable: Disposable? = null
+
+    override fun setUp() {
+        super.setUp()
+        installFixtureGraph(null)
+    }
+
+    override fun tearDown() {
+        try {
+            fixtureGraphDisposable?.let(Disposer::dispose)
+            fixtureGraphDisposable = null
+        } finally {
+            super.tearDown()
+        }
+    }
 
     fun testCompletesStdlibTypesInsideEcrTags() {
         myFixture.configureByText("test.ecr", "<% x = Int<caret> %>")
@@ -72,15 +93,12 @@ class EcrCompletionTest : BasePlatformTestCase() {
         assertEquals(emptySet<String>(), completionNames("<% Service.<caret> %>"))
     }
 
-    fun testDotCompletionWithoutLoadContextIsSuppressedForGroupedLiteralInsideInjectedCrystal() {
-        myFixture.addFileToProject("int.cr", """
-            struct Int32
-              def times
-              end
-            end
-        """.trimIndent())
+    fun testInjectedCrystalUsesOnlyPreludeForCoreLiteralCompletion() {
+        installFixtureStdlib()
 
-        assertEquals(emptySet<String>(), completionNames("<% ((3)).<caret> %>"))
+        assertContainsAll(completionNames("<% \"text\".<caret> %>"), "upcase", "downcase")
+        assertContainsAll(completionNames("<% ((3)).<caret> %>"), "times")
+        assertContainsAll(completionNames("<% [1, 2].<caret> %>"), "each")
     }
 
     fun testUnknownDotReceiverIsSuppressedInsideInjectedCrystal() {
@@ -100,5 +118,39 @@ class EcrCompletionTest : BasePlatformTestCase() {
     private fun completionNames(source: String): Set<String> {
         myFixture.configureByText("dot.ecr", source)
         return myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty().toSet()
+    }
+
+    private fun installFixtureStdlib() {
+        myFixture.addFileToProject("fixture-stdlib/prelude.cr", """
+            require "string"
+            require "int"
+            require "array"
+            require "indexable"
+            require "enumerable"
+        """.trimIndent())
+        myFixture.addFileToProject("fixture-stdlib/string.cr", "class String\n  def upcase; end\n  def downcase; end\nend")
+        myFixture.addFileToProject("fixture-stdlib/int.cr", "struct Int\n  def times; end\nend\nstruct Int32\nend")
+        myFixture.addFileToProject("fixture-stdlib/array.cr", "class Array(T)\n  include Indexable(T)\nend")
+        myFixture.addFileToProject("fixture-stdlib/indexable.cr", "module Indexable(T)\n  include Enumerable(T)\nend")
+        val enumerable = myFixture.addFileToProject(
+            "fixture-stdlib/enumerable.cr",
+            "module Enumerable(T)\n  def each; end\nend",
+        ).virtualFile
+        installFixtureGraph(requireNotNull(enumerable.parent))
+    }
+
+    private fun installFixtureGraph(stdlibRoot: VirtualFile?) {
+        fixtureGraphDisposable?.let(Disposer::dispose)
+        val graphDisposable = Disposer.newDisposable("ECR completion fixture require graph")
+        fixtureGraphDisposable = graphDisposable
+        CrystalRequireGraphService.installForTests(
+            project,
+            CrystalRequirePathResolver(project, { stdlibRoot }),
+            graphDisposable,
+        )
+    }
+
+    private fun assertContainsAll(actual: Set<String>, vararg expected: String) {
+        assertTrue("Expected ${expected.toSet()} in $actual", actual.containsAll(expected.toSet()))
     }
 }

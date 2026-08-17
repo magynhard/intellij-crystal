@@ -150,9 +150,11 @@ type.
 - Generic type parameters are not substituted through method signatures.
 - Nil/type narrowing from conditions is not modeled.
 - Proc result inference and custom operator overload resolution are not modeled.
-- Cross-file reopening precedence remains incomplete when Crystal load order cannot be proven.
+- Cross-file reopening precedence remains strict and incomplete when multiple relevant declarations
+  inside the effective source snapshot have an order that the index cannot prove. Reopenings outside
+  the current file's prelude-plus-forward-require boundary do not participate at all.
 - Declarations outside the effective source snapshot are ignored rather than used to resolve an
   otherwise missing type or method.
-- Nonphysical injected PSI, including Crystal fragments inside ECR files, has no exact Crystal file
-  load context and therefore receives an empty snapshot. DOT candidates remain suppressed until a
-  caller-aware host load context can be modeled; an all-project fallback is forbidden.
+- Nonphysical injected Crystal PSI has no exact Crystal caller file. It therefore receives only the
+  configured prelude closure. Core literal methods remain available inside ECR, but project, shard,
+  current-host, reverse, and sibling context is not inferred. An all-project fallback is forbidden.

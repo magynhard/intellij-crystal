@@ -124,11 +124,13 @@ explicit refresh actions remain responsible for discovery. A cached-root identit
 of graph validity, so a root populated later during project startup makes the prelude, bare exact
 requires, and bare wildcards visible on the next query without an external invalidation callback.
 
-Effective snapshots normalize the query and every resolved edge through the physical original PSI
-file's `VirtualFile`. Nonphysical or invalid query files produce an empty snapshot, and membership
-checks reject unrelated nonphysical PSI copies. A stable direct-require fingerprint preserves the
-existing node, closure, and effective snapshot identity; a changed fingerprint publishes a new node
-version and lazily rebuilds only cached closures rooted at that node or its reverse dependents.
+Effective snapshots normalize physical queries and every resolved edge through the original PSI
+file's `VirtualFile`. Nonphysical injected Crystal queries receive only the configured prelude
+foundation; invalid queries remain empty, and membership checks reject unrelated nonphysical PSI
+copies. This preserves core literal completion in ECR without inferring project or host context. A
+stable direct-require fingerprint preserves the existing node, closure, and effective snapshot
+identity; a changed fingerprint publishes a new node version and lazily rebuilds only cached closures
+rooted at that node or its reverse dependents.
 
 ## Completion Integration
 
