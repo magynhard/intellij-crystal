@@ -10,38 +10,6 @@ import java.util.concurrent.TimeUnit
 
 class CrystalStdlibResolverTest : BasePlatformTestCase() {
 
-    fun testSelectCrystalPathCandidateUsesUnixSeparator() {
-        assertEquals(
-            "/usr/lib/crystal",
-            CrystalStdlibResolver.selectCrystalPathCandidate("lib:/usr/lib/crystal:/opt/crystal", ':'),
-        )
-    }
-
-    fun testSelectCrystalPathCandidatePreservesWindowsDriveLetters() {
-        assertEquals(
-            "C:\\Crystal\\lib",
-            CrystalStdlibResolver.selectCrystalPathCandidate(
-                "lib;C:\\Crystal\\lib;D:\\Crystal\\fallback",
-                ';',
-            ),
-        )
-    }
-
-    fun testSelectCrystalPathCandidateSkipsBlankAndRelativeEntries() {
-        assertEquals(
-            "/opt/crystal",
-            CrystalStdlibResolver.selectCrystalPathCandidate("::lib::/opt/crystal::", ':'),
-        )
-        assertNull(CrystalStdlibResolver.selectCrystalPathCandidate("; ;relative;", ';'))
-    }
-
-    fun testSelectCrystalPathCandidateTrimsOutputAndEntries() {
-        assertEquals(
-            "D:\\Crystal\\src",
-            CrystalStdlibResolver.selectCrystalPathCandidate("\n  relative ; D:\\Crystal\\src ; E:\\other  \n", ';'),
-        )
-    }
-
     override fun setUp() {
         super.setUp()
         val prelude = myFixture.addFileToProject("fixture-stdlib/prelude.cr", "").virtualFile

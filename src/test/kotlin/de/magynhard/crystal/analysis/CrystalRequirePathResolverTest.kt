@@ -434,6 +434,61 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         assertEquals(setOf(directory("src/models")), recursiveMissing.watchedDirectories)
     }
 
+    fun testMissingExactCandidatesBehindShardSymlinkRetainCanonicalIntendedPaths() {
+        val source = projectFile("canonical-exact/main.cr")
+        val externalRoot = Files.createTempDirectory("crystal-exact-candidate-")
+        val shard = externalRoot.resolve("cached_shard")
+        Files.createDirectories(shard.resolve("src"))
+        val lib = VfsUtil.createDirectories("${requireNotNull(project.basePath)}/lib")
+        createSymbolicLinkOrSkip(Path.of(lib.path, "cached_shard"), shard)
+        val external = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByNioFile(externalRoot))
+        VfsUtil.markDirtyAndRefresh(false, true, true, lib, external)
+
+        try {
+            val resolution = resolver().resolve(source, "cached_shard")
+
+            assertTrue(resolution.files.isEmpty())
+            assertTrue(resolution.exactCandidatePaths.contains("${shard.toRealPath()}/src/cached_shard.cr"))
+            assertTrue(
+                resolution.exactCandidatePaths.contains(
+                    "${requireNotNull(project.basePath)}/lib/cached_shard/src/cached_shard.cr",
+                ),
+            )
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                lib.findChild("cached_shard")?.delete(this)
+                if (external.isValid) external.delete(this)
+                source.parent.delete(this)
+            }
+        }
+    }
+
+    fun testMissingWildcardBehindSymlinkRetainsLexicalWatchAndCanonicalIntendedTarget() {
+        val source = projectFile("canonical-missing-wildcard/main.cr")
+        val sourceDirectory = requireNotNull(source.parent)
+        val externalRoot = Files.createTempDirectory("crystal-missing-wildcard-")
+        val cache = externalRoot.resolve("cache")
+        Files.createDirectories(cache)
+        createSymbolicLinkOrSkip(Path.of(sourceDirectory.path, "alias"), cache)
+        val external = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByNioFile(externalRoot))
+        VfsUtil.markDirtyAndRefresh(false, true, true, sourceDirectory, external)
+
+        try {
+            for (suffix in listOf("*", "**")) {
+                val watch = resolver().resolve(source, "./alias/generated/$suffix").wildcardWatches.single()
+                assertEquals(requireNotNull(sourceDirectory.findChild("alias")), watch.watchedDirectory)
+                assertEquals("${sourceDirectory.path}/alias/generated", watch.targetPath)
+                assertEquals("${cache.toRealPath()}/generated", watch.canonicalTargetPath)
+            }
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                sourceDirectory.findChild("alias")?.delete(this)
+                if (external.isValid) external.delete(this)
+                sourceDirectory.delete(this)
+            }
+        }
+    }
+
     private fun resolver(stdlibRoot: VirtualFile? = null): CrystalRequirePathResolver =
         CrystalRequirePathResolver(project) { stdlibRoot }
 

@@ -285,6 +285,18 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         exerciseCanonicalExternalWildcardLifecycle(recursive = true)
     }
 
+    fun testMissingDirectWildcardInvalidatesForCanonicalExternalDirectoryLifecycle() {
+        exerciseMissingCanonicalExternalWildcardLifecycle(recursive = false)
+    }
+
+    fun testMissingRecursiveWildcardInvalidatesForCanonicalExternalDirectoryLifecycle() {
+        exerciseMissingCanonicalExternalWildcardLifecycle(recursive = true)
+    }
+
+    fun testMissingExactShardTargetInvalidatesForCanonicalExternalLifecycle() {
+        exerciseCanonicalExternalExactShardLifecycle()
+    }
+
     fun testTrailingContinuationWhitespaceLoadsLfAndCrlfDependencies() {
         files(
             "continuations/main.cr" to
@@ -2266,6 +2278,165 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
                 sourceDirectory.findChild("alias")?.delete(this)
                 if (external.isValid) external.delete(this)
                 if (sourceDirectory.isValid) sourceDirectory.delete(this)
+            }
+        }
+    }
+
+    private fun exerciseMissingCanonicalExternalWildcardLifecycle(recursive: Boolean) {
+        val fixture = if (recursive) "canonical-missing-recursive" else "canonical-missing-direct"
+        val source = projectFile("$fixture/main.cr")
+        ApplicationManager.getApplication().runWriteAction {
+            VfsUtil.saveText(source, "require \"./alias/generated/${if (recursive) "**" else "*"}\"")
+        }
+        val sourceDirectory = requireNotNull(source.parent)
+        val externalRoot = Files.createTempDirectory("crystal-missing-wildcard-target-")
+        val cachePath = externalRoot.resolve("cache")
+        val archivePath = externalRoot.resolve("archive")
+        Files.createDirectories(cachePath)
+        Files.createDirectories(archivePath)
+        createSymbolicLinkOrSkip(Path.of(sourceDirectory.path, "alias"), cachePath)
+        val external = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByNioFile(externalRoot))
+        VfsUtil.markDirtyAndRefresh(false, true, true, sourceDirectory, external)
+        val cache = requireNotNull(external.findChild("cache"))
+        val archive = requireNotNull(external.findChild("archive"))
+        val context = ReadAction.computeBlocking<PsiElement, RuntimeException> {
+            requireNotNull(requireNotNull(PsiManager.getInstance(project).findFile(source)).firstChild)
+        }
+        val service = CrystalRequireGraphService(
+            project,
+            CrystalRequirePathResolver(project, { null }, ::projectBaseRoot),
+            CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+        )
+
+        try {
+            var owner = service.effectiveSources(context)
+            val createDirectoryEvent = VFileCreateEvent(this, cache, "generated", true, null, null, null)
+            val generated = ApplicationManager.getApplication().runWriteAction<VirtualFile> {
+                cache.createChildDirectory(this, "generated")
+            }
+            val feature = ApplicationManager.getApplication().runWriteAction<VirtualFile> {
+                generated.createChildData(this, "feature.cr")
+            }
+            service.handleVfsEvents(listOf(createDirectoryEvent))
+            var updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertTrue(updated.files.contains(feature))
+            owner = updated
+
+            val renameEvent = VFilePropertyChangeEvent(
+                this,
+                generated,
+                VirtualFile.PROP_NAME,
+                "generated",
+                "renamed",
+            )
+            ApplicationManager.getApplication().runWriteAction { generated.rename(this, "renamed") }
+            service.handleVfsEvents(listOf(renameEvent))
+            updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertFalse(updated.files.contains(feature))
+            owner = updated
+
+            ApplicationManager.getApplication().runWriteAction {
+                generated.rename(this, "generated")
+                generated.move(this, archive)
+            }
+            val moveEvent = VFileMoveEvent(this, generated, cache)
+            ApplicationManager.getApplication().runWriteAction { generated.move(this, cache) }
+            service.handleVfsEvents(listOf(moveEvent))
+            updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertTrue(updated.files.contains(feature))
+            owner = updated
+
+            val deleteEvent = VFileDeleteEvent(this, generated)
+            ApplicationManager.getApplication().runWriteAction { generated.delete(this) }
+            service.handleVfsEvents(listOf(deleteEvent))
+            updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertFalse(updated.files.contains(feature))
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                sourceDirectory.findChild("alias")?.delete(this)
+                if (external.isValid) external.delete(this)
+                if (sourceDirectory.isValid) sourceDirectory.delete(this)
+            }
+        }
+    }
+
+    private fun exerciseCanonicalExternalExactShardLifecycle() {
+        val source = projectFile("canonical-exact-shard/main.cr")
+        ApplicationManager.getApplication().runWriteAction { VfsUtil.saveText(source, "require \"cached_shard\"") }
+        val externalRoot = Files.createTempDirectory("crystal-exact-shard-target-")
+        val shardPath = externalRoot.resolve("cached_shard")
+        val srcPath = shardPath.resolve("src")
+        val archivePath = externalRoot.resolve("archive")
+        Files.createDirectories(srcPath)
+        Files.createDirectories(archivePath)
+        val lib = VfsUtil.createDirectories("${requireNotNull(project.basePath)}/lib")
+        createSymbolicLinkOrSkip(Path.of(lib.path, "cached_shard"), shardPath)
+        val external = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByNioFile(externalRoot))
+        VfsUtil.markDirtyAndRefresh(false, true, true, lib, external)
+        val src = requireNotNull(requireNotNull(external.findChild("cached_shard")).findChild("src"))
+        val archive = requireNotNull(external.findChild("archive"))
+        val context = ReadAction.computeBlocking<PsiElement, RuntimeException> {
+            requireNotNull(requireNotNull(PsiManager.getInstance(project).findFile(source)).firstChild)
+        }
+        val service = CrystalRequireGraphService(
+            project,
+            CrystalRequirePathResolver(project, { null }, ::projectBaseRoot),
+            CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+        )
+
+        try {
+            var owner = service.effectiveSources(context)
+            val createEvent = VFileCreateEvent(this, src, "cached_shard.cr", false, null, null, null)
+            val feature = ApplicationManager.getApplication().runWriteAction<VirtualFile> {
+                src.createChildData(this, "cached_shard.cr")
+            }
+            service.handleVfsEvents(listOf(createEvent))
+            var updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertTrue(updated.files.contains(feature))
+            owner = updated
+
+            val renameEvent = VFilePropertyChangeEvent(
+                this,
+                feature,
+                VirtualFile.PROP_NAME,
+                "cached_shard.cr",
+                "pending.cr",
+            )
+            ApplicationManager.getApplication().runWriteAction { feature.rename(this, "pending.cr") }
+            service.handleVfsEvents(listOf(renameEvent))
+            updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertFalse(updated.files.contains(feature))
+            owner = updated
+
+            ApplicationManager.getApplication().runWriteAction {
+                feature.rename(this, "cached_shard.cr")
+                feature.move(this, archive)
+            }
+            val moveEvent = VFileMoveEvent(this, feature, src)
+            ApplicationManager.getApplication().runWriteAction { feature.move(this, src) }
+            service.handleVfsEvents(listOf(moveEvent))
+            updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertTrue(updated.files.contains(feature))
+            owner = updated
+
+            val deleteEvent = VFileDeleteEvent(this, feature)
+            ApplicationManager.getApplication().runWriteAction { feature.delete(this) }
+            service.handleVfsEvents(listOf(deleteEvent))
+            updated = service.effectiveSources(context)
+            assertNotSame(owner, updated)
+            assertFalse(updated.files.contains(feature))
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                lib.findChild("cached_shard")?.delete(this)
+                if (external.isValid) external.delete(this)
+                if (source.parent.isValid) source.parent.delete(this)
             }
         }
     }
