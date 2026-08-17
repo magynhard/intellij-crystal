@@ -31,10 +31,7 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.util.concurrency.AppExecutorUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.CrystalRequireStatement
-import de.magynhard.crystal.sdk.CrystalSettings
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
-import java.io.File
-import java.nio.file.Files
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
@@ -61,140 +58,92 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
     fun testProductionServiceDoesNotDiscoverStdlibDuringCompletion() {
         files("task4_no_discovery/main.cr" to "")
-        val tempDirectory = Files.createTempDirectory("crystal-require-graph")
-        val marker = tempDirectory.resolve("compiler-invoked")
-        val executable = Files.writeString(
-            tempDirectory.resolve("fake-crystal"),
-            "#!/bin/sh\ntouch \"$marker\"\nexit 1\n",
-        )
-        assertTrue(executable.toFile().setExecutable(true))
-        val settings = CrystalSettings.getInstance(project)
-        val originalCrystalPath = settings.state.crystalPath
-        try {
-            settings.state.crystalPath = executable.toString()
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-
-            val sources = productionService().effectiveSources(elementIn("task4_no_discovery/main.cr"))
-
-            assertEquals(setOf(vf("task4_no_discovery/main.cr")), sources.files)
-            assertFalse("Completion must not launch Crystal stdlib discovery", Files.exists(marker))
-        } finally {
-            settings.state.crystalPath = originalCrystalPath
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            File(tempDirectory.toString()).deleteRecursively()
+        val discoveries = AtomicInteger()
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) {
+            discoveries.incrementAndGet()
+            null
         }
+
+        val sources = productionService().effectiveSources(elementIn("task4_no_discovery/main.cr"))
+
+        assertEquals(setOf(vf("task4_no_discovery/main.cr")), sources.files)
+        assertEquals("Completion must not launch Crystal stdlib discovery", 0, discoveries.get())
     }
 
     fun testProductionServiceReusesPreviouslyDiscoveredStdlib() {
         files("task4_cached_stdlib/main.cr" to "")
-        val tempDirectory = Files.createTempDirectory("crystal-require-graph-cached")
-        val marker = tempDirectory.resolve("compiler-invocations")
-        val stdlib = Files.createDirectory(tempDirectory.resolve("stdlib"))
-        Files.writeString(stdlib.resolve("prelude.cr"), "")
-        val executable = Files.writeString(
-            tempDirectory.resolve("fake-crystal"),
-            "#!/bin/sh\nprintf x >> \"$marker\"\necho \"$stdlib\"\n",
-        )
-        assertTrue(executable.toFile().setExecutable(true))
-        val settings = CrystalSettings.getInstance(project)
-        val originalCrystalPath = settings.state.crystalPath
-        try {
-            settings.state.crystalPath = executable.toString()
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
-            assertEquals(1L, Files.size(marker))
-
-            val sources = productionService(clearStdlibCache = false)
-                .effectiveSources(elementIn("task4_cached_stdlib/main.cr"))
-
-            assertTrue(sources.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
-            assertEquals("Completion must reuse the cached root", 1L, Files.size(marker))
-        } finally {
-            settings.state.crystalPath = originalCrystalPath
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            File(tempDirectory.toString()).deleteRecursively()
+        files("task4_cached_stdlib/stdlib/prelude.cr" to "")
+        val discoveries = AtomicInteger()
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) {
+            discoveries.incrementAndGet()
+            null
         }
+        val cachedRoot = CrystalStdlibResolver.publishStdlibPath(project, directory("task4_cached_stdlib/stdlib"))
+
+        val sources = productionService(clearStdlibCache = false)
+            .effectiveSources(elementIn("task4_cached_stdlib/main.cr"))
+
+        assertTrue(sources.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
+        assertEquals("Completion must reuse the cached root", 0, discoveries.get())
     }
 
     fun testProductionServiceObservesStdlibCachedAfterColdFirstQuery() {
         files("task4_late_stdlib/main.cr" to "require \"late_feature\"")
-        val tempDirectory = Files.createTempDirectory("crystal-require-graph-startup-order")
-        val marker = tempDirectory.resolve("compiler-invocations")
-        val stdlib = Files.createDirectory(tempDirectory.resolve("stdlib"))
-        Files.writeString(stdlib.resolve("prelude.cr"), "")
-        Files.writeString(stdlib.resolve("late_feature.cr"), "")
-        val executable = Files.writeString(
-            tempDirectory.resolve("fake-crystal"),
-            "#!/bin/sh\nprintf x >> \"$marker\"\necho \"$stdlib\"\n",
+        files(
+            "task4_late_stdlib/stdlib/prelude.cr" to "",
+            "task4_late_stdlib/stdlib/late_feature.cr" to "",
         )
-        assertTrue(executable.toFile().setExecutable(true))
-        val settings = CrystalSettings.getInstance(project)
-        val originalCrystalPath = settings.state.crystalPath
-        try {
-            settings.state.crystalPath = executable.toString()
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            val service = productionService()
-
-            assertEquals(
-                setOf(vf("task4_late_stdlib/main.cr")),
-                service.effectiveSources(elementIn("task4_late_stdlib/main.cr")).files,
-            )
-            assertFalse(Files.exists(marker))
-
-            val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
-            assertEquals(1L, Files.size(marker))
-            val updated = service.effectiveSources(elementIn("task4_late_stdlib/main.cr"))
-
-            assertTrue(updated.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
-            assertTrue(updated.files.contains(requireNotNull(cachedRoot.findChild("late_feature.cr"))))
-            assertEquals("The graph query must not launch discovery", 1L, Files.size(marker))
-            assertEquals(1, service.cacheStats().fullInvalidations)
-        } finally {
-            settings.state.crystalPath = originalCrystalPath
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            File(tempDirectory.toString()).deleteRecursively()
+        val discoveries = AtomicInteger()
+        val stdlib = directory("task4_late_stdlib/stdlib")
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) {
+            discoveries.incrementAndGet()
+            stdlib
         }
+        val service = productionService()
+
+        assertEquals(
+            setOf(vf("task4_late_stdlib/main.cr")),
+            service.effectiveSources(elementIn("task4_late_stdlib/main.cr")).files,
+        )
+        assertEquals(0, discoveries.get())
+
+        val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
+        val updated = service.effectiveSources(elementIn("task4_late_stdlib/main.cr"))
+
+        assertTrue(updated.files.contains(requireNotNull(cachedRoot.findChild("prelude.cr"))))
+        assertTrue(updated.files.contains(requireNotNull(cachedRoot.findChild("late_feature.cr"))))
+        assertEquals("The graph query must not launch discovery", 1, discoveries.get())
+        assertEquals(1, service.cacheStats().fullInvalidations)
     }
 
     fun testProductionServiceObservesBareWildcardAfterStdlibIsCached() {
         files("task4_late_stdlib_wildcard/main.cr" to "require \"extensions/*\"")
-        val tempDirectory = Files.createTempDirectory("crystal-require-graph-startup-wildcard")
-        val marker = tempDirectory.resolve("compiler-invocations")
-        val stdlib = Files.createDirectory(tempDirectory.resolve("stdlib"))
-        Files.writeString(stdlib.resolve("prelude.cr"), "")
-        val extensions = Files.createDirectory(stdlib.resolve("extensions"))
-        Files.writeString(extensions.resolve("late_extension.cr"), "")
-        val executable = Files.writeString(
-            tempDirectory.resolve("fake-crystal"),
-            "#!/bin/sh\nprintf x >> \"$marker\"\necho \"$stdlib\"\n",
+        files(
+            "task4_late_stdlib_wildcard/stdlib/prelude.cr" to "",
+            "task4_late_stdlib_wildcard/stdlib/extensions/late_extension.cr" to "",
         )
-        assertTrue(executable.toFile().setExecutable(true))
-        val settings = CrystalSettings.getInstance(project)
-        val originalCrystalPath = settings.state.crystalPath
-        try {
-            settings.state.crystalPath = executable.toString()
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            val service = productionService()
-
-            assertEquals(
-                setOf(vf("task4_late_stdlib_wildcard/main.cr")),
-                service.effectiveSources(elementIn("task4_late_stdlib_wildcard/main.cr")).files,
-            )
-
-            val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
-            val updated = service.effectiveSources(elementIn("task4_late_stdlib_wildcard/main.cr"))
-
-            assertTrue(
-                updated.files.contains(
-                    requireNotNull(cachedRoot.findFileByRelativePath("extensions/late_extension.cr")),
-                ),
-            )
-            assertEquals("The graph query must not launch discovery", 1L, Files.size(marker))
-        } finally {
-            settings.state.crystalPath = originalCrystalPath
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            File(tempDirectory.toString()).deleteRecursively()
+        val discoveries = AtomicInteger()
+        val stdlib = directory("task4_late_stdlib_wildcard/stdlib")
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) {
+            discoveries.incrementAndGet()
+            stdlib
         }
+        val service = productionService()
+
+        assertEquals(
+            setOf(vf("task4_late_stdlib_wildcard/main.cr")),
+            service.effectiveSources(elementIn("task4_late_stdlib_wildcard/main.cr")).files,
+        )
+
+        val cachedRoot = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
+        val updated = service.effectiveSources(elementIn("task4_late_stdlib_wildcard/main.cr"))
+
+        assertTrue(
+            updated.files.contains(
+                requireNotNull(cachedRoot.findFileByRelativePath("extensions/late_extension.cr")),
+            ),
+        )
+        assertEquals("The graph query must not launch discovery", 1, discoveries.get())
     }
 
     fun testStdlibRootIdentityTransitionsRebuildPreludeAndBareRequireNodes() {
@@ -423,6 +372,30 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         )
     }
 
+    fun testExplicitCrystalAndDecodedRequirePathsReachGraphTargets() {
+        files(
+            "src/main.cr" to "require \"./feature.cr\"\nrequire \"\\x2e\\x2fdecoded\\u002ecr\"",
+            "src/feature.cr" to "",
+            "src/decoded.cr" to "",
+        )
+
+        val sources = service(stdlib = null).effectiveSources(elementIn("src/main.cr")).files
+
+        assertEquals(setOf(vf("src/main.cr"), vf("src/feature.cr"), vf("src/decoded.cr")), sources)
+    }
+
+    fun testDecodedCandidatePathCreationInvalidatesUnresolvedGraph() {
+        files("src/main.cr" to "require \"\\x2e\\x2fcreated\\u002ecr\"")
+        val service = service(stdlib = null)
+        assertEquals(setOf(vf("src/main.cr")), service.effectiveSources(elementIn("src/main.cr")).files)
+        val event = VFileCreateEvent(this, directory("src"), "created.cr", false, null, null, null)
+        val created = myFixture.addFileToProject("src/created.cr", "").virtualFile
+
+        service.handleVfsEvents(listOf(event))
+
+        assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(created))
+    }
+
     fun testRebuildsPreludeFoundationWhenTransitiveRequireChanges() {
         files(
             "stdlib/prelude.cr" to "require \"./foundation\"",
@@ -595,6 +568,51 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertEquals("Validation must restore the clean fast path", baselineVisits + 1, service.closureNodeVisits())
     }
 
+    fun testUnchangedSharedDependencyRestoresEveryOwningClosureFastPath() {
+        files(
+            "src/left.cr" to "require \"./shared\"",
+            "src/right.cr" to "require \"./shared\"",
+            "src/shared.cr" to "def value\n1\nend",
+        )
+        val service = service(stdlib = null, validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN)
+        service.effectiveSources(elementIn("src/left.cr"))
+        val right = service.effectiveSources(elementIn("src/right.cr"))
+        replaceText("src/shared.cr", "def value\n2\nend")
+        service.handleVfsEvents(listOf(VFileContentChangeEvent(this, vf("src/shared.cr"), 1, 2)))
+
+        service.effectiveSources(elementIn("src/left.cr"))
+        val visits = service.closureNodeVisits()
+
+        assertSame(right, service.effectiveSources(elementIn("src/right.cr")))
+        assertEquals(visits, service.closureNodeVisits())
+    }
+
+    fun testClearingOneSharedDirtyReasonPreservesAnotherReason() {
+        files(
+            "src/all.cr" to "require \"./first\"\nrequire \"./second\"",
+            "src/first_owner.cr" to "require \"./first\"",
+            "src/first.cr" to "def first\n1\nend",
+            "src/second.cr" to "def second\n1\nend",
+        )
+        val service = service(stdlib = null, validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN)
+        service.effectiveSources(elementIn("src/all.cr"))
+        service.effectiveSources(elementIn("src/first_owner.cr"))
+        replaceText("src/first.cr", "def first\n2\nend")
+        replaceText("src/second.cr", "def second\n2\nend")
+        service.handleVfsEvents(
+            listOf(
+                VFileContentChangeEvent(this, vf("src/first.cr"), 1, 2),
+                VFileContentChangeEvent(this, vf("src/second.cr"), 1, 2),
+            ),
+        )
+
+        service.effectiveSources(elementIn("src/first_owner.cr"))
+        val visits = service.closureNodeVisits()
+        service.effectiveSources(elementIn("src/all.cr"))
+
+        assertTrue("The second dirty reason must still force validation", service.closureNodeVisits() > visits)
+    }
+
     fun testDirtyRequireEditRebuildsNodeAndEffectiveSnapshot() {
         files(
             "src/main.cr" to "require \"./old_feature\"",
@@ -651,6 +669,37 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         val updated = service.effectiveSources(myFixture.file)
         assertFalse(updated.files.contains(vf("task4_unsaved_require/old_feature.cr")))
         assertTrue(updated.files.contains(vf("task4_unsaved_require/new_feature.cr")))
+    }
+
+    fun testUnsavedFullMacroControlledRequireRemovalUpdatesClosureImmediately() {
+        files(
+            "task4_unsaved_macro_remove/main.cr" to "{% if flag?(:unix) %}\nrequire \"./feature\"\n{% end %}",
+            "task4_unsaved_macro_remove/feature.cr" to "",
+        )
+        myFixture.configureFromTempProjectFile("task4_unsaved_macro_remove/main.cr")
+        val service = productionService()
+        assertTrue(service.effectiveSources(myFixture.file).files.contains(vf("task4_unsaved_macro_remove/feature.cr")))
+
+        replaceEditorText("")
+
+        assertFalse(service.effectiveSources(myFixture.file).files.contains(vf("task4_unsaved_macro_remove/feature.cr")))
+    }
+
+    fun testUnsavedFullMacroControlledRequireReplacementUpdatesClosureImmediately() {
+        files(
+            "task4_unsaved_macro_replace/main.cr" to "{% if flag?(:unix) %}\nrequire \"./old_feature\"\n{% end %}",
+            "task4_unsaved_macro_replace/old_feature.cr" to "",
+            "task4_unsaved_macro_replace/new_feature.cr" to "",
+        )
+        myFixture.configureFromTempProjectFile("task4_unsaved_macro_replace/main.cr")
+        val service = productionService()
+        service.effectiveSources(myFixture.file)
+
+        replaceEditorText("{% if flag?(:unix) %}\nrequire \"./new_feature\"\n{% end %}")
+
+        val updated = service.effectiveSources(myFixture.file)
+        assertFalse(updated.files.contains(vf("task4_unsaved_macro_replace/old_feature.cr")))
+        assertTrue(updated.files.contains(vf("task4_unsaved_macro_replace/new_feature.cr")))
     }
 
     fun testUnsavedMethodBodyEditRetainsRequireCaches() {
@@ -1674,7 +1723,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         )
     }
 
-    fun testInvalidRootIsExcludedAndNonphysicalContextGetsOnlyPrelude() {
+    fun testInvalidRootAndArbitraryNonphysicalContextAreExcluded() {
         files(
             "stdlib/prelude.cr" to "",
             "src/main.cr" to "",
@@ -1692,10 +1741,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
         assertTrue(sources.contains(elementIn("src/main.cr")))
         assertFalse(sources.contains(nonphysical))
-        assertEquals(
-            setOf(vf("stdlib/prelude.cr")),
-            service.effectiveSources(nonphysical).files,
-        )
+        assertTrue(service.effectiveSources(nonphysical).files.isEmpty())
         ApplicationManager.getApplication().runWriteAction { vf("src/main.cr").delete(this) }
         assertTrue(service.effectiveSources(context).files.isEmpty())
     }
@@ -1713,10 +1759,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             false,
         )
 
-        assertEquals(
-            setOf(vf("stdlib/prelude.cr")),
-            service().effectiveSources(sameNamedNonphysicalCandidate).files,
-        )
+        assertTrue(service().effectiveSources(sameNamedNonphysicalCandidate).files.isEmpty())
     }
 
     fun testObservesStdlibRootOncePerQueryAndReusesPreludeFoundation() {
@@ -1766,6 +1809,90 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         }
         assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(vf("stdlib/prelude.cr")))
         assertEquals(2, attempts)
+    }
+
+    fun testConcurrentColdPreludeReadersShareOneResolutionAndSnapshot() {
+        files("stdlib/prelude.cr" to "", "src/main.cr" to "")
+        val ownerEntered = CountDownLatch(1)
+        val waiterEntered = CountDownLatch(1)
+        val releaseOwner = CountDownLatch(1)
+        val resolutions = AtomicInteger()
+        val service = concurrentPreludeService(ownerEntered, waiterEntered, releaseOwner, resolutions)
+        val executor = AppExecutorUtil.getAppExecutorService()
+
+        val first = CompletableFuture.supplyAsync({ service.effectiveSources(elementIn("src/main.cr")) }, executor)
+        assertTrue(ownerEntered.await(10, TimeUnit.SECONDS))
+        val second = CompletableFuture.supplyAsync({ service.effectiveSources(elementIn("src/main.cr")) }, executor)
+        assertTrue(waiterEntered.await(10, TimeUnit.SECONDS))
+        releaseOwner.countDown()
+
+        assertSame(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS))
+        assertEquals(1, resolutions.get())
+    }
+
+    fun testFailedColdPreludeOwnerReleasesWaiterAndAllowsRetry() {
+        assertColdPreludeFailureIsRetryable(IllegalStateException("resolution failed"))
+    }
+
+    fun testCanceledColdPreludeOwnerReleasesWaiterAndAllowsRetry() {
+        assertColdPreludeFailureIsRetryable(ProcessCanceledException())
+    }
+
+    private fun assertColdPreludeFailureIsRetryable(failure: RuntimeException) {
+        files("stdlib/prelude.cr" to "", "src/main.cr" to "")
+        val ownerEntered = CountDownLatch(1)
+        val waiterEntered = CountDownLatch(1)
+        val releaseOwner = CountDownLatch(1)
+        val resolutions = AtomicInteger()
+        val root = directory("stdlib")
+        val resolver = CrystalRequirePathResolver(project) { root }
+        val service = CrystalRequireGraphService(
+            project,
+            resolver,
+            CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+            preludeResolver = {
+                if (resolutions.incrementAndGet() == 1) {
+                    ownerEntered.countDown()
+                    assertTrue(releaseOwner.await(10, TimeUnit.SECONDS))
+                    throw failure
+                }
+                vf("stdlib/prelude.cr")
+            },
+            onPreludeWait = waiterEntered::countDown,
+        )
+        val executor = AppExecutorUtil.getAppExecutorService()
+        val first = CompletableFuture.supplyAsync({ service.effectiveSources(elementIn("src/main.cr")) }, executor)
+        assertTrue(ownerEntered.await(10, TimeUnit.SECONDS))
+        val second = CompletableFuture.supplyAsync({ service.effectiveSources(elementIn("src/main.cr")) }, executor)
+        assertTrue(waiterEntered.await(10, TimeUnit.SECONDS))
+        releaseOwner.countDown()
+
+        assertThrows(Exception::class.java) { first.get(10, TimeUnit.SECONDS) }
+        assertThrows(Exception::class.java) { second.get(10, TimeUnit.SECONDS) }
+        assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(vf("stdlib/prelude.cr")))
+        assertEquals(2, resolutions.get())
+    }
+
+    private fun concurrentPreludeService(
+        ownerEntered: CountDownLatch,
+        waiterEntered: CountDownLatch,
+        releaseOwner: CountDownLatch,
+        resolutions: AtomicInteger,
+    ): CrystalRequireGraphService {
+        val root = directory("stdlib")
+        val resolver = CrystalRequirePathResolver(project) { root }
+        return CrystalRequireGraphService(
+            project,
+            resolver,
+            CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+            preludeResolver = {
+                resolutions.incrementAndGet()
+                ownerEntered.countDown()
+                assertTrue(releaseOwner.await(10, TimeUnit.SECONDS))
+                vf("stdlib/prelude.cr")
+            },
+            onPreludeWait = waiterEntered::countDown,
+        )
     }
 
     private fun service(

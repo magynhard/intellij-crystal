@@ -1,7 +1,9 @@
 package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Key
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
@@ -22,6 +24,7 @@ import java.io.File
 object CrystalStdlibResolver {
 
     private val STDLIB_PATH_KEY = Key.create<VirtualFile>("crystal.stdlib.path.cache")
+    private val TEST_DISCOVERY_KEY = Key.create<() -> VirtualFile?>("crystal.stdlib.test.discovery")
 
     internal fun cachedStdlibPath(project: Project): VirtualFile? =
         project.getUserData(STDLIB_PATH_KEY)?.takeIf(VirtualFile::isValid)
@@ -29,6 +32,8 @@ object CrystalStdlibResolver {
     fun resolveStdlibPath(project: Project): VirtualFile? {
         // Fast path: cached value, validated for existence.
         cachedStdlibPath(project)?.let { return it }
+
+        project.getUserData(TEST_DISCOVERY_KEY)?.invoke()?.let { return publishStdlibPath(project, it) }
 
         val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
         val crystalEnv = runCrystalEnv(crystalPath) ?: return null
@@ -47,10 +52,7 @@ object CrystalStdlibResolver {
         val root = if (srcDir.isDirectory) srcDir else stdlibDir
 
         val resolved = LocalFileSystem.getInstance().findFileByPath(root.absolutePath)
-        if (resolved != null) {
-            project.putUserData(STDLIB_PATH_KEY, resolved)
-        }
-        return resolved
+        return resolved?.let { publishStdlibPath(project, it) }
     }
 
     /**
@@ -60,6 +62,25 @@ object CrystalStdlibResolver {
      */
     fun clearCachedStdlibPath(project: Project) {
         project.putUserData(STDLIB_PATH_KEY, null)
+    }
+
+    internal fun publishStdlibPath(project: Project, root: VirtualFile): VirtualFile {
+        project.putUserData(STDLIB_PATH_KEY, root)
+        return root
+    }
+
+    internal fun installDiscoveryForTests(
+        project: Project,
+        parentDisposable: Disposable,
+        discovery: () -> VirtualFile?,
+    ) {
+        val previous = project.getUserData(TEST_DISCOVERY_KEY)
+        project.putUserData(TEST_DISCOVERY_KEY, discovery)
+        Disposer.register(parentDisposable) {
+            if (project.getUserData(TEST_DISCOVERY_KEY) === discovery) {
+                project.putUserData(TEST_DISCOVERY_KEY, previous)
+            }
+        }
     }
 
     fun resolveCrystalVersion(project: Project): String? {

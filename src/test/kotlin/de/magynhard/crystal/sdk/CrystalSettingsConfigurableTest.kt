@@ -5,9 +5,7 @@ import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.concurrency.AppExecutorUtil
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.Path
+import de.magynhard.crystal.analysis.CrystalRequirePathResolver
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -15,6 +13,16 @@ import java.util.concurrent.TimeUnit
 class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
 
     override fun runInDispatchThread(): Boolean = false
+
+    override fun setUp() {
+        super.setUp()
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { null }
+        CrystalRequireGraphService.installForTests(
+            project,
+            CrystalRequirePathResolver(project) { CrystalStdlibResolver.cachedStdlibPath(project) },
+            testRootDisposable,
+        )
+    }
 
     fun testApplyInvalidatesRequireGraphAfterPublishingNewRoots() {
         val context = myFixture.addFileToProject("src/main.cr", "")
@@ -50,61 +58,45 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testApplyInvalidatesSdkABeforeDiscoveringAndPublishingSdkB() {
-        val tempDirectory = Files.createTempDirectory("crystal-settings-sdk-transition")
-        val settings = CrystalSettings.getInstance(project)
-        val originalCrystalPath = settings.state.crystalPath
-        val enteredDiscovery = tempDirectory.resolve("entered-discovery")
-        val releaseDiscovery = tempDirectory.resolve("release-discovery")
-        try {
-            val sdkA = createFakeSdk(tempDirectory, "sdk-a")
-            val sdkB = createFakeSdk(
-                tempDirectory,
-                "sdk-b",
-                "touch \"$enteredDiscovery\"\nwhile [ ! -f \"$releaseDiscovery\" ]; do sleep 0.05; done",
-            )
-            val context = myFixture.addFileToProject("main.cr", "require \"feature\"")
-            settings.state.crystalPath = sdkA.executable.toString()
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            val rootA = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
-            val service = CrystalRequireGraphService.getInstance(project)
-            assertTrue(service.effectiveSources(context).files.contains(requireNotNull(rootA.findChild("feature.cr"))))
-            val before = service.cacheStats()
-            val configurable = configurable(sdkB.executable.toString())
-
-            val apply = CompletableFuture.runAsync(configurable::apply, AppExecutorUtil.getAppExecutorService())
-            assertTrue(waitForFile(enteredDiscovery))
-
-            assertEquals(before.fullInvalidations + 1, service.cacheStats().fullInvalidations)
-            val duringDiscovery = service.effectiveSources(context)
-            assertFalse(duringDiscovery.files.any { it.path.startsWith(sdkA.stdlib.toString()) })
-
-            Files.createFile(releaseDiscovery)
-            apply.get(10, TimeUnit.SECONDS)
-            val afterApply = service.effectiveSources(context)
-            assertFalse(afterApply.files.any { it.path.startsWith(sdkA.stdlib.toString()) })
-            assertTrue(afterApply.files.any { it.path.startsWith(sdkB.stdlib.toString()) && it.name == "feature.cr" })
-            assertTrue(service.cacheStats().fullInvalidations >= before.fullInvalidations + 3)
-        } finally {
-            if (!Files.exists(releaseDiscovery)) Files.createFile(releaseDiscovery)
-            settings.state.crystalPath = originalCrystalPath
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            tempDirectory.toFile().deleteRecursively()
+        val rootA = fixtureStdlib("transition-sdk-a")
+        val rootB = fixtureStdlib("transition-sdk-b")
+        val enteredDiscovery = CountDownLatch(1)
+        val releaseDiscovery = CountDownLatch(1)
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) {
+            enteredDiscovery.countDown()
+            assertTrue(releaseDiscovery.await(10, TimeUnit.SECONDS))
+            rootB
         }
+        val context = myFixture.addFileToProject("transition-main.cr", "require \"feature\"")
+        CrystalStdlibResolver.publishStdlibPath(project, rootA)
+        val service = CrystalRequireGraphService.getInstance(project)
+        val initialSources = service.effectiveSources(context).files
+        assertTrue("Expected ${rootA.path} in $initialSources", initialSources.contains(requireNotNull(rootA.findChild("prelude.cr"))))
+        val before = service.cacheStats()
+
+        val apply = CompletableFuture.runAsync(configurable("sdk-b")::apply, AppExecutorUtil.getAppExecutorService())
+        assertTrue(enteredDiscovery.await(10, TimeUnit.SECONDS))
+
+        assertEquals(before.fullInvalidations + 1, service.cacheStats().fullInvalidations)
+        assertFalse(service.effectiveSources(context).files.any { it.path.startsWith(rootA.path) })
+
+        releaseDiscovery.countDown()
+        apply.get(10, TimeUnit.SECONDS)
+        val afterApply = service.effectiveSources(context)
+        assertFalse(afterApply.files.any { it.path.startsWith(rootA.path) })
+        assertTrue(afterApply.files.any { it.path.startsWith(rootB.path) && it.name == "prelude.cr" })
+        assertTrue(service.cacheStats().fullInvalidations >= before.fullInvalidations + 3)
     }
 
     fun testApplyPublishesSdkBBeforeCallbackQueryAndInvalidatesAgainAfterwards() {
-        val tempDirectory = Files.createTempDirectory("crystal-settings-sdk-publication")
-        val settings = CrystalSettings.getInstance(project)
-        val originalCrystalPath = settings.state.crystalPath
-        try {
-            val sdkA = createFakeSdk(tempDirectory, "sdk-a")
-            val sdkB = createFakeSdk(tempDirectory, "sdk-b")
-            val context = myFixture.addFileToProject("main.cr", "require \"feature\"")
-            settings.state.crystalPath = sdkA.executable.toString()
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            val rootA = requireNotNull(CrystalStdlibResolver.resolveStdlibPath(project))
+        val rootA = fixtureStdlib("publication-sdk-a")
+        val rootB = fixtureStdlib("publication-sdk-b")
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { rootB }
+            val context = myFixture.addFileToProject("publication-main.cr", "require \"feature\"")
+            CrystalStdlibResolver.publishStdlibPath(project, rootA)
             val service = CrystalRequireGraphService.getInstance(project)
-            assertTrue(service.effectiveSources(context).files.contains(requireNotNull(rootA.findChild("feature.cr"))))
+            val initialSources = service.effectiveSources(context).files
+            assertTrue("Expected ${rootA.path} in $initialSources", initialSources.contains(requireNotNull(rootA.findChild("prelude.cr"))))
             val before = service.cacheStats()
             var invalidationsBeforeCallbackQuery = -1L
             var callbackContainsA = true
@@ -114,24 +106,39 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
                 AdditionalLibraryRootsListener { _, _, _, _ ->
                     invalidationsBeforeCallbackQuery = service.cacheStats().fullInvalidations
                     val sources = service.effectiveSources(context)
-                    callbackContainsA = sources.files.any { it.path.startsWith(sdkA.stdlib.toString()) }
+                    callbackContainsA = sources.files.any { it.path.startsWith(rootA.path) }
                     callbackContainsB = sources.files.any {
-                        it.path.startsWith(sdkB.stdlib.toString()) && it.name == "feature.cr"
+                        it.path.startsWith(rootB.path) && it.name == "prelude.cr"
                     }
                 },
             )
 
-            configurable(sdkB.executable.toString()).apply()
+            configurable("sdk-b").apply()
 
             assertEquals(before.fullInvalidations + 1, invalidationsBeforeCallbackQuery)
             assertFalse(callbackContainsA)
             assertTrue(callbackContainsB)
             assertTrue(service.cacheStats().fullInvalidations >= invalidationsBeforeCallbackQuery + 2)
-        } finally {
-            settings.state.crystalPath = originalCrystalPath
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            tempDirectory.toFile().deleteRecursively()
-        }
+    }
+
+    fun testApplyFailedSdkBDiscoveryDoesNotRestoreSdkA() {
+        val rootA = fixtureStdlib("failed-sdk-a")
+        CrystalStdlibResolver.publishStdlibPath(project, rootA)
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { null }
+        val context = myFixture.addFileToProject("failed-main.cr", "require \"feature\"")
+        val service = CrystalRequireGraphService.getInstance(project)
+        assertTrue(service.effectiveSources(context).files.any { it.path.startsWith(rootA.path) })
+        val before = service.cacheStats()
+        var publishedRoots: List<com.intellij.openapi.vfs.VirtualFile>? = null
+        val configurable = CrystalSettingsConfigurable.forTest(project) { _, newRoots -> publishedRoots = newRoots }
+        setCrystalPath(configurable, "missing-sdk-b")
+
+        configurable.apply()
+
+        assertNull(CrystalStdlibResolver.cachedStdlibPath(project))
+        assertEquals(emptyList<com.intellij.openapi.vfs.VirtualFile>(), publishedRoots)
+        assertFalse(service.effectiveSources(context).files.any { it.path.startsWith(rootA.path) })
+        assertTrue(service.cacheStats().fullInvalidations >= before.fullInvalidations + 2)
     }
 
     fun testApplyFinallyInvalidatesWhenRootPublicationListenerThrows() {
@@ -165,74 +172,37 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testForceReindexDoesNothingOutsideCrystalProject() {
-        val tempDir = Files.createTempDirectory("crystal-settings-reindex-test")
-        val settings = CrystalSettings.getInstance(project)
-        val originalCrystalPath = settings.state.crystalPath
-        try {
-            val stdlib = Files.createDirectory(tempDir.resolve("stdlib"))
-            Files.writeString(stdlib.resolve("array.cr"), "class Array; end")
-            val executable = Files.writeString(
-                tempDir.resolve("fake-crystal"),
-                """
-                    #!/bin/sh
-                    if [ "${'$'}1" = "env" ]; then
-                      echo "$stdlib"
-                    else
-                      echo "Crystal 1.20.0"
-                    fi
-                """.trimIndent()
-            )
-            assertTrue(executable.toFile().setExecutable(true))
-            settings.state.crystalPath = executable.toString()
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
+            val stdlib = fixtureStdlib("force-reindex")
+            CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { stdlib }
             val rootsChanged = CountDownLatch(1)
             project.messageBus.connect(testRootDisposable).subscribe(
                 AdditionalLibraryRootsListener.TOPIC,
                 AdditionalLibraryRootsListener { _, _, _, _ -> rootsChanged.countDown() }
             )
             val configurable = CrystalSettingsConfigurable(project)
-            configurable.createComponent()
 
             configurable.javaClass.getDeclaredMethod("forceReindex").apply { isAccessible = true }.invoke(configurable)
 
             assertFalse("Non-Crystal project must not broadcast stdlib roots", rootsChanged.await(2, TimeUnit.SECONDS))
-        } finally {
-            settings.state.crystalPath = originalCrystalPath
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-            File(tempDir.toString()).deleteRecursively()
-        }
     }
 
     private fun configurable(crystalPath: String): CrystalSettingsConfigurable {
         val configurable = CrystalSettingsConfigurable(project)
+        setCrystalPath(configurable, crystalPath)
+        return configurable
+    }
+
+    private fun setCrystalPath(configurable: CrystalSettingsConfigurable, crystalPath: String) {
         val field = TextFieldWithBrowseButton().apply { text = crystalPath }
         configurable.javaClass.getDeclaredField("crystalPathField").apply {
             isAccessible = true
             set(configurable, field)
         }
-        return configurable
     }
 
-    private fun createFakeSdk(parent: Path, name: String, beforeOutput: String = ""): FakeSdk {
-        val directory = Files.createDirectory(parent.resolve(name))
-        val stdlib = Files.createDirectory(directory.resolve("stdlib"))
-        Files.writeString(stdlib.resolve("prelude.cr"), "")
-        Files.writeString(stdlib.resolve("feature.cr"), "")
-        val executable = Files.writeString(
-            directory.resolve("crystal"),
-            "#!/bin/sh\n$beforeOutput\necho \"$stdlib\"\n",
-        )
-        assertTrue(executable.toFile().setExecutable(true))
-        return FakeSdk(executable, stdlib)
+    private fun fixtureStdlib(name: String): com.intellij.openapi.vfs.VirtualFile {
+        val prelude = myFixture.addFileToProject("$name/prelude.cr", "").virtualFile
+        myFixture.addFileToProject("$name/feature.cr", "")
+        return requireNotNull(prelude.parent)
     }
-
-    private fun waitForFile(path: Path): Boolean {
-        repeat(200) {
-            if (Files.exists(path)) return true
-            Thread.sleep(25)
-        }
-        return false
-    }
-
-    private data class FakeSdk(val executable: Path, val stdlib: Path)
 }

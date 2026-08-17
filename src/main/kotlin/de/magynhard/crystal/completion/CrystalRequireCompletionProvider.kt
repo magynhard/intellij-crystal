@@ -390,11 +390,13 @@ object CrystalRequireCompletionProvider {
                 )
             } else if (child.extension == "cr") {
                 val baseName = child.nameWithoutExtension
-                if (!baseName.startsWith(segmentPrefix)) continue
+                val explicitExtension = '.' in segmentPrefix
+                val lookupName = if (explicitExtension) child.name else baseName
+                if (!lookupName.startsWith(segmentPrefix)) continue
                 if (child == currentFile) continue  // don't suggest requiring the current file
-                val fullInsertPath = computeFullInsertPath(pathPrefix, baseName)
+                val fullInsertPath = computeFullInsertPath(pathPrefix, lookupName)
                 result.add(
-                    LookupElementBuilder.create(baseName)
+                    LookupElementBuilder.create(lookupName)
                         .withIcon(AllIcons.FileTypes.Text)
                         .withTypeText("file", true)
                         .withInsertHandler(CrystalRequirePathInsertHandler(fullInsertPath, isDirectory = false))

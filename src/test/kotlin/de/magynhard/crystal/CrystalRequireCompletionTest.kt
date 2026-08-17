@@ -313,6 +313,19 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         assertEquals("user", userElement.lookupString)
     }
 
+    fun testRelativeFileCompletionRetainsExplicitCrystalExtension() {
+        myFixture.addFileToProject("feature.cr", "")
+        myFixture.addFileToProject("fixture.cr", "")
+        myFixture.configureByText("main.cr", "require \"./feature.<caret>\"")
+
+        val lookups = requireNotNull(myFixture.complete(CompletionType.BASIC))
+        val feature = lookups.first { it.lookupString == "feature.cr" }
+        myFixture.lookup.currentItem = feature
+        myFixture.type('\n')
+
+        assertEquals("require \"./feature.cr\"", myFixture.editor.document.text)
+    }
+
     fun testRelativeDirCompletionOfferedAsDirectory() {
         myFixture.addFileToProject("models/user.cr", "")
         myFixture.configureByText("main.cr", "require \"./<caret>\"")
