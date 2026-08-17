@@ -358,6 +358,99 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         }
     }
 
+    fun testCleanCachedNodeSkipsFingerprintReCollectionOnRepeatedQuery() {
+        files(
+            "stdlib/prelude.cr" to "require \"./string\"\nrequire \"./int\"",
+            "stdlib/string.cr" to "",
+            "stdlib/int.cr" to "",
+            "src/main.cr" to "require \"./feature\"\nrequire \"./helper\"",
+            "src/feature.cr" to "",
+            "src/helper.cr" to "",
+        )
+        var collections = 0
+        val service = service(
+            validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+            collector = {
+                collections++
+                CrystalRequireCollector.collect(it)
+            },
+        )
+        val context = elementIn("src/main.cr")
+        service.effectiveSources(context)
+        val initialCollections = collections
+        assertEquals(6, initialCollections)
+
+        service.effectiveSources(context)
+
+        assertEquals("Clean cached nodes must not be collected again", initialCollections, collections)
+    }
+
+    fun testDirtyNodeRevalidatesFingerprintInsideQueryReadAction() {
+        files("src/main.cr" to "def value\n1\nend")
+        var collections = 0
+        val service = service(
+            stdlib = null,
+            validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+            collector = {
+                collections++
+                CrystalRequireCollector.collect(it)
+            },
+        )
+        val context = elementIn("src/main.cr")
+        val first = service.effectiveSources(context)
+        val firstIdentity = service.cacheIdentity(vf("src/main.cr"))
+        val baseline = service.cacheStats()
+        assertEquals(1, collections)
+
+        replaceText("src/main.cr", "def value\n2\nend")
+        service.handleVfsEvents(listOf(VFileContentChangeEvent(this, vf("src/main.cr"), 1, 2)))
+
+        val second = service.effectiveSources(context)
+        val secondIdentity = service.cacheIdentity(vf("src/main.cr"))
+        assertSame("Unchanged fingerprint must reuse the cached effective snapshot", first, second)
+        assertSame(firstIdentity.node, secondIdentity.node)
+        assertSame(firstIdentity.closure, secondIdentity.closure)
+        assertSame(firstIdentity.sources, secondIdentity.sources)
+        val after = service.cacheStats()
+        assertEquals("The dirty node must be collected exactly once", 2, collections)
+        assertEquals(
+            "An unchanged require fingerprint must not rebuild the node",
+            baseline.nodeBuilds, after.nodeBuilds,
+        )
+        assertEquals(baseline.closureBuilds, after.closureBuilds)
+    }
+
+    fun testDirtyRequireEditRebuildsNodeAndEffectiveSnapshot() {
+        files(
+            "src/main.cr" to "require \"./old_feature\"",
+            "src/old_feature.cr" to "",
+            "src/new_feature.cr" to "",
+        )
+        var collections = 0
+        val service = service(
+            stdlib = null,
+            validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+            collector = {
+                collections++
+                CrystalRequireCollector.collect(it)
+            },
+        )
+        val first = service.effectiveSources(elementIn("src/main.cr"))
+        val baseline = service.cacheStats()
+        assertEquals(2, collections)
+
+        replaceText("src/main.cr", "require \"./new_feature\"")
+        service.handleVfsEvents(listOf(VFileContentChangeEvent(this, vf("src/main.cr"), 1, 2)))
+
+        val second = service.effectiveSources(elementIn("src/main.cr"))
+        assertNotSame(first, second)
+        assertFalse(second.files.contains(vf("src/old_feature.cr")))
+        assertTrue(second.files.contains(vf("src/new_feature.cr")))
+        assertEquals("Only the dirty materialized node must be collected again", 4, collections)
+        assertEquals(baseline.nodeBuilds + 2, service.cacheStats().nodeBuilds)
+        assertEquals(baseline.closureBuilds + 1, service.cacheStats().closureBuilds)
+    }
+
     fun testUnsavedTopLevelRequireEditInvalidatesDependentClosure() {
         files(
             "task4_unsaved_require/main.cr" to "require \"./old_feature\"",
@@ -1490,8 +1583,17 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertEquals(2, attempts)
     }
 
-    private fun service(stdlib: VirtualFile? = directory("stdlib")): CrystalRequireGraphService =
-        CrystalRequireGraphService(project, CrystalRequirePathResolver(project) { stdlib })
+    private fun service(
+        stdlib: VirtualFile? = directory("stdlib"),
+        validationMode: CrystalRequireGraphService.ValidationMode =
+            CrystalRequireGraphService.ValidationMode.ALWAYS,
+        collector: (PsiFile) -> CrystalDirectRequires = CrystalRequireCollector::collect,
+    ): CrystalRequireGraphService = CrystalRequireGraphService(
+        project,
+        CrystalRequirePathResolver(project) { stdlib },
+        validationMode,
+        collector,
+    )
 
     private fun productionService(clearStdlibCache: Boolean = true): CrystalRequireGraphService {
         if (clearStdlibCache) CrystalStdlibResolver.clearCachedStdlibPath(project)

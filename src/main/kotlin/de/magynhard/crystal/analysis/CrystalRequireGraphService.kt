@@ -49,26 +49,54 @@ internal data class CrystalRequireCacheStats(
     val targetedInvalidations: Long,
 )
 
+internal data class CrystalRequireCacheIdentity(
+    val node: Any?,
+    val closure: Any?,
+    val sources: CrystalEffectiveSourceSet?,
+)
+
 @Service(Service.Level.PROJECT)
 internal class CrystalRequireGraphService private constructor(
     private val project: Project,
     private val pathResolver: CrystalRequirePathResolver,
     registerListeners: Boolean,
+    private val validationMode: ValidationMode,
+    private val collector: (PsiFile) -> CrystalDirectRequires,
 ) {
+    internal enum class ValidationMode {
+        EVENT_DRIVEN,
+        ALWAYS,
+    }
+
     constructor(project: Project) : this(
         project,
         CrystalRequirePathResolver(project) { CrystalStdlibResolver.cachedStdlibPath(project) },
         true,
+        ValidationMode.EVENT_DRIVEN,
+        CrystalRequireCollector::collect,
     )
 
     internal constructor(project: Project, pathResolver: CrystalRequirePathResolver) :
-        this(project, pathResolver, false)
+        this(project, pathResolver, false, ValidationMode.ALWAYS, CrystalRequireCollector::collect)
+
+    internal constructor(
+        project: Project,
+        pathResolver: CrystalRequirePathResolver,
+        validationMode: ValidationMode,
+        collector: (PsiFile) -> CrystalDirectRequires = CrystalRequireCollector::collect,
+    ) : this(project, pathResolver, false, validationMode, collector)
 
     internal constructor(
         project: Project,
         pathResolver: CrystalRequirePathResolver,
         listenerDisposable: Disposable,
-    ) : this(project, pathResolver, false) {
+    ) : this(
+        project,
+        pathResolver,
+        false,
+        ValidationMode.EVENT_DRIVEN,
+        CrystalRequireCollector::collect,
+    ) {
         registerListeners(listenerDisposable)
     }
 
@@ -214,7 +242,7 @@ internal class CrystalRequireGraphService private constructor(
             if (psiFile == null || !psiFile.isValid || !psiFile.isPhysical) return@computeBlocking null
             val originalFile = psiFile.originalFile.virtualFile?.takeIf(::isUsableCrystalFile)
                 ?: return@computeBlocking null
-            originalFile to CrystalRequireCollector.collect(psiFile).fingerprint
+            originalFile to collector(psiFile).fingerprint
         }
         val normalizedFile = current?.first ?: file
         synchronized(lock) {
@@ -226,6 +254,10 @@ internal class CrystalRequireGraphService private constructor(
 
     internal fun cacheStats(): CrystalRequireCacheStats = synchronized(lock) {
         CrystalRequireCacheStats(nodeBuilds, closureBuilds, fullInvalidations, targetedInvalidations)
+    }
+
+    internal fun cacheIdentity(file: VirtualFile): CrystalRequireCacheIdentity = synchronized(lock) {
+        CrystalRequireCacheIdentity(nodes[file], closures[file], effectiveSnapshots[file]?.sources)
     }
 
     private fun registerListeners(parentDisposable: Disposable) {
@@ -469,12 +501,23 @@ internal class CrystalRequireGraphService private constructor(
         }
         return ReadAction.computeBlocking<Node?, RuntimeException> {
             ProgressManager.checkCanceled()
+            synchronized(lock) {
+                if (generation != capturedGeneration) throw StaleGeneration
+                val cached = nodes[file]
+                if (
+                    cached != null &&
+                    file !in dirtyContentNodes &&
+                    validationMode == ValidationMode.EVENT_DRIVEN
+                ) {
+                    return@computeBlocking cached
+                }
+            }
             val psiFile = PsiManager.getInstance(project).findFile(file)
             if (psiFile == null || !psiFile.isValid || !psiFile.isPhysical || !isUsableCrystalFile(file)) {
                 discardInvalidNode(file, capturedGeneration)
                 return@computeBlocking null
             }
-            val directRequires = CrystalRequireCollector.collect(psiFile)
+            val directRequires = collector(psiFile)
             synchronized(lock) {
                 if (generation != capturedGeneration) throw StaleGeneration
                 nodes[file]?.takeIf { it.fingerprint == directRequires.fingerprint }?.let {

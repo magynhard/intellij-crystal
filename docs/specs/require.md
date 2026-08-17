@@ -190,6 +190,14 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
 - Runtime completion never scans project files through `FileTypeIndex`.
 - Stdlib resolution uses the project-scoped cached SDK path.
 - Completion queries only the selected path roots and current directory level.
+- The production require graph reuses every materialized node not marked dirty by
+  a VFS content-change event without collecting its require fingerprint again.
+  Dirty nodes validate their fingerprint inside the query's existing read action.
+  An unchanged fingerprint preserves node, closure, and effective-snapshot
+  identity; a changed fingerprint publishes a replacement and invalidates reverse
+  dependents before returning. Unsaved require edits remain covered by the PSI
+  listener. Listenerless tests can explicitly select full validation instead of
+  imposing unconditional PSI walks on production queries.
 
 ## Verification Matrix
 
