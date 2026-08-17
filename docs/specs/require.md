@@ -125,8 +125,12 @@ Collection preserves source order. Requires rejected by the context inspection, 
 Require-aware analysis resolves edges without running the Crystal compiler and without scanning the
 project. Relative paths start at the requiring file's directory. Bare paths use compiler precedence:
 the project's `lib/` root first, then the configured stdlib root. Exact candidates support both
-`path.cr` and `path/path.cr`. A shard path additionally maps `require "kemal"` to
-`lib/kemal/src/kemal.cr`; nested shard paths use the corresponding location below `src/`.
+`path.cr` and `path/path.cr`. For each root, lookup is deterministic and stops at the first existing
+compiler-ordered form: `<path>.cr`, `<path>/<basename>.cr`, `<first>/src/<remaining>.cr`, then
+`<first>/src/<remaining>/<basename>.cr`. Multiple existing forms are not ambiguous. Explicit paths
+such as `require "./feature.cr"` and `require "json.cr"` use that file directly without appending a
+second suffix. A shard path maps `require "kemal"` to `lib/kemal/src/kemal.cr`; namespaced shard
+paths are the same `<first>/src/<remaining>` form.
 
 The project-`lib/` precedence applies only to a physical project or shard forward traversal. The
 entire traversal rooted at configured `prelude.cr` resolves bare exact and wildcard requires only
@@ -143,12 +147,22 @@ The effective set is forward-only: requiring a file never gives that file the ca
 and sibling branches do not leak into one another.
 
 Terminal `/*` expands direct `.cr` children in stable path order. Terminal `/**` additionally walks
-descendant directories. Each wildcard records its concrete or nearest existing target so creation,
+descendant directories using iterative, cancellation-aware traversal. A recursive wildcard whose
+target is the project root, including `./**` in a project-root file, is conservatively suppressed to
+prevent a runtime whole-project scan. Explicit subdirectories such as `src/extensions/**` remain
+supported. Each wildcard records its concrete or nearest existing target so creation,
 copy, deletion, rename, and movement invalidate matching closures. Exact candidates record missing
 and higher-precedence alternatives for the same reason. Require PSI edits, relevant required-file
 content changes, stdlib-root changes, source-root changes, shard metadata changes, and relevant
 `lib/` structural changes invalidate the affected cache scope. The next query rebuilds lazily; a
 new matching wildcard file is therefore visible without restarting the fixture or IDE.
+
+Static double-quoted paths are decoded before fingerprinting and resolution. Named Crystal escapes,
+escaped quote/backslash/hash and other pass-through characters, one-to-three-digit octal,
+one-to-two-digit hex, `\uFFFF`, whitespace-separated `\u{...}` codepoints, and escaped newline
+continuations contribute their runtime string value. Interpolation and invalid escape/codepoint
+sequences are excluded conservatively. Consequently, invalidation watches the decoded candidate
+paths rather than the source spelling.
 
 ## Path Completion
 
@@ -172,9 +186,12 @@ Relative mode supports `./`, `../`, nested directories, and partially typed path
 Candidates are:
 
 - Directories whose names match the current segment.
-- `.cr` files whose base names match the current segment.
+- `.cr` files whose base names match the current segment. Once the segment contains an explicit
+  extension prefix, completion retains and inserts the full `.cr` name.
 
-The current file, dotfiles, hidden directories, and non-Crystal files are excluded. File lookup names omit the `.cr` extension. Directory entries display a trailing `/`.
+The current file, dotfiles, hidden directories, and non-Crystal files are excluded. File lookup names
+normally omit the `.cr` extension; an explicitly typed extension is preserved. Directory entries
+display a trailing `/`.
 
 Examples:
 

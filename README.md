@@ -61,7 +61,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 ### Code Completion
 
 - **Context-aware completion** (Ctrl+Space) — exact dot-completion on type objects and grouped/value expressions (including literals, ranges, operators, method results, chains, and fully resolved unions), inherited primitive methods such as `3.times`, and best-effort certain methods from macro-heavy stdlib types; method candidates follow the current file's forward `require` closure and prelude without leaking optional reopenings from unrelated files; plus free-text completion for classes/methods/locals/stdlib types and type completion after `:` in annotations, inside generics (`Array(<caret>)`), and in union types (`String | <caret>`)
-- **`require` completion** — standalone `req<caret>` statements insert `require ""` and open path completion for relative files, project shards, and stdlib entries; invalid dynamic contexts receive the matching compiler diagnostic instead of a generic parser error
+- **`require` completion** — standalone `req<caret>` statements insert `require ""` and open path completion for relative files, project shards, and stdlib entries, including explicitly typed `.cr` paths; invalid dynamic contexts receive the matching compiler diagnostic instead of a generic parser error
 - **Overloaded methods** — multiple overloads of the same method appear as separate entries, each showing its parameter signature
 - **Record macro completion** — completion, parameter info, and argument inspections for record macros
 - **Auto-completion for `::`** — typing `::` after a CONSTANT triggers the completion popup automatically

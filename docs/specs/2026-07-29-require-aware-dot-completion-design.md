@@ -52,8 +52,13 @@ A focused `CrystalRequirePathResolver` resolves graph edges according to Crystal
   shadow the shared prelude foundation. Relative paths retain normal file-relative resolution, and
   the same escaped support file remains project-first when reached independently from a project
   closure.
-- `*` and `**` patterns expand only below the resolved target directory.
-- Missing or ambiguous paths contribute no edge.
+- Exact lookup uses compiler order and the first existing candidate wins; candidate forms are not
+  treated as ambiguous. Ambiguity is limited to multiple roots at one precedence level.
+- Explicit `.cr` paths resolve directly without receiving another suffix.
+- `*` and `**` patterns expand only below the resolved target directory. Recursive traversal is
+  iterative and cancellation-aware; a target equal to the project root is suppressed as a safety
+  boundary, while explicit subdirectories remain supported.
+- Missing or genuinely root-ambiguous paths contribute no edge.
 - Resolution never scans all Crystal project files and never uses `FileTypeIndex`.
 
 Each exact edge records the normalized candidate-path prefix through its selected file, including
@@ -66,7 +71,8 @@ as `src/models/*`, shard paths below `lib/`, and standard-library paths.
 ## Caching And Invalidation
 
 The require graph is a directed graph with cached transitive closures and reverse dependency edges.
-Each node stores a fingerprint derived only from its top-level require statements. Ordinary edits to
+Each node stores a fingerprint derived only from the decoded runtime values of its static top-level
+require strings. Invalid escapes and interpolation do not contribute edges. Ordinary edits to
 method bodies do not invalidate direct edges or transitive closures.
 
 When a direct-require fingerprint changes, the service invalidates that node and only the nodes that
@@ -101,6 +107,9 @@ and dirty marking for already materialized content-changed nodes; it never opens
 action, or schedules executor work. The graph has no global pending-content barrier. A query validates
 the current require fingerprint of each node only while traversing its prelude or requested closure
 inside the existing outer read action. Unrelated dirty nodes neither gate nor rebuild that closure.
+Dirty state records the changed dependency keys for every owning closure rather than only a boolean.
+An unchanged fingerprint removes that dependency reason from every owner; owners with no remaining
+reasons immediately regain their constant-time fast path, while simultaneous reasons remain dirty.
 An unchanged fingerprint, including an ordinary body edit, retains node, closure, and snapshot
 versions; a require edit publishes its replacement before that query returns. IntelliJ cancellation
 propagates from the read-consistent traversal and leaves dirty state retryable. Unsaved PSI changes
@@ -130,8 +139,9 @@ of graph validity, so a root populated later during project startup makes the pr
 requires, and bare wildcards visible on the next query without an external invalidation callback.
 
 Effective snapshots normalize physical queries and every resolved edge through the original PSI
-file's `VirtualFile`. Nonphysical injected Crystal queries receive only the configured prelude
-foundation; invalid queries remain empty, and membership checks reject unrelated nonphysical PSI
+file's `VirtualFile`. Only valid Crystal fragments injected into an ECR host receive the configured
+prelude foundation; arbitrary nonphysical Crystal PSI, unrelated languages, and invalid queries
+remain empty, and membership checks reject unrelated nonphysical PSI
 copies. This preserves core literal completion in ECR without inferring project or host context. A
 stable direct-require fingerprint preserves the existing node, closure, and effective snapshot
 identity; a changed fingerprint publishes a new node version and lazily rebuilds only cached closures

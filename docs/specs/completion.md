@@ -402,6 +402,11 @@ transitive require. Shard methods, relative project reopenings, macro-control-wr
 requires, and wildcard requires follow the same boundary. Unknown or incomplete receivers still
 have no name-only or all-index fallback.
 
+The same captured session resolves exact identities for DOT receivers inferred from typed
+parameters, assignments, and instance-variable evidence. These paths never perform a separate
+all-scope identity lookup, so an unrequired global or namespaced type with the same simple name cannot
+suppress completion, navigation, or inspection for the visible lexical identity.
+
 `CrystalCompletionContributor` dispatches DOT completion exclusively through this receiver result.
 `TypeObject` receivers are delegated to a focused provider that preserves static-method rendering,
 record constructor signatures, synthetic `new` behavior, icons, and priority. Static candidates are
