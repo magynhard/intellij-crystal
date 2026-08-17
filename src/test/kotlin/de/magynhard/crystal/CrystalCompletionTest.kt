@@ -1884,6 +1884,29 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertFalse(moduleNames.contains("new"))
     }
 
+    fun testUnrequiredTypeCollisionsDoNotSuppressLexicalReceiverCompletion() {
+        myFixture.addFileToProject("unrequired_global_foo.cr", "class Foo\n  def leaked_global; end\nend")
+        myFixture.addFileToProject(
+            "unrequired_namespaced_foo.cr",
+            "module Hidden\n  class Foo\n    def leaked_namespaced; end\n  end\nend",
+        )
+
+        val names = completionNames(
+            """
+                module Outer
+                  class Foo
+                    def visible
+                    end
+                  end
+                  value = Foo.new
+                  value.<caret>
+                end
+            """.trimIndent(),
+        )
+
+        assertEquals(setOf("visible"), names)
+    }
+
     fun testExplicitStaticNewOverloadsDoNotCreateSyntheticConstructor() {
         val declarations = """
             class Factory

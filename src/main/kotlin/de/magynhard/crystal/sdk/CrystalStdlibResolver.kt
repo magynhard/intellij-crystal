@@ -25,6 +25,7 @@ object CrystalStdlibResolver {
 
     private val STDLIB_PATH_KEY = Key.create<VirtualFile>("crystal.stdlib.path.cache")
     private val TEST_DISCOVERY_KEY = Key.create<() -> VirtualFile?>("crystal.stdlib.test.discovery")
+    private val TEST_VERSION_KEY = Key.create<() -> String?>("crystal.stdlib.test.version")
 
     internal fun cachedStdlibPath(project: Project): VirtualFile? =
         project.getUserData(STDLIB_PATH_KEY)?.takeIf(VirtualFile::isValid)
@@ -83,7 +84,22 @@ object CrystalStdlibResolver {
         }
     }
 
+    internal fun installVersionForTests(
+        project: Project,
+        parentDisposable: Disposable,
+        version: () -> String?,
+    ) {
+        val previous = project.getUserData(TEST_VERSION_KEY)
+        project.putUserData(TEST_VERSION_KEY, version)
+        Disposer.register(parentDisposable) {
+            if (project.getUserData(TEST_VERSION_KEY) === version) {
+                project.putUserData(TEST_VERSION_KEY, previous)
+            }
+        }
+    }
+
     fun resolveCrystalVersion(project: Project): String? {
+        project.getUserData(TEST_VERSION_KEY)?.invoke()?.let { return it }
         val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
         return runCrystalVersion(crystalPath)
     }

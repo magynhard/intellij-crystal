@@ -35,6 +35,36 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         )
     }
 
+    fun testUnrequiredTypeCollisionsDoNotSuppressLexicalReceiverReference() {
+        myFixture.addFileToProject("unrequired_global_foo.cr", "class Foo\n  def visible; end\nend")
+        myFixture.addFileToProject(
+            "unrequired_namespaced_foo.cr",
+            "module Hidden\n  class Foo\n    def visible; end\n  end\nend",
+        )
+
+        val targets = multiResolveAtCaret(
+            """
+                module Outer
+                  class Foo
+                    def visible
+                    end
+                  end
+                  def execute
+                    value = Foo.new
+                    value.vis<caret>ible
+                  end
+                end
+            """.trimIndent(),
+        )
+
+        assertEquals(1, targets.size)
+        assertEquals(
+            "Outer::Foo",
+            (CrystalPsiUtils.getEnclosingType(targets.single()) as? CrystalNamedElement)
+                ?.let(CrystalPsiUtils::buildQualifiedName),
+        )
+    }
+
     /** Walks to the `CrystalDotCallAccess` composite at the caret and returns its reference target. */
     private fun resolveAtCaret(code: String): PsiElement? {
         myFixture.configureByText("test.cr", code)
