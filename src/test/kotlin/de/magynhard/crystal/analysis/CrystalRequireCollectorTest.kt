@@ -62,10 +62,16 @@ class CrystalRequireCollectorTest : BasePlatformTestCase() {
         )
     }
 
-    fun testExcludesInvalidEscapes() {
-        val file = configure("require \"invalid_\\u{110000}\"")
+    fun testExcludesInvalidEscapesWithoutProducingFingerprintEdges() {
+        val file = configure(
+            "require \"invalid_hex_\\xF\"\n" +
+                "require \"invalid_octal_\\400\"\n" +
+                "require \"invalid_unicode_\\u{110000}\"\n" +
+                "require \"invalid_separator_\\u{41\\t42}\"",
+        )
 
         assertTrue(CrystalRequireCollector.collect(file).paths.isEmpty())
+        assertEquals("", CrystalRequireCollector.collect(file).fingerprint)
     }
 
     fun testFingerprintIgnoresMethodBodyEdits() {

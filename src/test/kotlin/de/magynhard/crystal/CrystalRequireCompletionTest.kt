@@ -4,6 +4,9 @@ import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
@@ -14,15 +17,15 @@ import de.magynhard.crystal.sdk.CrystalStdlibResolver
  */
 class CrystalRequireCompletionTest : BasePlatformTestCase() {
 
-    private lateinit var stdlibVfsAccess: CrystalStdlibVfsAccess
     private lateinit var fixtureRoot: VirtualFile
     private lateinit var initialFixturePaths: Set<String>
+    private var createdProjectLib = false
 
     override fun setUp() {
         super.setUp()
         fixtureRoot = myFixture.tempDirFixture.findOrCreateDir("")
         initialFixturePaths = collectPaths(fixtureRoot)
-        stdlibVfsAccess = CrystalStdlibVfsAccess.allow(project)
+        installSyntheticStdlib(project, myFixture, testRootDisposable)
     }
 
     override fun tearDown() {
@@ -30,13 +33,12 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
             CrystalStdlibResolver.clearCachedStdlibPath(project)
             ApplicationManager.getApplication().runWriteAction {
                 deleteNewFixtureFiles(fixtureRoot)
+                if (createdProjectLib) {
+                    projectBaseRoot().findChild("lib")?.delete(this)
+                }
             }
         } finally {
-            try {
-                stdlibVfsAccess.restore()
-            } finally {
-                super.tearDown()
-            }
+            super.tearDown()
         }
     }
 
@@ -362,7 +364,7 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
 
     fun testShardCompletionInRequireString() {
         // Project-local shard laid out under lib/<shard>/<shard>.cr
-        myFixture.addFileToProject("lib/json/json.cr", "")
+        projectFile("lib/json/json.cr")
         myFixture.configureByText("main.cr", "require \"<caret>\"")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
@@ -375,7 +377,7 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         // With both a local file `user.cr` and a `lib/json/` shard, typing
         // `.` should switch to relative mode: `user` offered, `json` not.
         myFixture.addFileToProject("user.cr", "")
-        myFixture.addFileToProject("lib/json/json.cr", "")
+        projectFile("lib/json/json.cr")
         myFixture.configureByText("main.cr", "require \".<caret>\"")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions", lookups)
@@ -388,18 +390,17 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     }
 
     fun testNoCrashWhenStdlibUnavailable() {
-        // Add a non-existent stdlib path; only shards should be offered.
-        // (In the test fixture, `crystal env CRYSTAL_PATH` typically
-        // resolves to the real stdlib on the test machine; we can't control
-        // that from here, so the assertion is defensive.)
-        myFixture.addFileToProject("lib/json/json.cr", "")
+        val unavailable = Disposer.newDisposable()
+        Disposer.register(testRootDisposable, unavailable)
+        CrystalStdlibResolver.installDiscoveryForTests(project, unavailable) { null }
+        CrystalStdlibResolver.clearCachedStdlibPath(project)
+        projectFile("lib/json/json.cr")
+        projectFile("lib/yaml/yaml.cr")
         myFixture.configureByText("main.cr", "require \"<caret>\"")
         val lookups = myFixture.complete(CompletionType.BASIC)
-        // Should not throw, should include at least the local shard.
-        if (lookups != null) {
-            val names = lookups.map { it.lookupString }
-            assertTrue("Should offer shard `json`: $names", names.contains("json"))
-        }
+
+        assertNotNull(lookups)
+        assertEquals(setOf("json", "yaml"), lookups.map { it.lookupString }.toSet())
     }
 
     fun testDirectoryLookupNameHasTrailingSlash() {
@@ -510,8 +511,8 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     }
 
     fun testShardMultiSegmentFiltersChildren() {
-        myFixture.addFileToProject("lib/json/parser.cr", "")
-        myFixture.addFileToProject("lib/json/from_yaml.cr", "")
+        projectFile("lib/json/parser.cr")
+        projectFile("lib/json/from_yaml.cr")
         myFixture.configureByText("main.cr", "require \"json/parse<caret>\"")
         val lookups = myFixture.complete(CompletionType.BASIC)
         if (lookups != null) {
@@ -531,7 +532,7 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     }
 
     fun testShardTopLevelInsertsBarename() {
-        myFixture.addFileToProject("lib/json/json.cr", "")
+        projectFile("lib/json.cr")
         myFixture.configureByText("main.cr", "require \"js<caret>\"")
         myFixture.complete(CompletionType.BASIC)
         myFixture.finishLookup('\n')
@@ -556,6 +557,24 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
 
         assertTrue("Should contain the synthesized require statement", lookups.any(::isRequireStatement))
     }
+
+    private fun projectFile(path: String): VirtualFile {
+        var result: VirtualFile? = null
+        ApplicationManager.getApplication().runWriteAction {
+            val root = projectBaseRoot()
+            if (root.findChild("lib") == null) createdProjectLib = true
+            val parent = VfsUtil.createDirectories(
+                "${requireNotNull(project.basePath)}/${path.substringBeforeLast('/')}",
+            )
+            result = parent.findChild(path.substringAfterLast('/'))
+                ?: parent.createChildData(this, path.substringAfterLast('/'))
+        }
+        return requireNotNull(result)
+    }
+
+    private fun projectBaseRoot(): VirtualFile = requireNotNull(
+        LocalFileSystem.getInstance().findFileByPath(requireNotNull(project.basePath)),
+    )
 
     private fun assertRequireKeywordNotSuggested(code: String) {
         myFixture.configureByText("main.cr", code)

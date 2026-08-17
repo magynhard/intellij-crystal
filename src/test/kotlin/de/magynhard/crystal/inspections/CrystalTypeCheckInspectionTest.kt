@@ -1,24 +1,14 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import de.magynhard.crystal.CrystalStdlibVfsAccess
+import de.magynhard.crystal.installSyntheticStdlib
 
 class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
 
-    private lateinit var stdlibVfsAccess: CrystalStdlibVfsAccess
-
     override fun setUp() {
         super.setUp()
-        stdlibVfsAccess = CrystalStdlibVfsAccess.allow(project)
+        installSyntheticStdlib(project, myFixture, testRootDisposable)
         myFixture.enableInspections(CrystalTypeCheckInspection::class.java)
-    }
-
-    override fun tearDown() {
-        try {
-            stdlibVfsAccess.restore()
-        } finally {
-            super.tearDown()
-        }
     }
 
     // ==================== Basic Type Mismatches ====================

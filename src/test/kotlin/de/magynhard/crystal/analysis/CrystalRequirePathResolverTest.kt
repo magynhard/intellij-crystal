@@ -1,84 +1,64 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.util.ProgressIndicatorBase
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import java.nio.file.Files
+import java.nio.file.Path
 
 class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
-    fun testResolvesRelativeFileAndDirectoryMain() {
+    fun testCompilerOrderedFileExpansionsCoverEveryBranch() {
         val source = file("src/main.cr")
-        val direct = file("src/models/user.cr")
-        assertEquals(listOf(direct), resolver().resolve(source, "./models/user").files)
+        val cases = listOf(
+            "./models/user" to listOf("src/models/user.cr", "src/models/user/user.cr"),
+            "./models/user.cr" to listOf("src/models/user.cr", "src/models/user.cr/user.cr"),
+            "kemal" to listOf("lib/kemal.cr", "lib/kemal/kemal.cr", "lib/kemal/src/kemal.cr"),
+            "kemal/helpers" to listOf(
+                "lib/kemal/helpers.cr",
+                "lib/kemal/src/helpers.cr",
+                "lib/kemal/src/kemal/helpers.cr",
+                "lib/kemal/helpers/helpers.cr",
+                "lib/kemal/src/helpers/helpers.cr",
+                "lib/kemal/src/kemal/helpers/helpers.cr",
+            ),
+            "kemal/helpers.cr" to listOf(
+                "lib/kemal/helpers.cr",
+                "lib/kemal/src/helpers.cr",
+                "lib/kemal/src/kemal/helpers.cr",
+                "lib/kemal/helpers.cr/helpers.cr",
+                "lib/kemal/src/helpers.cr/helpers.cr",
+                "lib/kemal/src/kemal/helpers.cr/helpers.cr",
+            ),
+        )
 
-        ApplicationManager.getApplication().runWriteAction { direct.delete(this) }
-        val directoryMain = file("src/models/user/user.cr")
-        assertEquals(listOf(directoryMain), resolver().resolve(source, "./models/user").files)
-    }
-
-    fun testResolvesRelativeParentPath() {
-        val source = file("src/features/main.cr")
-        val helper = file("src/helpers.cr")
-
-        assertEquals(listOf(helper), resolver().resolve(source, "../helpers").files)
-    }
-
-    fun testResolvesExplicitRelativeCrystalFileWithoutAppendingSuffix() {
-        val source = file("src/main.cr")
-        val feature = file("src/feature.cr")
-
-        assertEquals(listOf(feature), resolver().resolve(source, "./feature.cr").files)
-    }
-
-    fun testResolvesExplicitBareCrystalFileWithoutAppendingSuffix() {
-        val source = file("src/main.cr")
-        val json = projectFile("lib/json.cr")
-
-        try {
-            assertEquals(listOf(json), resolver().resolve(source, "json.cr").files)
-        } finally {
-            ApplicationManager.getApplication().runWriteAction { json.delete(this) }
+        for ((requirePath, paths) in cases) {
+            for ((index, path) in paths.withIndex()) {
+                val expected = if (path.startsWith("lib/")) projectFile(path) else file(path)
+                assertEquals("$requirePath candidate $index", listOf(expected), resolver().resolve(source, requirePath).files)
+                ApplicationManager.getApplication().runWriteAction { expected.delete(this) }
+            }
         }
-    }
 
-    fun testResolvesBareFileAndDirectoryMainFromProjectLib() {
-        val source = file("src/main.cr")
-        val direct = projectFile("lib/support/helpers.cr")
-        val directoryMain = projectFile("lib/support/helpers/helpers.cr")
-
-        assertEquals(listOf(direct), resolver().resolve(source, "support/helpers").files)
-
-        ApplicationManager.getApplication().runWriteAction { direct.delete(this) }
-        assertEquals(listOf(directoryMain), resolver().resolve(source, "support/helpers").files)
-    }
-
-    fun testResolvesBareShardMainUnderSrc() {
-        val source = file("src/main.cr")
-        val kemal = projectFile("lib/kemal/src/kemal.cr")
-
-        assertEquals(listOf(kemal), resolver().resolve(source, "kemal").files)
-    }
-
-    fun testResolvesNestedShardPathInCandidateOrder() {
-        val source = file("src/main.cr")
-        val direct = projectFile("lib/kemal/helpers.cr")
-        val directoryMain = projectFile("lib/kemal/helpers/helpers.cr")
-        val shardDirect = projectFile("lib/kemal/src/helpers.cr")
-        val shardDirectoryMain = projectFile("lib/kemal/src/helpers/helpers.cr")
-
-        assertEquals(listOf(direct), resolver().resolve(source, "kemal/helpers").files)
-
-        ApplicationManager.getApplication().runWriteAction { direct.delete(this) }
-        assertEquals(listOf(directoryMain), resolver().resolve(source, "kemal/helpers").files)
-
-        ApplicationManager.getApplication().runWriteAction { directoryMain.delete(this) }
-        assertEquals(listOf(shardDirect), resolver().resolve(source, "kemal/helpers").files)
-
-        ApplicationManager.getApplication().runWriteAction { shardDirect.delete(this) }
-        assertEquals(listOf(shardDirectoryMain), resolver().resolve(source, "kemal/helpers").files)
+        val collisionPaths = listOf(
+            "lib/collision/helpers.cr",
+            "lib/collision/src/helpers.cr",
+            "lib/collision/src/collision/helpers.cr",
+            "lib/collision/helpers/helpers.cr",
+            "lib/collision/src/helpers/helpers.cr",
+            "lib/collision/src/collision/helpers/helpers.cr",
+        )
+        val collisions = collisionPaths.map(::projectFile)
+        for ((index, expected) in collisions.withIndex()) {
+            assertEquals("collision candidate $index", listOf(expected), resolver().resolve(source, "collision/helpers").files)
+            ApplicationManager.getApplication().runWriteAction { expected.delete(this) }
+        }
     }
 
     fun testProjectLibTakesPrecedenceOverStdlib() {
@@ -121,6 +101,23 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         assertEquals(
             listOf(helper),
             resolver(stdlibRoot).resolveFromStdlib(source, "./helper", stdlibRoot).files,
+        )
+    }
+
+    fun testStdlibRootUsesNestedShardExpansionOrder() {
+        val source = file("stdlib/prelude.cr")
+        val nonNamespaced = file("stdlib/kemal/src/helpers.cr")
+        val namespaced = file("stdlib/kemal/src/kemal/helpers.cr")
+        val stdlibRoot = directory("stdlib")
+
+        assertEquals(
+            listOf(nonNamespaced),
+            resolver(stdlibRoot).resolveFromStdlib(source, "kemal/helpers", stdlibRoot).files,
+        )
+        ApplicationManager.getApplication().runWriteAction { nonNamespaced.delete(this) }
+        assertEquals(
+            listOf(namespaced),
+            resolver(stdlibRoot).resolveFromStdlib(source, "kemal/helpers", stdlibRoot).files,
         )
     }
 
@@ -197,12 +194,57 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
         try {
             assertEquals(emptyList<VirtualFile>(), resolver.resolve(source, "./**").files)
+            assertEquals(emptyList<VirtualFile>(), resolver.resolve(source, "../**").files)
+            assertEquals(emptyList<VirtualFile>(), resolver.resolve(source, "../../**").files)
             assertEquals(listOf(nested), resolver.resolve(source, "./src/extensions/**").files)
         } finally {
             ApplicationManager.getApplication().runWriteAction {
                 source.delete(this)
                 rootFeature.delete(this)
                 nested.parent.parent.delete(this)
+            }
+        }
+    }
+
+    fun testRecursiveWildcardUsesCompilerSortedDepthFirstOrder() {
+        val source = file("src/main.cr")
+        val rootB = file("src/models/b.cr")
+        val rootA = file("src/models/a.cr")
+        val nestedB = file("src/models/b_dir/b.cr")
+        val nestedA = file("src/models/a_dir/a.cr")
+        val deep = file("src/models/a_dir/deep/z.cr")
+
+        assertEquals(
+            listOf(rootA, rootB, nestedA, deep, nestedB),
+            resolver().resolve(source, "./models/**").files,
+        )
+    }
+
+    fun testRecursiveWildcardChecksCancellation() {
+        val source = file("src/main.cr")
+        file("src/models/a.cr")
+        val indicator = ProgressIndicatorBase().apply { cancel() }
+
+        assertThrows(ProcessCanceledException::class.java) {
+            ProgressManager.getInstance().runProcess(
+                { resolver().resolve(source, "./models/**") },
+                indicator,
+            )
+        }
+    }
+
+    fun testRecursiveWildcardDoesNotRevisitSymbolicLinkCycle() {
+        val source = projectFile("cycle-fixture/src/main.cr")
+        val feature = projectFile("cycle-fixture/src/models/feature.cr")
+        val models = requireNotNull(feature.parent)
+        try {
+            Files.createSymbolicLink(Path.of(models.path, "loop"), Path.of(models.path))
+            VfsUtil.markDirtyAndRefresh(false, true, true, models)
+
+            assertEquals(listOf(feature), resolver().resolve(source, "./models/**").files)
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                projectBaseRoot().findChild("cycle-fixture")?.delete(this)
             }
         }
     }
@@ -294,7 +336,6 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
                 "$projectLib/json.cr",
                 "$projectLib/json/json.cr",
                 "$projectLib/json/src/json.cr",
-                "$projectLib/json/src/json/json.cr",
                 "${directory("stdlib").path}/json.cr",
             ),
             resolution.exactCandidatePaths,

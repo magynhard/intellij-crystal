@@ -2092,6 +2092,23 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testNestedShardCompletionUsesFirstCompilerOrderedExpansion() {
+        installFixtureStdlib()
+        myFixture.addFileToProject(
+            "lib/kemal/src/helpers.cr",
+            "class String\n  def non_namespaced_helper\n  end\nend",
+        )
+        myFixture.addFileToProject(
+            "lib/kemal/src/kemal/helpers.cr",
+            "class String\n  def namespaced_helper\n  end\nend",
+        )
+
+        assertEquals(
+            setOf("upcase", "downcase", "non_namespaced_helper"),
+            completionNames("ordered_shard.cr", "require \"kemal/helpers\"\n\"text\".<caret>"),
+        )
+    }
+
     fun testMacroControlAndWildcardRequiresContributeCompletionMethods() {
         installFixtureStdlib()
         myFixture.addFileToProject("macro_extension.cr", "class String\n  def macro_extension\n  end\nend")

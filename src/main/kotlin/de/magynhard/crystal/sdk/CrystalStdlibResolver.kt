@@ -24,8 +24,21 @@ import java.io.File
 object CrystalStdlibResolver {
 
     private val STDLIB_PATH_KEY = Key.create<VirtualFile>("crystal.stdlib.path.cache")
-    private val TEST_DISCOVERY_KEY = Key.create<() -> VirtualFile?>("crystal.stdlib.test.discovery")
-    private val TEST_VERSION_KEY = Key.create<() -> String?>("crystal.stdlib.test.version")
+    private val TEST_DISCOVERY_KEY = Key.create<DiscoveryOverride>("crystal.stdlib.test.discovery")
+    private val TEST_VERSION_KEY = Key.create<VersionOverride>("crystal.stdlib.test.version")
+    private val TEST_OVERRIDE_LOCK = Any()
+
+    private class DiscoveryOverride(
+        val callback: () -> VirtualFile?,
+        val previous: DiscoveryOverride?,
+        var active: Boolean = true,
+    )
+
+    private class VersionOverride(
+        val callback: () -> String?,
+        val previous: VersionOverride?,
+        var active: Boolean = true,
+    )
 
     internal fun cachedStdlibPath(project: Project): VirtualFile? =
         project.getUserData(STDLIB_PATH_KEY)?.takeIf(VirtualFile::isValid)
@@ -34,7 +47,9 @@ object CrystalStdlibResolver {
         // Fast path: cached value, validated for existence.
         cachedStdlibPath(project)?.let { return it }
 
-        project.getUserData(TEST_DISCOVERY_KEY)?.invoke()?.let { return publishStdlibPath(project, it) }
+        synchronized(TEST_OVERRIDE_LOCK) { project.getUserData(TEST_DISCOVERY_KEY)?.callback }?.let { discovery ->
+            return discovery()?.let { publishStdlibPath(project, it) }
+        }
 
         val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
         val crystalEnv = runCrystalEnv(crystalPath) ?: return null
@@ -75,11 +90,17 @@ object CrystalStdlibResolver {
         parentDisposable: Disposable,
         discovery: () -> VirtualFile?,
     ) {
-        val previous = project.getUserData(TEST_DISCOVERY_KEY)
-        project.putUserData(TEST_DISCOVERY_KEY, discovery)
+        val frame = synchronized(TEST_OVERRIDE_LOCK) {
+            DiscoveryOverride(discovery, project.getUserData(TEST_DISCOVERY_KEY)).also {
+                project.putUserData(TEST_DISCOVERY_KEY, it)
+            }
+        }
         Disposer.register(parentDisposable) {
-            if (project.getUserData(TEST_DISCOVERY_KEY) === discovery) {
-                project.putUserData(TEST_DISCOVERY_KEY, previous)
+            synchronized(TEST_OVERRIDE_LOCK) {
+                frame.active = false
+                if (project.getUserData(TEST_DISCOVERY_KEY) === frame) {
+                    project.putUserData(TEST_DISCOVERY_KEY, generateSequence(frame.previous) { it.previous }.firstOrNull { it.active })
+                }
             }
         }
     }
@@ -89,17 +110,23 @@ object CrystalStdlibResolver {
         parentDisposable: Disposable,
         version: () -> String?,
     ) {
-        val previous = project.getUserData(TEST_VERSION_KEY)
-        project.putUserData(TEST_VERSION_KEY, version)
+        val frame = synchronized(TEST_OVERRIDE_LOCK) {
+            VersionOverride(version, project.getUserData(TEST_VERSION_KEY)).also {
+                project.putUserData(TEST_VERSION_KEY, it)
+            }
+        }
         Disposer.register(parentDisposable) {
-            if (project.getUserData(TEST_VERSION_KEY) === version) {
-                project.putUserData(TEST_VERSION_KEY, previous)
+            synchronized(TEST_OVERRIDE_LOCK) {
+                frame.active = false
+                if (project.getUserData(TEST_VERSION_KEY) === frame) {
+                    project.putUserData(TEST_VERSION_KEY, generateSequence(frame.previous) { it.previous }.firstOrNull { it.active })
+                }
             }
         }
     }
 
     fun resolveCrystalVersion(project: Project): String? {
-        project.getUserData(TEST_VERSION_KEY)?.invoke()?.let { return it }
+        synchronized(TEST_OVERRIDE_LOCK) { project.getUserData(TEST_VERSION_KEY)?.callback }?.let { return it() }
         val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
         return runCrystalVersion(crystalPath)
     }

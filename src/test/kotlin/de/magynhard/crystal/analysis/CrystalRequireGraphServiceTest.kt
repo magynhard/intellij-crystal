@@ -35,6 +35,7 @@ import de.magynhard.crystal.sdk.CrystalStdlibResolver
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -1746,6 +1747,24 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertTrue(service.effectiveSources(context).files.isEmpty())
     }
 
+    fun testStalePhysicalPsiReplacementIsExcludedBeforeContainingFileAccess() {
+        files("src/main.cr" to "require \"./old\"")
+        val service = service(stdlib = null)
+        val stale = ReadAction.computeBlocking<CrystalRequireStatement, RuntimeException> {
+            requireNotNull(PsiTreeUtil.findChildOfType(psiFile("src/main.cr"), CrystalRequireStatement::class.java))
+        }
+        val sources = service.effectiveSources(stale)
+
+        replaceText("src/main.cr", "new_value")
+
+        ReadAction.computeBlocking<Unit, RuntimeException> {
+            assertFalse(stale.isValid)
+            assertFalse(sources.contains(stale))
+        }
+        assertTrue(service.effectiveSources(stale).files.isEmpty())
+        assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(vf("src/main.cr")))
+    }
+
     fun testNonphysicalContextDoesNotInferSameNamedPhysicalRoot() {
         files(
             "stdlib/prelude.cr" to "",
@@ -1867,10 +1886,27 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertTrue(waiterEntered.await(10, TimeUnit.SECONDS))
         releaseOwner.countDown()
 
-        assertThrows(Exception::class.java) { first.get(10, TimeUnit.SECONDS) }
-        assertThrows(Exception::class.java) { second.get(10, TimeUnit.SECONDS) }
+        val ownerFailure = futureFailure(first)
+        val waiterFailure = futureFailure(second)
+        assertSame(failure, ownerFailure.cause)
+        assertSame(failure, waiterFailure.cause)
+        if (failure is ProcessCanceledException) {
+            assertTrue(ownerFailure.cause is ProcessCanceledException)
+            assertTrue(waiterFailure.cause is ProcessCanceledException)
+        } else {
+            assertEquals(IllegalStateException::class.java, ownerFailure.cause?.javaClass)
+            assertEquals(IllegalStateException::class.java, waiterFailure.cause?.javaClass)
+        }
         assertTrue(service.effectiveSources(elementIn("src/main.cr")).files.contains(vf("stdlib/prelude.cr")))
         assertEquals(2, resolutions.get())
+    }
+
+    private fun futureFailure(future: CompletableFuture<*>): ExecutionException = try {
+        future.get(10, TimeUnit.SECONDS)
+        fail("Expected future to fail")
+        error("unreachable")
+    } catch (error: ExecutionException) {
+        error
     }
 
     private fun concurrentPreludeService(

@@ -126,11 +126,13 @@ Require-aware analysis resolves edges without running the Crystal compiler and w
 project. Relative paths start at the requiring file's directory. Bare paths use compiler precedence:
 the project's `lib/` root first, then the configured stdlib root. Exact candidates support both
 `path.cr` and `path/path.cr`. For each root, lookup is deterministic and stops at the first existing
-compiler-ordered form: `<path>.cr`, `<path>/<basename>.cr`, `<first>/src/<remaining>.cr`, then
-`<first>/src/<remaining>/<basename>.cr`. Multiple existing forms are not ambiguous. Explicit paths
-such as `require "./feature.cr"` and `require "json.cr"` use that file directly without appending a
-second suffix. A shard path maps `require "kemal"` to `lib/kemal/src/kemal.cr`; namespaced shard
-paths are the same `<first>/src/<remaining>` form.
+compiler-ordered form. Every filename is first tried with exactly one `.cr` suffix. A non-relative
+nested path then tries shard `src` non-namespaced, shard `src` namespaced, ordinary directory-main,
+shard non-namespaced directory-main, and shard namespaced directory-main forms, in that order. Bare
+and relative paths instead try ordinary directory-main, followed by bare shard `src` only for a
+non-relative path. Multiple existing forms are not ambiguous. Explicit nested `.cr` paths retain
+their direct first candidate and still participate in shard expansion after the nested shard stem's
+extension is stripped, exactly as Crystal 1.20.3 does.
 
 The project-`lib/` precedence applies only to a physical project or shard forward traversal. The
 entire traversal rooted at configured `prelude.cr` resolves bare exact and wildcard requires only
@@ -147,10 +149,12 @@ The effective set is forward-only: requiring a file never gives that file the ca
 and sibling branches do not leak into one another.
 
 Terminal `/*` expands direct `.cr` children in stable path order. Terminal `/**` additionally walks
-descendant directories using iterative, cancellation-aware traversal. A recursive wildcard whose
-target is the project root, including `./**` in a project-root file, is conservatively suppressed to
-prevent a runtime whole-project scan. Explicit subdirectories such as `src/extensions/**` remain
-supported. Each wildcard records its concrete or nearest existing target so creation,
+descendant directories in Crystal's sorted depth-first order: sorted direct files, then each sorted
+directory recursively. Traversal is iterative, cancellation-aware, and tracks canonical identities
+so aliases and symbolic-link cycles are visited once. A recursive wildcard whose target equals or
+contains the project root, including `./**`, `../**`, and deeper ancestor forms, is conservatively
+suppressed to prevent a runtime whole-project scan. Explicit descendant directories such as
+`src/extensions/**` remain supported. Each wildcard records its concrete or nearest existing target so creation,
 copy, deletion, rename, and movement invalidate matching closures. Exact candidates record missing
 and higher-precedence alternatives for the same reason. Require PSI edits, relevant required-file
 content changes, stdlib-root changes, source-root changes, shard metadata changes, and relevant
@@ -158,9 +162,10 @@ content changes, stdlib-root changes, source-root changes, shard metadata change
 new matching wildcard file is therefore visible without restarting the fixture or IDE.
 
 Static double-quoted paths are decoded before fingerprinting and resolution. Named Crystal escapes,
-escaped quote/backslash/hash and other pass-through characters, one-to-three-digit octal,
-one-to-two-digit hex, `\uFFFF`, whitespace-separated `\u{...}` codepoints, and escaped newline
-continuations contribute their runtime string value. Interpolation and invalid escape/codepoint
+escaped quote/backslash/hash and other pass-through characters, one-to-four-digit octal values below
+256, exactly two-digit hex, exactly four-digit non-surrogate `\uFFFF`, and one-to-six-digit valid
+`\u{...}` codepoints separated by one literal ASCII space contribute their runtime string value.
+Escaped newline continuations consume following ASCII whitespace. Interpolation and invalid escape/codepoint
 sequences are excluded conservatively. Consequently, invalidation watches the decoded candidate
 paths rather than the source spelling.
 

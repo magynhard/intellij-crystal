@@ -5,6 +5,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VfsUtilCore
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 internal enum class CrystalWildcardMode {
@@ -98,12 +99,12 @@ internal class CrystalRequirePathResolver private constructor(
         } else {
             val stdlib = stdlibRoot()
             if (mode == CrystalRequireRootMode.STDLIB_ONLY) {
-                listOfNotNull(stdlib?.let { ExactRoot(it, it.path, false) })
+                listOfNotNull(stdlib?.let { ExactRoot(it, it.path, true) })
             } else {
                 val projectRoot = projectRoot()
                 listOfNotNull(
                     projectRoot?.let { ExactRoot(it.findChild("lib"), path(it.path, "lib"), true) },
-                    stdlib?.let { ExactRoot(it, it.path, false) },
+                    stdlib?.let { ExactRoot(it, it.path, true) },
                 )
             }
         }
@@ -207,20 +208,23 @@ internal class CrystalRequirePathResolver private constructor(
     }
 
     private fun gatherCrystalFiles(directory: VirtualFile, recursive: Boolean): List<VirtualFile> {
-        if (recursive && isProjectRoot(directory)) return emptyList()
+        if (recursive && containsProjectRoot(directory)) return emptyList()
         val result = mutableListOf<VirtualFile>()
         val pending = ArrayDeque<VirtualFile>()
+        val visited = mutableSetOf<String>()
         pending.add(directory)
         while (pending.isNotEmpty()) {
             ProgressManager.checkCanceled()
-            val current = pending.removeFirst()
+            val current = pending.removeLast()
+            val identity = current.canonicalPath ?: FileUtil.toCanonicalPath(current.path)
+            if (!visited.add(identity)) continue
             val children = current.children.sortedBy(VirtualFile::getPath)
             for (child in children) {
                 ProgressManager.checkCanceled()
                 if (isCrystalFile(child)) result += child
             }
             if (recursive) {
-                children.asSequence()
+                children.asReversed().asSequence()
                     .filter { it.isValid && it.isDirectory }
                     .forEach(pending::addLast)
             }
@@ -230,21 +234,30 @@ internal class CrystalRequirePathResolver private constructor(
 
     private fun candidates(root: ExactRoot, requirePath: String): List<ExactCandidate> {
         val parts = requirePath.split('/').filter(String::isNotEmpty)
-        val basename = parts.lastOrNull() ?: return emptyList()
-        if (requirePath.endsWith(".cr")) return listOf(candidate(root, requirePath))
-        val result = mutableListOf(
-            candidate(root, "$requirePath.cr"),
-            candidate(root, "$requirePath/$basename.cr"),
-        )
-        if (root.allowShardSrc && parts.isNotEmpty()) {
-            val nested = parts.drop(1).joinToString("/")
-            val shardPath = if (nested.isEmpty()) parts.first() else nested
-            val shardRoot = "${parts.first()}/src"
-            result += candidate(root, "$shardRoot/$shardPath.cr")
-            result += candidate(root, "$shardRoot/$shardPath/$basename.cr")
+        val basename = parts.lastOrNull()?.removeSuffix(".cr") ?: return emptyList()
+        val relativeFilename = requirePath
+        val result = mutableListOf(candidate(root, ensureCrystalSuffix(relativeFilename)))
+        val filenameIsRelative = requirePath.startsWith('.')
+        val shardName = parts.firstOrNull()
+        val shardPath = parts.drop(1).joinToString("/").ifEmpty { null }
+        if (root.allowShardSrc && !filenameIsRelative && shardName != null && shardPath != null) {
+            val shardSrc = "$shardName/src"
+            val shardPathStem = shardPath.removeSuffix(".cr")
+            result += candidate(root, "$shardSrc/$shardPathStem.cr")
+            result += candidate(root, "$shardSrc/$shardName/$shardPathStem.cr")
+            result += candidate(root, "$relativeFilename/$basename.cr")
+            result += candidate(root, "$shardSrc/$shardPath/$shardPathStem.cr")
+            result += candidate(root, "$shardSrc/$shardName/$shardPath/$shardPathStem.cr")
+        } else {
+            result += candidate(root, "$relativeFilename/$basename.cr")
+            if (root.allowShardSrc && !filenameIsRelative) {
+                result += candidate(root, "$relativeFilename/src/$basename.cr")
+            }
         }
         return result
     }
+
+    private fun ensureCrystalSuffix(path: String): String = if (path.endsWith(".cr")) path else "$path.cr"
 
     private fun candidate(root: ExactRoot, relativePath: String): ExactCandidate =
         ExactCandidate(path(root.path, relativePath), root.directory?.findFileByRelativePath(relativePath))
@@ -252,10 +265,11 @@ internal class CrystalRequirePathResolver private constructor(
     private fun path(root: String, relativePath: String): String =
         FileUtil.toCanonicalPath("${root.trimEnd('/')}/$relativePath", '/')
 
-    private fun isProjectRoot(directory: VirtualFile): Boolean {
-        val directoryPath = FileUtil.toCanonicalPath(directory.path)
-        val rootPath = projectRoot()?.path ?: project.basePath ?: return false
-        return FileUtil.pathsEqual(directoryPath, FileUtil.toCanonicalPath(rootPath))
+    private fun containsProjectRoot(directory: VirtualFile): Boolean {
+        val root = projectRoot()
+            ?: project.basePath?.let(LocalFileSystem.getInstance()::findFileByPath)
+            ?: return false
+        return VfsUtilCore.isAncestor(directory, root, false) || directory == root
     }
 
     private fun isCrystalFile(file: VirtualFile?): Boolean =

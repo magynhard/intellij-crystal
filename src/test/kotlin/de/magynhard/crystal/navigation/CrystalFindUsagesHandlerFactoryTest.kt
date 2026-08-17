@@ -1,23 +1,13 @@
 package de.magynhard.crystal.navigation
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import de.magynhard.crystal.CrystalStdlibVfsAccess
+import de.magynhard.crystal.installSyntheticStdlib
 
 class CrystalFindUsagesHandlerFactoryTest : BasePlatformTestCase() {
 
-    private lateinit var stdlibVfsAccess: CrystalStdlibVfsAccess
-
     override fun setUp() {
         super.setUp()
-        stdlibVfsAccess = CrystalStdlibVfsAccess.allow(project)
-    }
-
-    override fun tearDown() {
-        try {
-            stdlibVfsAccess.restore()
-        } finally {
-            super.tearDown()
-        }
+        installSyntheticStdlib(project, myFixture, testRootDisposable)
     }
 
     fun testCanFindUsagesForMethodDefinition() {
