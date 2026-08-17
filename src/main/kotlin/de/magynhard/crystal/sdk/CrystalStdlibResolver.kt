@@ -77,17 +77,15 @@ object CrystalStdlibResolver {
 
         val crystalEnv = runCrystalEnv(attempt.crystalPath) ?: return null
 
-        val stdlibEntry = selectCrystalPathCandidate(crystalEnv, File.pathSeparatorChar)
+        val stdlibEntry = selectCrystalPathPreludeRoot(crystalEnv, File.pathSeparatorChar) { path ->
+            File(path).isFile
+        }
             ?: return null
 
         val stdlibDir = File(stdlibEntry)
         if (!stdlibDir.isDirectory) return null
 
-        // Crystal stdlib has src/ subdirectory with .cr files
-        val srcDir = File(stdlibDir, "src")
-        val root = if (srcDir.isDirectory) srcDir else stdlibDir
-
-        val resolved = LocalFileSystem.getInstance().findFileByPath(root.absolutePath)
+        val resolved = LocalFileSystem.getInstance().findFileByPath(stdlibDir.absolutePath)
         return resolved?.let { publishDiscoveredStdlibPath(project, attempt, it) }
     }
 
@@ -204,12 +202,26 @@ object CrystalStdlibResolver {
         }
     }
 
-    internal fun selectCrystalPathCandidate(output: String, separator: Char): String? =
+    internal fun parseAbsoluteCrystalPathCandidates(output: String, separator: Char): List<String> =
         output.split(separator)
             .asSequence()
             .map(String::trim)
             .filter(String::isNotEmpty)
-            .firstOrNull { it.startsWith('/') || WINDOWS_ABSOLUTE_PATH.matches(it) }
+            .filter(::isAbsoluteCrystalPathEntry)
+            .toList()
+
+    internal fun selectCrystalPathPreludeRoot(
+        output: String,
+        separator: Char,
+        preludeExists: (String) -> Boolean,
+    ): String? {
+        for (candidate in parseAbsoluteCrystalPathCandidates(output, separator)) {
+            for (root in listOf(candidate, appendPath(candidate, "src"))) {
+                if (preludeExists(appendPath(root, "prelude.cr"))) return root
+            }
+        }
+        return null
+    }
 
     private fun discoveryState(project: Project): DiscoveryState {
         project.getUserData(DISCOVERY_STATE_KEY)?.let { return it }
@@ -223,5 +235,24 @@ object CrystalStdlibResolver {
         }
     }
 
-    private val WINDOWS_ABSOLUTE_PATH = Regex("^[A-Za-z]:[\\\\/].*")
+    private fun isAbsoluteCrystalPathEntry(path: String): Boolean {
+        if (path.startsWith('/')) return true
+        if (WINDOWS_DRIVE_PATH.matches(path)) return true
+        val normalized = path.replace('/', '\\')
+        if (!normalized.startsWith("\\\\")) return false
+        val parts = normalized.removePrefix("\\\\").split('\\').filter(String::isNotEmpty)
+        if (parts.firstOrNull() == "?") {
+            val extended = parts.drop(1)
+            return WINDOWS_DRIVE_PATH.matches(extended.firstOrNull().orEmpty() + "\\") ||
+                (extended.firstOrNull()?.equals("UNC", ignoreCase = true) == true && extended.size >= 3)
+        }
+        return parts.size >= 2
+    }
+
+    private fun appendPath(parent: String, child: String): String {
+        val separator = if ('\\' in parent && '/' !in parent) '\\' else '/'
+        return "${parent.trimEnd('/', '\\')}$separator$child"
+    }
+
+    private val WINDOWS_DRIVE_PATH = Regex("^[A-Za-z]:[\\\\/].*")
 }

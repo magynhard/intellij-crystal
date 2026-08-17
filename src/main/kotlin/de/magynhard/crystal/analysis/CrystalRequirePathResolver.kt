@@ -113,6 +113,7 @@ internal class CrystalRequirePathResolver private constructor(
         for (root in roots) {
             for (candidate in candidates(root, requirePath)) {
                 exactCandidatePaths += candidate.path
+                canonicalIntendedPath(candidate.path)?.let(exactCandidatePaths::add)
                 if (isCrystalFile(candidate.file)) {
                     return CrystalRequireResolution(
                         listOf(requireNotNull(candidate.file)),
@@ -156,13 +157,18 @@ internal class CrystalRequirePathResolver private constructor(
         val mode = if (recursive) CrystalWildcardMode.RECURSIVE else CrystalWildcardMode.DIRECT
         val wildcardWatches = linkedSetOf<CrystalWildcardWatch>()
         for ((root, relativePath) in locations) {
-            val (target, nearestDirectory) = findDirectoryOrNearest(root, relativePath)
+            val intendedPath = path(root.path, relativePath)
+            val (lexicalTarget, nearestDirectory) = findDirectoryOrNearest(root, relativePath)
+            val canonicalTargetPath = (lexicalTarget?.canonicalPath ?: canonicalIntendedPath(intendedPath))
+                ?.takeUnless(::containsCanonicalProjectRoot)
+            val target = lexicalTarget ?: canonicalTargetPath?.let { canonicalPath ->
+                LocalFileSystem.getInstance().findFileByPath(canonicalPath)
+                    ?.takeIf { it.isValid && it.isDirectory }
+            }
             if (nearestDirectory != null) {
-                val canonicalTargetPath = target?.canonicalPath
-                    ?.takeUnless(::containsCanonicalProjectRoot)
                 wildcardWatches += CrystalWildcardWatch(
                     nearestDirectory,
-                    path(root.path, relativePath),
+                    intendedPath,
                     canonicalTargetPath,
                     mode,
                 )
@@ -260,8 +266,12 @@ internal class CrystalRequirePathResolver private constructor(
 
     private fun ensureCrystalSuffix(path: String): String = if (path.endsWith(".cr")) path else "$path.cr"
 
-    private fun candidate(root: ExactRoot, relativePath: String): ExactCandidate =
-        ExactCandidate(path(root.path, relativePath), root.directory?.findFileByRelativePath(relativePath))
+    private fun candidate(root: ExactRoot, relativePath: String): ExactCandidate {
+        val intendedPath = path(root.path, relativePath)
+        val file = root.directory?.findFileByRelativePath(relativePath)
+            ?: canonicalIntendedPath(intendedPath)?.let(LocalFileSystem.getInstance()::findFileByPath)
+        return ExactCandidate(intendedPath, file)
+    }
 
     private fun path(root: String, relativePath: String): String =
         FileUtil.toCanonicalPath("${root.trimEnd('/')}/$relativePath", '/')
@@ -273,6 +283,24 @@ internal class CrystalRequirePathResolver private constructor(
             ?.takeIf { it.isValid && it.isDirectory }
             ?: directory
         return canonical to identity
+    }
+
+    private fun canonicalIntendedPath(intendedPath: String): String? {
+        val normalized = FileUtil.toCanonicalPath(intendedPath)
+        var existingPath = normalized
+        val unresolved = ArrayDeque<String>()
+        while (true) {
+            val existing = LocalFileSystem.getInstance().findFileByPath(existingPath)
+                ?.takeIf(VirtualFile::isValid)
+            if (existing != null) {
+                val canonicalPrefix = existing.canonicalPath ?: FileUtil.toCanonicalPath(existing.path)
+                return unresolved.fold(canonicalPrefix) { prefix, segment -> path(prefix, segment) }
+            }
+            val parent = existingPath.substringBeforeLast('/', "")
+            if (parent.isEmpty() || parent == existingPath) return null
+            unresolved.addFirst(existingPath.substringAfterLast('/'))
+            existingPath = parent
+        }
     }
 
     private fun containsCanonicalProjectRoot(directoryPath: String): Boolean {

@@ -75,6 +75,11 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Parse shard.yml** — extract dependency declarations
 - [ ] **Index lib/ directory** — include shard sources in StubIndex
 - [ ] **Dependency-aware completion** — suggest types/methods from installed shards
+- [ ] **Include arbitrary custom `CRYSTAL_PATH` roots in bare requires** — preserve environment order across every
+  absolute custom source root while keeping the first root containing `prelude.cr` as the core foundation. Acceptance
+  requires exact and wildcard bare requires plus path completion to search custom roots before/after stdlib as ordered,
+  deduplicate collisions deterministically, invalidate root changes without compiler processes on completion paths,
+  and retain the existing project-`lib/` and stdlib-traversal shadowing guarantees.
 
 ## Implement Members (Issue #5)
 
