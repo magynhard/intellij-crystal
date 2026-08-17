@@ -19,6 +19,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ### Fixed
 
+- **Close canonical wildcard and Windows SDK release gates** — wildcard owners now match structural changes through both symlink aliases and safe canonical external targets without weakening project-root traversal protection, unresolved targets retain lexical nearest-parent watches, `CRYSTAL_PATH` uses the platform path separator without splitting Windows drive letters, and symlink-cycle tests skip only concrete unsupported or permission failures.
 - **Close final require release gates** — classify every dot-prefixed filename as relative, accept escaped-newline continuation whitespace at a closing quote, prevent stale SDK discovery from overwriting newer settings or overrides, and canonicalize recursive wildcard traversal so project-root symlink aliases cannot expose project sources.
 - **Match Crystal 1.20.3 require loading exactly** — preserve compiler candidate order across ordinary, shard, namespaced, nested, and explicit-extension forms; decode static require escapes with lexer-identical numeric and Unicode validation; reject stale PSI; and make recursive wildcard traversal ancestor-safe, cycle-safe, depth-first, and cancellation-aware.
 - **Make SDK-backed tests deterministic** — synchronized stack overrides now survive out-of-order disposal without restoring inactive callbacks, and general completion, inspection, expression, and Find Usages suites use project-local synthetic stdlib roots instead of the machine SDK.

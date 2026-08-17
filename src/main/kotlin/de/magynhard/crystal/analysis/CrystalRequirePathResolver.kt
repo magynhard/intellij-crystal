@@ -20,6 +20,7 @@ private enum class CrystalRequireRootMode {
 internal data class CrystalWildcardWatch(
     val watchedDirectory: VirtualFile,
     val targetPath: String,
+    val canonicalTargetPath: String?,
     val mode: CrystalWildcardMode,
 )
 
@@ -157,9 +158,12 @@ internal class CrystalRequirePathResolver private constructor(
         for ((root, relativePath) in locations) {
             val (target, nearestDirectory) = findDirectoryOrNearest(root, relativePath)
             if (nearestDirectory != null) {
+                val canonicalTargetPath = target?.canonicalPath
+                    ?.takeUnless(::containsCanonicalProjectRoot)
                 wildcardWatches += CrystalWildcardWatch(
                     nearestDirectory,
                     path(root.path, relativePath),
+                    canonicalTargetPath,
                     mode,
                 )
             }

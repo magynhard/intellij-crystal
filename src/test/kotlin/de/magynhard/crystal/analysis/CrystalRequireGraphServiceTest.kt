@@ -2191,8 +2191,11 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
     private fun exerciseCanonicalExternalWildcardLifecycle(recursive: Boolean) {
         val fixture = if (recursive) "canonical-external-recursive" else "canonical-external-direct"
-        files("$fixture/main.cr" to "require \"./alias/${if (recursive) "**" else "*"}\"")
-        val sourceDirectory = directory(fixture)
+        val source = projectFile("$fixture/main.cr")
+        ApplicationManager.getApplication().runWriteAction {
+            VfsUtil.saveText(source, "require \"./alias/${if (recursive) "**" else "*"}\"")
+        }
+        val sourceDirectory = requireNotNull(source.parent)
         val externalRoot = Files.createTempDirectory("crystal-wildcard-target-")
         val targetPath = externalRoot.resolve("target")
         val nestedPath = targetPath.resolve("nested")
@@ -2208,10 +2211,17 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         val eventDirectory = if (recursive) requireNotNull(target.findChild("nested")) else target
         val archive = requireNotNull(external.findChild("archive"))
         val initial = requireNotNull(eventDirectory.findChild("initial.cr"))
-        val service = service(stdlib = null, validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN)
+        val context = ReadAction.computeBlocking<PsiElement, RuntimeException> {
+            requireNotNull(requireNotNull(PsiManager.getInstance(project).findFile(source)).firstChild)
+        }
+        val service = CrystalRequireGraphService(
+            project,
+            CrystalRequirePathResolver(project, { null }, ::projectBaseRoot),
+            CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+        )
 
         try {
-            var owner = service.effectiveSources(elementIn("$fixture/main.cr"))
+            var owner = service.effectiveSources(context)
             assertTrue(owner.files.contains(initial))
 
             val createEvent = VFileCreateEvent(this, eventDirectory, "created.cr", false, null, null, null)
@@ -2219,7 +2229,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
                 eventDirectory.createChildData(this, "created.cr")
             }
             service.handleVfsEvents(listOf(createEvent))
-            var updated = service.effectiveSources(elementIn("$fixture/main.cr"))
+            var updated = service.effectiveSources(context)
             assertNotSame(owner, updated)
             assertTrue(updated.files.contains(created))
             owner = updated
@@ -2233,7 +2243,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             )
             ApplicationManager.getApplication().runWriteAction { created.rename(this, "renamed.cr") }
             service.handleVfsEvents(listOf(renameEvent))
-            updated = service.effectiveSources(elementIn("$fixture/main.cr"))
+            updated = service.effectiveSources(context)
             assertNotSame(owner, updated)
             assertTrue(updated.files.contains(created))
             owner = updated
@@ -2241,20 +2251,21 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             val moveEvent = VFileMoveEvent(this, created, archive)
             ApplicationManager.getApplication().runWriteAction { created.move(this, archive) }
             service.handleVfsEvents(listOf(moveEvent))
-            updated = service.effectiveSources(elementIn("$fixture/main.cr"))
+            updated = service.effectiveSources(context)
             assertNotSame(owner, updated)
             assertFalse(updated.files.contains(created))
 
             val deleteEvent = VFileDeleteEvent(this, initial)
             ApplicationManager.getApplication().runWriteAction { initial.delete(this) }
             service.handleVfsEvents(listOf(deleteEvent))
-            val afterDelete = service.effectiveSources(elementIn("$fixture/main.cr"))
+            val afterDelete = service.effectiveSources(context)
             assertNotSame(updated, afterDelete)
             assertFalse(afterDelete.files.contains(initial))
         } finally {
             ApplicationManager.getApplication().runWriteAction {
                 sourceDirectory.findChild("alias")?.delete(this)
                 if (external.isValid) external.delete(this)
+                if (sourceDirectory.isValid) sourceDirectory.delete(this)
             }
         }
     }

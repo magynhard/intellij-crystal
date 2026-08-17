@@ -157,8 +157,12 @@ canonical identities prevent duplicate alias and symbolic-link-cycle visits. A w
 whose canonical target equals or contains the canonical project root is skipped, including an initial
 target symlink and a nested symlink inside an otherwise allowed target. Recursive `./**`, `../**`, and
 deeper ancestor forms are therefore conservatively suppressed before any whole-project scan. Explicit descendant directories such as
-`src/extensions/**` remain supported. Each wildcard records its concrete or nearest existing target so creation,
-copy, deletion, rename, and movement invalidate matching closures. Exact candidates record missing
+`src/extensions/**` remain supported. Each resolved wildcard records both its lexical target/watch identity and
+its safe canonical target identity. Structural create, copy, delete, rename, and move events match either identity,
+so changes made through a symlink alias or directly through an allowed external target invalidate the same owner.
+Unsafe canonical identities that equal or contain the project root are never recorded. Unresolved targets retain
+only their lexical intended path and nearest-existing-parent watch so later creation remains observable without
+weakening the traversal boundary. Exact candidates record missing
 and higher-precedence alternatives for the same reason. Require PSI edits, relevant required-file
 content changes, stdlib-root changes, source-root changes, shard metadata changes, and relevant
 `lib/` structural changes invalidate the affected cache scope. The next query rebuilds lazily; a
@@ -252,6 +256,9 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
   frame before running outside the lock. Cache clears, SDK/root changes, and discovery-override ownership
   changes advance the generation. A result is published only if all captured identities remain current;
   stale, disposed, null, and failed discoveries cannot replace a newer SDK root.
+- `crystal env CRYSTAL_PATH` output is split with the current platform's `File.pathSeparatorChar`.
+  Empty and relative entries are ignored when selecting the first absolute Unix or Windows candidate;
+  Windows drive-letter paths therefore remain intact when the platform separator is `;`.
 - Completion queries only the selected path roots and current directory level.
 - The production require graph reuses every materialized node not marked dirty by
   a VFS content-change event without collecting its require fingerprint again.
@@ -284,3 +291,5 @@ Automated coverage protects:
 - Project shard and stdlib completion.
 - Multi-segment filtering and insertion without duplicated path components.
 - Graceful behavior when optional roots are unavailable.
+- Direct and recursive wildcard invalidation through lexical aliases and canonical external targets.
+- Platform-neutral Unix and Windows `CRYSTAL_PATH` parsing without subprocesses in unit tests.

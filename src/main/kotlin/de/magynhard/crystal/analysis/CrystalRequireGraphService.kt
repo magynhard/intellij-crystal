@@ -165,6 +165,7 @@ internal class CrystalRequireGraphService private constructor(
 
     private data class NodeWildcardWatch(
         val targetPath: String,
+        val canonicalTargetPath: String?,
         val mode: CrystalWildcardMode,
     )
 
@@ -517,13 +518,16 @@ internal class CrystalRequireGraphService private constructor(
     private fun StructuralVfsChange.affectsExactCandidate(candidatePath: String): Boolean =
         paths.any { path -> pathsOverlap(path, candidatePath) }
 
-    private fun StructuralVfsChange.affectsWildcard(watch: NodeWildcardWatch): Boolean = paths.any { path ->
-        if (isAncestorOrSame(path, watch.targetPath)) return@any isDirectory || path == watch.targetPath
-        if (!isAncestorOrSame(watch.targetPath, path)) return@any false
-        if (isDirectory) return@any watch.mode == CrystalWildcardMode.RECURSIVE
-        if (path.substringAfterLast('.', "") != "cr") return@any false
-        watch.mode == CrystalWildcardMode.RECURSIVE || path.substringBeforeLast('/', "") == watch.targetPath
-    }
+    private fun StructuralVfsChange.affectsWildcard(watch: NodeWildcardWatch): Boolean =
+        sequenceOf(watch.targetPath, watch.canonicalTargetPath).filterNotNull().any { targetPath ->
+            paths.any { path ->
+                if (isAncestorOrSame(path, targetPath)) return@any isDirectory || path == targetPath
+                if (!isAncestorOrSame(targetPath, path)) return@any false
+                if (isDirectory) return@any watch.mode == CrystalWildcardMode.RECURSIVE
+                if (path.substringAfterLast('.', "") != "cr") return@any false
+                watch.mode == CrystalWildcardMode.RECURSIVE || path.substringBeforeLast('/', "") == targetPath
+            }
+        }
 
     private fun pathsOverlap(first: String, second: String): Boolean =
         isAncestorOrSame(first, second) || isAncestorOrSame(second, first)
@@ -710,7 +714,7 @@ internal class CrystalRequireGraphService private constructor(
                 .toSet()
             val wildcardWatches = resolutions.asSequence()
                 .flatMap { it.wildcardWatches.asSequence() }
-                .map { NodeWildcardWatch(it.targetPath, it.mode) }
+                .map { NodeWildcardWatch(it.targetPath, it.canonicalTargetPath, it.mode) }
                 .toSet()
 
             synchronized(lock) {

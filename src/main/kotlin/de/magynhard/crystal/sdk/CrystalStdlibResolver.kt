@@ -77,10 +77,7 @@ object CrystalStdlibResolver {
 
         val crystalEnv = runCrystalEnv(attempt.crystalPath) ?: return null
 
-        // CRYSTAL_PATH is colon-separated: "lib:/usr/lib/crystal"
-        // We want the stdlib entry (starts with "/" on Unix, drive letter on Windows)
-        val stdlibEntry = crystalEnv.split(":")
-            .firstOrNull { it.startsWith("/") || it.matches(Regex("^[A-Z]:.*")) }
+        val stdlibEntry = selectCrystalPathCandidate(crystalEnv, File.pathSeparatorChar)
             ?: return null
 
         val stdlibDir = File(stdlibEntry)
@@ -207,6 +204,13 @@ object CrystalStdlibResolver {
         }
     }
 
+    internal fun selectCrystalPathCandidate(output: String, separator: Char): String? =
+        output.split(separator)
+            .asSequence()
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .firstOrNull { it.startsWith('/') || WINDOWS_ABSOLUTE_PATH.matches(it) }
+
     private fun discoveryState(project: Project): DiscoveryState {
         project.getUserData(DISCOVERY_STATE_KEY)?.let { return it }
         return DiscoveryState().also { state ->
@@ -218,4 +222,6 @@ object CrystalStdlibResolver {
             })
         }
     }
+
+    private val WINDOWS_ABSOLUTE_PATH = Regex("^[A-Za-z]:[\\\\/].*")
 }

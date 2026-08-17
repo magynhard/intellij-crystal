@@ -280,6 +280,7 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
             val resolution = resolver().resolve(source, ".project/**")
             assertTrue(resolution.files.isEmpty())
             assertFalse(resolution.files.contains(projectFeature))
+            assertNull(resolution.wildcardWatches.single().canonicalTargetPath)
         } finally {
             ApplicationManager.getApplication().runWriteAction {
                 projectBaseRoot().findChild("symlink-initial")?.delete(this)
