@@ -2173,6 +2173,23 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testPreludeCompletionUsesFirstCrystalPathRootThatContainsPrelude() {
+        val customRoot = myFixture.addFileToProject("custom-root/library.cr", "").virtualFile.parent
+        installFixtureStdlib()
+        val stdlibRoot = requireNotNull(myFixture.tempDirFixture.getFile("fixture-stdlib"))
+
+        val selected = CrystalStdlibResolver.selectCrystalPathPreludeRoot(
+            "${requireNotNull(customRoot).path}:${stdlibRoot.path}",
+            ':',
+        ) { it == "${stdlibRoot.path}/prelude.cr" }
+
+        assertEquals(stdlibRoot.path, selected)
+        assertEquals(
+            setOf("upcase", "downcase"),
+            completionNames("crystal_path_prelude.cr", "\"text\".<caret>"),
+        )
+    }
+
     fun testMacroHeavyTypesKeepOnlyCertainCompletionCandidates() {
         myFixture.addFileToProject("stdlib/macro_types.cr", """
             class String
