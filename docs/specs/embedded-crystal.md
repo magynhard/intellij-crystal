@@ -500,3 +500,10 @@ ecrBody ::= ECR_RAW {
 | `*.ecr` | `<%# comment %>` | No injection (comment tag — content is not Crystal code) |
 
 The injection works identically for both `.ecr` and `.html.ecr` files — the file extension does not affect the Crystal code intelligence inside `<% %>` tags.
+
+#### Effective Sources And Record Fast Path
+
+Injected Crystal PSI is nonphysical and has no `.cr` load context, so its effective-source
+snapshot is empty and DOT completion is suppressed rather than falling back to project files.
+The constructor classifier also skips its same-file record shortcut, so records declared in an
+ECR fragment do not offer `new`. A caller-aware ECR load-context model remains future work.

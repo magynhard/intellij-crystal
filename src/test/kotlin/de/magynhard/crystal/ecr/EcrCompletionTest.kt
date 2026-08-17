@@ -89,6 +89,14 @@ class EcrCompletionTest : BasePlatformTestCase() {
         assertEquals(emptySet<String>(), completionNames("<% (missing).<caret> %>"))
     }
 
+    fun testRecordDeclaredInsideEcrFragmentDoesNotOfferNew() {
+        assertEquals(
+            "Record declared inside ECR fragment must NOT offer 'new'",
+            emptySet<String>(),
+            completionNames("<% record Config, host : String\nConfig.<caret> %>"),
+        )
+    }
+
     private fun completionNames(source: String): Set<String> {
         myFixture.configureByText("dot.ecr", source)
         return myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty().toSet()

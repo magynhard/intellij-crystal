@@ -2,6 +2,7 @@ package de.magynhard.crystal
 
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
@@ -10,16 +11,42 @@ import de.magynhard.crystal.sdk.CrystalStdlibResolver
  */
 class CrystalCompletionTest : BasePlatformTestCase() {
 
+    private lateinit var fixtureRoot: VirtualFile
+    private lateinit var initialFixturePaths: Set<String>
+
+    override fun setUp() {
+        super.setUp()
+        fixtureRoot = myFixture.tempDirFixture.findOrCreateDir("")
+        initialFixturePaths = collectPaths(fixtureRoot)
+    }
+
     override fun tearDown() {
         try {
             CrystalStdlibResolver.clearCachedStdlibPath(project)
             ApplicationManager.getApplication().runWriteAction {
-                COMPLETION_FIXTURE_ROOTS.mapNotNull(myFixture.tempDirFixture::getFile)
-                    .filter { it.isValid }
-                    .forEach { it.delete(this) }
+                deleteNewFixtureFiles(fixtureRoot)
             }
         } finally {
             super.tearDown()
+        }
+    }
+
+    private fun collectPaths(root: VirtualFile): Set<String> = buildSet {
+        fun collect(file: VirtualFile) {
+            add(file.url)
+            if (file.isDirectory) file.children.forEach(::collect)
+        }
+        collect(root)
+    }
+
+    private fun deleteNewFixtureFiles(root: VirtualFile) {
+        for (child in root.children.toList()) {
+            if (!child.isValid) continue
+            if (child.url !in initialFixturePaths) {
+                child.delete(this)
+            } else if (child.isDirectory) {
+                deleteNewFixtureFiles(child)
+            }
         }
     }
 
@@ -33,6 +60,22 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain Apfel", names.contains("Apfel"))
         assertTrue("Should contain Aprikose", names.contains("Aprikose"))
+    }
+
+    fun testFixtureCleanupPreservesExistingPathsAndDeletesNewNestedPaths() {
+        val existing = myFixture.addFileToProject("existing/root.cr", "class Existing\nend\n").virtualFile
+        initialFixturePaths = initialFixturePaths + collectPaths(requireNotNull(existing.parent))
+        val generated = myFixture.addFileToProject("existing/generated/nested.cr", "class Generated\nend\n").virtualFile
+
+        ApplicationManager.getApplication().runWriteAction {
+            deleteNewFixtureFiles(fixtureRoot)
+        }
+
+        assertTrue(existing.isValid)
+        assertFalse(generated.isValid)
+        ApplicationManager.getApplication().runWriteAction {
+            existing.parent.delete(this)
+        }
     }
 
     fun testCompletesFileLevelConstants() {
@@ -2076,24 +2119,6 @@ class CrystalCompletionTest : BasePlatformTestCase() {
 
     private companion object {
         const val EXPRESSION_TYPES_REQUIRE = "require \"./stdlib/expression_types\""
-        val COMPLETION_FIXTURE_ROOTS = listOf(
-            "apfel.cr",
-            "apfelsaft.cr",
-            "apfelsaft2.cr",
-            "base.cr",
-            "birne.cr",
-            "config.cr",
-            "foo.cr",
-            "frucht.cr",
-            "hamster.cr",
-            "helper.cr",
-            "helpers.cr",
-            "kirsche.cr",
-            "main.cr",
-            "stdlib",
-            "unrelated.cr",
-            "utils.cr"
-        )
     }
 
     private fun completionNames(source: String): Set<String> = completionNameList(source).toSet()

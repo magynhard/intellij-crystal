@@ -11,6 +11,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalCollectedMethod
 import de.magynhard.crystal.analysis.CrystalReceiverMode
+import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -159,25 +160,33 @@ object CrystalCompletionHelper {
     fun getMethodsAsLookups(typeName: String, context: PsiElement): List<LookupElement> =
         getMethodsAsLookups(listOf(typeName), context)
 
-    /**
-     * Returns static methods for one exact qualified type identity.
-     */
-    fun getStaticMethodsAsLookups(typeName: String, context: PsiElement): List<LookupElement> =
-        getMethodsAsLookups(listOf(typeName), context, CrystalReceiverMode.STATIC)
-
-    /**
-     * Returns merged instance methods for the requested exact type roots.
-     */
     fun getMethodsAsLookups(typeNames: List<String>, context: PsiElement): List<LookupElement> {
-        return getMethodsAsLookups(typeNames, context, CrystalReceiverMode.INSTANCE)
+        return getMethodsAsLookups(typeNames, context, CrystalTypeSetResolver.session(context), CrystalReceiverMode.INSTANCE)
     }
+
+    fun getStaticMethodsAsLookups(typeName: String, context: PsiElement): List<LookupElement> =
+        getMethodsAsLookups(listOf(typeName), context, CrystalTypeSetResolver.session(context), CrystalReceiverMode.STATIC)
+
+    internal fun getStaticMethodsAsLookups(
+        typeName: String,
+        context: PsiElement,
+        session: CrystalTypeResolutionSession
+    ): List<LookupElement> =
+        getMethodsAsLookups(listOf(typeName), context, session, CrystalReceiverMode.STATIC)
+
+    internal fun getMethodsAsLookups(
+        typeNames: List<String>,
+        context: PsiElement,
+        session: CrystalTypeResolutionSession
+    ): List<LookupElement> =
+        getMethodsAsLookups(typeNames, context, session, CrystalReceiverMode.INSTANCE)
 
     private fun getMethodsAsLookups(
         typeNames: List<String>,
         context: PsiElement,
+        session: CrystalTypeResolutionSession,
         mode: CrystalReceiverMode
     ): List<LookupElement> {
-        val session = CrystalTypeSetResolver.session(context)
         val methods = mutableListOf<CrystalCollectedMethod>()
         for (typeName in typeNames.distinct()) {
             val identity = session.resolveType(typeName, context) ?: return emptyList()

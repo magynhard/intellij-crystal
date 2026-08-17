@@ -2,6 +2,7 @@ package de.magynhard.crystal.completion
 
 import com.intellij.psi.PsiElement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 
 class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
 
@@ -380,6 +381,13 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
     private fun assertReceiver(expected: CompletionReceiver, source: String) {
         val position = configurePosition(source)
         assertEquals(expected, CrystalCompletionReceiverResolver.resolve(position))
+    }
+
+    fun testResolveUsesProvidedSharedSession() {
+        val position = configurePosition("class Foo\nend\nFoo.<caret>")
+        val session = CrystalTypeSetResolver.session(position)
+        val receiver = CrystalCompletionReceiverResolver.resolve(position, session)
+        assertEquals(CompletionReceiver.TypeObject("Foo", "Foo", explicitIdentity = false), receiver)
     }
 
     private fun configurePosition(source: String): PsiElement {

@@ -10,6 +10,7 @@ import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeIdentity
+import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 
 /**
@@ -58,13 +59,14 @@ class CrystalCompletionContributor : CompletionContributor() {
 
             if (isInsideStringLiteral(position)) return
 
-            when (val receiver = CrystalCompletionReceiverResolver.resolve(position)) {
+            val session = CrystalTypeSetResolver.session(position)
+            when (val receiver = CrystalCompletionReceiverResolver.resolve(position, session)) {
                 is CompletionReceiver.TypeObject -> {
-                    CrystalTypeObjectCompletionProvider.addCompletions(receiver, parameters, result)
+                    CrystalTypeObjectCompletionProvider.addCompletions(receiver, parameters, result, session)
                     return
                 }
                 is CompletionReceiver.ValueTypes -> {
-                    CrystalCompletionHelper.getMethodsAsLookups(receiver.typeNames, position)
+                    CrystalCompletionHelper.getMethodsAsLookups(receiver.typeNames, position, session)
                         .forEach(result::addElement)
                     return
                 }
@@ -154,11 +156,13 @@ internal object CrystalTypeObjectCompletionProvider {
     fun addCompletions(
         receiver: CompletionReceiver.TypeObject,
         parameters: CompletionParameters,
-        result: CompletionResultSet
+        result: CompletionResultSet,
+        session: CrystalTypeResolutionSession
     ) {
         val staticLookups = CrystalCompletionHelper.getStaticMethodsAsLookups(
             receiver.qualifiedName,
-            parameters.position
+            parameters.position,
+            session
         )
         staticLookups.forEach(result::addElement)
 
@@ -167,7 +171,7 @@ internal object CrystalTypeObjectCompletionProvider {
         if (record != null) {
             result.addElement(CrystalCompletionHelper.buildRecordNewLookup(record, receiver.qualifiedName))
         } else if (!receiver.explicitIdentity) {
-            addSyntheticNew(receiver, parameters, result)
+            addSyntheticNew(receiver, session, result)
         }
     }
 
@@ -178,10 +182,9 @@ internal object CrystalTypeObjectCompletionProvider {
      */
     private fun addSyntheticNew(
         receiver: CompletionReceiver.TypeObject,
-        parameters: CompletionParameters,
+        session: CrystalTypeResolutionSession,
         result: CompletionResultSet
     ) {
-        val session = CrystalTypeSetResolver.session(parameters.position)
         when (val constructor = session.resolveConstructor(
             CrystalTypeIdentity(receiver.simpleName, receiver.qualifiedName)
         )) {

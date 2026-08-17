@@ -6,7 +6,6 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
-import java.io.File
 
 /**
  * Tests for `require` statement synthesis and file-path completion inside the
@@ -14,21 +13,11 @@ import java.io.File
  */
 class CrystalRequireCompletionTest : BasePlatformTestCase() {
 
+    private lateinit var stdlibVfsAccess: CrystalStdlibVfsAccess
+
     override fun setUp() {
         super.setUp()
-        if (!stdlibRootAllowed) {
-            CrystalStdlibResolver.resolveStdlibPath(project)?.let { root ->
-                val property = "vfs.additional-allowed-roots"
-                val allowedRoots = System.getProperty(property).orEmpty()
-                    .split(File.pathSeparator)
-                    .filter(String::isNotBlank)
-                    .toMutableSet()
-                allowedRoots.add(root.path)
-                System.setProperty(property, allowedRoots.joinToString(File.pathSeparator))
-                stdlibRootAllowed = true
-            }
-            CrystalStdlibResolver.clearCachedStdlibPath(project)
-        }
+        stdlibVfsAccess = CrystalStdlibVfsAccess.allow(project)
     }
 
     override fun tearDown() {
@@ -40,7 +29,11 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
                     .forEach { it.delete(this) }
             }
         } finally {
-            super.tearDown()
+            try {
+                stdlibVfsAccess.restore()
+            } finally {
+                super.tearDown()
+            }
         }
     }
 
@@ -566,7 +559,6 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     }
 
     private companion object {
-        var stdlibRootAllowed = false
         val REQUIRE_FIXTURE_ROOTS = listOf(
             "helper.cr",
             "lib",

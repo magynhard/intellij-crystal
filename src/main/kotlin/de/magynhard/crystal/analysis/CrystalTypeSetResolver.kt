@@ -103,8 +103,13 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val root = normalizeExactTypeRoot(typeName) ?: typeName.removePrefix("::")
         val simpleName = root.substringAfterLast("::")
         val fallbackIdentity = CrystalTypeIdentity(simpleName, root)
-        val records = element.containingFile?.let { CrystalPsiUtils.findRecordDefinitions(simpleName, it) }
-            .orEmpty().groupBy { it.qualifiedName }
+        // Nonphysical injected PSI has no load context and must not use the same-file record shortcut.
+        val records = if (effectiveSources.contains(element)) {
+            element.containingFile?.let { CrystalPsiUtils.findRecordDefinitions(simpleName, it) }
+                .orEmpty().groupBy { it.qualifiedName }
+        } else {
+            emptyMap()
+        }
         for (candidate in typeIdentityCandidates(root, typeName.startsWith("::"), element)) {
             val recordCandidates = records[candidate].orEmpty()
             if (recordCandidates.any { CrystalPsiUtils.isInsideMacroControlRegion(it.call) } ||

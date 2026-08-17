@@ -23,14 +23,17 @@ internal sealed interface CompletionReceiver {
 }
 
 internal object CrystalCompletionReceiverResolver {
-    fun resolve(position: PsiElement): CompletionReceiver {
+    fun resolve(position: PsiElement): CompletionReceiver =
+        resolve(position, CrystalTypeSetResolver.session(position))
+
+    fun resolve(position: PsiElement, session: CrystalTypeResolutionSession): CompletionReceiver {
         val dot = findCompletionDot(position) ?: return CompletionReceiver.Unknown
         if (hasIncompleteGrouping(dot)) return CompletionReceiver.Unknown
         val expression = PsiTreeUtil.getParentOfType(dot, CrystalExpression::class.java, false)
             ?: return CompletionReceiver.Unknown
         return resolveExpression(
             expression,
-            CrystalTypeSetResolver.session(position),
+            session,
             dot.textRange.startOffset
         )
     }

@@ -1,6 +1,7 @@
 package de.magynhard.crystal.completion
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 
 class CrystalCompletionHelperTest : BasePlatformTestCase() {
 
@@ -197,5 +198,19 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
         assertNotNull(projectType)
         assertEquals(CrystalCompletionHelper.TypeKind.STRUCT, projectType!!.kind)
         assertEquals("other.cr", projectType.element.containingFile.name)
+    }
+
+    fun testGetMethodsAsLookupsUsesProvidedSharedSession() {
+        val context = myFixture.configureByText("shared.cr", """
+            class Service
+              def serve
+              end
+            end
+        """.trimIndent())
+
+        val session = CrystalTypeSetResolver.session(context)
+        val lookups = CrystalCompletionHelper.getMethodsAsLookups(listOf("Service"), context, session)
+        assertTrue("Shared session must resolve instance methods: ${lookups.map { it.lookupString }}",
+            lookups.any { it.lookupString == "serve" })
     }
 }
