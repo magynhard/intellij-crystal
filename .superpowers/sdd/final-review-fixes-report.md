@@ -153,3 +153,58 @@ The documentation/report commit is recorded by the repository history containing
 
 - `475d773` `fix(analysis): match Crystal require semantics`
 - The report append is recorded by the repository history containing this section.
+
+## Final Release Gates at `1654c2d`
+
+### Result
+
+**DONE.** All four final release-gate findings were implemented in `aa02753`
+(`fix(analysis): close require release gates`). No concerns remain.
+
+### Closed Findings
+
+- One `startsWith('.')` predicate now selects relative roots for exact and wildcard requires, including
+  `.hidden`, `.hidden.cr`, `.hidden/*`, and `.hidden/**`. Candidate expansion order remains unchanged.
+  Completion treats dot-prefixed names as real partial segments, exposes hidden entries only after an
+  explicit dot prefix, and retains explicit `.cr` suffix behavior.
+- Stdlib discovery now captures a project-scoped generation, effective SDK path, and discovery override
+  frame before invoking an external process or test callback outside the lock. Cache clears, project-root
+  changes, direct cache publication, and discovery override ownership changes advance the generation.
+  Publication requires the generation, SDK identity, active frame identity, and project lifetime to
+  remain current, so blocked, disposed, null, failed, or superseded SDK A work cannot overwrite SDK B.
+- Escaped LF and CRLF continuations may consume only ASCII continuation whitespace through the collected
+  content boundary immediately before the PSI-validated closing quote. Existing malformed CRLF, numeric,
+  Unicode, interpolation, incomplete-string, and compound-string rejection remains covered.
+- Wildcard traversal canonicalizes the project root and every pending directory before safety checks and
+  child enumeration. Canonical directories equal to or containing the project root are skipped before
+  reading children, including initial and nested symlink aliases. Canonical visited identities preserve
+  cycle safety and prevent alias duplication; graph sources and invalidation cannot admit project files
+  through an alias.
+
+### TDD Evidence
+
+#### RED
+
+- The initial focused run produced 13 failures. Expected product failures covered dot-prefixed exact and
+  wildcard resolution, hidden completion, LF/CRLF boundary decoding and collection, graph loading,
+  disposed discovery publication, and SDK A/B settings publication.
+- The first symlink fixtures reached `NoSuchFileException` rather than product behavior because they used
+  a nonphysical fixture parent. They were moved to physical project paths without weakening assertions.
+- The first implementation run exposed a test-order project-detection leak from a root-level Crystal
+  fixture; the settings race fixture was nested and SDK B discovery was made explicit after apply.
+
+#### GREEN
+
+- Final focused path/decoder/collector/graph/settings/require-completion/general-completion/ECR command:
+  passed in 5m19s.
+- Final `./gradlew test`: passed in 5m09s.
+- Final `./gradlew build`: passed, including searchable options, in 637ms.
+- `git diff --check HEAD`: passed before the implementation commit.
+- `rg -n 'FileTypeIndex|processFiles\\(|CRYSTAL DEBUG' src/main || true`: no matches.
+- Path resolver and graph XML results report zero skipped tests. Initial-target, nested-target, and graph
+  symlink tests all executed with zero failures, proving the host platform created the symlinks.
+
+### Commits
+
+- `aa02753` `fix(analysis): close require release gates`
+- The report append is recorded by the repository history containing this section.
