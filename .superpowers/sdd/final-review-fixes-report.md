@@ -91,3 +91,65 @@ method baseline.
 - `85b3439` `test(sdk): isolate stdlib discovery fixtures`
 
 The documentation/report commit is recorded by the repository history containing this file.
+
+## Re-review Blockers at `9000324`
+
+### Result
+
+**DONE.** All remaining re-review blockers were implemented in `475d773`
+(`fix(analysis): match Crystal require semantics`). No concerns remain.
+
+### Canonical Behavior
+
+- Ported Crystal 1.20.3 `Crystal::CrystalPath#each_file_expansion` order for every require root:
+  initial ensured `.cr`, nested shard non-namespaced, nested shard namespaced, ordinary
+  directory-main, shard non-namespaced directory-main, and shard namespaced directory-main.
+  Bare and relative branches retain their compiler-specific forms. Explicit nested `.cr` paths still
+  enter shard expansion, and the first existing candidate always wins.
+- Aligned static string decoding with `lexer.cr`: exactly two hex digits, up to four octal digits with
+  byte-range validation, fixed four-digit Unicode, braced Unicode digit/separator/closing-brace rules,
+  surrogate and maximum-codepoint rejection, named/pass-through escapes, and escaped-newline ASCII
+  whitespace consumption. Invalid literals produce neither dependency paths nor fingerprint edges.
+- Invalid PSI is rejected before containing-file access and cannot belong to an effective source set.
+- Recursive wildcards reject targets equal to or containing the project root. Iterative traversal now
+  tracks canonical identities, terminates across symbolic-link cycles, checks cancellation, and emits
+  Crystal's sorted depth-first order while retaining targeted descendant traversal.
+- Discovery and version test overrides now use synchronized active stack frames. Out-of-order disposal
+  skips inactive frames and cannot restore a disposed callback.
+- General completion, type-check, expression-resolution, and Find Usages tests use project-local
+  synthetic stdlib roots. The obsolete global VFS-property helper was deleted; unavailable discovery
+  is deterministic and does not fall through to `crystal env`.
+- Concurrent prelude owner and waiter tests assert exact `ExecutionException` causes, including the
+  original `ProcessCanceledException`, and retain successful retry assertions.
+- SDK A to failed/unresolved SDK B behavior remains deterministic and covered.
+
+### TDD Evidence
+
+#### RED
+
+- The first path/decoder/collector/override run had nine expected failures covering compiler candidate
+  order, explicit nested `.cr`, depth-first traversal, ancestor safety, numeric escape bounds, invalid
+  collector edges, and out-of-order override disposal.
+- The stale physical PSI replacement test failed because the old element remained a member of its
+  captured source set.
+- Removing real SDK access exposed three Require Completion fixtures that had accidentally relied on
+  machine stdlib entries; they were replaced with real project-local `lib/` fixtures.
+- The first broad focused run exposed one SDK A/B regression caused by clearing the published A cache
+  when merely installing a null test callback. Cache lifecycle was restored and callback-stack tests
+  now clear only when intentionally evaluating another frame.
+
+#### GREEN
+
+- Final focused path/decoder/collector/graph/settings/completion/type-check/expression/find-usages/ECR
+  command: passed in 5m02s.
+- Final `./gradlew test`: passed in 5m44s.
+- Final `./gradlew build`: passed, including searchable options, in 697ms.
+- `git diff --check`: passed.
+- `rg -n "FileTypeIndex|processFiles\\(" src/main || true`: no matches.
+- General-suite scan for `CrystalStdlibVfsAccess`, `/usr/lib/crystal`, and `crystal env`: no matches in
+  the four migrated test classes.
+
+### Commits
+
+- `475d773` `fix(analysis): match Crystal require semantics`
+- The report append is recorded by the repository history containing this section.
