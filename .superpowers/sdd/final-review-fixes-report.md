@@ -208,3 +208,55 @@ The documentation/report commit is recorded by the repository history containing
 
 - `aa02753` `fix(analysis): close require release gates`
 - The report append is recorded by the repository history containing this section.
+
+## Last Release-Gate Findings at `28e922d`
+
+### Result
+
+**DONE.** All three remaining findings were implemented in `7dc3388`
+(`fix(analysis): close remaining release gates`) after the regression-test commit `ca090f3`
+(`test(analysis): cover final release gate regressions`). No concerns remain.
+
+### Closed Findings
+
+- Existing wildcard targets now retain both the lexical target/watch identity and a canonical target
+  identity. Structural create, delete, rename, and move paths match either identity, so direct and
+  recursive wildcard owners rebuild immediately when an allowed symlink target is changed through its
+  canonical external path. Unresolved targets retain their lexical intended path and nearest-existing-
+  parent watch. Canonical identities equal to or containing the project root are omitted, and traversal
+  still independently suppresses those directories before enumeration.
+- Stdlib discovery delegates `CRYSTAL_PATH` selection to an internal pure helper and supplies
+  `File.pathSeparatorChar` in production. The helper trims output and entries, skips blank and relative
+  entries, preserves Windows drive-letter paths with `;`, and handles Unix paths with `:`. Unit tests
+  call only the helper and launch no process.
+- The recursive symbolic-link cycle test now uses the shared skip helper. Both resolver and graph helpers
+  skip `UnsupportedOperationException`, concrete `AccessDeniedException`, recognized unsupported or
+  permission `FileSystemException` reasons, and security-manager denials; unexpected filesystem failures
+  continue to propagate.
+
+### TDD Evidence
+
+#### RED
+
+- `ca090f3` added the tests first. The focused resolver/graph/SDK command failed compilation because
+  `CrystalWildcardWatch.canonicalTargetPath` and `selectCrystalPathCandidate` did not exist.
+- The first GREEN attempt compiled and passed SDK/resolver coverage, then both external-target graph tests
+  failed in fixture setup with `NoSuchFileException`. Their alias owners were moved to the existing
+  physical project-path fixture while canonical targets remained external temporary directories.
+
+#### GREEN
+
+- Focused resolver, graph, SDK, and wildcard-completion command: passed in 3m54s.
+- Full `./gradlew test`: passed in 5m14s.
+- Full `./gradlew build`: passed, including searchable options, in 699ms with cached tasks.
+- `git diff --check 28e922d`: passed.
+- Production forbidden scan for `FileTypeIndex`, `processFiles(`, `CRYSTAL DEBUG`, and hardcoded
+  `split(":")`: no matches.
+- SDK unit-test process scan found no `ProcessBuilder` or `crystal env` invocation. The only
+  `/usr/lib/crystal` match is intentional pure Unix parsing input.
+
+### Commits
+
+- `ca090f3` `test(analysis): cover final release gate regressions`
+- `7dc3388` `fix(analysis): close remaining release gates`
+- The report append is recorded by the repository history containing this section.
