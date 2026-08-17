@@ -10,6 +10,7 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assume
+import java.nio.file.AccessDeniedException
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -257,7 +258,7 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         val feature = projectFile("cycle-fixture/src/models/feature.cr")
         val models = requireNotNull(feature.parent)
         try {
-            Files.createSymbolicLink(Path.of(models.path, "loop"), Path.of(models.path))
+            createSymbolicLinkOrSkip(Path.of(models.path, "loop"), Path.of(models.path))
             VfsUtil.markDirtyAndRefresh(false, true, true, models)
 
             assertEquals(listOf(feature), resolver().resolve(source, "./models/**").files)
@@ -412,6 +413,7 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
                 CrystalWildcardWatch(
                     directory("src/models"),
                     "${directory("src/models").path}",
+                    directory("src/models").canonicalPath,
                     CrystalWildcardMode.DIRECT,
                 ),
             ),
@@ -422,6 +424,7 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
                 CrystalWildcardWatch(
                     directory("src/models"),
                     "${directory("src/models").path}/generated",
+                    null,
                     CrystalWildcardMode.RECURSIVE,
                 ),
             ),
@@ -462,6 +465,8 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
             Files.createSymbolicLink(link, target)
         } catch (error: UnsupportedOperationException) {
             Assume.assumeNoException(error)
+        } catch (error: AccessDeniedException) {
+            Assume.assumeNoException("Platform does not permit symbolic links", error)
         } catch (error: FileSystemException) {
             val reason = error.reason.orEmpty().lowercase()
             if (reason.contains("not permitted") || reason.contains("not supported") || reason.contains("privilege")) {

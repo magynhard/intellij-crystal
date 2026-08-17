@@ -33,6 +33,7 @@ import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.CrystalRequireStatement
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 import org.junit.Assume
+import java.nio.file.AccessDeniedException
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -274,6 +275,14 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
                 rootFeature.delete(this)
             }
         }
+    }
+
+    fun testDirectWildcardInvalidatesForCanonicalExternalTargetLifecycle() {
+        exerciseCanonicalExternalWildcardLifecycle(recursive = false)
+    }
+
+    fun testRecursiveWildcardInvalidatesForCanonicalExternalTargetLifecycle() {
+        exerciseCanonicalExternalWildcardLifecycle(recursive = true)
     }
 
     fun testTrailingContinuationWhitespaceLoadsLfAndCrlfDependencies() {
@@ -2180,6 +2189,76 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertSame(unrelated, service.effectiveSources(elementIn(unrelatedPath)))
     }
 
+    private fun exerciseCanonicalExternalWildcardLifecycle(recursive: Boolean) {
+        val fixture = if (recursive) "canonical-external-recursive" else "canonical-external-direct"
+        files("$fixture/main.cr" to "require \"./alias/${if (recursive) "**" else "*"}\"")
+        val sourceDirectory = directory(fixture)
+        val externalRoot = Files.createTempDirectory("crystal-wildcard-target-")
+        val targetPath = externalRoot.resolve("target")
+        val nestedPath = targetPath.resolve("nested")
+        val eventPath = if (recursive) nestedPath else targetPath
+        val archivePath = externalRoot.resolve("archive")
+        Files.createDirectories(eventPath)
+        Files.createDirectories(archivePath)
+        Files.writeString(eventPath.resolve("initial.cr"), "")
+        createSymbolicLinkOrSkip(Path.of(sourceDirectory.path, "alias"), targetPath)
+        val external = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByNioFile(externalRoot))
+        VfsUtil.markDirtyAndRefresh(false, true, true, sourceDirectory, external)
+        val target = requireNotNull(external.findChild("target"))
+        val eventDirectory = if (recursive) requireNotNull(target.findChild("nested")) else target
+        val archive = requireNotNull(external.findChild("archive"))
+        val initial = requireNotNull(eventDirectory.findChild("initial.cr"))
+        val service = service(stdlib = null, validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN)
+
+        try {
+            var owner = service.effectiveSources(elementIn("$fixture/main.cr"))
+            assertTrue(owner.files.contains(initial))
+
+            val createEvent = VFileCreateEvent(this, eventDirectory, "created.cr", false, null, null, null)
+            val created = ApplicationManager.getApplication().runWriteAction<VirtualFile> {
+                eventDirectory.createChildData(this, "created.cr")
+            }
+            service.handleVfsEvents(listOf(createEvent))
+            var updated = service.effectiveSources(elementIn("$fixture/main.cr"))
+            assertNotSame(owner, updated)
+            assertTrue(updated.files.contains(created))
+            owner = updated
+
+            val renameEvent = VFilePropertyChangeEvent(
+                this,
+                created,
+                VirtualFile.PROP_NAME,
+                "created.cr",
+                "renamed.cr",
+            )
+            ApplicationManager.getApplication().runWriteAction { created.rename(this, "renamed.cr") }
+            service.handleVfsEvents(listOf(renameEvent))
+            updated = service.effectiveSources(elementIn("$fixture/main.cr"))
+            assertNotSame(owner, updated)
+            assertTrue(updated.files.contains(created))
+            owner = updated
+
+            val moveEvent = VFileMoveEvent(this, created, archive)
+            ApplicationManager.getApplication().runWriteAction { created.move(this, archive) }
+            service.handleVfsEvents(listOf(moveEvent))
+            updated = service.effectiveSources(elementIn("$fixture/main.cr"))
+            assertNotSame(owner, updated)
+            assertFalse(updated.files.contains(created))
+
+            val deleteEvent = VFileDeleteEvent(this, initial)
+            ApplicationManager.getApplication().runWriteAction { initial.delete(this) }
+            service.handleVfsEvents(listOf(deleteEvent))
+            val afterDelete = service.effectiveSources(elementIn("$fixture/main.cr"))
+            assertNotSame(updated, afterDelete)
+            assertFalse(afterDelete.files.contains(initial))
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                sourceDirectory.findChild("alias")?.delete(this)
+                if (external.isValid) external.delete(this)
+            }
+        }
+    }
+
     private fun projectFile(path: String): VirtualFile {
         var result: VirtualFile? = null
         ApplicationManager.getApplication().runWriteAction {
@@ -2201,6 +2280,8 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             Files.createSymbolicLink(link, target)
         } catch (error: UnsupportedOperationException) {
             Assume.assumeNoException(error)
+        } catch (error: AccessDeniedException) {
+            Assume.assumeNoException("Platform does not permit symbolic links", error)
         } catch (error: FileSystemException) {
             val reason = error.reason.orEmpty().lowercase()
             if (reason.contains("not permitted") || reason.contains("not supported") || reason.contains("privilege")) {
