@@ -4,6 +4,7 @@ import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
@@ -14,9 +15,13 @@ import de.magynhard.crystal.sdk.CrystalStdlibResolver
 class CrystalRequireCompletionTest : BasePlatformTestCase() {
 
     private lateinit var stdlibVfsAccess: CrystalStdlibVfsAccess
+    private lateinit var fixtureRoot: VirtualFile
+    private lateinit var initialFixturePaths: Set<String>
 
     override fun setUp() {
         super.setUp()
+        fixtureRoot = myFixture.tempDirFixture.findOrCreateDir("")
+        initialFixturePaths = collectPaths(fixtureRoot)
         stdlibVfsAccess = CrystalStdlibVfsAccess.allow(project)
     }
 
@@ -24,9 +29,7 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         try {
             CrystalStdlibResolver.clearCachedStdlibPath(project)
             ApplicationManager.getApplication().runWriteAction {
-                REQUIRE_FIXTURE_ROOTS.mapNotNull(myFixture.tempDirFixture::getFile)
-                    .filter { it.isValid }
-                    .forEach { it.delete(this) }
+                deleteNewFixtureFiles(fixtureRoot)
             }
         } finally {
             try {
@@ -38,6 +41,22 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     }
 
     // ==================== Keyword mode ====================
+
+    fun testFixtureCleanupPreservesExistingPathsAndDeletesNewNestedPaths() {
+        val existing = myFixture.addFileToProject("existing/root.cr", "").virtualFile
+        initialFixturePaths = initialFixturePaths + collectPaths(requireNotNull(existing.parent))
+        val generated = myFixture.addFileToProject("existing/generated/nested.cr", "").virtualFile
+
+        ApplicationManager.getApplication().runWriteAction {
+            deleteNewFixtureFiles(fixtureRoot)
+        }
+
+        assertTrue(existing.isValid)
+        assertFalse(generated.isValid)
+        ApplicationManager.getApplication().runWriteAction {
+            existing.parent.delete(this)
+        }
+    }
 
     fun testRequireKeywordSuggestedForReqPrefix() {
         assertRequireKeywordSuggested("req<caret>")
@@ -558,19 +577,23 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         )
     }
 
-    private companion object {
-        val REQUIRE_FIXTURE_ROOTS = listOf(
-            "helper.cr",
-            "lib",
-            "main.cr",
-            "models",
-            "other.cr",
-            "sibling.cr",
-            "spec",
-            "src",
-            "sub",
-            "user.cr",
-            "util.cr"
-        )
+    private fun collectPaths(root: VirtualFile): Set<String> = buildSet {
+        fun collect(file: VirtualFile) {
+            add(file.url)
+            if (file.isDirectory) file.children.forEach(::collect)
+        }
+        collect(root)
+    }
+
+    private fun deleteNewFixtureFiles(root: VirtualFile) {
+        val createdPaths = mutableListOf<VirtualFile>()
+        fun collectCreated(file: VirtualFile) {
+            if (file.url !in initialFixturePaths) createdPaths += file
+            if (file.isDirectory) file.children.forEach(::collectCreated)
+        }
+        root.children.forEach(::collectCreated)
+        for (file in createdPaths.sortedByDescending { it.url.count { character -> character == '/' } }) {
+            if (file.isValid) file.delete(this)
+        }
     }
 }

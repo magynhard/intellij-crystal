@@ -59,18 +59,20 @@ class CrystalCompletionContributor : CompletionContributor() {
 
             if (isInsideStringLiteral(position)) return
 
-            val session = CrystalTypeSetResolver.session(position)
-            when (val receiver = CrystalCompletionReceiverResolver.resolve(position, session)) {
-                is CompletionReceiver.TypeObject -> {
-                    CrystalTypeObjectCompletionProvider.addCompletions(receiver, parameters, result, session)
-                    return
+            if (isDotCompletion(position)) {
+                val session = CrystalTypeSetResolver.session(position)
+                when (val receiver = CrystalCompletionReceiverResolver.resolve(position, session)) {
+                    is CompletionReceiver.TypeObject -> {
+                        CrystalTypeObjectCompletionProvider.addCompletions(receiver, parameters, result, session)
+                        return
+                    }
+                    is CompletionReceiver.ValueTypes -> {
+                        CrystalCompletionHelper.getMethodsAsLookups(receiver.typeNames, position, session)
+                            .forEach(result::addElement)
+                        return
+                    }
+                    CompletionReceiver.Unknown -> return
                 }
-                is CompletionReceiver.ValueTypes -> {
-                    CrystalCompletionHelper.getMethodsAsLookups(receiver.typeNames, position, session)
-                        .forEach(result::addElement)
-                    return
-                }
-                CompletionReceiver.Unknown -> if (isDotCompletion(position)) return
             }
 
             if (isAfterNumericLiteral(position)) return

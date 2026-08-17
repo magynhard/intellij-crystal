@@ -9,6 +9,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 import java.util.IdentityHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 internal object CrystalTypeSetResolver {
     fun resolve(element: PsiElement): CrystalTypeResolution =
@@ -16,9 +17,17 @@ internal object CrystalTypeSetResolver {
 
     fun session(context: PsiElement): CrystalTypeResolutionSession =
         CrystalTypeResolutionSession(context)
+
+    internal fun sessionConstructionCount(): Long = CrystalTypeResolutionSession.constructionCount()
+
+    internal fun resetSessionConstructionCount() = CrystalTypeResolutionSession.resetConstructionCount()
 }
 
 internal class CrystalTypeResolutionSession(private val context: PsiElement) {
+    init {
+        CONSTRUCTION_COUNT.incrementAndGet()
+    }
+
     private val effectiveSources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
     private val memo = IdentityHashMap<PsiElement, CrystalTypeResolution>()
     private val resolving = java.util.Collections.newSetFromMap(IdentityHashMap<PsiElement, Boolean>())
@@ -28,6 +37,14 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private val methodCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
     private val methodsByTypeCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
     private val hierarchy = CrystalMethodHierarchy(context, ::types, ::classMethods)
+
+    companion object {
+        private val CONSTRUCTION_COUNT = AtomicLong()
+
+        internal fun constructionCount(): Long = CONSTRUCTION_COUNT.get()
+
+        internal fun resetConstructionCount() = CONSTRUCTION_COUNT.set(0)
+    }
 
     fun resolve(element: PsiElement): CrystalTypeResolution {
         val target = promote(element)

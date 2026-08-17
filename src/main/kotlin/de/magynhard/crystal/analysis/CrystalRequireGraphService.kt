@@ -32,6 +32,7 @@ import de.magynhard.crystal.psi.CrystalRequireStatement
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicLong
 
 internal data class CrystalEffectiveSourceSet(val files: Set<VirtualFile>) {
     fun contains(element: PsiElement): Boolean {
@@ -62,6 +63,7 @@ internal class CrystalRequireGraphService private constructor(
     registerListeners: Boolean,
     private val validationMode: ValidationMode,
     private val collector: (PsiFile) -> CrystalDirectRequires,
+    private val trackClosureVisits: Boolean,
 ) {
     internal enum class ValidationMode {
         EVENT_DRIVEN,
@@ -74,17 +76,19 @@ internal class CrystalRequireGraphService private constructor(
         true,
         ValidationMode.EVENT_DRIVEN,
         CrystalRequireCollector::collect,
+        false,
     )
 
     internal constructor(project: Project, pathResolver: CrystalRequirePathResolver) :
-        this(project, pathResolver, false, ValidationMode.ALWAYS, CrystalRequireCollector::collect)
+        this(project, pathResolver, false, ValidationMode.ALWAYS, CrystalRequireCollector::collect, false)
 
     internal constructor(
         project: Project,
         pathResolver: CrystalRequirePathResolver,
         validationMode: ValidationMode,
         collector: (PsiFile) -> CrystalDirectRequires = CrystalRequireCollector::collect,
-    ) : this(project, pathResolver, false, validationMode, collector)
+        trackClosureVisits: Boolean = false,
+    ) : this(project, pathResolver, false, validationMode, collector, trackClosureVisits)
 
     internal constructor(
         project: Project,
@@ -96,6 +100,7 @@ internal class CrystalRequireGraphService private constructor(
         false,
         ValidationMode.EVENT_DRIVEN,
         CrystalRequireCollector::collect,
+        false,
     ) {
         registerListeners(listenerDisposable)
     }
@@ -147,8 +152,11 @@ internal class CrystalRequireGraphService private constructor(
     private val nodes = mutableMapOf<VirtualFile, Node>()
     private val reverseEdges = mutableMapOf<VirtualFile, MutableSet<VirtualFile>>()
     private val closures = mutableMapOf<VirtualFile, Closure>()
+    private val closureOwners = mutableMapOf<VirtualFile, MutableSet<VirtualFile>>()
     private val effectiveSnapshots = mutableMapOf<VirtualFile, EffectiveSnapshot>()
     private val dirtyContentNodes = mutableSetOf<VirtualFile>()
+    private val dirtyClosureRoots = mutableSetOf<VirtualFile>()
+    private var preludeClosureDirty = false
     private var preludeBuild: PreludeBuild? = null
     private var cachedPreludeFoundation: PreludeFoundation? = null
     private var observedStdlibRoot: VirtualFile? = null
@@ -159,6 +167,7 @@ internal class CrystalRequireGraphService private constructor(
     private var closureBuilds = 0L
     private var fullInvalidations = 0L
     private var targetedInvalidations = 0L
+    private val closureVisits = AtomicLong()
 
     init {
         if (registerListeners) registerListeners(project)
@@ -176,6 +185,7 @@ internal class CrystalRequireGraphService private constructor(
             ProgressManager.checkCanceled()
             val stdlibRoot = pathResolver.currentStdlibRoot()
             val capturedGeneration = captureGeneration(stdlibRoot)
+            cleanEffectiveSnapshot(root, capturedGeneration)?.let { return it }
             try {
                 val foundation = preludeFoundation(capturedGeneration, stdlibRoot)
                 val closure = closure(root, capturedGeneration, stdlibRoot) ?: return EMPTY_SOURCES
@@ -224,8 +234,11 @@ internal class CrystalRequireGraphService private constructor(
         nodes.clear()
         reverseEdges.clear()
         closures.clear()
+        closureOwners.clear()
         effectiveSnapshots.clear()
         dirtyContentNodes.clear()
+        dirtyClosureRoots.clear()
+        preludeClosureDirty = false
         preludeBuild = null
         cachedPreludeFoundation = null
         fullInvalidations++
@@ -259,6 +272,17 @@ internal class CrystalRequireGraphService private constructor(
     internal fun cacheIdentity(file: VirtualFile): CrystalRequireCacheIdentity = synchronized(lock) {
         CrystalRequireCacheIdentity(nodes[file], closures[file], effectiveSnapshots[file]?.sources)
     }
+
+    internal fun closureNodeVisits(): Long = closureVisits.get()
+
+    private fun cleanEffectiveSnapshot(root: VirtualFile, capturedGeneration: Long): CrystalEffectiveSourceSet? =
+        synchronized(lock) {
+            if (validationMode != ValidationMode.EVENT_DRIVEN || generation != capturedGeneration) return@synchronized null
+            if (root in dirtyClosureRoots || preludeClosureDirty) return@synchronized null
+            effectiveSnapshots[root]
+                ?.takeIf { it.foundation.generation == capturedGeneration }
+                ?.sources
+        }
 
     private fun registerListeners(parentDisposable: Disposable) {
         PsiManager.getInstance(project).addPsiTreeChangeListener(object : PsiTreeChangeAdapter() {
@@ -354,7 +378,12 @@ internal class CrystalRequireGraphService private constructor(
 
     private fun markContentChanged(file: VirtualFile) {
         synchronized(lock) {
-            if (nodes.containsKey(file)) dirtyContentNodes += file
+            if (!nodes.containsKey(file)) return
+            dirtyContentNodes += file
+            closureOwners[file].orEmpty().forEach(dirtyClosureRoots::add)
+            if (cachedPreludeFoundation?.closure?.dependencyVersions?.containsKey(file) == true) {
+                preludeClosureDirty = true
+            }
         }
     }
 
@@ -410,12 +439,18 @@ internal class CrystalRequireGraphService private constructor(
             if (closure != null && !closureIsCurrent(closure)) throw StaleGeneration
             cachedPreludeFoundation?.takeIf {
                 it.generation == capturedGeneration && it.closure === closure
-            }?.let { return it }
+            }?.let {
+                preludeClosureDirty = false
+                return it
+            }
             return PreludeFoundation(
                 capturedGeneration,
                 closure,
                 closure?.files ?: emptySet(),
-            ).also { cachedPreludeFoundation = it }
+            ).also {
+                cachedPreludeFoundation = it
+                preludeClosureDirty = false
+            }
         }
     }
 
@@ -461,6 +496,12 @@ internal class CrystalRequireGraphService private constructor(
             discardInvalidNode(root, capturedGeneration)
             return null
         }
+        synchronized(lock) {
+            if (generation != capturedGeneration) throw StaleGeneration
+            if (validationMode == ValidationMode.EVENT_DRIVEN && root !in dirtyClosureRoots) {
+                closures[root]?.let { return it }
+            }
+        }
         val files = linkedSetOf<VirtualFile>()
         val dependencyVersions = linkedMapOf<VirtualFile, Long>()
         val pending = ArrayDeque<VirtualFile>()
@@ -469,6 +510,7 @@ internal class CrystalRequireGraphService private constructor(
             ProgressManager.checkCanceled()
             val file = pending.removeFirst()
             if (!files.add(file)) continue
+            if (trackClosureVisits) closureVisits.incrementAndGet()
             val node = node(file, capturedGeneration, stdlibRoot)
             if (node == null) {
                 files.remove(file)
@@ -482,12 +524,17 @@ internal class CrystalRequireGraphService private constructor(
         synchronized(lock) {
             if (generation != capturedGeneration) throw StaleGeneration
             if (!versionsAreCurrent(dependencyVersions)) throw StaleGeneration
-            closures[root]?.takeIf { it.dependencyVersions == dependencyVersions }?.let { return it }
+            closures[root]?.takeIf { it.dependencyVersions == dependencyVersions }?.let {
+                dirtyClosureRoots.remove(root)
+                return it
+            }
             return Closure(
                 immutableSet(files),
                 immutableMap(dependencyVersions),
             ).also {
+                replaceClosureOwnership(root, it)
                 closures[root] = it
+                dirtyClosureRoots.remove(root)
                 closureBuilds++
             }
         }
@@ -608,11 +655,34 @@ internal class CrystalRequireGraphService private constructor(
             ?.any(affected::contains) == true
         if (foundationInvalidated) {
             cachedPreludeFoundation = null
+            preludeClosureDirty = false
             effectiveSnapshots.clear()
         }
         affected.forEach {
-            closures.remove(it)
+            removeClosure(it)
             effectiveSnapshots.remove(it)
+        }
+    }
+
+    private fun replaceClosureOwnership(root: VirtualFile, closure: Closure) {
+        closures[root]?.dependencyVersions?.keys?.forEach { dependency ->
+            closureOwners[dependency]?.let { owners ->
+                owners.remove(root)
+                if (owners.isEmpty()) closureOwners.remove(dependency)
+            }
+        }
+        closure.dependencyVersions.keys.forEach { dependency ->
+            closureOwners.getOrPut(dependency, ::linkedSetOf).add(root)
+        }
+    }
+
+    private fun removeClosure(root: VirtualFile) {
+        dirtyClosureRoots.remove(root)
+        closures.remove(root)?.dependencyVersions?.keys?.forEach { dependency ->
+            closureOwners[dependency]?.let { owners ->
+                owners.remove(root)
+                if (owners.isEmpty()) closureOwners.remove(dependency)
+            }
         }
     }
 

@@ -9,13 +9,14 @@ require, suppression, override, type, class-body, annotation, DOT, namespace, an
 branches remain in that contributor because their order and early returns are behaviorally
 significant.
 
-A single `CrystalTypeResolutionSession` is built once per completion invocation and threaded
+A single `CrystalTypeResolutionSession` is built only for an actual DOT completion and threaded
 through receiver resolution (`CrystalCompletionReceiverResolver.resolve`), method lookup
 (`CrystalCompletionHelper.getMethodsAsLookups` / `getStaticMethodsAsLookups`), and synthetic-`new`
 classification (`CrystalTypeObjectCompletionProvider`). Sharing the session ensures all three
 paths observe the same effective-source snapshot, so a VFS event arriving between them cannot
-mix stale and fresh type visibility. The no-session public overloads remain for callers that
-construct their own session.
+mix stale and fresh type visibility. Require-string, free-text, annotation, class-body, type, and
+namespace completion do not construct a type-resolution session or query effective sources. The
+no-session public overloads remain for callers that construct their own session.
 
 Context classification is implemented by package-level helpers in `CrystalCompletionContext`.
 Candidate generation is split between `CrystalLocalCompletionProvider` for scope-sensitive

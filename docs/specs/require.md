@@ -192,6 +192,12 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
 - Completion queries only the selected path roots and current directory level.
 - The production require graph reuses every materialized node not marked dirty by
   a VFS content-change event without collecting its require fingerprint again.
+  Cached closures maintain reverse ownership from each dependency node to exactly
+  the closure roots that contain it. A clean effective snapshot is returned in
+  constant time without traversing the root or prelude closure. A content event
+  marks only owning closures, plus the shared prelude foundation when applicable,
+  as requiring validation; unrelated dirty nodes do not affect another root's
+  fast path.
   Dirty nodes validate their fingerprint inside the query's existing read action.
   An unchanged fingerprint preserves node, closure, and effective-snapshot
   identity; a changed fingerprint publishes a replacement and invalidates reverse

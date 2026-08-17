@@ -52,6 +52,9 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ### Fixed
 
+- **Avoid repeated require-closure traversal on clean completion queries** — clean effective-source snapshots now return in constant time. Reverse closure ownership limits dirty validation to roots that contain the changed dependency, preserving node, closure, and snapshot identity after ordinary body edits while rebuilding changed require edges.
+- **Avoid require-graph sessions outside DOT completion** — free-text, annotation, class-body, type, namespace, and require completion no longer construct a type-resolution session or query effective sources. DOT receiver, method, and constructor phases still share exactly one session.
+- **Preserve pre-existing require-completion fixture paths** — test cleanup now snapshots the initial temporary fixture tree and removes only paths created by the current test instead of deleting hard-coded roots such as `src`.
 - **Avoid repeated require fingerprint PSI walks on analysis hot paths** — materialized clean require-graph nodes are now reused directly. Saved dirty nodes validate lazily inside the current query read action, preserving all cache identities for ordinary body edits while rebuilding changed require edges and reverse dependents.
 - **Reject compound require paths during dependency collection** — adjacent double-quoted literals such as `require "foo" "bar"` no longer produce a bogus static require edge, while escaped quotes and backslashes inside one complete literal remain valid.
 - **Preserve qualified constructor identity in navigation fallback** — recovery PSI shapes without a `CrystalDotCallAccess` reference now pass complete simple, qualified, or absolute constant paths to the shared exact constructor resolver. Incomplete receiver paths are suppressed instead of falling through to an unrelated type with the same simple name.

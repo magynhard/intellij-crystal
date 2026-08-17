@@ -4,6 +4,7 @@ import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 /**
@@ -51,6 +52,44 @@ class CrystalCompletionTest : BasePlatformTestCase() {
     }
 
     // ==================== Free-text completion ====================
+
+    fun testFreeTextCompletionDoesNotConstructTypeResolutionSession() {
+        CrystalTypeSetResolver.resetSessionConstructionCount()
+        try {
+            myFixture.configureByText("main.cr", "local_na<caret>")
+
+            myFixture.complete(CompletionType.BASIC)
+
+            assertEquals(0L, CrystalTypeSetResolver.sessionConstructionCount())
+        } finally {
+            CrystalTypeSetResolver.resetSessionConstructionCount()
+        }
+    }
+
+    fun testDotCompletionSharesOneTypeResolutionSessionAcrossAllPhases() {
+        CrystalTypeSetResolver.resetSessionConstructionCount()
+        try {
+            myFixture.configureByText("main.cr", """
+                class Loader
+                  def initialize(path : String)
+                  end
+
+                  def self.load
+                  end
+                end
+
+                Loader.<caret>
+            """.trimIndent())
+
+            val names = myFixture.complete(CompletionType.BASIC).orEmpty().map { it.lookupString }
+
+            assertTrue(names.contains("load"))
+            assertTrue(names.contains("new"))
+            assertEquals(1L, CrystalTypeSetResolver.sessionConstructionCount())
+        } finally {
+            CrystalTypeSetResolver.resetSessionConstructionCount()
+        }
+    }
 
     fun testCompletesClassNames() {
         myFixture.addFileToProject("apfel.cr", "class Apfel\nend\nclass Aprikose\nend\n")

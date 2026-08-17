@@ -378,11 +378,13 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         val context = elementIn("src/main.cr")
         service.effectiveSources(context)
         val initialCollections = collections
+        val initialVisits = service.closureNodeVisits()
         assertEquals(6, initialCollections)
 
         service.effectiveSources(context)
 
         assertEquals("Clean cached nodes must not be collected again", initialCollections, collections)
+        assertEquals("Clean effective snapshots must not traverse either closure", initialVisits, service.closureNodeVisits())
     }
 
     fun testDirtyNodeRevalidatesFingerprintInsideQueryReadAction() {
@@ -400,6 +402,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         val first = service.effectiveSources(context)
         val firstIdentity = service.cacheIdentity(vf("src/main.cr"))
         val baseline = service.cacheStats()
+        val baselineVisits = service.closureNodeVisits()
         assertEquals(1, collections)
 
         replaceText("src/main.cr", "def value\n2\nend")
@@ -418,6 +421,10 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             baseline.nodeBuilds, after.nodeBuilds,
         )
         assertEquals(baseline.closureBuilds, after.closureBuilds)
+        assertEquals(baselineVisits + 1, service.closureNodeVisits())
+
+        service.effectiveSources(context)
+        assertEquals("Validation must restore the clean fast path", baselineVisits + 1, service.closureNodeVisits())
     }
 
     fun testDirtyRequireEditRebuildsNodeAndEffectiveSnapshot() {
@@ -437,6 +444,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         )
         val first = service.effectiveSources(elementIn("src/main.cr"))
         val baseline = service.cacheStats()
+        val baselineVisits = service.closureNodeVisits()
         assertEquals(2, collections)
 
         replaceText("src/main.cr", "require \"./new_feature\"")
@@ -449,6 +457,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertEquals("Only the dirty materialized node must be collected again", 4, collections)
         assertEquals(baseline.nodeBuilds + 2, service.cacheStats().nodeBuilds)
         assertEquals(baseline.closureBuilds + 1, service.cacheStats().closureBuilds)
+        assertTrue(service.closureNodeVisits() > baselineVisits)
     }
 
     fun testUnsavedTopLevelRequireEditInvalidatesDependentClosure() {
@@ -1194,16 +1203,21 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             "src/old_dependency.cr" to "",
             "src/new_dependency.cr" to "",
         )
-        val service = service(stdlib = null)
+        val service = service(
+            stdlib = null,
+            validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN,
+        )
         val main = service.effectiveSources(elementIn("src/main.cr"))
         service.effectiveSources(elementIn("src/unrelated.cr"))
         replaceText("src/unrelated.cr", "require \"./new_dependency\"")
         val before = service.cacheStats()
+        val visitsBefore = service.closureNodeVisits()
 
         service.handleVfsEvents(listOf(VFileContentChangeEvent(this, vf("src/unrelated.cr"), 1, 2)))
 
         assertSame(main, service.effectiveSources(elementIn("src/main.cr")))
         assertEquals(before, service.cacheStats())
+        assertEquals("An unrelated dirty node must not break the root fast path", visitsBefore, service.closureNodeVisits())
         val updatedUnrelated = service.effectiveSources(elementIn("src/unrelated.cr"))
         assertFalse(updatedUnrelated.files.contains(vf("src/old_dependency.cr")))
         assertTrue(updatedUnrelated.files.contains(vf("src/new_dependency.cr")))
@@ -1593,6 +1607,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         CrystalRequirePathResolver(project) { stdlib },
         validationMode,
         collector,
+        true,
     )
 
     private fun productionService(clearStdlibCache: Boolean = true): CrystalRequireGraphService {
