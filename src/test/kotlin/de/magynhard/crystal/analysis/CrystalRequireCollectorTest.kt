@@ -48,13 +48,24 @@ class CrystalRequireCollectorTest : BasePlatformTestCase() {
         assertTrue(CrystalRequireCollector.collect(file).paths.isEmpty())
     }
 
-    fun testCollectsSingleDoubleQuotedLiteralWithEscapedContent() {
-        val file = configure("require \"foo\\\"bar\\\\baz\"")
+    fun testCollectsDecodedDoubleQuotedLiteralContent() {
+        val file = configure(
+            "require \"\\x2e\\057feature\\u002ecr\"\n" +
+                "require \"unicode_\\u{41 1F600}\"\n" +
+                "require \"octal_\\101\\\\\\\"\\#\"\n" +
+                "require \"continued_\\\nname\"",
+        )
 
         assertEquals(
-            listOf("foo\\\"bar\\\\baz"),
+            listOf("./feature.cr", "unicode_A😀", "octal_A\\\"#", "continued_name"),
             CrystalRequireCollector.collect(file).paths,
         )
+    }
+
+    fun testExcludesInvalidEscapes() {
+        val file = configure("require \"invalid_\\u{110000}\"")
+
+        assertTrue(CrystalRequireCollector.collect(file).paths.isEmpty())
     }
 
     fun testFingerprintIgnoresMethodBodyEdits() {

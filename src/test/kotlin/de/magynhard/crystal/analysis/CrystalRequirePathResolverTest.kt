@@ -26,6 +26,24 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         assertEquals(listOf(helper), resolver().resolve(source, "../helpers").files)
     }
 
+    fun testResolvesExplicitRelativeCrystalFileWithoutAppendingSuffix() {
+        val source = file("src/main.cr")
+        val feature = file("src/feature.cr")
+
+        assertEquals(listOf(feature), resolver().resolve(source, "./feature.cr").files)
+    }
+
+    fun testResolvesExplicitBareCrystalFileWithoutAppendingSuffix() {
+        val source = file("src/main.cr")
+        val json = projectFile("lib/json.cr")
+
+        try {
+            assertEquals(listOf(json), resolver().resolve(source, "json.cr").files)
+        } finally {
+            ApplicationManager.getApplication().runWriteAction { json.delete(this) }
+        }
+    }
+
     fun testResolvesBareFileAndDirectoryMainFromProjectLib() {
         val source = file("src/main.cr")
         val direct = projectFile("lib/support/helpers.cr")
@@ -165,6 +183,28 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
         assertEquals(listOf(direct, nested, deeplyNested), resolution.files)
         assertEquals(setOf(directory("src/models")), resolution.watchedDirectories)
+    }
+
+    fun testRecursiveWildcardRejectsProjectRootButAllowsTargetedSubdirectory() {
+        val source = projectFile("main.cr")
+        val rootFeature = projectFile("root_feature.cr")
+        val nested = projectFile("src/extensions/feature.cr")
+        val resolver = CrystalRequirePathResolver(
+            project,
+            stdlibRoot = { null },
+            projectRoot = ::projectBaseRoot,
+        )
+
+        try {
+            assertEquals(emptyList<VirtualFile>(), resolver.resolve(source, "./**").files)
+            assertEquals(listOf(nested), resolver.resolve(source, "./src/extensions/**").files)
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                source.delete(this)
+                rootFeature.delete(this)
+                nested.parent.parent.delete(this)
+            }
+        }
     }
 
     fun testMissingWildcardTargetWatchesNearestExistingDirectory() {

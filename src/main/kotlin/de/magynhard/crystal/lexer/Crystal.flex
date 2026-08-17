@@ -392,6 +392,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "\\" "u" {HEX_DIGIT}{4}        { return CrystalTypes.STRING_ESCAPE; }
   "\\" "x" {HEX_DIGIT}{1,2}      { return CrystalTypes.STRING_ESCAPE; }
   "\\" {OCT_DIGIT}{1,3}          { return CrystalTypes.STRING_ESCAPE; }
+  "\\\n"               { return CrystalTypes.STRING_ESCAPE; }
+  "\\\r\n"             { return CrystalTypes.STRING_ESCAPE; }
   "\\" .               { return CrystalTypes.STRING_ESCAPE; }
   [^\"\#\\]+           { return CrystalTypes.STRING_LITERAL; }
   "#"                  { return CrystalTypes.STRING_LITERAL; }

@@ -33,7 +33,7 @@ class CrystalRequireContextInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         val statement = PsiTreeUtil.findChildOfType(file, CrystalRequireStatement::class.java)
 
-        assertTrue(CrystalRequireContext.isValidTopLevel(requireNotNull(statement)))
+        assertTrue(de.magynhard.crystal.analysis.CrystalRequireSemantics.isValidTopLevel(requireNotNull(statement)))
     }
 
     fun testRequireInRuntimeIfIsDynamic() {
