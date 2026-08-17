@@ -15,6 +15,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCopyEvent
@@ -150,6 +151,12 @@ internal class CrystalRequireGraphService private constructor(
     )
 
     private object StaleGeneration : RuntimeException()
+
+    private class TestOverride(
+        val service: CrystalRequireGraphService,
+        val previous: TestOverride?,
+        var active: Boolean = true,
+    )
 
     private val lock = Any()
     private val nodes = mutableMapOf<VirtualFile, Node>()
@@ -595,7 +602,13 @@ internal class CrystalRequireGraphService private constructor(
                 }
             }
 
-            val resolutions = directRequires.paths.map { pathResolver.resolve(file, it, stdlibRoot) }
+            val resolutions = directRequires.paths.map { requirePath ->
+                if (stdlibRoot != null && VfsUtilCore.isAncestor(stdlibRoot, file, false)) {
+                    pathResolver.resolveFromStdlib(file, requirePath, stdlibRoot)
+                } else {
+                    pathResolver.resolve(file, requirePath, stdlibRoot)
+                }
+            }
             val outgoing = resolutions.asSequence()
                 .flatMap { it.files.asSequence() }
                 .mapNotNull(::physicalOriginalFileInReadAction)
@@ -741,23 +754,35 @@ internal class CrystalRequireGraphService private constructor(
 
     companion object {
         private val EMPTY_SOURCES = CrystalEffectiveSourceSet(emptySet())
-        private val TEST_INSTANCE = Key.create<CrystalRequireGraphService>("crystal.require.graph.test.instance")
+        private val TEST_OVERRIDE = Key.create<TestOverride>("crystal.require.graph.test.override")
+        private val TEST_OVERRIDE_LOCK = Any()
 
-        fun getInstance(project: Project): CrystalRequireGraphService =
-            project.getUserData(TEST_INSTANCE) ?: project.service()
+        fun getInstance(project: Project): CrystalRequireGraphService = synchronized(TEST_OVERRIDE_LOCK) {
+            project.getUserData(TEST_OVERRIDE)?.service ?: project.service()
+        }
 
         internal fun installForTests(
             project: Project,
             pathResolver: CrystalRequirePathResolver,
             parentDisposable: Disposable,
-        ) {
+        ): CrystalRequireGraphService {
             val service = CrystalRequireGraphService(project, pathResolver, parentDisposable)
-            project.putUserData(TEST_INSTANCE, service)
-            Disposer.register(parentDisposable) {
-                if (project.getUserData(TEST_INSTANCE) === service) {
-                    project.putUserData(TEST_INSTANCE, null)
+            val override = synchronized(TEST_OVERRIDE_LOCK) {
+                TestOverride(service, project.getUserData(TEST_OVERRIDE)).also {
+                    project.putUserData(TEST_OVERRIDE, it)
                 }
             }
+            Disposer.register(parentDisposable) {
+                synchronized(TEST_OVERRIDE_LOCK) {
+                    override.active = false
+                    if (project.getUserData(TEST_OVERRIDE) === override) {
+                        var previous = override.previous
+                        while (previous != null && !previous.active) previous = previous.previous
+                        project.putUserData(TEST_OVERRIDE, previous)
+                    }
+                }
+            }
+            return service
         }
     }
 }

@@ -95,10 +95,37 @@ class EcrCompletionTest : BasePlatformTestCase() {
 
     fun testInjectedCrystalUsesOnlyPreludeForCoreLiteralCompletion() {
         installFixtureStdlib()
+        myFixture.addFileToProject("project_reopening.cr", "class String\n  def project_string_marker; end\nend")
+        myFixture.addFileToProject("lib/kemal/src/kemal.cr", "struct Int\n  def shard_int_marker; end\nend")
+        myFixture.addFileToProject(
+            "reverse_reopening.cr",
+            "require \"./dot\"\nclass Array(T)\n  def reverse_array_marker; end\nend",
+        )
+        myFixture.addFileToProject(
+            "sibling_reopening.cr",
+            "module Indexable(T)\n  def sibling_indexable_marker; end\nend",
+        )
+        myFixture.addFileToProject(
+            "host_reopening.cr",
+            "module Enumerable(T)\n  def host_enumerable_marker; end\nend",
+        )
 
-        assertContainsAll(completionNames("<% \"text\".<caret> %>"), "upcase", "downcase")
-        assertContainsAll(completionNames("<% ((3)).<caret> %>"), "times")
-        assertContainsAll(completionNames("<% [1, 2].<caret> %>"), "each")
+        assertEquals(
+            setOf("upcase", "downcase"),
+            completionNames("<% class String; def injected_host_marker; end; end\n\"text\".<caret> %>"),
+        )
+        assertEquals(setOf("times"), completionNames("<% ((3)).<caret> %>"))
+        assertEquals(setOf("each"), completionNames("<% [1, 2].<caret> %>"))
+        assertEquals(setOf("each"), completionNames("<% aaa = [1, 2, 3, 4]; aaa.<caret> %>"))
+    }
+
+    fun testProjectLibCannotShadowPreludeInsideInjectedCrystal() {
+        installFixtureStdlib()
+        addPreludeCollisions()
+
+        assertEquals(setOf("upcase", "downcase"), completionNames("<% \"text\".<caret> %>"))
+        assertEquals(setOf("times"), completionNames("<% 3.<caret> %>"))
+        assertEquals(setOf("each"), completionNames("<% [1, 2].<caret> %>"))
     }
 
     fun testUnknownDotReceiverIsSuppressedInsideInjectedCrystal() {
@@ -139,18 +166,28 @@ class EcrCompletionTest : BasePlatformTestCase() {
         installFixtureGraph(requireNotNull(enumerable.parent))
     }
 
-    private fun installFixtureGraph(stdlibRoot: VirtualFile?) {
-        fixtureGraphDisposable?.let(Disposer::dispose)
-        val graphDisposable = Disposer.newDisposable("ECR completion fixture require graph")
-        fixtureGraphDisposable = graphDisposable
-        CrystalRequireGraphService.installForTests(
-            project,
-            CrystalRequirePathResolver(project, { stdlibRoot }),
-            graphDisposable,
+    private fun addPreludeCollisions() {
+        myFixture.addFileToProject("lib/string.cr", "class String\n  def project_string_shadow; end\nend")
+        myFixture.addFileToProject("lib/int.cr", "struct Int\n  def project_int_shadow; end\nend")
+        myFixture.addFileToProject(
+            "lib/indexable.cr",
+            "module Indexable(T)\n  def project_indexable_shadow; end\nend",
         )
     }
 
-    private fun assertContainsAll(actual: Set<String>, vararg expected: String) {
-        assertTrue("Expected ${expected.toSet()} in $actual", actual.containsAll(expected.toSet()))
+    private fun installFixtureGraph(stdlibRoot: VirtualFile?) {
+        val previous = fixtureGraphDisposable
+        val graphDisposable = Disposer.newDisposable("ECR completion fixture require graph")
+        CrystalRequireGraphService.installForTests(
+            project,
+            CrystalRequirePathResolver(
+                project,
+                { stdlibRoot },
+                { myFixture.tempDirFixture.findOrCreateDir("") },
+            ),
+            graphDisposable,
+        )
+        fixtureGraphDisposable = graphDisposable
+        previous?.let(Disposer::dispose)
     }
 }

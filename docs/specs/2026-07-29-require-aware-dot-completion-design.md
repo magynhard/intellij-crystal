@@ -46,7 +46,10 @@ A focused `CrystalRequirePathResolver` resolves graph edges according to Crystal
 
 - Relative paths resolve from the requiring file's directory.
 - Bare paths resolve against project and shard roots before the configured Crystal standard-library
-  roots.
+  roots when the requiring file belongs to a project or shard closure. Requires originating anywhere
+  under the configured stdlib root resolve bare paths only against that stdlib root, preventing
+  project `lib/` files from shadowing the shared prelude foundation. Relative stdlib paths retain
+  normal file-relative resolution.
 - `*` and `**` patterns expand only below the resolved target directory.
 - Missing or ambiguous paths contribute no edge.
 - Resolution never scans all Crystal project files and never uses `FileTypeIndex`.

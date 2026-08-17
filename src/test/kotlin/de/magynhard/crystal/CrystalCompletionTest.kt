@@ -1974,11 +1974,37 @@ class CrystalCompletionTest : BasePlatformTestCase() {
 
     fun testRealisticPreludeProvidesCoreLiteralMethodsThroughSeparateFiles() {
         installFixtureStdlib()
+        myFixture.addFileToProject("unrequired_collection_reopenings.cr", """
+            class Array(T)
+              def leaked_array_method
+              end
+            end
+            module Indexable(T)
+              def leaked_indexable_method
+              end
+            end
+        """.trimIndent())
 
-        assertContainsAll(completionNames("\"text\".<caret>"), "upcase", "downcase")
-        assertContainsAll(completionNames("3.<caret>"), "times")
-        assertContainsAll(completionNames("[1, 2].<caret>"), "each")
-        assertContainsAll(completionNames("aaa = [1, 2, 3, 4]\naaa.<caret>"), "each")
+        assertEquals(setOf("upcase", "downcase"), completionNames("core_string.cr", "\"text\".<caret>"))
+        assertEquals(setOf("times"), completionNames("core_int.cr", "3.<caret>"))
+        assertEquals(setOf("each"), completionNames("core_array.cr", "[1, 2].<caret>"))
+        assertEquals(
+            setOf("each"),
+            completionNames("core_assigned_array.cr", "aaa = [1, 2, 3, 4]\naaa.<caret>"),
+        )
+    }
+
+    fun testProjectLibCannotShadowPreludeCoreTypes() {
+        installFixtureStdlib()
+        addPreludeCollisions()
+
+        assertEquals(setOf("upcase", "downcase"), completionNames("collision_string.cr", "\"text\".<caret>"))
+        assertEquals(setOf("times"), completionNames("collision_int.cr", "3.<caret>"))
+        assertEquals(setOf("each"), completionNames("collision_array.cr", "[1, 2].<caret>"))
+        assertEquals(
+            setOf("each"),
+            completionNames("collision_assigned_array.cr", "aaa = [1, 2, 3, 4]\naaa.<caret>"),
+        )
     }
 
     fun testOptionalStdlibExtensionRequiresDirectOrTransitiveForwardEdge() {
@@ -1987,9 +2013,18 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         myFixture.addFileToProject("fixture-stdlib/json/to_json.cr", "class String\n  def to_json\n  end\nend")
         myFixture.addFileToProject("helper.cr", "require \"json\"")
 
-        assertFalse(completionNames("\"text\".<caret>").contains("to_json"))
-        assertTrue(completionNames("require \"json\"\n\"text\".<caret>").contains("to_json"))
-        assertTrue(completionNames("require \"./helper\"\n\"text\".<caret>").contains("to_json"))
+        assertEquals(
+            setOf("upcase", "downcase"),
+            completionNames("optional_none.cr", "\"text\".<caret>"),
+        )
+        assertEquals(
+            setOf("upcase", "downcase", "to_json"),
+            completionNames("optional_direct.cr", "require \"json\"\n\"text\".<caret>"),
+        )
+        assertEquals(
+            setOf("upcase", "downcase", "to_json"),
+            completionNames("optional_transitive.cr", "require \"./helper\"\n\"text\".<caret>"),
+        )
     }
 
     fun testShardAndProjectReopeningsFollowOnlyForwardRequireClosure() {
@@ -1998,39 +2033,61 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         myFixture.addFileToProject("extensions/direct.cr", "class String\n  def direct_extension\n  end\nend")
         myFixture.addFileToProject("extensions/helper.cr", "require \"./direct\"")
         myFixture.addFileToProject("extensions/sibling.cr", "class String\n  def sibling_extension\n  end\nend")
-        myFixture.addFileToProject("reverse.cr", "require \"./main\"\nclass String\n  def reverse_extension\n  end\nend")
+        myFixture.addFileToProject("reverse.cr", "require \"./project_none\"\nclass String\n  def reverse_extension\n  end\nend")
 
-        val shardNames = completionNames("require \"kemal\"\n\"text\".<caret>")
-        assertTrue("Expected kemal_escape in $shardNames", shardNames.contains("kemal_escape"))
-        assertTrue(completionNames("require \"./extensions/direct\"\n\"text\".<caret>")
-            .contains("direct_extension"))
-        val names = completionNames("require \"./extensions/helper\"\n\"text\".<caret>")
-        assertTrue(names.contains("direct_extension"))
-        assertFalse(names.contains("sibling_extension"))
-        assertFalse(names.contains("reverse_extension"))
+        assertEquals(
+            setOf("upcase", "downcase"),
+            completionNames("project_none.cr", "\"text\".<caret>"),
+        )
+        assertEquals(
+            setOf("upcase", "downcase", "kemal_escape"),
+            completionNames("project_shard.cr", "require \"kemal\"\n\"text\".<caret>"),
+        )
+        assertEquals(
+            setOf("upcase", "downcase", "direct_extension"),
+            completionNames("project_direct.cr", "require \"./extensions/direct\"\n\"text\".<caret>"),
+        )
+        assertEquals(
+            setOf("upcase", "downcase", "direct_extension"),
+            completionNames("project_transitive.cr", "require \"./extensions/helper\"\n\"text\".<caret>"),
+        )
     }
 
     fun testMacroControlAndWildcardRequiresContributeCompletionMethods() {
         installFixtureStdlib()
         myFixture.addFileToProject("macro_extension.cr", "class String\n  def macro_extension\n  end\nend")
         myFixture.addFileToProject("extensions/first.cr", "class String\n  def first_extension\n  end\nend")
+        myFixture.addFileToProject("inaccessible_extension.cr", "class String\n  def inaccessible_extension\n  end\nend")
 
-        assertTrue(completionNames("{% if flag?(:test) %}\nrequire \"./macro_extension\"\n{% end %}\n\"text\".<caret>")
-            .contains("macro_extension"))
-        assertTrue(completionNames("require \"./extensions/*\"\n\"text\".<caret>")
-            .contains("first_extension"))
+        assertEquals(
+            setOf("upcase", "downcase", "macro_extension"),
+            completionNames(
+                "macro_caller.cr",
+                "{% if flag?(:test) %}\nrequire \"./macro_extension\"\n{% end %}\n\"text\".<caret>",
+            ),
+        )
+        assertEquals(
+            setOf("upcase", "downcase", "first_extension"),
+            completionNames("wildcard_caller.cr", "require \"./extensions/*\"\n\"text\".<caret>"),
+        )
     }
 
     fun testWildcardCompletionInvalidatesWhenMatchingFileIsCreated() {
         installFixtureStdlib()
         myFixture.addFileToProject("extensions/first.cr", "class String\n  def first_extension\n  end\nend")
+        myFixture.addFileToProject("outside_wildcard.cr", "class String\n  def outside_wildcard\n  end\nend")
         val source = "require \"./extensions/*\"\n\"text\".<caret>"
 
-        assertFalse(completionNames(source).contains("created_extension"))
+        assertEquals(
+            setOf("upcase", "downcase", "first_extension"),
+            completionNames("wildcard_creation_caller.cr", source),
+        )
         myFixture.addFileToProject("extensions/created.cr", "class String\n  def created_extension\n  end\nend")
 
-        val names = completionNames(source)
-        assertTrue("Expected created_extension after wildcard invalidation in $names", names.contains("created_extension"))
+        assertEquals(
+            setOf("upcase", "downcase", "first_extension", "created_extension"),
+            completionNames("wildcard_creation_caller.cr", source),
+        )
     }
 
     fun testMacroHeavyTypesKeepOnlyCertainCompletionCandidates() {
@@ -2268,15 +2325,27 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         installFixtureGraph(requireNotNull(enumerable.parent))
     }
 
+    private fun addPreludeCollisions() {
+        myFixture.addFileToProject("lib/string.cr", "class String\n  def project_string_shadow\n  end\nend")
+        myFixture.addFileToProject("lib/int.cr", "struct Int\n  def project_int_shadow\n  end\nend")
+        myFixture.addFileToProject("lib/indexable.cr", """
+            module Indexable(T)
+              def project_indexable_shadow
+              end
+            end
+        """.trimIndent())
+    }
+
     private fun installFixtureGraph(stdlibRoot: VirtualFile?) {
-        fixtureGraphDisposable?.let(Disposer::dispose)
+        val previous = fixtureGraphDisposable
         val graphDisposable = Disposer.newDisposable("completion fixture require graph")
-        fixtureGraphDisposable = graphDisposable
         CrystalRequireGraphService.installForTests(
             project,
             CrystalRequirePathResolver(project, { stdlibRoot }, { fixtureRoot }),
             graphDisposable,
         )
+        fixtureGraphDisposable = graphDisposable
+        previous?.let(Disposer::dispose)
     }
 
     private fun assertContainsAll(actual: Set<String>, vararg expected: String) {
@@ -2288,6 +2357,11 @@ class CrystalCompletionTest : BasePlatformTestCase() {
     }
 
     private fun completionNames(source: String): Set<String> = completionNameList(source).toSet()
+
+    private fun completionNames(fileName: String, source: String): Set<String> {
+        myFixture.configureByText(fileName, source)
+        return myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty().toSet()
+    }
 
     private fun completionNameList(source: String): List<String> {
         myFixture.configureByText("main.cr", source)

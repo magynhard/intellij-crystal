@@ -128,6 +128,12 @@ the project's `lib/` root first, then the configured stdlib root. Exact candidat
 `path.cr` and `path/path.cr`. A shard path additionally maps `require "kemal"` to
 `lib/kemal/src/kemal.cr`; nested shard paths use the corresponding location below `src/`.
 
+The project-`lib/` precedence applies only while traversing a physical project or shard forward
+closure. Once a requiring file belongs to the configured stdlib root, its bare exact and wildcard
+requires resolve exclusively within that same stdlib root. Relative requires still resolve from the
+stdlib file's own directory. A project `lib/string.cr`, `lib/int.cr`, or `lib/indexable.cr` therefore
+cannot shadow dependencies of `prelude.cr` or enter the globally shared prelude foundation.
+
 Top-level requires surrounded by macro-control directives are static graph edges regardless of the
 active flags. Runtime, type-body, method, macro interpolation, and other dynamic requires are not.
 The effective set is forward-only: requiring a file never gives that file the caller's dependencies,

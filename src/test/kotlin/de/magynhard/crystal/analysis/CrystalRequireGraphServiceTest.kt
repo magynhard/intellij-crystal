@@ -228,6 +228,141 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertEquals(setOf(vf("src/main.cr")), withoutStdlib.files)
     }
 
+    fun testPreludeFoundationIgnoresProjectLibCollisions() {
+        files(
+            "stdlib/prelude.cr" to "require \"string\"\nrequire \"int\"\nrequire \"indexable\"",
+            "stdlib/string.cr" to "",
+            "stdlib/int.cr" to "",
+            "stdlib/indexable.cr" to "",
+            "src/main.cr" to "",
+        )
+        val projectString = projectFile("lib/string.cr")
+        val projectInt = projectFile("lib/int.cr")
+        val projectIndexable = projectFile("lib/indexable.cr")
+        try {
+            val sources = service().effectiveSources(elementIn("src/main.cr")).files
+
+            assertTrue(sources.contains(vf("stdlib/string.cr")))
+            assertTrue(sources.contains(vf("stdlib/int.cr")))
+            assertTrue(sources.contains(vf("stdlib/indexable.cr")))
+            assertFalse(sources.contains(projectString))
+            assertFalse(sources.contains(projectInt))
+            assertFalse(sources.contains(projectIndexable))
+        } finally {
+            removeProjectPath("lib/string.cr")
+            removeProjectPath("lib/int.cr")
+            removeProjectPath("lib/indexable.cr")
+        }
+    }
+
+    fun testFixtureOverrideNestedDisposalRestoresPreviousService() {
+        val production = requireNotNull(project.getService(CrystalRequireGraphService::class.java))
+        val outerDisposable = Disposer.newDisposable()
+        val innerDisposable = Disposer.newDisposable()
+        var outerDisposed = false
+        var innerDisposed = false
+        try {
+            val outer = CrystalRequireGraphService.installForTests(
+                project,
+                CrystalRequirePathResolver(project) { null },
+                outerDisposable,
+            )
+            val inner = CrystalRequireGraphService.installForTests(
+                project,
+                CrystalRequirePathResolver(project) { directory("stdlib") },
+                innerDisposable,
+            )
+
+            assertSame(inner, CrystalRequireGraphService.getInstance(project))
+            Disposer.dispose(innerDisposable)
+            innerDisposed = true
+            assertSame(outer, CrystalRequireGraphService.getInstance(project))
+            Disposer.dispose(outerDisposable)
+            outerDisposed = true
+            assertSame(production, CrystalRequireGraphService.getInstance(project))
+        } finally {
+            if (!innerDisposed) Disposer.dispose(innerDisposable)
+            if (!outerDisposed) Disposer.dispose(outerDisposable)
+        }
+    }
+
+    fun testFixtureOverrideSkipsPreviouslyDisposedOuterFrame() {
+        val production = requireNotNull(project.getService(CrystalRequireGraphService::class.java))
+        val outerDisposable = Disposer.newDisposable()
+        val innerDisposable = Disposer.newDisposable()
+        try {
+            CrystalRequireGraphService.installForTests(
+                project,
+                CrystalRequirePathResolver(project) { null },
+                outerDisposable,
+            )
+            val inner = CrystalRequireGraphService.installForTests(
+                project,
+                CrystalRequirePathResolver(project) { directory("stdlib") },
+                innerDisposable,
+            )
+
+            Disposer.dispose(outerDisposable)
+            assertSame(inner, CrystalRequireGraphService.getInstance(project))
+            Disposer.dispose(innerDisposable)
+            assertSame(production, CrystalRequireGraphService.getInstance(project))
+        } finally {
+            // Disposer disposal is idempotent and guarantees cleanup if an assertion fails.
+            Disposer.dispose(innerDisposable)
+            Disposer.dispose(outerDisposable)
+        }
+    }
+
+    fun testFixtureOverrideReplacementNeverExposesProductionService() {
+        val production = requireNotNull(project.getService(CrystalRequireGraphService::class.java))
+        var currentDisposable = Disposer.newDisposable()
+        CrystalRequireGraphService.installForTests(
+            project,
+            CrystalRequirePathResolver(project) { null },
+            currentDisposable,
+        )
+        val exposedProduction = AtomicInteger()
+        val start = CountDownLatch(1)
+        val readerReady = CountDownLatch(1)
+        val replacementsDone = CountDownLatch(1)
+        val reads = AtomicInteger()
+        val reader = Thread {
+            start.await()
+            readerReady.countDown()
+            do {
+                reads.incrementAndGet()
+                if (CrystalRequireGraphService.getInstance(project) === production) {
+                    exposedProduction.incrementAndGet()
+                }
+            } while (replacementsDone.count > 0)
+        }
+        reader.start()
+        try {
+            start.countDown()
+            assertTrue(readerReady.await(10, TimeUnit.SECONDS))
+            repeat(25) {
+                val nextDisposable = Disposer.newDisposable()
+                CrystalRequireGraphService.installForTests(
+                    project,
+                    CrystalRequirePathResolver(project) { null },
+                    nextDisposable,
+                )
+                val previous = currentDisposable
+                currentDisposable = nextDisposable
+                Disposer.dispose(previous)
+            }
+            replacementsDone.countDown()
+            reader.join(10_000)
+            assertFalse(reader.isAlive)
+            assertTrue(reads.get() > 0)
+            assertEquals(0, exposedProduction.get())
+        } finally {
+            replacementsDone.countDown()
+            Disposer.dispose(currentDisposable)
+            reader.join()
+        }
+    }
+
     fun testCombinesPreludeCurrentFileAndForwardClosure() {
         files(
             "stdlib/prelude.cr" to

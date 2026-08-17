@@ -75,6 +75,55 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         assertNotSame(projectFile, stdlibFile)
     }
 
+    fun testStdlibTraversalIgnoresProjectLibForBareRequires() {
+        val source = file("stdlib/prelude.cr")
+        val projectFile = projectFile("lib/string.cr")
+        val stdlibFile = file("stdlib/string.cr")
+        val stdlibRoot = directory("stdlib")
+
+        try {
+            assertEquals(
+                listOf(stdlibFile),
+                resolver(stdlibRoot).resolveFromStdlib(source, "string", stdlibRoot).files,
+            )
+            assertFalse(
+                resolver(stdlibRoot).resolveFromStdlib(source, "string", stdlibRoot)
+                    .exactCandidatePaths.contains(projectFile.path),
+            )
+        } finally {
+            ApplicationManager.getApplication().runWriteAction { projectFile.delete(this) }
+        }
+    }
+
+    fun testStdlibTraversalPreservesRelativeResolution() {
+        val source = file("stdlib/nested/source.cr")
+        val helper = file("stdlib/nested/helper.cr")
+        val stdlibRoot = directory("stdlib")
+
+        assertEquals(
+            listOf(helper),
+            resolver(stdlibRoot).resolveFromStdlib(source, "./helper", stdlibRoot).files,
+        )
+    }
+
+    fun testStdlibTraversalIgnoresProjectLibForBareWildcards() {
+        val source = file("stdlib/prelude.cr")
+        val stdlibFile = file("stdlib/extensions/core.cr")
+        val projectFile = projectFile("lib/extensions/project.cr")
+        val stdlibRoot = directory("stdlib")
+
+        try {
+            val resolution = resolver(stdlibRoot)
+                .resolveFromStdlib(source, "extensions/*", stdlibRoot)
+
+            assertEquals(listOf(stdlibFile), resolution.files)
+            assertFalse(resolution.files.contains(projectFile))
+            assertEquals(setOf(directory("stdlib/extensions")), resolution.watchedDirectories)
+        } finally {
+            ApplicationManager.getApplication().runWriteAction { projectFile.parent.delete(this) }
+        }
+    }
+
     fun testBareExactUsesProjectBaseLibInsteadOfRequiringFileContentRoot() {
         val source = file("module/src/main.cr")
         val contentRootFile = file("lib/support.cr")

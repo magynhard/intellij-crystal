@@ -11,6 +11,11 @@ internal enum class CrystalWildcardMode {
     RECURSIVE,
 }
 
+private enum class CrystalRequireRootMode {
+    PROJECT_THEN_STDLIB,
+    STDLIB_ONLY,
+}
+
 internal data class CrystalWildcardWatch(
     val watchedDirectory: VirtualFile,
     val targetPath: String,
@@ -53,31 +58,53 @@ internal class CrystalRequirePathResolver private constructor(
     )
 
     fun resolve(requiringFile: VirtualFile, requirePath: String): CrystalRequireResolution =
-        resolve(requiringFile, requirePath, stdlibRoot)
+        resolve(requiringFile, requirePath, stdlibRoot, CrystalRequireRootMode.PROJECT_THEN_STDLIB)
 
     internal fun resolve(
         requiringFile: VirtualFile,
         requirePath: String,
         capturedStdlibRoot: VirtualFile?,
-    ): CrystalRequireResolution = resolve(requiringFile, requirePath) { capturedStdlibRoot }
+    ): CrystalRequireResolution = resolve(
+        requiringFile,
+        requirePath,
+        { capturedStdlibRoot },
+        CrystalRequireRootMode.PROJECT_THEN_STDLIB,
+    )
+
+    internal fun resolveFromStdlib(
+        requiringFile: VirtualFile,
+        requirePath: String,
+        capturedStdlibRoot: VirtualFile,
+    ): CrystalRequireResolution = resolve(
+        requiringFile,
+        requirePath,
+        { capturedStdlibRoot },
+        CrystalRequireRootMode.STDLIB_ONLY,
+    )
 
     private fun resolve(
         requiringFile: VirtualFile,
         requirePath: String,
         stdlibRoot: () -> VirtualFile?,
+        mode: CrystalRequireRootMode,
     ): CrystalRequireResolution {
         wildcard(requirePath)?.let { (path, recursive) ->
-            return resolveWildcard(requiringFile, path, recursive, stdlibRoot)
+            return resolveWildcard(requiringFile, path, recursive, stdlibRoot, mode)
         }
 
         val roots = if (requirePath.startsWith("./") || requirePath.startsWith("../")) {
             listOfNotNull(requiringFile.parent?.let { ExactRoot(it, it.path, false) })
         } else {
-            val projectRoot = projectRoot()
-            listOfNotNull(
-                projectRoot?.let { ExactRoot(it.findChild("lib"), path(it.path, "lib"), true) },
-                stdlibRoot()?.let { ExactRoot(it, it.path, false) },
-            )
+            val stdlib = stdlibRoot()
+            if (mode == CrystalRequireRootMode.STDLIB_ONLY) {
+                listOfNotNull(stdlib?.let { ExactRoot(it, it.path, false) })
+            } else {
+                val projectRoot = projectRoot()
+                listOfNotNull(
+                    projectRoot?.let { ExactRoot(it.findChild("lib"), path(it.path, "lib"), true) },
+                    stdlib?.let { ExactRoot(it, it.path, false) },
+                )
+            }
         }
 
         val exactCandidatePaths = linkedSetOf<String>()
@@ -109,14 +136,20 @@ internal class CrystalRequirePathResolver private constructor(
         path: String,
         recursive: Boolean,
         stdlibRoot: () -> VirtualFile?,
+        rootMode: CrystalRequireRootMode,
     ): CrystalRequireResolution {
         val locations = if (path.startsWith("./") || path.startsWith("../")) {
             listOfNotNull(requiringFile.parent?.let { it to path })
         } else {
-            listOfNotNull(
-                projectRoot()?.let { it to "lib/$path" },
-                stdlibRoot()?.let { it to path },
-            )
+            val stdlib = stdlibRoot()
+            if (rootMode == CrystalRequireRootMode.STDLIB_ONLY) {
+                listOfNotNull(stdlib?.let { it to path })
+            } else {
+                listOfNotNull(
+                    projectRoot()?.let { it to "lib/$path" },
+                    stdlib?.let { it to path },
+                )
+            }
         }
         val mode = if (recursive) CrystalWildcardMode.RECURSIVE else CrystalWildcardMode.DIRECT
         val wildcardWatches = linkedSetOf<CrystalWildcardWatch>()
