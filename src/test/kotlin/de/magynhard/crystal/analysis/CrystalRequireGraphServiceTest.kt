@@ -32,6 +32,10 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.CrystalRequireStatement
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
+import org.junit.Assume
+import java.nio.file.FileSystemException
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
@@ -176,6 +180,114 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         stdlibRoot = null
         val withoutStdlib = service.effectiveSources(context)
         assertEquals(setOf(vf("src/main.cr")), withoutStdlib.files)
+    }
+
+    fun testDotPrefixedExactAndWildcardRequiresStayRelativeAndInvalidate() {
+        files(
+            "dot_paths/main.cr" to
+                "require \".hidden\"\nrequire \".explicit_hidden.cr\"\n" +
+                "require \".hidden_files/*\"\nrequire \".hidden_tree/**\"",
+            "dot_paths/.hidden.cr" to "",
+            "dot_paths/.explicit_hidden.cr" to "",
+            "dot_paths/.hidden_files/direct.cr" to "",
+            "dot_paths/.hidden_tree/nested/deep.cr" to "",
+        )
+        val service = service(stdlib = null, validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN)
+        val initial = service.effectiveSources(elementIn("dot_paths/main.cr"))
+        assertEquals(
+            setOf(
+                vf("dot_paths/main.cr"),
+                vf("dot_paths/.hidden.cr"),
+                vf("dot_paths/.explicit_hidden.cr"),
+                vf("dot_paths/.hidden_files/direct.cr"),
+                vf("dot_paths/.hidden_tree/nested/deep.cr"),
+            ),
+            initial.files,
+        )
+
+        val created = myFixture.addFileToProject("dot_paths/.hidden_files/created.cr", "").virtualFile
+        service.handleVfsEvents(
+            listOf(VFileCreateEvent(this, directory("dot_paths/.hidden_files"), "created.cr", false, null, null, null)),
+        )
+
+        val updated = service.effectiveSources(elementIn("dot_paths/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(created))
+
+        val nestedDirectory = directory("dot_paths/.hidden_tree/nested")
+        val recursiveCreated = myFixture.addFileToProject("dot_paths/.hidden_tree/nested/created.cr", "").virtualFile
+        service.handleVfsEvents(
+            listOf(VFileCreateEvent(this, nestedDirectory, "created.cr", false, null, null, null)),
+        )
+        assertTrue(service.effectiveSources(elementIn("dot_paths/main.cr")).files.contains(recursiveCreated))
+    }
+
+    fun testMissingDotPrefixedExactRequireInvalidatesWhenCreated() {
+        files("dot_exact/main.cr" to "require \".late_hidden\"")
+        val service = service(stdlib = null, validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN)
+        val initial = service.effectiveSources(elementIn("dot_exact/main.cr"))
+        val created = myFixture.addFileToProject("dot_exact/.late_hidden.cr", "").virtualFile
+
+        service.handleVfsEvents(
+            listOf(VFileCreateEvent(this, directory("dot_exact"), ".late_hidden.cr", false, null, null, null)),
+        )
+
+        val updated = service.effectiveSources(elementIn("dot_exact/main.cr"))
+        assertNotSame(initial, updated)
+        assertTrue(updated.files.contains(created))
+    }
+
+    fun testNestedProjectRootSymlinkNeverEntersEffectiveSourcesOrInvalidation() {
+        val source = projectFile("canonical-safety/main.cr")
+        val allowed = projectFile("canonical-safety/target/allowed.cr")
+        val rootFeature = projectFile("canonical-root-feature.cr")
+        ApplicationManager.getApplication().runWriteAction {
+            VfsUtil.saveText(source, "require \"./target/**\"")
+        }
+        val target = requireNotNull(allowed.parent)
+        createSymbolicLinkOrSkip(Path.of(target.path, "project"), Path.of(projectBaseRoot().path))
+        VfsUtil.markDirtyAndRefresh(false, true, true, target)
+        val service = CrystalRequireGraphService(
+            project,
+            CrystalRequirePathResolver(project, { null }, ::projectBaseRoot),
+        )
+        val context = ReadAction.computeBlocking<PsiElement, RuntimeException> {
+            requireNotNull(requireNotNull(PsiManager.getInstance(project).findFile(source)).firstChild)
+        }
+
+        try {
+            val initial = service.effectiveSources(context)
+            assertEquals(setOf(source, allowed), initial.files)
+            assertFalse(initial.files.contains(rootFeature))
+
+            val lateRootFile = projectFile("canonical-late-root-feature.cr")
+            service.handleVfsEvents(
+                listOf(VFileCreateEvent(this, projectBaseRoot(), lateRootFile.name, false, null, null, null)),
+            )
+            val updated = service.effectiveSources(context)
+            assertFalse(updated.files.contains(rootFeature))
+            assertFalse(updated.files.contains(lateRootFile))
+            ApplicationManager.getApplication().runWriteAction { lateRootFile.delete(this) }
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                projectBaseRoot().findChild("canonical-safety")?.delete(this)
+                rootFeature.delete(this)
+            }
+        }
+    }
+
+    fun testTrailingContinuationWhitespaceLoadsLfAndCrlfDependencies() {
+        files(
+            "continuations/main.cr" to
+                "require \"./lf\\\n  \"\nrequire \"./crlf\\\r\n\t \"",
+            "continuations/lf.cr" to "",
+            "continuations/crlf.cr" to "",
+        )
+
+        assertEquals(
+            setOf(vf("continuations/main.cr"), vf("continuations/lf.cr"), vf("continuations/crlf.cr")),
+            service(stdlib = null).effectiveSources(elementIn("continuations/main.cr")).files,
+        )
     }
 
     fun testPreludeFoundationIgnoresProjectLibCollisions() {
@@ -2079,6 +2191,25 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
                 ?: parent.createChildData(this, path.substringAfterLast('/'))
         }
         return requireNotNull(result)
+    }
+
+    private fun projectBaseRoot(): VirtualFile =
+        requireNotNull(LocalFileSystem.getInstance().findFileByPath(requireNotNull(project.basePath)))
+
+    private fun createSymbolicLinkOrSkip(link: Path, target: Path) {
+        try {
+            Files.createSymbolicLink(link, target)
+        } catch (error: UnsupportedOperationException) {
+            Assume.assumeNoException(error)
+        } catch (error: FileSystemException) {
+            val reason = error.reason.orEmpty().lowercase()
+            if (reason.contains("not permitted") || reason.contains("not supported") || reason.contains("privilege")) {
+                Assume.assumeNoException("Platform cannot create symbolic links", error)
+            }
+            throw error
+        } catch (error: SecurityException) {
+            Assume.assumeNoException(error)
+        }
     }
 
     private fun removeProjectPath(path: String) {

@@ -389,6 +389,29 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testDotPrefixedFilenameCompletionUsesRelativeDirectory() {
+        myFixture.addFileToProject(".hidden.cr", "")
+        myFixture.addFileToProject(".hidden/direct.cr", "")
+        myFixture.addFileToProject(".hidden/nested/deep.cr", "")
+        projectFile("lib/.hidden.cr")
+
+        myFixture.configureByText("main.cr", "require \".hid<caret>\"")
+        val extensionless = requireNotNull(myFixture.complete(CompletionType.BASIC))
+        assertEquals(listOf(".hidden"), extensionless.map { it.lookupString })
+
+        myFixture.configureByText("main.cr", "require \".hidden.<caret>\"")
+        val explicit = requireNotNull(myFixture.complete(CompletionType.BASIC))
+        assertEquals(listOf(".hidden.cr"), explicit.map { it.lookupString })
+
+        myFixture.configureByText("main.cr", "require \".hidden/<caret>\"")
+        val direct = requireNotNull(myFixture.complete(CompletionType.BASIC))
+        assertEquals(setOf("direct", "nested"), direct.map { it.lookupString }.toSet())
+
+        myFixture.configureByText("main.cr", "require \".hidden/nested/<caret>\"")
+        val nested = requireNotNull(myFixture.complete(CompletionType.BASIC))
+        assertEquals(listOf("deep"), nested.map { it.lookupString })
+    }
+
     fun testNoCrashWhenStdlibUnavailable() {
         val unavailable = Disposer.newDisposable()
         Disposer.register(testRootDisposable, unavailable)

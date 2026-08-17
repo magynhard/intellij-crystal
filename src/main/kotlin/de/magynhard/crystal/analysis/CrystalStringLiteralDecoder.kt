@@ -20,10 +20,10 @@ internal object CrystalStringLiteralDecoder {
                 'r' -> result.append('\r')
                 't' -> result.append('\t')
                 'v' -> result.append('\u000b')
-                '\n' -> index = skipContinuationWhitespace(content, index) ?: return null
+                '\n' -> index = skipContinuationWhitespace(content, index)
                 '\r' -> {
                     if (index >= content.length || content[index] != '\n') return null
-                    index = skipContinuationWhitespace(content, index + 1) ?: return null
+                    index = skipContinuationWhitespace(content, index + 1)
                 }
                 'x' -> {
                     if (index + 2 > content.length) return null
@@ -73,10 +73,10 @@ internal object CrystalStringLiteralDecoder {
 
     private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
-    private fun skipContinuationWhitespace(content: String, start: Int): Int? {
+    private fun skipContinuationWhitespace(content: String, start: Int): Int {
         var index = start
         while (index < content.length && content[index].isAsciiWhitespace()) index++
-        return index.takeIf { it < content.length }
+        return index
     }
 
     private fun Char.isAsciiWhitespace(): Boolean = this == ' ' || this in '\t'..'\r'

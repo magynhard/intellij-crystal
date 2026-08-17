@@ -9,6 +9,8 @@ import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.junit.Assume
+import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -104,6 +106,14 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testEveryDotPrefixedFilenameUsesRelativeExactResolution() {
+        val source = file("src/main.cr")
+        val hidden = file("src/.hidden.cr")
+
+        assertEquals(listOf(hidden), resolver().resolve(source, ".hidden").files)
+        assertEquals(listOf(hidden), resolver().resolve(source, ".hidden.cr").files)
+    }
+
     fun testStdlibRootUsesNestedShardExpansionOrder() {
         val source = file("stdlib/prelude.cr")
         val nonNamespaced = file("stdlib/kemal/src/helpers.cr")
@@ -182,6 +192,15 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         assertEquals(setOf(directory("src/models")), resolution.watchedDirectories)
     }
 
+    fun testEveryDotPrefixedFilenameUsesRelativeWildcardResolution() {
+        val source = file("src/main.cr")
+        val direct = file("src/.hidden/direct.cr")
+        val nested = file("src/.hidden/nested/deep.cr")
+
+        assertEquals(listOf(direct), resolver().resolve(source, ".hidden/*").files)
+        assertEquals(listOf(direct, nested), resolver().resolve(source, ".hidden/**").files)
+    }
+
     fun testRecursiveWildcardRejectsProjectRootButAllowsTargetedSubdirectory() {
         val source = projectFile("main.cr")
         val rootFeature = projectFile("root_feature.cr")
@@ -245,6 +264,45 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
         } finally {
             ApplicationManager.getApplication().runWriteAction {
                 projectBaseRoot().findChild("cycle-fixture")?.delete(this)
+            }
+        }
+    }
+
+    fun testRecursiveWildcardRejectsInitialSymlinkToCanonicalProjectRoot() {
+        val source = projectFile("symlink-initial/source/main.cr")
+        val projectFeature = projectFile("symlink-initial-project-feature.cr")
+        val sourceDirectory = requireNotNull(source.parent)
+        createSymbolicLinkOrSkip(Path.of(sourceDirectory.path, ".project"), Path.of(projectBaseRoot().path))
+        VfsUtil.markDirtyAndRefresh(false, true, true, sourceDirectory)
+
+        try {
+            val resolution = resolver().resolve(source, ".project/**")
+            assertTrue(resolution.files.isEmpty())
+            assertFalse(resolution.files.contains(projectFeature))
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                projectBaseRoot().findChild("symlink-initial")?.delete(this)
+                projectFeature.delete(this)
+            }
+        }
+    }
+
+    fun testRecursiveWildcardSkipsNestedSymlinkToCanonicalProjectRoot() {
+        val source = projectFile("symlink-nested/main.cr")
+        val allowed = projectFile("symlink-nested/target/allowed.cr")
+        val projectFeature = projectFile("symlink-nested-project-feature.cr")
+        val target = requireNotNull(allowed.parent)
+        createSymbolicLinkOrSkip(Path.of(target.path, "project"), Path.of(projectBaseRoot().path))
+        VfsUtil.markDirtyAndRefresh(false, true, true, target)
+
+        try {
+            val resolution = resolver().resolve(source, "./target/**")
+            assertEquals(listOf(allowed), resolution.files)
+            assertFalse(resolution.files.contains(projectFeature))
+        } finally {
+            ApplicationManager.getApplication().runWriteAction {
+                projectBaseRoot().findChild("symlink-nested")?.delete(this)
+                projectFeature.delete(this)
             }
         }
     }
@@ -397,4 +455,21 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
     private fun directory(path: String): VirtualFile =
         requireNotNull(myFixture.tempDirFixture.findOrCreateDir("").findFileByRelativePath(path))
+
+    private fun createSymbolicLinkOrSkip(link: Path, target: Path) {
+        try {
+            Files.createDirectories(link.parent)
+            Files.createSymbolicLink(link, target)
+        } catch (error: UnsupportedOperationException) {
+            Assume.assumeNoException(error)
+        } catch (error: FileSystemException) {
+            val reason = error.reason.orEmpty().lowercase()
+            if (reason.contains("not permitted") || reason.contains("not supported") || reason.contains("privilege")) {
+                Assume.assumeNoException("Platform cannot create symbolic links", error)
+            }
+            throw error
+        } catch (error: SecurityException) {
+            Assume.assumeNoException(error)
+        }
+    }
 }

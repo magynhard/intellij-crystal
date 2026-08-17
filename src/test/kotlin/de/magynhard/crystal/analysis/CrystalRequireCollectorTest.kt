@@ -62,6 +62,18 @@ class CrystalRequireCollectorTest : BasePlatformTestCase() {
         )
     }
 
+    fun testCollectsContinuationWhitespaceAtClosingQuoteBoundary() {
+        val file = configure(
+            "require \"lf_feature\\\n  \"\n" +
+                "require \"crlf_feature\\\r\n\t \"",
+        )
+
+        assertEquals(
+            listOf("lf_feature", "crlf_feature"),
+            CrystalRequireCollector.collect(file).paths,
+        )
+    }
+
     fun testExcludesInvalidEscapesWithoutProducingFingerprintEdges() {
         val file = configure(
             "require \"invalid_hex_\\xF\"\n" +

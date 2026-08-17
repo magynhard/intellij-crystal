@@ -2,6 +2,8 @@ package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.roots.ModuleRootEvent
+import com.intellij.openapi.roots.ModuleRootListener
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -24,9 +26,18 @@ import java.io.File
 object CrystalStdlibResolver {
 
     private val STDLIB_PATH_KEY = Key.create<VirtualFile>("crystal.stdlib.path.cache")
+    private val DISCOVERY_STATE_KEY = Key.create<DiscoveryState>("crystal.stdlib.discovery.state")
     private val TEST_DISCOVERY_KEY = Key.create<DiscoveryOverride>("crystal.stdlib.test.discovery")
     private val TEST_VERSION_KEY = Key.create<VersionOverride>("crystal.stdlib.test.version")
     private val TEST_OVERRIDE_LOCK = Any()
+
+    private class DiscoveryState(var generation: Long = 0)
+
+    private data class DiscoveryAttempt(
+        val generation: Long,
+        val crystalPath: String,
+        val override: DiscoveryOverride?,
+    )
 
     private class DiscoveryOverride(
         val callback: () -> VirtualFile?,
@@ -40,19 +51,31 @@ object CrystalStdlibResolver {
         var active: Boolean = true,
     )
 
-    internal fun cachedStdlibPath(project: Project): VirtualFile? =
-        project.getUserData(STDLIB_PATH_KEY)?.takeIf(VirtualFile::isValid)
+    internal fun cachedStdlibPath(project: Project): VirtualFile? = synchronized(TEST_OVERRIDE_LOCK) {
+        val cached = project.getUserData(STDLIB_PATH_KEY) ?: return@synchronized null
+        if (cached.isValid) return@synchronized cached
+        project.putUserData(STDLIB_PATH_KEY, null)
+        discoveryState(project).generation++
+        null
+    }
 
     fun resolveStdlibPath(project: Project): VirtualFile? {
         // Fast path: cached value, validated for existence.
         cachedStdlibPath(project)?.let { return it }
 
-        synchronized(TEST_OVERRIDE_LOCK) { project.getUserData(TEST_DISCOVERY_KEY)?.callback }?.let { discovery ->
-            return discovery()?.let { publishStdlibPath(project, it) }
+        val attempt = synchronized(TEST_OVERRIDE_LOCK) {
+            DiscoveryAttempt(
+                discoveryState(project).generation,
+                CrystalSettings.getInstance(project).getEffectiveCrystalPath(),
+                project.getUserData(TEST_DISCOVERY_KEY),
+            )
+        }
+        attempt.override?.let { override ->
+            val discovered = override.callback() ?: return null
+            return publishDiscoveredStdlibPath(project, attempt, discovered)
         }
 
-        val crystalPath = CrystalSettings.getInstance(project).getEffectiveCrystalPath()
-        val crystalEnv = runCrystalEnv(crystalPath) ?: return null
+        val crystalEnv = runCrystalEnv(attempt.crystalPath) ?: return null
 
         // CRYSTAL_PATH is colon-separated: "lib:/usr/lib/crystal"
         // We want the stdlib entry (starts with "/" on Unix, drive letter on Windows)
@@ -68,7 +91,7 @@ object CrystalStdlibResolver {
         val root = if (srcDir.isDirectory) srcDir else stdlibDir
 
         val resolved = LocalFileSystem.getInstance().findFileByPath(root.absolutePath)
-        return resolved?.let { publishStdlibPath(project, it) }
+        return resolved?.let { publishDiscoveredStdlibPath(project, attempt, it) }
     }
 
     /**
@@ -77,12 +100,37 @@ object CrystalStdlibResolver {
      * next call to [resolveStdlibPath] re-runs `crystal env CRYSTAL_PATH`.
      */
     fun clearCachedStdlibPath(project: Project) {
-        project.putUserData(STDLIB_PATH_KEY, null)
+        synchronized(TEST_OVERRIDE_LOCK) {
+            project.putUserData(STDLIB_PATH_KEY, null)
+            discoveryState(project).generation++
+        }
     }
 
     internal fun publishStdlibPath(project: Project, root: VirtualFile): VirtualFile {
-        project.putUserData(STDLIB_PATH_KEY, root)
+        synchronized(TEST_OVERRIDE_LOCK) {
+            discoveryState(project).generation++
+            project.putUserData(STDLIB_PATH_KEY, root)
+        }
         return root
+    }
+
+    private fun publishDiscoveredStdlibPath(
+        project: Project,
+        attempt: DiscoveryAttempt,
+        root: VirtualFile,
+    ): VirtualFile? = synchronized(TEST_OVERRIDE_LOCK) {
+        val state = discoveryState(project)
+        if (
+            project.isDisposed ||
+            state.generation != attempt.generation ||
+            project.getUserData(TEST_DISCOVERY_KEY) !== attempt.override ||
+            attempt.override?.active == false ||
+            CrystalSettings.getInstance(project).getEffectiveCrystalPath() != attempt.crystalPath
+        ) {
+            return@synchronized null
+        }
+        project.putUserData(STDLIB_PATH_KEY, root)
+        root
     }
 
     internal fun installDiscoveryForTests(
@@ -93,6 +141,7 @@ object CrystalStdlibResolver {
         val frame = synchronized(TEST_OVERRIDE_LOCK) {
             DiscoveryOverride(discovery, project.getUserData(TEST_DISCOVERY_KEY)).also {
                 project.putUserData(TEST_DISCOVERY_KEY, it)
+                discoveryState(project).generation++
             }
         }
         Disposer.register(parentDisposable) {
@@ -101,6 +150,7 @@ object CrystalStdlibResolver {
                 if (project.getUserData(TEST_DISCOVERY_KEY) === frame) {
                     project.putUserData(TEST_DISCOVERY_KEY, generateSequence(frame.previous) { it.previous }.firstOrNull { it.active })
                 }
+                discoveryState(project).generation++
             }
         }
     }
@@ -154,6 +204,18 @@ object CrystalStdlibResolver {
             if (exitCode == 0 && output.isNotBlank()) output else null
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun discoveryState(project: Project): DiscoveryState {
+        project.getUserData(DISCOVERY_STATE_KEY)?.let { return it }
+        return DiscoveryState().also { state ->
+            project.putUserData(DISCOVERY_STATE_KEY, state)
+            project.messageBus.connect(project).subscribe(ModuleRootListener.TOPIC, object : ModuleRootListener {
+                override fun rootsChanged(event: ModuleRootEvent) {
+                    clearCachedStdlibPath(project)
+                }
+            })
         }
     }
 }

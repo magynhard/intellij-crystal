@@ -4,6 +4,7 @@ import com.intellij.openapi.roots.AdditionalLibraryRootsListener
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.openapi.util.Disposer
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.analysis.CrystalRequirePathResolver
 import java.util.concurrent.CompletableFuture
@@ -86,6 +87,44 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
         assertFalse(afterApply.files.any { it.path.startsWith(rootA.path) })
         assertTrue(afterApply.files.any { it.path.startsWith(rootB.path) && it.name == "prelude.cr" })
         assertTrue(service.cacheStats().fullInvalidations >= before.fullInvalidations + 3)
+    }
+
+    fun testCompletedSettingsBDiscardsBlockedSdkADiscoveryForCacheAndGraph() {
+        val rootA = fixtureStdlib("race-settings-sdk-a")
+        val rootB = fixtureStdlib("race-settings-sdk-b")
+        val blockedA = Disposer.newDisposable()
+        val enteredA = CountDownLatch(1)
+        val releaseA = CountDownLatch(1)
+        CrystalSettings.getInstance(project).state.crystalPath = "sdk-a"
+        CrystalStdlibResolver.installDiscoveryForTests(project, blockedA) {
+            enteredA.countDown()
+            assertTrue(releaseA.await(10, TimeUnit.SECONDS))
+            rootA
+        }
+        CrystalStdlibResolver.clearCachedStdlibPath(project)
+        val staleA = CompletableFuture.supplyAsync(
+            { CrystalStdlibResolver.resolveStdlibPath(project) },
+            AppExecutorUtil.getAppExecutorService(),
+        )
+        assertTrue(enteredA.await(10, TimeUnit.SECONDS))
+
+        Disposer.dispose(blockedA)
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { rootB }
+        configurable("sdk-b").apply()
+        assertSame(rootB, CrystalStdlibResolver.resolveStdlibPath(project))
+        val service = CrystalRequireGraphService.getInstance(project)
+        val context = myFixture.addFileToProject("race-settings/main.cr", "require \"feature\"")
+        val fromB = service.effectiveSources(context).files
+        assertSame(rootB, CrystalStdlibResolver.cachedStdlibPath(project))
+        assertTrue(fromB.any { it.path.startsWith(rootB.path) && it.name == "prelude.cr" })
+        assertFalse(fromB.any { it.path.startsWith(rootA.path) })
+
+        releaseA.countDown()
+        assertNull(staleA.get(10, TimeUnit.SECONDS))
+        assertSame(rootB, CrystalStdlibResolver.cachedStdlibPath(project))
+        val afterA = service.effectiveSources(context).files
+        assertTrue(afterA.any { it.path.startsWith(rootB.path) && it.name == "prelude.cr" })
+        assertFalse(afterA.any { it.path.startsWith(rootA.path) })
     }
 
     fun testApplyPublishesSdkBBeforeCallbackQueryAndInvalidatesAgainAfterwards() {

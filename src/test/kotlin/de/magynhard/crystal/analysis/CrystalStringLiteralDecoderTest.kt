@@ -18,7 +18,8 @@ class CrystalStringLiteralDecoderTest : TestCase() {
         assertEquals("json", decode("js\\\non"))
         assertEquals("json", decode("js\\\r\non"))
         assertEquals("json", decode("js\\\n \t on"))
-        assertNull(decode("json\\\n  \t"))
+        assertEquals("json", decode("json\\\n  \t"))
+        assertEquals("json", decode("json\\\r\n  \t"))
     }
 
     fun testRejectsInvalidUnicodeAndIncompleteSequences() {

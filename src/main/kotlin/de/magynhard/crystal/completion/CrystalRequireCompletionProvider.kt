@@ -185,17 +185,17 @@ object CrystalRequireCompletionProvider {
                 c == '/' -> {
                     i++  // bare slash separator at start (e.g. `/foo` — rare)
                 }
-                c == '.' -> {
-                    if (i + 1 < n && pathPrefix[i + 1] == '.') {
-                        // ".." — walk up one level
-                        dir = dir.parent ?: return emptyList()
-                        i += 2
-                        if (i < n && pathPrefix[i] == '/') i++  // skip the trailing '/'
-                    } else {
-                        // "." — current directory (no-op)
-                        i++
-                        if (i < n && pathPrefix[i] == '/') i++  // skip the trailing '/'
-                    }
+                c == '.' && (i + 1 == n || pathPrefix[i + 1] == '/') -> {
+                    // "." is a path segment only by itself; ".hidden" is a filename.
+                    i++
+                    if (i < n && pathPrefix[i] == '/') i++
+                }
+                c == '.' && i + 1 < n && pathPrefix[i + 1] == '.' &&
+                    (i + 2 == n || pathPrefix[i + 2] == '/') -> {
+                    // ".." — walk up one level
+                    dir = dir.parent ?: return emptyList()
+                    i += 2
+                    if (i < n && pathPrefix[i] == '/') i++  // skip the trailing '/'
                 }
                 else -> {
                     // Read segment up to next '/' (or end of prefix).
@@ -377,7 +377,7 @@ object CrystalRequireCompletionProvider {
         }
 
         for (child in children) {
-            if (child.name.startsWith(".")) continue  // skip dotfiles
+            if (child.name.startsWith(".") && !segmentPrefix.startsWith(".")) continue
             if (child.isDirectory) {
                 if (!child.name.startsWith(segmentPrefix)) continue
                 val fullInsertPath = computeFullInsertPath(pathPrefix, child.name) + "/"
@@ -390,7 +390,7 @@ object CrystalRequireCompletionProvider {
                 )
             } else if (child.extension == "cr") {
                 val baseName = child.nameWithoutExtension
-                val explicitExtension = '.' in segmentPrefix
+                val explicitExtension = '.' in segmentPrefix.drop(1)
                 val lookupName = if (explicitExtension) child.name else baseName
                 if (!lookupName.startsWith(segmentPrefix)) continue
                 if (child == currentFile) continue  // don't suggest requiring the current file

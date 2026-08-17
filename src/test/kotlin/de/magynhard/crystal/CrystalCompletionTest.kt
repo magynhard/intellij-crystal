@@ -2066,6 +2066,33 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testTrailingContinuationWhitespaceLoadsMethodsForLfAndCrlf() {
+        installFixtureStdlib()
+        myFixture.addFileToProject(
+            "continuation_lf.cr",
+            "class String\n  def from_lf_continuation\n  end\nend",
+        )
+        myFixture.addFileToProject(
+            "continuation_crlf.cr",
+            "class String\n  def from_crlf_continuation\n  end\nend",
+        )
+
+        assertContainsAll(
+            completionNames(
+                "continuation_lf_caller.cr",
+                "require \"./continuation_lf\\\n  \"\n\"text\".<caret>",
+            ),
+            "from_lf_continuation",
+        )
+        assertContainsAll(
+            completionNames(
+                "continuation_crlf_caller.cr",
+                "require \"./continuation_crlf\\\r\n\t \"\n\"text\".<caret>",
+            ),
+            "from_crlf_continuation",
+        )
+    }
+
     fun testShardAndProjectReopeningsFollowOnlyForwardRequireClosure() {
         installFixtureStdlib()
         myFixture.addFileToProject("lib/kemal/src/kemal.cr", "class String\n  def kemal_escape\n  end\nend")

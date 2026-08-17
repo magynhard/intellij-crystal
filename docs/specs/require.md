@@ -123,7 +123,8 @@ Collection preserves source order. Requires rejected by the context inspection, 
 ## Runtime Path Resolution
 
 Require-aware analysis resolves edges without running the Crystal compiler and without scanning the
-project. Relative paths start at the requiring file's directory. Bare paths use compiler precedence:
+project. Every path whose filename starts with `.`, including `.hidden` and `.hidden.cr`, is relative
+and starts at the requiring file's directory. Bare paths use compiler precedence:
 the project's `lib/` root first, then the configured stdlib root. Exact candidates support both
 `path.cr` and `path/path.cr`. For each root, lookup is deterministic and stops at the first existing
 compiler-ordered form. Every filename is first tried with exactly one `.cr` suffix. A non-relative
@@ -150,10 +151,12 @@ and sibling branches do not leak into one another.
 
 Terminal `/*` expands direct `.cr` children in stable path order. Terminal `/**` additionally walks
 descendant directories in Crystal's sorted depth-first order: sorted direct files, then each sorted
-directory recursively. Traversal is iterative, cancellation-aware, and tracks canonical identities
-so aliases and symbolic-link cycles are visited once. A recursive wildcard whose target equals or
-contains the project root, including `./**`, `../**`, and deeper ancestor forms, is conservatively
-suppressed to prevent a runtime whole-project scan. Explicit descendant directories such as
+directory recursively. Traversal is iterative and cancellation-aware. The project root and every
+directory reached during traversal are canonicalized before safety checks or child enumeration;
+canonical identities prevent duplicate alias and symbolic-link-cycle visits. A wildcard directory
+whose canonical target equals or contains the canonical project root is skipped, including an initial
+target symlink and a nested symlink inside an otherwise allowed target. Recursive `./**`, `../**`, and
+deeper ancestor forms are therefore conservatively suppressed before any whole-project scan. Explicit descendant directories such as
 `src/extensions/**` remain supported. Each wildcard records its concrete or nearest existing target so creation,
 copy, deletion, rename, and movement invalidate matching closures. Exact candidates record missing
 and higher-precedence alternatives for the same reason. Require PSI edits, relevant required-file
@@ -165,8 +168,9 @@ Static double-quoted paths are decoded before fingerprinting and resolution. Nam
 escaped quote/backslash/hash and other pass-through characters, one-to-four-digit octal values below
 256, exactly two-digit hex, exactly four-digit non-surrogate `\uFFFF`, and one-to-six-digit valid
 `\u{...}` codepoints separated by one literal ASCII space contribute their runtime string value.
-Escaped newline continuations consume following ASCII whitespace. Interpolation and invalid escape/codepoint
-sequences are excluded conservatively. Consequently, invalidation watches the decoded candidate
+Escaped newline continuations consume following ASCII whitespace, including when that whitespace ends
+at the collected content boundary immediately before a PSI-validated closing quote. Interpolation and
+invalid escape/codepoint sequences are excluded conservatively. Consequently, invalidation watches the decoded candidate
 paths rather than the source spelling.
 
 ## Path Completion
@@ -186,7 +190,8 @@ The first path character selects the lookup mode:
 
 ### Relative Paths
 
-Relative mode supports `./`, `../`, nested directories, and partially typed path segments.
+Relative mode supports `./`, `../`, dot-prefixed filenames and directories, nested directories, and
+partially typed path segments.
 
 Candidates are:
 
@@ -194,8 +199,10 @@ Candidates are:
 - `.cr` files whose base names match the current segment. Once the segment contains an explicit
   extension prefix, completion retains and inserts the full `.cr` name.
 
-The current file, dotfiles, hidden directories, and non-Crystal files are excluded. File lookup names
-normally omit the `.cr` extension; an explicitly typed extension is preserved. Directory entries
+The current file and non-Crystal files are excluded. Dotfiles and hidden directories are shown only
+after the current segment starts with `.`, keeping ordinary listings uncluttered while allowing Crystal's
+dot-prefixed relative paths. File lookup names normally omit the `.cr` extension; an explicitly typed
+extension is preserved. Directory entries
 display a trailing `/`.
 
 Examples:
@@ -241,6 +248,10 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
 - Directory completion uses `VirtualFile` children and direct path resolution.
 - Runtime completion never scans project files through `FileTypeIndex`.
 - Stdlib resolution uses the project-scoped cached SDK path.
+- Stdlib discovery captures a project-scoped generation, effective SDK path, and discovery-override
+  frame before running outside the lock. Cache clears, SDK/root changes, and discovery-override ownership
+  changes advance the generation. A result is published only if all captured identities remain current;
+  stale, disposed, null, and failed discoveries cannot replace a newer SDK root.
 - Completion queries only the selected path roots and current directory level.
 - The production require graph reuses every materialized node not marked dirty by
   a VFS content-change event without collecting its require fingerprint again.

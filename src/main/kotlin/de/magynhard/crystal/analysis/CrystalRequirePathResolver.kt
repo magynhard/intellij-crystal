@@ -5,7 +5,6 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.vfs.VfsUtilCore
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 internal enum class CrystalWildcardMode {
@@ -94,7 +93,7 @@ internal class CrystalRequirePathResolver private constructor(
             return resolveWildcard(requiringFile, path, recursive, stdlibRoot, mode)
         }
 
-        val roots = if (requirePath.startsWith("./") || requirePath.startsWith("../")) {
+        val roots = if (isRelativePath(requirePath)) {
             listOfNotNull(requiringFile.parent?.let { ExactRoot(it, it.path, false) })
         } else {
             val stdlib = stdlibRoot()
@@ -185,8 +184,7 @@ internal class CrystalRequirePathResolver private constructor(
         else -> null
     }
 
-    private fun isRelativePath(path: String): Boolean =
-        path == "." || path == ".." || path.startsWith("./") || path.startsWith("../")
+    private fun isRelativePath(path: String): Boolean = path.startsWith('.')
 
     private fun findDirectoryOrNearest(
         root: VirtualFile,
@@ -208,15 +206,14 @@ internal class CrystalRequirePathResolver private constructor(
     }
 
     private fun gatherCrystalFiles(directory: VirtualFile, recursive: Boolean): List<VirtualFile> {
-        if (recursive && containsProjectRoot(directory)) return emptyList()
         val result = mutableListOf<VirtualFile>()
         val pending = ArrayDeque<VirtualFile>()
         val visited = mutableSetOf<String>()
         pending.add(directory)
         while (pending.isNotEmpty()) {
             ProgressManager.checkCanceled()
-            val current = pending.removeLast()
-            val identity = current.canonicalPath ?: FileUtil.toCanonicalPath(current.path)
+            val (current, identity) = canonicalDirectory(pending.removeLast()) ?: continue
+            if (containsCanonicalProjectRoot(identity)) continue
             if (!visited.add(identity)) continue
             val children = current.children.sortedBy(VirtualFile::getPath)
             for (child in children) {
@@ -237,7 +234,7 @@ internal class CrystalRequirePathResolver private constructor(
         val basename = parts.lastOrNull()?.removeSuffix(".cr") ?: return emptyList()
         val relativeFilename = requirePath
         val result = mutableListOf(candidate(root, ensureCrystalSuffix(relativeFilename)))
-        val filenameIsRelative = requirePath.startsWith('.')
+        val filenameIsRelative = isRelativePath(requirePath)
         val shardName = parts.firstOrNull()
         val shardPath = parts.drop(1).joinToString("/").ifEmpty { null }
         if (root.allowShardSrc && !filenameIsRelative && shardName != null && shardPath != null) {
@@ -265,11 +262,21 @@ internal class CrystalRequirePathResolver private constructor(
     private fun path(root: String, relativePath: String): String =
         FileUtil.toCanonicalPath("${root.trimEnd('/')}/$relativePath", '/')
 
-    private fun containsProjectRoot(directory: VirtualFile): Boolean {
+    private fun canonicalDirectory(directory: VirtualFile): Pair<VirtualFile, String>? {
+        if (!directory.isValid || !directory.isDirectory) return null
+        val identity = directory.canonicalPath ?: FileUtil.toCanonicalPath(directory.path)
+        val canonical = LocalFileSystem.getInstance().findFileByPath(identity)
+            ?.takeIf { it.isValid && it.isDirectory }
+            ?: directory
+        return canonical to identity
+    }
+
+    private fun containsCanonicalProjectRoot(directoryPath: String): Boolean {
         val root = projectRoot()
             ?: project.basePath?.let(LocalFileSystem.getInstance()::findFileByPath)
             ?: return false
-        return VfsUtilCore.isAncestor(directory, root, false) || directory == root
+        val projectPath = root.canonicalPath ?: FileUtil.toCanonicalPath(root.path)
+        return FileUtil.isAncestor(directoryPath, projectPath, false)
     }
 
     private fun isCrystalFile(file: VirtualFile?): Boolean =
