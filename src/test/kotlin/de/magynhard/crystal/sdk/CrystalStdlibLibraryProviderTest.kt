@@ -13,6 +13,7 @@ class CrystalStdlibLibraryProviderTest : BasePlatformTestCase() {
         val originalCrystalPath = settings.state.crystalPath
         try {
             val stdlib = Files.createDirectory(tempDir.resolve("crystal-stdlib"))
+            Files.writeString(stdlib.resolve("prelude.cr"), "")
             Files.writeString(stdlib.resolve("array.cr"), "class Array; end")
             Files.createDirectories(stdlib.resolve("json"))
             Files.writeString(stdlib.resolve("json/parser.cr"), "module JSON; end")
@@ -38,7 +39,7 @@ class CrystalStdlibLibraryProviderTest : BasePlatformTestCase() {
             val library = CrystalStdlibLibraryProvider().getAdditionalProjectLibraries(project).single()
             val rootNames = library.sourceRoots.map { it.name }.toSet()
 
-            assertEquals(setOf("array.cr", "json"), rootNames)
+            assertEquals(setOf("prelude.cr", "array.cr", "json"), rootNames)
         } finally {
             settings.state.crystalPath = originalCrystalPath
             CrystalStdlibResolver.clearCachedStdlibPath(project)
