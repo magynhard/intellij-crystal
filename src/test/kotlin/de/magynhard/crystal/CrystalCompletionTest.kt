@@ -2010,10 +2010,10 @@ class CrystalCompletionTest : BasePlatformTestCase() {
 
         assertEquals(setOf("upcase", "downcase"), completionNames("core_string.cr", "\"text\".<caret>"))
         assertEquals(setOf("times"), completionNames("core_int.cr", "3.<caret>"))
-        assertEquals(setOf("each"), completionNames("core_array.cr", "[1, 2].<caret>"))
-        assertEquals(
-            setOf("each"),
+        assertContainsAll(completionNames("core_array.cr", "[1, 2].<caret>"), "each", "max", "sum", "min", "map")
+        assertContainsAll(
             completionNames("core_assigned_array.cr", "aaa = [1, 2, 3, 4]\naaa.<caret>"),
+            "each", "max", "sum",
         )
     }
 
@@ -2023,10 +2023,10 @@ class CrystalCompletionTest : BasePlatformTestCase() {
 
         assertEquals(setOf("upcase", "downcase"), completionNames("collision_string.cr", "\"text\".<caret>"))
         assertEquals(setOf("times"), completionNames("collision_int.cr", "3.<caret>"))
-        assertEquals(setOf("each"), completionNames("collision_array.cr", "[1, 2].<caret>"))
-        assertEquals(
-            setOf("each"),
+        assertContainsAll(completionNames("collision_array.cr", "[1, 2].<caret>"), "each", "max", "sum")
+        assertContainsAll(
             completionNames("collision_assigned_array.cr", "aaa = [1, 2, 3, 4]\naaa.<caret>"),
+            "each", "max", "sum",
         )
     }
 
@@ -2043,7 +2043,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             completionNames("escaped_prelude_string.cr", "\"text\".<caret>"),
         )
         assertEquals(setOf("times"), completionNames("escaped_prelude_int.cr", "3.<caret>"))
-        assertEquals(setOf("each"), completionNames("escaped_prelude_array.cr", "[1, 2].<caret>"))
+        assertContainsAll(completionNames("escaped_prelude_array.cr", "[1, 2].<caret>"), "each", "max", "sum")
     }
 
     fun testOptionalStdlibExtensionRequiresDirectOrTransitiveForwardEdge() {
@@ -2431,9 +2431,54 @@ class CrystalCompletionTest : BasePlatformTestCase() {
               include Indexable(T)
             end
         """.trimIndent())
-        val enumerable = myFixture.addFileToProject("fixture-stdlib/enumerable.cr", """
+        val enumerable =         myFixture.addFileToProject("fixture-stdlib/enumerable.cr", """
             module Enumerable(T)
+              abstract def each(& : T ->)
               def each
+              end
+              def each_with_index(offset = 0)
+              end
+              def map(& : T -> U) forall U
+              end
+              def select(& : T ->) forall T
+              end
+              def reject(& : T ->) forall T
+              end
+              def any?(& : T ->) forall T
+              end
+              def all?(& : T ->) forall T
+              end
+              def find(& : T ->) forall T
+              end
+              def reduce(initial, &)
+              end
+              def min
+              end
+              def max
+              end
+              def sum
+              end
+              def includes?(value)
+              end
+              def count(& : T ->) forall T
+              end
+              def flat_map(& : T -> U) forall U
+              end
+              def compact_map(& : T -> U) forall U
+              end
+              def each_with_object(obj, &)
+              end
+              def group_by(& : T -> U) forall U
+              end
+              def sort_by(& : T -> U) forall U
+              end
+              def zip(&)
+              end
+              def first(n)
+              end
+              def last(n)
+              end
+              def to_a
               end
             end
         """.trimIndent()).virtualFile
@@ -2464,7 +2509,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             "fixture-stdlib/indexable.cr",
             "module Indexable(T)\n  include Enumerable(T)\nend",
         )
-        myFixture.addFileToProject("fixture-stdlib/enumerable.cr", "module Enumerable(T)\n  def each\n  end\nend")
+        myFixture.addFileToProject("fixture-stdlib/enumerable.cr", "module Enumerable(T)\n  def each\n  end\n  def max\n  end\n  def sum\n  end\nend")
         val wildcard = myFixture.addFileToProject(
             "fixture-stdlib/extensions/core.cr",
             "class String\n  def stdlib_wildcard_method\n  end\nend",

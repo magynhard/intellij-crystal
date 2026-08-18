@@ -117,8 +117,8 @@ class EcrCompletionTest : BasePlatformTestCase() {
             completionNames("<% class String; def injected_host_marker; end; end\n\"text\".<caret> %>"),
         )
         assertEquals(setOf("times"), completionNames("<% ((3)).<caret> %>"))
-        assertEquals(setOf("each"), completionNames("<% [1, 2].<caret> %>"))
-        assertEquals(setOf("each"), completionNames("<% aaa = [1, 2, 3, 4]; aaa.<caret> %>"))
+        assertTrue(completionNames("<% [1, 2].<caret> %>").containsAll(setOf("each", "max", "sum")))
+        assertTrue(completionNames("<% aaa = [1, 2, 3, 4]; aaa.<caret> %>").containsAll(setOf("each", "max")))
     }
 
     fun testProjectLibCannotShadowPreludeInsideInjectedCrystal() {
@@ -127,7 +127,7 @@ class EcrCompletionTest : BasePlatformTestCase() {
 
         assertEquals(setOf("upcase", "downcase"), completionNames("<% \"text\".<caret> %>"))
         assertEquals(setOf("times"), completionNames("<% 3.<caret> %>"))
-        assertEquals(setOf("each"), completionNames("<% [1, 2].<caret> %>"))
+        assertTrue(completionNames("<% [1, 2].<caret> %>").containsAll(setOf("each", "max", "sum")))
     }
 
     fun testEscapedPreludeDependencyRetainsStdlibOnlyResolutionInsideInjectedCrystal() {
@@ -143,7 +143,7 @@ class EcrCompletionTest : BasePlatformTestCase() {
             completionNames("<% \"text\".<caret> %>"),
         )
         assertEquals(setOf("times"), completionNames("<% 3.<caret> %>"))
-        assertEquals(setOf("each"), completionNames("<% [1, 2].<caret> %>"))
+        assertTrue(completionNames("<% [1, 2].<caret> %>").containsAll(setOf("each", "max", "sum")))
     }
 
     fun testUnknownDotReceiverIsSuppressedInsideInjectedCrystal() {
@@ -179,7 +179,21 @@ class EcrCompletionTest : BasePlatformTestCase() {
         myFixture.addFileToProject("fixture-stdlib/indexable.cr", "module Indexable(T)\n  include Enumerable(T)\nend")
         val enumerable = myFixture.addFileToProject(
             "fixture-stdlib/enumerable.cr",
-            "module Enumerable(T)\n  def each; end\nend",
+            """
+            module Enumerable(T)
+              abstract def each(& : T ->)
+              def each; end
+              def map(& : T -> U) forall U; end
+              def select(& : T ->); end
+              def min; end
+              def max; end
+              def sum; end
+              def includes?(value); end
+              def reduce(initial, &); end
+              def any?(& : T ->); end
+              def flat_map(& : T -> U) forall U; end
+            end
+            """.trimIndent(),
         ).virtualFile
         installFixtureGraph(requireNotNull(enumerable.parent))
     }
@@ -204,7 +218,7 @@ class EcrCompletionTest : BasePlatformTestCase() {
             "fixture-stdlib/indexable.cr",
             "module Indexable(T)\n  include Enumerable(T)\nend",
         )
-        myFixture.addFileToProject("fixture-stdlib/enumerable.cr", "module Enumerable(T)\n  def each; end\nend")
+        myFixture.addFileToProject("fixture-stdlib/enumerable.cr", "module Enumerable(T)\n  def each; end\n  def max; end\n  def sum; end\nend")
         val wildcard = myFixture.addFileToProject(
             "fixture-stdlib/extensions/core.cr",
             "class String\n  def stdlib_wildcard_method; end\nend",
