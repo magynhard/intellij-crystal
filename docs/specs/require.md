@@ -116,7 +116,7 @@ Only the `require` keyword is highlighted. The path remains independently naviga
 
 ## Static Dependency Collection
 
-Require-aware analysis collects direct dependency paths from exactly one complete, interpolation-free double-quoted string literal in valid file-scope `CrystalRequireStatement` nodes. This includes requires conditionally surrounded by top-level macro-control directives. Adjacent or compound quoted expressions do not become dependency edges; escaped content inside the single literal remains valid.
+Require-aware analysis collects direct dependency paths from exactly one complete, interpolation-free double-quoted string literal in valid file-scope `CrystalRequireStatement` nodes. This includes requires conditionally surrounded by top-level macro-control directives. Parenthesized call argument lists containing macro-control directives remain structured PSI so parsing continues to later file-scope requires, including trailing stdlib wildcard dependencies. Adjacent or compound quoted expressions do not become dependency edges; escaped content inside the single literal remains valid.
 
 Collection preserves source order. Requires rejected by the context inspection, requires executed inside macro directives, interpolated paths, and incomplete strings do not become dependency edges. An ordered length-prefixed fingerprint changes when a valid path is added, removed, reordered, or edited, but remains stable when unrelated method bodies change.
 

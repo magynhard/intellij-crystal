@@ -671,7 +671,11 @@ implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | o
 call_args ::= LPAREN NLS argument_list NLS RPAREN
             | LPAREN RPAREN
 
-argument_list ::= argument (NLS COMMA NLS argument)* [NLS COMMA]
+argument_list ::= macro_argument_trivia argument (macro_argument_trivia COMMA macro_argument_trivia argument)* [macro_argument_trivia COMMA] macro_argument_trivia
+                | macro_only_argument_list
+
+private macro_argument_trivia ::= (NEWLINE | macro_control)*
+private macro_only_argument_list ::= NEWLINE* macro_control (NEWLINE | macro_control)*
 
 argument ::= STAR expression
            | DOUBLE_STAR expression

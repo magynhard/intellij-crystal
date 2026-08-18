@@ -19,6 +19,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroControlledArguments() {
+        doTest(true)
+    }
+
     fun testDescribeBlock() {
         doTest(true)
     }

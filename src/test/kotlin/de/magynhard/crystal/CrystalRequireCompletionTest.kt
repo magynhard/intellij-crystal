@@ -112,7 +112,12 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
     }
 
     fun testUppercasePrefixDoesNotSuggestRequire() {
-        assertRequireKeywordNotSuggested("Req<caret>")
+        myFixture.configureByText("main.cr", "Req<caret>")
+
+        val lookups = myFixture.complete(CompletionType.BASIC)
+
+        assertTrue("Should not contain the synthesized require statement", lookups.orEmpty().none(::isRequireStatement))
+        assertFalse("Uppercase completion must not insert require", myFixture.editor.document.text.startsWith("require"))
     }
 
     fun testRequireKeywordInsertsEmptyStringAndTriggersPopup() {

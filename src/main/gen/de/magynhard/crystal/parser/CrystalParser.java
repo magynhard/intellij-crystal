@@ -297,55 +297,69 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // argument (NLS COMMA NLS argument)* [NLS COMMA]
+  // macro_argument_trivia argument (macro_argument_trivia COMMA macro_argument_trivia argument)* [macro_argument_trivia COMMA] macro_argument_trivia
+  //                 | macro_only_argument_list
   public static boolean argument_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "argument_list")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, ARGUMENT_LIST, "<argument list>");
-    result_ = argument(builder_, level_ + 1);
-    result_ = result_ && argument_list_1(builder_, level_ + 1);
-    result_ = result_ && argument_list_2(builder_, level_ + 1);
+    result_ = argument_list_0(builder_, level_ + 1);
+    if (!result_) result_ = macro_only_argument_list(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 
-  // (NLS COMMA NLS argument)*
-  private static boolean argument_list_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "argument_list_1")) return false;
+  // macro_argument_trivia argument (macro_argument_trivia COMMA macro_argument_trivia argument)* [macro_argument_trivia COMMA] macro_argument_trivia
+  private static boolean argument_list_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "argument_list_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && argument(builder_, level_ + 1);
+    result_ = result_ && argument_list_0_2(builder_, level_ + 1);
+    result_ = result_ && argument_list_0_3(builder_, level_ + 1);
+    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (macro_argument_trivia COMMA macro_argument_trivia argument)*
+  private static boolean argument_list_0_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "argument_list_0_2")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!argument_list_1_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "argument_list_1", pos_)) break;
+      if (!argument_list_0_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "argument_list_0_2", pos_)) break;
     }
     return true;
   }
 
-  // NLS COMMA NLS argument
-  private static boolean argument_list_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "argument_list_1_0")) return false;
+  // macro_argument_trivia COMMA macro_argument_trivia argument
+  private static boolean argument_list_0_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "argument_list_0_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = NLS(builder_, level_ + 1);
+    result_ = macro_argument_trivia(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
-    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
     result_ = result_ && argument(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // [NLS COMMA]
-  private static boolean argument_list_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "argument_list_2")) return false;
-    argument_list_2_0(builder_, level_ + 1);
+  // [macro_argument_trivia COMMA]
+  private static boolean argument_list_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "argument_list_0_3")) return false;
+    argument_list_0_3_0(builder_, level_ + 1);
     return true;
   }
 
-  // NLS COMMA
-  private static boolean argument_list_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "argument_list_2_0")) return false;
+  // macro_argument_trivia COMMA
+  private static boolean argument_list_0_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "argument_list_0_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = NLS(builder_, level_ + 1);
+    result_ = macro_argument_trivia(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -3532,6 +3546,27 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // (NEWLINE | macro_control)*
+  static boolean macro_argument_trivia(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_argument_trivia")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!macro_argument_trivia_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "macro_argument_trivia", pos_)) break;
+    }
+    return true;
+  }
+
+  // NEWLINE | macro_control
+  private static boolean macro_argument_trivia_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_argument_trivia_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // macro_body_element*
   public static boolean macro_body(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_body")) return false;
@@ -3726,6 +3761,51 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "macro_interpolation_2")) return false;
     postfix_modifier(builder_, level_ + 1);
     return true;
+  }
+
+  /* ********************************************************** */
+  // NEWLINE* macro_control (NEWLINE | macro_control)*
+  static boolean macro_only_argument_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_only_argument_list")) return false;
+    if (!nextTokenIs(builder_, "", MACRO_CONTROL_BEGIN, NEWLINE)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = macro_only_argument_list_0(builder_, level_ + 1);
+    result_ = result_ && macro_control(builder_, level_ + 1);
+    result_ = result_ && macro_only_argument_list_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // NEWLINE*
+  private static boolean macro_only_argument_list_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_only_argument_list_0")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!consumeToken(builder_, NEWLINE)) break;
+      if (!empty_element_parsed_guard_(builder_, "macro_only_argument_list_0", pos_)) break;
+    }
+    return true;
+  }
+
+  // (NEWLINE | macro_control)*
+  private static boolean macro_only_argument_list_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_only_argument_list_2")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!macro_only_argument_list_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "macro_only_argument_list_2", pos_)) break;
+    }
+    return true;
+  }
+
+  // NEWLINE | macro_control
+  private static boolean macro_only_argument_list_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_only_argument_list_2_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    return result_;
   }
 
   /* ********************************************************** */

@@ -5,6 +5,23 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class CrystalRequireCollectorTest : BasePlatformTestCase() {
 
+    fun testCollectsTrailingRequireAfterMacroControlledArguments() {
+        val file = configure(
+            "module Indexable(T)\n" +
+                "  protected def self.each_cartesian_impl(*indexables : *U, &block) forall U\n" +
+                "    yield Tuple.new(\n" +
+                "      {% for i in 0...U.size %}\n" +
+                "        indexables[{{ i }}].unsafe_fetch(indices[{{ i }}]),\n" +
+                "      {% end %}\n" +
+                "    )\n" +
+                "  end\n" +
+                "end\n" +
+                "require \"./indexable/*\"",
+        )
+
+        assertEquals(listOf("./indexable/*"), CrystalRequireCollector.collect(file).paths)
+    }
+
     fun testCollectsDirectAndMacroControlledTopLevelRequires() {
         val file = configure(
             "require \"json\"\n" +

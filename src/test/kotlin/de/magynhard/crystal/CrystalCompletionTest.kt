@@ -2408,12 +2408,27 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.addFileToProject("fixture-stdlib/array.cr", """
             class Array(T)
-              include Indexable(T)
+              include Indexable::Mutable(T)
             end
         """.trimIndent())
         myFixture.addFileToProject("fixture-stdlib/indexable.cr", """
             module Indexable(T)
               include Enumerable(T)
+
+              protected def self.each_cartesian_impl(*indexables : *U, &block) forall U
+                yield Tuple.new(
+                  {% for i in 0...U.size %}
+                    indexables[{{ i }}].unsafe_fetch(indices[{{ i }}]),
+                  {% end %}
+                )
+              end
+            end
+
+            require "./indexable/*"
+        """.trimIndent())
+        myFixture.addFileToProject("fixture-stdlib/indexable/mutable.cr", """
+            module Indexable::Mutable(T)
+              include Indexable(T)
             end
         """.trimIndent())
         val enumerable = myFixture.addFileToProject("fixture-stdlib/enumerable.cr", """
