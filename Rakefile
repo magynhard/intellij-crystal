@@ -14,7 +14,7 @@ task :run do |t|
     ENV['TEST_APP_PATH'] = path
     File.write ".env", "TEST_APP_PATH=#{path}"
   end
-  system("./gradlew", "cleanSandbox", "runIde", "--args=#{ENV['TEST_APP_PATH']}")
+  system("./gradlew", "cleanSandbox", "runIde", "--args=#{ENV['TEST_APP_PATH']}", "-Dcrystal.completion.trace=true")
 end
 
 desc "Bump patch version in gradle.properties and README.md"
