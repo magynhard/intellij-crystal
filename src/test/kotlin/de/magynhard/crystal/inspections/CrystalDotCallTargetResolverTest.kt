@@ -2099,6 +2099,71 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         return matches.single()
     }
 
+    // ==================== Literal Receivers ====================
+
+    fun testResolvesLiteralArrayReceiverWithElementUnion() {
+        val resolution = resolveCall(
+            """
+                class Array
+                  def max
+                  end
+                end
+
+                [1, "a"].max
+            """.trimIndent(),
+            "max", "[1, \"a\"]"
+        ).resolution as DotCallResolution.Methods
+        assertEquals(ExactReceiverType("Array", "Array"), resolution.receiverType)
+    }
+
+    fun testResolvesSameClassBranchesOfTernaryReceiver() {
+        val resolution = resolveCall(
+            """
+                class Array
+                  def first
+                  end
+                end
+
+                cond = true
+                (cond ? [1, 2] : ["a"]).first
+            """.trimIndent(),
+            "first", "(cond ? [1, 2] : [\"a\"])"
+        ).resolution as DotCallResolution.Methods
+        assertEquals(ExactReceiverType("Array", "Array"), resolution.receiverType)
+    }
+
+    fun testSuppressesCrossClassUnionReceiver() {
+        val call = resolveCall(
+            """
+                class Array
+                  def size
+                  end
+                end
+
+                cond = true
+                x = cond ? [1] : {1 => 2}
+                x.size
+            """.trimIndent(),
+            "size", "x"
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testResolvesStringLiteralReceiver() {
+        val resolution = resolveCall(
+            """
+                class String
+                  def size
+                  end
+                end
+
+                "hello".size
+            """.trimIndent(),
+            "size", "\"hello\""
+        ).resolution as DotCallResolution.Methods
+        assertEquals(ExactReceiverType("String", "String"), resolution.receiverType)
+    }
+
     private data class ResolvedCall(
         val descriptor: DotCallDescriptor,
         val resolution: DotCallResolution

@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.PsiWhiteSpace
+import de.magynhard.crystal.analysis.CrystalTypeResolution
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.psi.*
 
@@ -24,8 +25,71 @@ internal object CrystalExactReceiverTypeResolver {
             is CrystalVariableReference -> resolveLocal(receiverElement, call, session)
             is CrystalInstanceVarAccess -> resolveInstanceVariable(receiverElement, call, session)
             is CrystalClassVarAccess -> null
-            else -> null
+            else -> {
+                if (isDirectlyTypedReceiver(receiverElement)) {
+                    resolveLiteralReceiver(receiverElement, call, session)
+                } else {
+                    null
+                }
+            }
         }
+    }
+
+    /**
+     * Receivers whose type comes straight from a literal or from a conditional over
+     * literals. Operator composites ((a || b), (a + b)), multi-statement groups and
+     * other opaque shapes are excluded on purpose: inference over them does not yield
+     * a single trustworthy receiver root, and DOT-calls on such receivers must remain
+     * suppressed per the neutral receiver contract (CrystalReceiverExpression;
+     * testGroupedCompositeReceiversRemainSuppressed).
+     */
+    private fun isDirectlyTypedReceiver(receiver: PsiElement): Boolean = when (receiver) {
+        is CrystalArrayLiteral,
+        is CrystalHashLiteral,
+        is CrystalTupleLiteral,
+        is CrystalPercentLiteral,
+        is CrystalStringExpression,
+        is CrystalSymbolStringExpression,
+        is CrystalHeredocLiteral,
+        is CrystalCommandExpression,
+        is CrystalRegexExpression -> true
+        else -> when {
+            receiver.node.elementType == CrystalTypes.INTEGER_LITERAL ||
+                receiver.node.elementType == CrystalTypes.FLOAT_LITERAL ||
+                receiver.node.elementType == CrystalTypes.CHAR_LITERAL ||
+                receiver.node.elementType == CrystalTypes.SYMBOL_LITERAL ||
+                receiver.node.elementType == CrystalTypes.TRUE ||
+                receiver.node.elementType == CrystalTypes.FALSE ||
+                receiver.node.elementType == CrystalTypes.NIL -> true
+            // Conditional expressions parse as a flat Expression composite with ?/: children.
+            receiver is CrystalExpression &&
+                receiver.node.findChildByType(CrystalTypes.QUESTION) != null &&
+                receiver.node.findChildByType(CrystalTypes.COLON) != null -> true
+            else -> false
+        }
+    }
+
+    /**
+     * Literal receivers ([1, 2].max, %w[a b].first, "abc".size, {a: 1}.keys, 42.to_s)
+     * are fully typed by neutral inference. The bare type name is extracted from the
+     * inferred name (generic arguments stripped), and every inferred branch must agree
+     * on the same class: [1, "a"] infers one Array root regardless of its element union,
+     * and branches like cond ? [1, 2] : ["a"] share the bare name Array. Top-level class
+     * unions (cond ? [1] : {1 => 2}) stay unresolved until control-flow narrowing lands —
+     * intersecting method sets across distinct classes here would risk false positives in
+     * inspections that rely on single-exact receiver semantics.
+     */
+    private fun resolveLiteralReceiver(
+        receiver: PsiElement,
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
+    ): ExactReceiverType? {
+        val known = session.resolve(receiver) as? CrystalTypeResolution.Known ?: return null
+        val bareName = known.types.map { it.name.substringBefore('(').trim() }
+            .distinct()
+            .singleOrNull() ?: return null
+        if (bareName.isEmpty() || !bareName[0].isUpperCase()) return null
+        return resolveTypeIdentity(bareName, call, session)
     }
 
     private fun resolveLocal(

@@ -356,6 +356,21 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertTrue("Should contain doc comment 'Isst den Apfel'", doc.contains("Isst den Apfel"))
     }
 
+    fun testHoverOnDotCallMethodOfLiteralArrayShowsMethodDoc() {
+        val doc = hoverDoc("""
+            class Array
+              # Returns the maximum element.
+              def max
+              end
+            end
+
+            [1, 2, 3, 4].ma<caret>x
+        """.trimIndent())
+        assertNotNull("Hover on max of literal array should return method doc, not variable fallback", doc)
+        assertTrue("Should contain method name 'max'", doc!!.contains("max"))
+        assertTrue("Should contain doc comment 'Returns the maximum element.'", doc.contains("Returns the maximum element."))
+    }
+
     fun testHoverOnTopLevelBareCallStillWorks() {
         val doc = hoverDoc("""
             # Sahnetoßchen.
