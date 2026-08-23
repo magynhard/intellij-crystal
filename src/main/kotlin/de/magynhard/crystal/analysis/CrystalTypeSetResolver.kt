@@ -209,6 +209,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             is CrystalArrayLiteral -> resolveArray(element)
             is CrystalHashLiteral -> resolveHash(element)
             is CrystalTupleLiteral -> resolveTuple(element)
+            is CrystalPercentLiteral -> resolvePercentLiteral(element)
             is CrystalIfStatement -> resolveIf(element)
             is CrystalUnlessStatement -> resolveUnless(element)
             is CrystalCaseStatement -> resolveCase(element)
@@ -1002,6 +1003,22 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (results.any { it is CrystalTypeResolution.Unknown }) return CrystalTypeResolution.Unknown
         val names = results.map { (it as CrystalTypeResolution.Known).types.joinToString(" | ") { type -> type.name } }
         return knownType("Tuple(${names.joinToString(", ")})")
+    }
+
+    /**
+     * Percent literals are fully typed at compile time, even when empty:
+     * %w/%W → Array(String), %i/%I → Array(Symbol), %r → Regex,
+     * %x and plain %/%q/%Q → String. The BEGIN token discriminates the
+     * array forms; regex vs string content is distinguished by content token.
+     */
+    private fun resolvePercentLiteral(literal: CrystalPercentLiteral): CrystalTypeResolution {
+        val node = literal.node
+        return when {
+            node.findChildByType(CrystalTypes.PERCENT_WORD_ARRAY_BEGIN) != null -> knownType("Array(String)")
+            node.findChildByType(CrystalTypes.PERCENT_SYMBOL_BEGIN) != null -> knownType("Array(Symbol)")
+            node.findChildByType(CrystalTypes.REGEX_LITERAL) != null -> knownType("Regex")
+            else -> knownType("String")
+        }
     }
 
     private fun resolveOperator(children: List<PsiElement>): CrystalTypeResolution? {

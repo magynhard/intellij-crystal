@@ -5361,14 +5361,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
+  //                   | PERCENT_WORD_ARRAY_BEGIN percent_literal_content* PERCENT_WORD_ARRAY_END
   //                   | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
   public static boolean percent_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_literal")) return false;
-    if (!nextTokenIs(builder_, "<percent literal>", PERCENT_LITERAL_BEGIN, PERCENT_SYMBOL_BEGIN)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, PERCENT_LITERAL, "<percent literal>");
     result_ = percent_literal_0(builder_, level_ + 1);
     if (!result_) result_ = percent_literal_1(builder_, level_ + 1);
+    if (!result_) result_ = percent_literal_2(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
@@ -5396,25 +5397,48 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
+  // PERCENT_WORD_ARRAY_BEGIN percent_literal_content* PERCENT_WORD_ARRAY_END
   private static boolean percent_literal_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_literal_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, PERCENT_SYMBOL_BEGIN);
+    result_ = consumeToken(builder_, PERCENT_WORD_ARRAY_BEGIN);
     result_ = result_ && percent_literal_1_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, PERCENT_WORD_ARRAY_END);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // percent_literal_content*
+  private static boolean percent_literal_1_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_1_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!percent_literal_content(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "percent_literal_1_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
+  private static boolean percent_literal_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, PERCENT_SYMBOL_BEGIN);
+    result_ = result_ && percent_literal_2_1(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, PERCENT_SYMBOL_END);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // percent_symbol_content*
-  private static boolean percent_literal_1_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "percent_literal_1_1")) return false;
+  private static boolean percent_literal_2_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "percent_literal_2_1")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
       if (!percent_symbol_content(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "percent_literal_1_1", pos_)) break;
+      if (!empty_element_parsed_guard_(builder_, "percent_literal_2_1", pos_)) break;
     }
     return true;
   }
@@ -5435,12 +5459,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // SYMBOL_LITERAL | NEWLINE
+  // SYMBOL_LITERAL | interpolation_expression | NEWLINE
   static boolean percent_symbol_content(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "percent_symbol_content")) return false;
-    if (!nextTokenIs(builder_, "", NEWLINE, SYMBOL_LITERAL)) return false;
     boolean result_;
     result_ = consumeToken(builder_, SYMBOL_LITERAL);
+    if (!result_) result_ = interpolation_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, NEWLINE);
     return result_;
   }

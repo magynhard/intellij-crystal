@@ -95,6 +95,8 @@
     STRING_ESCAPE="STRING_ESCAPE"
     PERCENT_LITERAL_BEGIN="PERCENT_LITERAL_BEGIN"
     PERCENT_LITERAL_END="PERCENT_LITERAL_END"
+    PERCENT_WORD_ARRAY_BEGIN="PERCENT_WORD_ARRAY_BEGIN"
+    PERCENT_WORD_ARRAY_END="PERCENT_WORD_ARRAY_END"
     PERCENT_SYMBOL_BEGIN="PERCENT_SYMBOL_BEGIN"
     PERCENT_SYMBOL_END="PERCENT_SYMBOL_END"
     SYMBOL_COLON="SYMBOL_COLON"
@@ -836,10 +838,14 @@ command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | interpol
 
 heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | interpolation_expression)* HEREDOC_END?
 
+// Word arrays (%w/%W) get their own BEGIN/END pair so type inference can
+// distinguish Array(String) from plain %q/%Q strings sharing PERCENT_LITERAL_*.
 percent_literal ::= PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
+                  | PERCENT_WORD_ARRAY_BEGIN percent_literal_content* PERCENT_WORD_ARRAY_END
                   | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
 private percent_literal_content ::= STRING_LITERAL | STRING_ESCAPE | interpolation_expression | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
-private percent_symbol_content ::= SYMBOL_LITERAL | NEWLINE
+// %I interpolates symbol words, so its content mirrors the interpolation support of %W.
+private percent_symbol_content ::= SYMBOL_LITERAL | interpolation_expression | NEWLINE
 
 symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
 

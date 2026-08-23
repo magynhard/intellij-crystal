@@ -1,0 +1,10 @@
+a = %w[test fest]
+b = %W[one #{two}]
+c = %i[sym1 sym2]
+d = %I[sym1 #{sym2}]
+e = %w[]
+f = %q{plain}
+g = %r{a+b}
+h = %x{ls -la}
+i = %|pipe string|
+j = %w(a b).map { |word| word }

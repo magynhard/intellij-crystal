@@ -150,6 +150,48 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         assertEquals("Tuple(Int32, String)", type)
     }
 
+    fun testInferWordArrayLiteral() {
+        myFixture.configureByText("test.cr", "x = %w[test fest]")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Array(String)", type)
+    }
+
+    fun testInferEmptyWordArrayLiteral() {
+        myFixture.configureByText("test.cr", "x = %w[]")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Array(String)", type)
+    }
+
+    fun testInferInterpolatedWordArrayLiteral() {
+        myFixture.configureByText("test.cr", "x = %W[a #{b}]")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Array(String)", type)
+    }
+
+    fun testInferSymbolArrayLiteral() {
+        myFixture.configureByText("test.cr", "x = %i[one two]")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Array(Symbol)", type)
+    }
+
+    fun testInferInterpolatedSymbolArrayLiteral() {
+        myFixture.configureByText("test.cr", "x = %I[a #{b}]")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Array(Symbol)", type)
+    }
+
+    fun testInferPercentStringLiteral() {
+        myFixture.configureByText("test.cr", "x = %q{hello}")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("String", type)
+    }
+
+    fun testInferPercentRegexLiteral() {
+        myFixture.configureByText("test.cr", "x = %r{a+b}")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Regex", type)
+    }
+
     fun testInferTernarySameType() {
         myFixture.configureByText("test.cr", "x = true ? 1 : 2")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)

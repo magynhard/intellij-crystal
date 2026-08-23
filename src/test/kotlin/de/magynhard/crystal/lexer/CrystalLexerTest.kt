@@ -217,18 +217,33 @@ class CrystalLexerTest {
     fun testPercentLiterals() {
         // %w(...)
         val tokens = nonWhitespaceTokens("%w(foo bar)")
-        assertEquals("First token should be PERCENT_LITERAL_BEGIN", CrystalTypes.PERCENT_LITERAL_BEGIN, tokens[0].first)
-        assertEquals("Last token should be PERCENT_LITERAL_END", CrystalTypes.PERCENT_LITERAL_END, tokens.last().first)
+        assertEquals("First token should be PERCENT_WORD_ARRAY_BEGIN", CrystalTypes.PERCENT_WORD_ARRAY_BEGIN, tokens[0].first)
+        assertEquals("Last token should be PERCENT_WORD_ARRAY_END", CrystalTypes.PERCENT_WORD_ARRAY_END, tokens.last().first)
+
+        // %W[...] (interpolating word array)
+        val tokensW = nonWhitespaceTokens("%W[foo bar]")
+        assertEquals(CrystalTypes.PERCENT_WORD_ARRAY_BEGIN, tokensW[0].first)
+        assertEquals(CrystalTypes.PERCENT_WORD_ARRAY_END, tokensW.last().first)
 
         // %i[...]
         val tokens2 = nonWhitespaceTokens("%i[one two]")
         assertEquals(CrystalTypes.PERCENT_SYMBOL_BEGIN, tokens2[0].first)
         assertEquals(CrystalTypes.PERCENT_SYMBOL_END, tokens2.last().first)
 
+        // %I[...] (interpolating symbol array)
+        val tokensI = nonWhitespaceTokens("%I[one two]")
+        assertEquals(CrystalTypes.PERCENT_SYMBOL_BEGIN, tokensI[0].first)
+        assertEquals(CrystalTypes.PERCENT_SYMBOL_END, tokensI.last().first)
+
         // %(...)
         val tokens3 = nonWhitespaceTokens("%(hello world)")
         assertEquals(CrystalTypes.PERCENT_LITERAL_BEGIN, tokens3[0].first)
         assertEquals(CrystalTypes.PERCENT_LITERAL_END, tokens3.last().first)
+
+        // %q(...) must NOT use the word-array tokens
+        val tokensQ = nonWhitespaceTokens("%q(hello world)")
+        assertEquals(CrystalTypes.PERCENT_LITERAL_BEGIN, tokensQ[0].first)
+        assertEquals(CrystalTypes.PERCENT_LITERAL_END, tokensQ.last().first)
     }
 
     @Test

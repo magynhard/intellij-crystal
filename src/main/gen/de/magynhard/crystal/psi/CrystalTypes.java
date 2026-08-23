@@ -219,6 +219,8 @@ public interface CrystalTypes {
   IElementType PERCENT_LITERAL_END = new CrystalTokenType("PERCENT_LITERAL_END");
   IElementType PERCENT_SYMBOL_BEGIN = new CrystalTokenType("PERCENT_SYMBOL_BEGIN");
   IElementType PERCENT_SYMBOL_END = new CrystalTokenType("PERCENT_SYMBOL_END");
+  IElementType PERCENT_WORD_ARRAY_BEGIN = new CrystalTokenType("PERCENT_WORD_ARRAY_BEGIN");
+  IElementType PERCENT_WORD_ARRAY_END = new CrystalTokenType("PERCENT_WORD_ARRAY_END");
   IElementType PIPE = new CrystalTokenType("PIPE");
   IElementType PIPE_ASSIGN = new CrystalTokenType("PIPE_ASSIGN");
   IElementType PLUS = new CrystalTokenType("PLUS");

@@ -46,7 +46,8 @@ object CrystalTokenTypes {
         CrystalTypes.COMMAND_LITERAL,
         CrystalTypes.HEREDOC_CONTENT, CrystalTypes.HEREDOC_START,
         CrystalTypes.HEREDOC_END,
-        CrystalTypes.PERCENT_LITERAL_BEGIN, CrystalTypes.PERCENT_LITERAL_END
+        CrystalTypes.PERCENT_LITERAL_BEGIN, CrystalTypes.PERCENT_LITERAL_END,
+        CrystalTypes.PERCENT_WORD_ARRAY_BEGIN, CrystalTypes.PERCENT_WORD_ARRAY_END
     )
 
     @JvmField val NUMBERS = TokenSet.create(
