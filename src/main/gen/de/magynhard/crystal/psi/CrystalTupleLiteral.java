@@ -10,4 +10,7 @@ public interface CrystalTupleLiteral extends PsiElement {
   @NotNull
   CrystalExpressionList getExpressionList();
 
+  @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
 }

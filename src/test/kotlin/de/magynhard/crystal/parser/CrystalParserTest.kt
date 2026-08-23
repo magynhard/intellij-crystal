@@ -23,6 +23,14 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testEnumerableStdlibPatterns() {
+        doTest(true)
+    }
+
+    fun testGlobalScopeCalls() {
+        doTest(true)
+    }
+
     fun testDescribeBlock() {
         doTest(true)
     }

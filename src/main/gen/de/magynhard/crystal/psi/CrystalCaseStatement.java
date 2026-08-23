@@ -8,6 +8,12 @@ import com.intellij.psi.PsiElement;
 public interface CrystalCaseStatement extends PsiElement {
 
   @Nullable
+  CrystalAssignment getAssignment();
+
+  @Nullable
+  CrystalConstantAssignment getConstantAssignment();
+
+  @Nullable
   CrystalElseClause getElseClause();
 
   @Nullable
@@ -15,6 +21,9 @@ public interface CrystalCaseStatement extends PsiElement {
 
   @NotNull
   List<CrystalInClause> getInClauseList();
+
+  @Nullable
+  CrystalMultiAssignment getMultiAssignment();
 
   @NotNull
   List<CrystalWhenClause> getWhenClauseList();

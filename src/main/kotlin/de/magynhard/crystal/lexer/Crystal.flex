@@ -585,6 +585,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "}}!"                { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   "}}"                 { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  {NEWLINE}            { return CrystalTypes.NEWLINE; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   "if"                 { return CrystalTypes.IF; }
@@ -626,6 +627,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 <MACRO_CONTROL> {
   "%}"                 { popState(); return CrystalTypes.MACRO_CONTROL_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
+  {NEWLINE}            { return CrystalTypes.NEWLINE; }
   {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   "verbatim"           { return CrystalTypes.VERBATIM; }

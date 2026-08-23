@@ -353,7 +353,9 @@ private macro_body_element ::= MACRO_BODY_CONTENT
                              | macro_interpolation
                              | macro_control
                              | NEWLINE
-macro_interpolation ::= MACRO_INTERPOLATION_BEGIN expression [postfix_modifier] MACRO_INTERPOLATION_END
+// Leading/trailing NLS: stdlib writes multi-line interpolations
+// (Enumerable::Reflect#type spans `{{\n raise(...)\n }}` across lines).
+macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifier] NLS MACRO_INTERPOLATION_END
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | INTEGER_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
@@ -381,6 +383,7 @@ private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 private param_prefix ::= annotation_usage
                        | macro_control
 parameter ::= param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER IDENTIFIER [COLON type_reference] [ASSIGN expression]
+            | param_prefix* AMPERSAND IDENTIFIER COLON type_union COMMA type_union (COMMA type_union)* ARROW [type_reference]
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
@@ -448,7 +451,15 @@ private condition_assignment ::= variable ASSIGN NLS expression
 
 for_statement ::= FOR IDENTIFIER IN expression then_clause statement_list END {pin=1}
 
-case_statement ::= CASE [expression] NEWLINE* (when_clause | in_clause)+ [else_clause] END {pin=1}
+case_statement ::= CASE [case_subject] NEWLINE* (when_clause | in_clause)+ [else_clause] END {pin=1}
+
+// Case subject: Crystal allows assignments as case subjects (`case v = yield e`,
+// `case x, y = pair`). Assignments are statements in this grammar, not expressions,
+// so they need an explicit alternative here. PEG longest-match-first: assignment
+// forms MUST be tried before expression, otherwise `case v = expr` matches the
+// subject as just `v` and strands the `=` (case_statement is pinned at CASE, so
+// the failed attempt cannot retry with a different subject parse).
+private case_subject ::= multi_assignment | assignment | constant_assignment | expression
 
 begin_statement ::= BEGIN statement_list rescue_clause* [else_clause] [ensure_clause] END {pin=1}
 
@@ -490,7 +501,15 @@ next_statement ::= NEXT postfix_modifier
                  | NEXT {pin=1}
 
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
-yield_expression ::= YIELD expression {pin=1}
+// Yield in expression position may pass multiple values (`memo = found ? (yield memo, elem) : elem`).
+// PEG longest-match-first: the single-expression form is tried BEFORE the parenthesized
+// argument list, so `yield (a) + b` still parses as one argument expression; when a
+// comma appears inside the parentheses the grouped_expression alternative fails and
+// the argument_list form takes over (`yield (memo, elem)` = two values).
+yield_expression ::= YIELD yield_expression_args {pin=1}
+
+private yield_expression_args ::= expression (COMMA NLS expression)*
+                                | LPAREN argument_list RPAREN
 
 with_yield_statement ::= WITH expression YIELD {pin=1}
 
@@ -639,8 +658,16 @@ private primary_expression ::= grouped_expression
 
 grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAREN
 
-method_call_expression ::= (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-                         | (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !binary_op_lookahead bare_argument_list [block]
+// Global-scope method calls: ::raise "msg", ::puts x, ::Foo::Bar.baz. The [DOUBLE_COLON]
+// prefix calls the method in the top-level namespace, ignoring any current scope.
+// namespace_access (DOUBLE_COLON CONSTANT) is tried first in primary_expression, so
+// ::Constant without arguments still resolves as namespace access; only ::ident(args)
+// and bare ::ident fall through to this rule. Without it, ::raise inside a do-block
+// breaks the block parse, backtracks the whole postfix chain, and collapses every
+// subsequent statement into error recovery (see Enumerable#indexable cascade).
+method_call_expression ::= [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !binary_op_lookahead bare_argument_list [block]
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
                          | (IDENTIFIER | CONSTANT) block
                          | (SUPER | PREVIOUS_DEF) call_args
                          | (SUPER | PREVIOUS_DEF) bare_argument_list {
@@ -665,7 +692,9 @@ private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PE
      | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN)
 
 // Implicit object call: .method, .method(args), or .[index] (used in &.foo shorthand and case/when patterns)
-implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | operator_method_name) [call_args]
+// AS/AS_QUESTION are needed for the &. shorthand without receiver (`to_a(&.as(T))`):
+// the postfix_op .as(...) form only applies after an existing primary expression.
+implicit_object_call ::= DOT (IDENTIFIER | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | operator_method_name) [call_args]
                        | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
 
 call_args ::= LPAREN NLS argument_list NLS RPAREN
@@ -818,8 +847,6 @@ array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference
 
 hash_literal ::= LBRACE NLS [hash_entry_list] NLS RBRACE [OF type_reference DOUBLE_ARROW type_reference]
 
-tuple_literal ::= LBRACE NLS expression_list NLS RBRACE
-
 hash_entry_list ::= hash_entry (NLS COMMA NLS hash_entry)* [COMMA]
 
 hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
@@ -904,7 +931,18 @@ private asm_option_list ::= string_expression (NLS COMMA NLS string_expression)*
 
 // ==================== Expression Lists ====================
 
-expression_list ::= expression (NLS COMMA NLS expression)* [COMMA]
+// Trivia between/after entries tolerates macro_control: the stdlib builds tuples
+// via {% for %} loops (Enumerable#zip yields
+// `{elem, {% for %} other_elem{{i}}, {% end %}}`). Deliberately NO mandatory
+// trailing trivia here — when/in clause terminators rely on consuming their own
+// terminating NEWLINE. Trailing macro directives are handled at use sites
+// (see tuple_literal).
+expression_list ::= macro_argument_trivia expression (macro_argument_trivia COMMA macro_argument_trivia expression)* [COMMA macro_argument_trivia]
+
+// Macro-controlled tuples: stdlib builds them via {% for %} loops. The extra
+// trailing trivia absorbs directives after the last entry without forcing
+// expression_list itself to consume terminator newlines needed by when-clauses.
+tuple_literal ::= LBRACE NLS expression_list macro_argument_trivia NLS RBRACE
 
 // ==================== Helper Rules ====================
 

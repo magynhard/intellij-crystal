@@ -33,4 +33,10 @@ public class CrystalExpressionListImpl extends ASTWrapperPsiElement implements C
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalMacroControl> getMacroControlList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
 }

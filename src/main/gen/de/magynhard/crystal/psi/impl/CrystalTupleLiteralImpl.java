@@ -33,4 +33,10 @@ public class CrystalTupleLiteralImpl extends ASTWrapperPsiElement implements Cry
     return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpressionList.class));
   }
 
+  @Override
+  @NotNull
+  public List<CrystalMacroControl> getMacroControlList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
 }
