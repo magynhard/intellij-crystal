@@ -35,6 +35,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testStringStdlibPatterns() {
+        doTest(true)
+    }
+
     fun testDescribeBlock() {
         doTest(true)
     }

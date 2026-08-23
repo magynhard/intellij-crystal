@@ -54,6 +54,7 @@ public interface CrystalTypes {
   IElementType IF_STATEMENT = new CrystalElementType("IF_STATEMENT");
   IElementType IMPLICIT_OBJECT_CALL = new CrystalElementType("IMPLICIT_OBJECT_CALL");
   IElementType INCLUDE_STATEMENT = new CrystalElementType("INCLUDE_STATEMENT");
+  IElementType INDEXED_ASSIGNMENT = new CrystalElementType("INDEXED_ASSIGNMENT");
   IElementType INSTANCE_SIZEOF_EXPRESSION = new CrystalElementType("INSTANCE_SIZEOF_EXPRESSION");
   IElementType INSTANCE_VAR_ACCESS = new CrystalElementType("INSTANCE_VAR_ACCESS");
   IElementType IN_CLAUSE = new CrystalElementType("IN_CLAUSE");
@@ -416,6 +417,9 @@ public interface CrystalTypes {
       }
       else if (type == INCLUDE_STATEMENT) {
         return new CrystalIncludeStatementImpl(node);
+      }
+      else if (type == INDEXED_ASSIGNMENT) {
+        return new CrystalIndexedAssignmentImpl(node);
       }
       else if (type == INSTANCE_SIZEOF_EXPRESSION) {
         return new CrystalInstanceSizeofExpressionImpl(node);

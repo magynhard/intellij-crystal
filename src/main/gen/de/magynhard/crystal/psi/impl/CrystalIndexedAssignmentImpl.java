@@ -11,20 +11,38 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalArgumentImpl extends ASTWrapperPsiElement implements CrystalArgument {
+public class CrystalIndexedAssignmentImpl extends ASTWrapperPsiElement implements CrystalIndexedAssignment {
 
-  public CrystalArgumentImpl(@NotNull ASTNode node) {
+  public CrystalIndexedAssignmentImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitArgument(this);
+    visitor.visitIndexedAssignment(this);
   }
 
   @Override
   public void accept(@NotNull PsiElementVisitor visitor) {
     if (visitor instanceof CrystalVisitor) accept((CrystalVisitor)visitor);
     else super.accept(visitor);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalArgumentList> getArgumentListList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalArgumentList.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalAssignment getAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
   }
 
   @Override
@@ -35,8 +53,8 @@ public class CrystalArgumentImpl extends ASTWrapperPsiElement implements Crystal
 
   @Override
   @Nullable
-  public CrystalTypePath getTypePath() {
-    return PsiTreeUtil.getChildOfType(this, CrystalTypePath.class);
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
 }

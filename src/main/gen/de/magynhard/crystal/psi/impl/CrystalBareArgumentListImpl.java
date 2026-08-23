@@ -33,4 +33,10 @@ public class CrystalBareArgumentListImpl extends ASTWrapperPsiElement implements
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBareArgument.class);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalMacroControl> getMacroControlList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
 }

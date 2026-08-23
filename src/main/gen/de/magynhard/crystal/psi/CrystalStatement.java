@@ -35,6 +35,9 @@ public interface CrystalStatement extends PsiElement {
   CrystalIncludeStatement getIncludeStatement();
 
   @Nullable
+  CrystalIndexedAssignment getIndexedAssignment();
+
+  @Nullable
   CrystalMacroControl getMacroControl();
 
   @Nullable

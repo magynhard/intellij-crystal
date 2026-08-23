@@ -187,6 +187,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitIndexedAssignment(@NotNull CrystalIndexedAssignment o) {
+    visitPsiElement(o);
+  }
+
   public void visitInstanceSizeofExpression(@NotNull CrystalInstanceSizeofExpression o) {
     visitPsiElement(o);
   }

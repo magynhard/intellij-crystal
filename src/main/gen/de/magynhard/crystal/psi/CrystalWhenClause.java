@@ -8,7 +8,10 @@ import com.intellij.psi.PsiElement;
 public interface CrystalWhenClause extends PsiElement {
 
   @NotNull
-  CrystalExpressionList getExpressionList();
+  List<CrystalExpression> getExpressionList();
+
+  @NotNull
+  List<CrystalMacroControl> getMacroControlList();
 
   @NotNull
   CrystalStatementList getStatementList();

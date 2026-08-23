@@ -74,6 +74,22 @@ import com.intellij.psi.TokenType;
       default: return open;
     }
   }
+
+  /**
+   * `%(`-style input is a percent literal in expression position, but an operator
+   * METHOD NAME after `def` or `.` (`def %(other)`, `def self.%(...)`). Crystal
+   * disambiguates by context; we look backwards at the raw buffer.
+   */
+  private boolean percentStartsMethodName() {
+    int i = zzStartRead - 1;
+    while (i >= 0 && Character.isWhitespace(zzBuffer.charAt(i))) i--;
+    if (i < 0) return false;
+    if (zzBuffer.charAt(i) == '.') return true;
+    int end = i + 1;
+    while (i >= 0 && (Character.isLetterOrDigit(zzBuffer.charAt(i)) || zzBuffer.charAt(i) == '_')) i--;
+    String word = zzBuffer.subSequence(i + 1, end).toString();
+    return word.equals("def");
+  }
 %}
 
 // Macros
@@ -314,6 +330,10 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
                         }
   "%" [\(\[\{<|]      {
+                          if (percentStartsMethodName()) {
+                            yypushback(1);
+                            return CrystalTypes.PERCENT;
+                          }
                           char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -632,12 +652,20 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  "->"                 { return CrystalTypes.ARROW; }
+  "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
+  "@["                 { return CrystalTypes.ANNOTATION; }
+  "@"                  { return CrystalTypes.AT; }
   "."                  { return CrystalTypes.DOT; }
   "("                  { return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
   "["                  { return CrystalTypes.LBRACKET; }
   "]"                  { return CrystalTypes.RBRACKET; }
+  "{"                  { return CrystalTypes.LBRACE; }
+  "}"                  { return CrystalTypes.RBRACE; }
   ","                  { return CrystalTypes.COMMA; }
+  ";"                  { return CrystalTypes.SEMICOLON; }
+  "#"                  { return CrystalTypes.HASH; }
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
@@ -686,13 +714,21 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  "->"                 { return CrystalTypes.ARROW; }
+  "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
+  "@["                 { return CrystalTypes.ANNOTATION; }
+  "@"                  { return CrystalTypes.AT; }
   "("                  { return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
   "["                  { return CrystalTypes.LBRACKET; }
   "]"                  { return CrystalTypes.RBRACKET; }
+  "{"                  { return CrystalTypes.LBRACE; }
+  "}"                  { return CrystalTypes.RBRACE; }
   ","                  { return CrystalTypes.COMMA; }
   "."                  { return CrystalTypes.DOT; }
   ":"                  { return CrystalTypes.COLON; }
+  ";"                  { return CrystalTypes.SEMICOLON; }
+  "#"                  { return CrystalTypes.HASH; }
   "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
   "<="                 { return CrystalTypes.LTE; }
