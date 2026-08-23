@@ -1708,4 +1708,19 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testBracketAccessAfterDotCallIsNotAnArrayArgument() {
+        myFixture.configureByText("test.cr", """
+            class Tools
+              def self.config : NamedTuple
+                {"envs" => ["int", "stage"]}
+              end
+            end
+
+            if Tools.config["envs"].any? { |v| v.to_s == "int" }
+              puts "ok"
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
