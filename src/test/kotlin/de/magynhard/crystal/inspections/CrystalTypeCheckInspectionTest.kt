@@ -644,4 +644,49 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+    // ==================== Shared-resolver migration (no name-only fallback) ====================
+
+    fun testSplatTupleCallOnGenericStructIsClean() {
+        myFixture.configureByText("test.cr", """
+            struct Event(*Args)
+              @args : Tuple(*Args)
+
+              def initialize(*args : *Args)
+                @args = args
+              end
+
+              def call(handler : Proc(*Args, Nil))
+                handler.call(*@args)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLowercaseReceiverWithKnownTypeReportsRealMismatch() {
+        myFixture.configureByText("test.cr", """
+            class Handler
+              def call(payload : Int32)
+              end
+            end
+
+            h = Handler.new
+            h.call(<error descr="Type mismatch: expected 'Int32', got 'String'">"not an int"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnknownLowercaseReceiverStaysSilentDespiteNameCollisions() {
+        myFixture.configureByText("test.cr", """
+            class Handler
+              def call(payload : Int32)
+              end
+            end
+
+            mystery.call("whatever")
+        """.trimIndent())
+        // `mystery` has no assignment evidence: resolution is suppressed and the
+        // inspection must stay silent instead of falling back to name-only lookup.
+        myFixture.checkHighlighting()
+    }
 }

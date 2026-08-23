@@ -37,10 +37,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                         checkMethodCall(element, holder)
                     }
                     is CrystalCallArgs, is CrystalBareArgumentList -> {
-                        val dotCallInfo = CrystalCallExtractor.detectDotCall(element)
-                        if (dotCallInfo != null) {
-                            checkDotCall(element, dotCallInfo.receiverName, dotCallInfo.methodName, holder)
-                        }
+                        findOwningDotCall(element)?.let { checkDotCall(it, holder) }
                     }
                 }
             }
@@ -161,70 +158,71 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     /**
      * Type-checks a DOT-call (e.g. Apfel.kurz "lol") by extracting args from the args element.
      */
-    private fun checkDotCall(argsElement: PsiElement, receiverName: String, methodName: String, holder: ProblemsHolder) {
-        val arguments = mutableListOf<ArgumentInfo>()
+    private fun findOwningDotCall(argumentHolder: PsiElement): CrystalDotCallAccess? {
+        return generateSequence(argumentHolder.parent) { it.parent }
+            .filterIsInstance<CrystalDotCallAccess>()
+            .firstOrNull {
+                it.callArgs === argumentHolder || it.bareArgumentList === argumentHolder
+            }
+    }
+
+    /**
+     * Type-checks a DOT-call against the shared authoritative resolver.
+     * Only exact receiver resolutions are checked — unknown, suppressed, and
+     * ambiguous receivers stay silent (no name-only fallback), so stdlib methods
+     * sharing the callee name can never leak into the overload set
+     * (e.g. handler.call(*args) no longer collides with HTTP handler #call).
+     */
+    private fun checkDotCall(access: CrystalDotCallAccess, holder: ProblemsHolder) {
+        val resolution = CrystalDotCallTargetResolver.resolve(access)
+        when (resolution) {
+            is DotCallResolution.Methods -> {
+                val arguments = extractDotCallArguments(resolution.call.argumentHolder)
+                if (arguments.isEmpty()) return
+                checkOverloadTypes(resolution.methods, arguments, holder)
+            }
+            is DotCallResolution.RecordFallback -> {
+                val arguments = extractDotCallArguments(resolution.call.argumentHolder)
+                if (arguments.isEmpty()) return
+                val recordArgs = resolution.recordDefinition.bareArgumentList ?: return
+                if (recordArgs.bareArgumentList.size <= 1) return
+                checkRecordTypeArgs(recordParamsFrom(recordArgs), arguments, holder)
+            }
+            is DotCallResolution.ImplicitConstructor,
+            DotCallResolution.Suppressed,
+            DotCallResolution.Unresolved -> return
+        }
+    }
+
+    private fun extractDotCallArguments(argsElement: PsiElement?): List<ArgumentInfo> {
+        if (argsElement == null) return emptyList()
+        val result = mutableListOf<ArgumentInfo>()
         when (argsElement) {
             is CrystalCallArgs -> {
-                val argList = argsElement.argumentList
-                if (argList != null) {
-                    for (arg in argList.argumentList) {
-                        extractArgumentInfo(arg)?.let { arguments.add(it) }
-                    }
+                argsElement.argumentList?.argumentList?.forEach { arg ->
+                    extractArgumentInfo(arg)?.let { result.add(it) }
                 }
             }
             is CrystalBareArgumentList -> {
                 for (bareArg in argsElement.bareArgumentList) {
-                    arguments.add(extractBareArgumentInfo(bareArg))
+                    result.add(extractBareArgumentInfo(bareArg))
                 }
             }
         }
-        if (arguments.isEmpty()) return
+        return result
+    }
 
-
-        val project = argsElement.project
-        val scope = GlobalSearchScope.projectScope(project)
-        var methods = CrystalIndexService.findMethods(methodName, project, scope).toList()
-
-        // Filter to methods defined inside a class/module matching the receiver name.
-        // This prevents false positives like ENV.fetch(...) matching Hash#fetch.
-        // Only apply for CONSTANT receivers (class/module names start with uppercase in Crystal).
-        if (receiverName.isNotEmpty() && receiverName[0].isUpperCase()) {
-            methods = methods.filter { method ->
-                findEnclosingTypeName(method) == receiverName
-            }
-        }
-
-        // Check record definition first — if `record Config, ...` exists in the
-        // current file, its parameters take priority over any `class Config`
-        // defined elsewhere (which might have a different `initialize`).
-        if (methods.isEmpty() && methodName == "new") {
-            val className = findClassNameBeforeNewFromArgs(argsElement)
-            if (className != null) {
-                val recordParams = extractRecordParamInfo(className, argsElement)
-                if (recordParams != null) {
-                    checkRecordTypeArgs(recordParams, arguments, holder)
-                    return
-                }
-            }
-        }
-
-        // No record found — try regular class initialize
-        if (methods.isEmpty() && methodName == "new") {
-            val className = findClassNameBeforeNewFromArgs(argsElement)
-            if (className != null) {
-                val initMethod = CrystalCompletionHelper.getInitializeMethod(className, project, argsElement.containingFile)
-                if (initMethod != null) {
-                    methods = listOf(initMethod)
-                }
-            }
-        }
-
-        if (methods.isEmpty()) {
-            return
-        }
-
-        // Reuse the same type-checking logic
+    private fun checkOverloadTypes(
+        methods: List<CrystalMethodDefinition>,
+        arguments: List<ArgumentInfo>,
+        holder: ProblemsHolder
+    ) {
+        // Check each argument against all overloads
         for ((argIndex, argInfo) in arguments.withIndex()) {
+            // A splat expands to N elements; checking it as a single value against
+            // one parameter is semantically wrong — stay conservative instead.
+            if (argInfo.isSplat) continue
+
             val resolvedType = CrystalExpressionTypeResolver.resolveType(argInfo.expression) ?: continue
             var anyOverloadAccepts = false
             val expectedTypes = mutableListOf<String>()
@@ -284,7 +282,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
     data class ArgumentInfo(
         val expression: PsiElement,
-        val name: String? = null // Named argument label, or null for positional
+        val name: String? = null, // Named argument label, or null for positional
+        val isSplat: Boolean = false // *expr / **expr — expands to N values, not one
     )
 
     private fun extractArguments(callExpr: PsiElement): List<ArgumentInfo> {
@@ -340,12 +339,12 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             }
         }
 
-        // Skip splat arguments (* or **) and out arguments
+        // Splat arguments (* or **) and out arguments
         val firstChildType = children.firstOrNull()?.elementType
-        if (firstChildType == CrystalTypes.STAR || firstChildType == CrystalTypes.DOUBLE_STAR
-            || firstChildType == CrystalTypes.OUT) {
+        val isSplat = firstChildType == CrystalTypes.STAR || firstChildType == CrystalTypes.DOUBLE_STAR
+        if (isSplat || firstChildType == CrystalTypes.OUT) {
             val expr = arg.expression ?: return null
-            return ArgumentInfo(expr, namedLabel)
+            return ArgumentInfo(expr, namedLabel, isSplat)
         }
 
         val expr = arg.expression ?: return null
@@ -369,7 +368,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // The expression is the first significant PSI child that is not the named label
         // For bare_argument, the content is spread as direct children
         // Use the bare_argument element itself as the expression to resolve type from
-        return ArgumentInfo(bareArg as PsiElement, namedLabel)
+        val isSplat = children.firstOrNull()?.elementType == CrystalTypes.STAR ||
+            children.firstOrNull()?.elementType == CrystalTypes.DOUBLE_STAR
+        return ArgumentInfo(bareArg as PsiElement, namedLabel, isSplat)
     }
 
     // ==================== Parameter Matching ====================
@@ -447,55 +448,6 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         return false
     }
 
-    /**
-     * For DOT-calls via args element (e.g. Foo.new(...)) — finds the class name.
-     */
-    private fun findClassNameBeforeNewFromArgs(argsElement: PsiElement): String? {
-        var sibling = argsElement.prevSibling
-        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-
-        val methodNameNode = sibling ?: return null
-        if (methodNameNode.text != "new") return null
-
-        sibling = methodNameNode.prevSibling
-        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-        if (sibling?.node?.elementType != CrystalTypes.DOT) return null
-
-        sibling = sibling.prevSibling
-        while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-        // If DOT is the first child of dot_call_access, walk up to find the receiver
-        if (sibling == null) {
-            val dotCallAccess = methodNameNode.parent
-            if (dotCallAccess is CrystalDotCallAccess) {
-                sibling = dotCallAccess.prevSibling
-                while (sibling is PsiWhiteSpace) sibling = sibling.prevSibling
-            }
-        }
-        return extractClassNameFromElement(sibling)
-    }
-
-    /**
-     * Extracts a class name (CONSTANT text) from a PSI element.
-     * Handles both raw CONSTANT tokens and CrystalVariableReferenceImpl/TypePathImpl wrappers.
-     */
-    private fun extractClassNameFromElement(element: PsiElement?): String? {
-        if (element == null) return null
-        // Direct CONSTANT token
-        if (element.node?.elementType == CrystalTypes.CONSTANT) {
-            return element.text
-        }
-        // Wrapper (e.g. CrystalVariableReferenceImpl, CrystalTypePathImpl) containing a CONSTANT child
-        val constantChild = element.node?.findChildByType(CrystalTypes.CONSTANT)
-        if (constantChild != null) {
-            return constantChild.text
-        }
-        return null
-    }
-
-    private fun findEnclosingTypeName(method: CrystalMethodDefinition): String? {
-        return CrystalCompletionHelper.getEnclosingClassName(method)
-    }
-
     // ==================== Record Macro Support ====================
 
     data class RecordParamInfo(val name: String, val typeText: String?, val hasDefault: Boolean)
@@ -508,9 +460,13 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         val file = contextElement.containingFile ?: return null
         val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file) ?: return null
         val bareArgList = recordDef.bareArgumentList ?: return null
-        val args = bareArgList.bareArgumentList
-        if (args.size <= 1) return emptyList()
+        if (bareArgList.bareArgumentList.size <= 1) return emptyList()
+        return recordParamsFrom(bareArgList)
+    }
 
+    /** Extracts name/type/default triples from a record definition's argument list (skipping the type name at index 0). */
+    private fun recordParamsFrom(bareArgList: CrystalBareArgumentList): List<RecordParamInfo> {
+        val args = bareArgList.bareArgumentList
         val params = mutableListOf<RecordParamInfo>()
         for (i in 1 until args.size) {
             val arg = args[i]
