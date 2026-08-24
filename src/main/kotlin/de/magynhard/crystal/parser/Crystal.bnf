@@ -401,7 +401,10 @@ property_declaration ::= (instance_var_access | class_var_access | IDENTIFIER | 
 
 // ==================== Visibility ====================
 
-visibility_modifier ::= (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | constant_assignment | statement)
+// module/enum/annotation/alias: crystal allows `private module SenderReceiverCloseAction`
+// inside a class (channel.cr) — without these the parse breaks there and every method
+// of the enclosing class drops out of the method-by-class index.
+visibility_modifier ::= (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | module_definition | enum_definition | annotation_definition | alias_definition | constant_assignment | statement)
                       | (PRIVATE | PROTECTED) SELF DOT IDENTIFIER [call_args | bare_argument_list] [block]
                       | (PRIVATE | PROTECTED) &NEWLINE
 

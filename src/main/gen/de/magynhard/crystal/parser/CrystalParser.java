@@ -7642,7 +7642,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | constant_assignment | statement)
+  // (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | module_definition | enum_definition | annotation_definition | alias_definition | constant_assignment | statement)
   //                       | (PRIVATE | PROTECTED) SELF DOT IDENTIFIER [call_args | bare_argument_list] [block]
   //                       | (PRIVATE | PROTECTED) &NEWLINE
   public static boolean visibility_modifier(PsiBuilder builder_, int level_) {
@@ -7657,7 +7657,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | constant_assignment | statement)
+  // (PRIVATE | PROTECTED) (method_definition | macro_definition | class_definition | struct_definition | module_definition | enum_definition | annotation_definition | alias_definition | constant_assignment | statement)
   private static boolean visibility_modifier_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "visibility_modifier_0")) return false;
     boolean result_;
@@ -7677,7 +7677,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // method_definition | macro_definition | class_definition | struct_definition | constant_assignment | statement
+  // method_definition | macro_definition | class_definition | struct_definition | module_definition | enum_definition | annotation_definition | alias_definition | constant_assignment | statement
   private static boolean visibility_modifier_0_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "visibility_modifier_0_1")) return false;
     boolean result_;
@@ -7685,6 +7685,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = macro_definition(builder_, level_ + 1);
     if (!result_) result_ = class_definition(builder_, level_ + 1);
     if (!result_) result_ = struct_definition(builder_, level_ + 1);
+    if (!result_) result_ = module_definition(builder_, level_ + 1);
+    if (!result_) result_ = enum_definition(builder_, level_ + 1);
+    if (!result_) result_ = annotation_definition(builder_, level_ + 1);
+    if (!result_) result_ = alias_definition(builder_, level_ + 1);
     if (!result_) result_ = constant_assignment(builder_, level_ + 1);
     if (!result_) result_ = statement(builder_, level_ + 1);
     return result_;

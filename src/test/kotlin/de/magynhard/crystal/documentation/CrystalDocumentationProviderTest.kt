@@ -602,4 +602,31 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertTrue(doc!!.contains("process"))
         assertTrue(doc.contains("Processes items."))
     }
+    // ==================== Generic constructor after private module ====================
+
+    fun testHoverOnGenericConstructorShowsDocNotVariableFallback() {
+        myFixture.configureByText("test.cr", """
+            class Channel(T)
+              private module Internal
+              end
+
+              # Opens a channel.
+              def initialize(capacity : Int32)
+              end
+            end
+
+            Channel(Nil).ne<caret>w(3)
+        """.trimIndent())
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        assertTrue(
+            "Generic .new must resolve to the constructor, not fall back to variable info",
+            target is CrystalMethodDefinition
+        )
+        assertEquals("initialize", (target as CrystalMethodDefinition).name)
+        val doc = provider.generateDoc(target, leaf)
+        assertNotNull(doc)
+        assertTrue(doc!!.contains("Opens a channel."))
+    }
 }

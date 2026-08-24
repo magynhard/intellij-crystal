@@ -29,6 +29,18 @@ public class CrystalVisibilityModifierImpl extends ASTWrapperPsiElement implemen
 
   @Override
   @Nullable
+  public CrystalAliasDefinition getAliasDefinition() {
+    return PsiTreeUtil.getChildOfType(this, CrystalAliasDefinition.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalAnnotationDefinition getAnnotationDefinition() {
+    return PsiTreeUtil.getChildOfType(this, CrystalAnnotationDefinition.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalBareArgumentList getBareArgumentList() {
     return PsiTreeUtil.getChildOfType(this, CrystalBareArgumentList.class);
   }
@@ -59,6 +71,12 @@ public class CrystalVisibilityModifierImpl extends ASTWrapperPsiElement implemen
 
   @Override
   @Nullable
+  public CrystalEnumDefinition getEnumDefinition() {
+    return PsiTreeUtil.getChildOfType(this, CrystalEnumDefinition.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalMacroDefinition getMacroDefinition() {
     return PsiTreeUtil.getChildOfType(this, CrystalMacroDefinition.class);
   }
@@ -67,6 +85,12 @@ public class CrystalVisibilityModifierImpl extends ASTWrapperPsiElement implemen
   @Nullable
   public CrystalMethodDefinition getMethodDefinition() {
     return PsiTreeUtil.getChildOfType(this, CrystalMethodDefinition.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalModuleDefinition getModuleDefinition() {
+    return PsiTreeUtil.getChildOfType(this, CrystalModuleDefinition.class);
   }
 
   @Override

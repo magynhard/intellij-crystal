@@ -8,6 +8,12 @@ import com.intellij.psi.PsiElement;
 public interface CrystalVisibilityModifier extends PsiElement {
 
   @Nullable
+  CrystalAliasDefinition getAliasDefinition();
+
+  @Nullable
+  CrystalAnnotationDefinition getAnnotationDefinition();
+
+  @Nullable
   CrystalBareArgumentList getBareArgumentList();
 
   @Nullable
@@ -23,10 +29,16 @@ public interface CrystalVisibilityModifier extends PsiElement {
   CrystalConstantAssignment getConstantAssignment();
 
   @Nullable
+  CrystalEnumDefinition getEnumDefinition();
+
+  @Nullable
   CrystalMacroDefinition getMacroDefinition();
 
   @Nullable
   CrystalMethodDefinition getMethodDefinition();
+
+  @Nullable
+  CrystalModuleDefinition getModuleDefinition();
 
   @Nullable
   CrystalStatement getStatement();

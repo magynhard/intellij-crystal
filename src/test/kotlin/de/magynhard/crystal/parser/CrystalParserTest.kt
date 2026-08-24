@@ -43,6 +43,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPrivateModuleInClass() {
+        doTest(true)
+    }
+
     fun testDescribeBlock() {
         doTest(true)
     }

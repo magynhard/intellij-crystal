@@ -1774,4 +1774,22 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+    // ==================== private module inside class (generic constructor visibility) ====================
+
+    fun testGenericConstructorAfterPrivateModuleIsCleanAndStillChecked() {
+        myFixture.configureByText("test.cr", """
+            class Channel(T)
+              private module Internal
+              end
+
+              def initialize(capacity : Int32)
+              end
+            end
+
+            Channel(Nil).new(3)
+
+            Channel(Nil).<error descr="Missing required argument(s): 'capacity'">new</error>()
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
