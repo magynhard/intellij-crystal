@@ -115,6 +115,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMultiLineParamsDotChain() {
+        doTest(true)
+    }
+
     fun testMultilineParamsAnonBlock() {
         doTest(true)
     }

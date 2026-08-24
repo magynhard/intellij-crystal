@@ -440,14 +440,17 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testGenuineBareArgumentIsNotReceiverContinuation() {
-        assertTypes(
+    // Crystal's compiler treats `s.consume .helper` as a call to consume with NO
+    // arguments ("wrong number of arguments ... given 0"), never as consume(.helper):
+    // the space-separated dot is a receiver continuation on the call result.
+    fun testSpaceSeparatedDotIsReceiverContinuationMatchingCompiler() {
+        assertUnknown(
             "class Service\n" +
                 "  def consume(callback) : String\n    \"text\"\n  end\n" +
                 "  def helper : Int32\n    1\n  end\nend\n" +
-                "service = Service.new\nresult = service.consume .helper\n<caret>result",
-            "String"
+                "service = Service.new\nresult = service.consume .helper\n<caret>result"
         )
+        // String#helper does not exist -> the chain resolves to nothing concrete.
     }
 
     fun testDirectAndMutualRecursionTerminateUnknown() {

@@ -618,10 +618,11 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // the receiver is the prevSibling in the flattened postfix_expression sequence.
 // INSTANCE_VAR/CLASS_VAR after DOT: Crystal allows accessing another object's
 // ivars within the same class (`other.@length` in String#==).
-// The bare-argument alternative needs !LBRACKET (same guard as method_call_expression):
-// without it, obj.name["key"] binds the bracket access as an Array-LITERAL argument
-// of the dot-call instead of the index postfix — silently producing config(["envs"]).
-dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [call_args | !LBRACKET bare_argument_list] {
+// The bare-argument alternative needs !DOT and !LBRACKET (same guards as
+// method_call_expression): without them, a bracket access binds as an Array-literal
+// argument (config(["envs"])) and a following chained dot expression binds as
+// arguments of the dot-call itself (cpu_count[.to_i, debug : Bool = ...]).
+dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [call_args | !DOT !LBRACKET bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
