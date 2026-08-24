@@ -931,6 +931,12 @@ variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT {
 type_reference ::= type_union [ARROW [type_union]]
                  | ARROW [type_union]
 
+// Deliberately permissive across newlines: crystal rejects multi-line unions
+// without a trailing backslash ("expecting token 'CONST', not 'NEWLINE'"), but
+// flagging that here would pin GrammarKit's generic error marker to the rescue
+// keyword. CrystalUnionContinuationAnnotator reports it precisely on the dangling
+// pipe with a compiler-style message and an add-backslash quick fix.
+// The lexer turns `\` + newline into whitespace, so continued unions parse transparently.
 private type_union ::= type_single (PIPE NLS type_single)*
 
 private type_single ::= STAR type_path [type_arguments] [QUESTION]

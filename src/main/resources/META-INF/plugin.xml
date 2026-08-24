@@ -304,6 +304,10 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.highlighting.CrystalAnnotator"/>
 
+        <annotator
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.highlighting.CrystalUnionContinuationAnnotator"/>
+
         <highlightErrorFilter
                 implementation="de.magynhard.crystal.highlighting.CrystalHighlightErrorFilter"/>
 

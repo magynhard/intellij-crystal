@@ -39,6 +39,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testRescueMultilineUnion() {
+        doTest(true)
+    }
+
     fun testDescribeBlock() {
         doTest(true)
     }
