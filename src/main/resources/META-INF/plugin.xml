@@ -106,6 +106,18 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.2.3</h3>
+<ul>
+  <li><b>Full stdlib indexing for Enumerable and String</b> — parser and lexer gaps broke parsing inside real crystal sources, silently hiding most methods from completion. Enumerable now exposes ~131 indexed methods (<code>sum</code>, <code>max</code>, <code>map</code>, …), String ~180 (<code>upcase</code>, <code>downcase</code>, <code>gsub</code>, …)</li>
+  <li><b>Correct types for percent literals</b> — <code>%w[...]</code> hovers as <code>Array(String)</code>, <code>%i[...]</code> as <code>Array(Symbol)</code>; new interpolating variants %W and %I; %r infers Regex</li>
+  <li><b>Splat and double-splat expansion type-checked</b> — <code>add(*args)</code> and <code>setup(**options)</code) expand into effective slots and validate against the real parameters; arity mismatches report precisely</li>
+  <li><b>Crystal NamedTuple support</b> — <code>{name: "x"}</code> infers <code>NamedTuple(name: String)</code> instead of Hash, matching <code>{name: String}</code>-style parameters structurally</li>
+  <li><b>Compiler-accurate diagnostics on valid code</b> — no more false errors for chained dot expressions in multi-line parameter lists, bracket access after dot-calls (<code>config["envs"]</code>), splat/double-splat calls, NamedTuple literals, or classes containing <code>private module/enum</code></li>
+  <li><b>Constructor resolution fixed</b> — hovering/navigating <code>.new</code> resolves to the constructor (including generic receivers like <code>Channel(Nil).new</code>) instead of falling back to variable info</li>
+  <li><b>Multi-line union continuation</b> — dangling pipes in unions like <code>rescue ex : A |</code> are flagged at the pipe with a compiler-style message plus an "Add backslash line continuation" quick fix</li>
+  <li><b>Require-graph visibility for name lookups</b> — unqualified calls and name-based hover fallbacks only consider definitions your file can actually see (same file, requires, prelude), eliminating false positives from unrelated project files and stdlib signature leaks</li>
+  <li><b>Literal receiver documentation</b> — hovering a method call on literals (<code>[1,2].max</code>, <code>"abc".upcase</code>) shows the resolved method's documentation</li>
+</ul>
 <h3>0.1.17</h3>
 <ul>
   <li><b>Keyword block highlighting</b> — cursor on structural keywords highlights all related keywords of the enclosing block</li>
