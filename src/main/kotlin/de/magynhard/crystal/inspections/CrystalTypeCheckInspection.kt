@@ -6,6 +6,7 @@ import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
+import de.magynhard.crystal.analysis.CrystalTypeText
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -100,7 +101,13 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             return
         }
 
-        // Check each argument against all overloads
+        // Check each argument against all overloads (with splat expansion).
+        // The unqualified-call lookup is name-based; the overload set may mix
+        // unrelated definitions, so unknown slots simply skip their comparison.
+        if (arguments.any { it.isSplat || it.isDoubleSplat }) {
+            checkExpandedOverloadTypes(methods, arguments, holder)
+            return
+        }
         for ((argIndex, argInfo) in arguments.withIndex()) {
             val resolvedType = CrystalExpressionTypeResolver.resolveType(argInfo.expression)
             if (resolvedType == null) {
@@ -222,45 +229,192 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         arguments: List<ArgumentInfo>,
         holder: ProblemsHolder
     ) {
-        // Check each argument against all overloads
-        for ((argIndex, argInfo) in arguments.withIndex()) {
-            // A splat expands to N elements; checking it as a single value against
-            // one parameter is semantically wrong — stay conservative instead.
-            if (argInfo.isSplat) continue
+        checkExpandedOverloadTypes(methods, arguments, holder)
+    }
 
-            val resolvedType = CrystalExpressionTypeResolver.resolveType(argInfo.expression) ?: continue
+    /**
+     * Type-checks arguments against overloads with full splat expansion:
+     * `*tuple` expands to positional slots from the tuple's element types,
+     * `**namedTuple` expands to named slots from its entries. Unresolvable
+     * expansions leave the whole call unchecked.
+     */
+    private fun checkExpandedOverloadTypes(
+        methods: List<CrystalMethodDefinition>,
+        arguments: List<ArgumentInfo>,
+        holder: ProblemsHolder
+    ) {
+        val slots = materializeEffectiveSlots(arguments) ?: return
+
+        for ((index, slot) in slots.withIndex()) {
             var anyOverloadAccepts = false
+            var compared = false
             val expectedTypes = mutableListOf<String>()
 
             for (method in methods) {
-                val params = method.parameterList?.parameterList ?: continue
-                val param = findMatchingParameter(params, argIndex, argInfo.name) ?: continue
-                val paramTypeRef = param.typeReference ?: continue
-                val paramType = paramTypeRef.text
-                expectedTypes.add(paramType)
-
-                if (CrystalTypeCompatibility.isCompatible(
-                        resolvedType.typeName, paramType, resolvedType.isUnsuffixedNumericLiteral
-                    )) {
+                val verdict = evaluateExpandedSlot(method, slots, index)
+                if (verdict.accepted) {
                     anyOverloadAccepts = true
                     break
                 }
+                if (verdict.expectedType != null) {
+                    expectedTypes.add(verdict.expectedType)
+                    compared = true
+                }
             }
 
-            if (!anyOverloadAccepts && expectedTypes.isNotEmpty()) {
+            if (!anyOverloadAccepts && compared) {
                 val expectedDesc = if (expectedTypes.size == 1) {
                     "'${expectedTypes.first()}'"
                 } else {
                     expectedTypes.distinct().joinToString(" or ") { "'$it'" }
                 }
-                val highlightElement = findHighlightTarget(argInfo.expression)
                 holder.registerProblem(
-                    highlightElement,
-                    "Type mismatch: expected $expectedDesc, got '${resolvedType.typeName}'",
+                    slot.highlight,
+                    "Type mismatch: expected $expectedDesc, got '${slot.typeName}'",
                     ProblemHighlightType.GENERIC_ERROR
                 )
             }
         }
+    }
+
+    private sealed interface EffectiveSlot {
+        val highlight: PsiElement
+        /** Null means the type could not be resolved — the slot consumes its position unchecked. */
+        val typeName: String?
+
+        data class Positional(
+            override val typeName: String?,
+            override val highlight: PsiElement,
+            val isUnsuffixedNumericLiteral: Boolean = false,
+        ) : EffectiveSlot
+
+        data class Named(
+            val name: String,
+            override val typeName: String?,
+            override val highlight: PsiElement,
+        ) : EffectiveSlot
+    }
+
+    /**
+     * Materializes argument infos into effective slots. Returns null when a splat
+     * or double splat cannot be resolved to tuple elements / named-tuple entries —
+     * in that case the call stays unchecked.
+     */
+    private fun materializeEffectiveSlots(arguments: List<ArgumentInfo>): List<EffectiveSlot>? {
+        val slots = mutableListOf<EffectiveSlot>()
+        for (argInfo in arguments) {
+            when {
+                argInfo.isDoubleSplat -> {
+                    val typeName = CrystalExpressionTypeResolver.resolveType(argInfo.expression)?.typeName
+                        ?: return null
+                    val entries = CrystalTypeText.namedTupleEntries(typeName) ?: return null
+                    for ((name, entryType) in entries) {
+                        slots.add(EffectiveSlot.Named(name, entryType, argInfo.expression))
+                    }
+                }
+                argInfo.isSplat -> {
+                    val typeName = CrystalExpressionTypeResolver.resolveType(argInfo.expression)?.typeName
+                        ?: return null
+                    val elements = CrystalTypeText.tupleElements(typeName) ?: return null
+                    for (element in elements) {
+                        slots.add(EffectiveSlot.Positional(element, argInfo.expression))
+                    }
+                }
+                else -> {
+                    val resolved = CrystalExpressionTypeResolver.resolveType(argInfo.expression)
+                    slots.add(
+                        EffectiveSlot.Positional(
+                            resolved?.typeName,
+                            findHighlightTarget(argInfo.expression),
+                            resolved?.isUnsuffixedNumericLiteral ?: false,
+                        )
+                    )
+                }
+            }
+        }
+        return slots
+    }
+
+    private data class ExpandedSlotVerdict(
+        val accepted: Boolean,
+        val compared: Boolean,
+        val expectedType: String?,
+    ) {
+        companion object {
+            val SKIPPED = ExpandedSlotVerdict(true, false, null)
+        }
+    }
+
+    /**
+     * Sequential parameter walker over one overload. Simulates all [slots] up to
+     * and including [targetIndex]; only the target's type compatibility is judged.
+     * A rest parameter (`*y`) absorbs every remaining positional slot; unknown
+     * named keys are out of scope here and skipped conservatively.
+     */
+    private fun evaluateExpandedSlot(
+        method: CrystalMethodDefinition,
+        slots: List<EffectiveSlot>,
+        targetIndex: Int,
+    ): ExpandedSlotVerdict {
+        val params = method.parameterList?.parameterList
+            ?: return ExpandedSlotVerdict.SKIPPED
+        val hasDoubleSplatParam = params.any {
+            it.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null
+        }
+
+        var paramIdx = 0
+        var restAbsorbed = false
+
+        fun nextPositionalParam(): CrystalParameter? {
+            while (paramIdx < params.size) {
+                val param = params[paramIdx]
+                if (isSplatParameter(param)) {
+                    restAbsorbed = true
+                    return param
+                }
+                paramIdx++
+                return param
+            }
+            return null
+        }
+
+        for ((index, slot) in slots.withIndex()) {
+            val isTarget = index == targetIndex
+            when (slot) {
+                is EffectiveSlot.Named -> {
+                    val param = params.firstOrNull {
+                        CrystalCompletionHelper.extractParameterName(it) == slot.name
+                    } ?: return if (isTarget) ExpandedSlotVerdict.SKIPPED else continue
+                    // Named parameters do not consume positional positions.
+                    if (!isTarget) continue
+                    val typeRef = param.typeReference ?: return ExpandedSlotVerdict.SKIPPED
+                    return ExpandedSlotVerdict(
+                        accepted = CrystalTypeCompatibility.isCompatible(slot.typeName ?: return ExpandedSlotVerdict.SKIPPED, typeRef.text),
+                        compared = true,
+                        expectedType = typeRef.text,
+                    )
+                }
+                is EffectiveSlot.Positional -> {
+                    if (restAbsorbed) continue
+                    val param = nextPositionalParam() ?: run {
+                        // Arity overflow is the argument-count inspection's domain.
+                        return if (isTarget) ExpandedSlotVerdict.SKIPPED else continue
+                    }
+                    if (!isTarget) continue
+                    if (isSplatParameter(param)) return ExpandedSlotVerdict.SKIPPED
+                    val typeRef = param.typeReference ?: return ExpandedSlotVerdict.SKIPPED
+                    val argTypeName = slot.typeName ?: return ExpandedSlotVerdict.SKIPPED
+                    return ExpandedSlotVerdict(
+                        accepted = CrystalTypeCompatibility.isCompatible(
+                            argTypeName, typeRef.text, slot.isUnsuffixedNumericLiteral
+                        ),
+                        compared = true,
+                        expectedType = typeRef.text,
+                    )
+                }
+            }
+        }
+        return ExpandedSlotVerdict.SKIPPED
     }
 
     /**
@@ -288,7 +442,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     data class ArgumentInfo(
         val expression: PsiElement,
         val name: String? = null, // Named argument label, or null for positional
-        val isSplat: Boolean = false // *expr / **expr — expands to N values, not one
+        val isSplat: Boolean = false, // *expr — expands to N positional values
+        val isDoubleSplat: Boolean = false // **expr — expands to named key/value pairs
     )
 
     private fun extractArguments(callExpr: PsiElement): List<ArgumentInfo> {
@@ -346,10 +501,11 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
         // Splat arguments (* or **) and out arguments
         val firstChildType = children.firstOrNull()?.elementType
-        val isSplat = firstChildType == CrystalTypes.STAR || firstChildType == CrystalTypes.DOUBLE_STAR
-        if (isSplat || firstChildType == CrystalTypes.OUT) {
+        val isSplat = firstChildType == CrystalTypes.STAR
+        val isDoubleSplat = firstChildType == CrystalTypes.DOUBLE_STAR
+        if (isSplat || isDoubleSplat || firstChildType == CrystalTypes.OUT) {
             val expr = arg.expression ?: return null
-            return ArgumentInfo(expr, namedLabel, isSplat)
+            return ArgumentInfo(expr, namedLabel, isSplat, isDoubleSplat)
         }
 
         val expr = arg.expression ?: return null
@@ -373,9 +529,10 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // The expression is the first significant PSI child that is not the named label
         // For bare_argument, the content is spread as direct children
         // Use the bare_argument element itself as the expression to resolve type from
-        val isSplat = children.firstOrNull()?.elementType == CrystalTypes.STAR ||
-            children.firstOrNull()?.elementType == CrystalTypes.DOUBLE_STAR
-        return ArgumentInfo(bareArg as PsiElement, namedLabel, isSplat)
+        val firstType = children.firstOrNull()?.elementType
+        val isSplat = firstType == CrystalTypes.STAR
+        val isDoubleSplat = firstType == CrystalTypes.DOUBLE_STAR
+        return ArgumentInfo(bareArg as PsiElement, namedLabel, isSplat, isDoubleSplat)
     }
 
     // ==================== Parameter Matching ====================
@@ -512,6 +669,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         holder: ProblemsHolder
     ) {
         for ((argIndex, argInfo) in arguments.withIndex()) {
+            // Splat expansion against record fields is not modeled — stay silent.
+            if (argInfo.isSplat || argInfo.isDoubleSplat) continue
             val resolvedType = CrystalExpressionTypeResolver.resolveType(argInfo.expression) ?: continue
 
             // Find matching record param by name (named) or position (positional)

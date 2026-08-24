@@ -731,4 +731,90 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+    // ==================== Splat / double-splat expansion ====================
+
+    fun testTupleSplatExpansionMatchesParameters() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32, c : Int32) : Int32
+              a + b + c
+            end
+
+            args = {1, 2, 3}
+            result = add(*args)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTupleSplatElementMismatchIsReported() {
+        myFixture.configureByText("test.cr", """
+            def add(a : Int32, b : Int32, c : Int32) : Int32
+              a + b + c
+            end
+
+            args = {1, 2, 3}
+            result = add(*<error descr="Type mismatch: expected 'Int32', got 'String'">args</error>)
+        """.trimIndent().replace("{1, 2, 3}", "{1, \"x\", 3}"))
+        myFixture.checkHighlighting()
+    }
+
+    fun testDoubleSplatExpansionMatchesNamedParameters() {
+        myFixture.configureByText("test.cr", """
+            def setup(host : String, port : Int32)
+            end
+
+            options = {host: "localhost", port: 8080}
+            setup(**options)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDoubleSplatValueMismatchIsReported() {
+        myFixture.configureByText("test.cr", """
+            def setup(host : String, port : Int32)
+            end
+
+            options = {host: 8080, port: 8080}
+            setup(**<error descr="Type mismatch: expected 'String', got 'Int32'">options</error>)
+        """.trimIndent())
+        // The host slot's value type (Int32) mismatches its named parameter.
+        myFixture.checkHighlighting()
+    }
+
+    fun testDotCallWithTupleSplatIsClean() {
+        myFixture.configureByText("test.cr", """
+            class Calc
+              def add(a : Int32, b : Int32, c : Int32) : Int32
+                a + b + c
+              end
+            end
+
+            calc = Calc.new
+            args = {1, 2, 3}
+            calc.add(*args)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRestParameterAbsorbsExpandedTuple() {
+        myFixture.configureByText("test.cr", """
+            def g(a : Int32, *rest)
+              a
+            end
+
+            values = {1, 2, 3}
+            g(*values)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNonTupleSplatStaysSilent() {
+        myFixture.configureByText("test.cr", """
+            def f(x : Int32)
+              x
+            end
+
+            f(*"not a tuple")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
