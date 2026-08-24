@@ -57,6 +57,25 @@ object CrystalTypeCompatibility {
     fun isCompatible(argType: String, paramType: String, isUnsuffixedNumericLiteral: Boolean = false): Boolean {
         val normalizedParam = normalizeType(paramType)
 
+        // NamedTuple inference vs {k: T, ...} parameter notation (both directions):
+        // crystal named tuple types are structural — same key set, compatible value types.
+        val argIsNamedTuple = argType.startsWith("NamedTuple(")
+        val paramIsNamedTuple = normalizedParam.startsWith("NamedTuple(")
+        val argIsBraceTuple = argType.trimStart().startsWith("{") && argType.contains(":")
+        val paramIsBraceTuple = normalizedParam.startsWith("{") && normalizedParam.contains(":")
+        if ((argIsNamedTuple && paramIsBraceTuple) || (argIsBraceTuple && paramIsNamedTuple)) {
+            val argEntries = parseTupleEntries(argType)
+            val paramEntries = parseTupleEntries(normalizedParam)
+            if (argEntries != null && paramEntries != null && argEntries.keys == paramEntries.keys) {
+                val allValuesCompatible = argEntries.all { (key, argEntry) ->
+                    paramEntries[key]?.let { paramEntry ->
+                        isCompatible(argEntry, paramEntry, isUnsuffixedNumericLiteral)
+                    } ?: false
+                }
+                if (allValuesCompatible) return true
+            }
+        }
+
         // Exact match
         if (argType == normalizedParam) return true
 
@@ -175,5 +194,60 @@ object CrystalTypeCompatibility {
             return "${normalized.dropLast(1).trim()} | Nil"
         }
         return normalized
+    }
+
+    /** Depth-aware split on top-level commas, respecting (), [], {} nesting. */
+    private fun splitTopLevel(text: String): List<String> {
+        val parts = mutableListOf<String>()
+        var depth = 0
+        val current = StringBuilder()
+        for (ch in text) {
+            when (ch) {
+                '(', '[', '{' -> { depth++; current.append(ch) }
+                ')', ']', '}' -> { depth--; current.append(ch) }
+                ',' -> if (depth == 0) {
+                    parts.add(current.toString())
+                    current.setLength(0)
+                } else current.append(ch)
+                else -> current.append(ch)
+            }
+        }
+        parts.add(current.toString())
+        return parts.map(String::trim).filter(String::isNotEmpty)
+    }
+
+    /**
+     * Parses "NamedTuple(a: Int32, b: String)" or "{a: Int32, b: String}" into a
+     * key→typeText map (first top-level ':' splits key and value). Returns null
+     * when the text doesn't match either notation or an entry is malformed.
+     */
+    private fun parseTupleEntries(typeName: String): Map<String, String>? {
+        val compact = typeName.trim()
+        val inner = when {
+            compact.startsWith("NamedTuple(") && compact.endsWith(")") ->
+                compact.removePrefix("NamedTuple(").removeSuffix(")")
+            compact.startsWith("{") && compact.endsWith("}") ->
+                compact.removePrefix("{").removeSuffix("}")
+            else -> return null
+        }
+        if (inner.isBlank()) return emptyMap()
+        val result = linkedMapOf<String, String>()
+        for (part in splitTopLevel(inner)) {
+            var depth = 0
+            var colonIdx = -1
+            for ((index, ch) in part.withIndex()) {
+                when (ch) {
+                    '(', '[', '{' -> depth++
+                    ')', ']', '}' -> depth--
+                    ':' -> if (depth == 0 && colonIdx < 0) { colonIdx = index; break }
+                }
+            }
+            if (colonIdx <= 0) return null
+            val key = part.substring(0, colonIdx).trim()
+            val value = part.substring(colonIdx + 1).trim()
+            if (key.isEmpty() || value.isEmpty()) return null
+            result[key] = value
+        }
+        return result
     }
 }

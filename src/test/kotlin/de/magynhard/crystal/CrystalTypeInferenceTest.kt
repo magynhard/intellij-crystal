@@ -138,10 +138,23 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         assertEquals("Hash(String, Int32)", type)
     }
 
-    fun testInferHashLiteralShorthand() {
+    fun testInferNamedTupleLiteralShorthand() {
+        // {a: 1} is crystal NamedTuple syntax, not a Hash with symbol keys.
         myFixture.configureByText("test.cr", "x = {a: 1}")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)
-        assertEquals("Hash(Symbol, Int32)", type)
+        assertEquals("NamedTuple(a: Int32)", type)
+    }
+
+    fun testInferNamedTupleLiteralMixedValues() {
+        myFixture.configureByText("test.cr", "x = {name: \"Smith\", title: \"Dr.\", age: 40}")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("NamedTuple(name: String, title: String, age: Int32)", type)
+    }
+
+    fun testInferArrowLiteralRemainsHash() {
+        myFixture.configureByText("test.cr", "x = {1 => \"one\"}")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Hash(Int32, String)", type)
     }
 
     fun testInferTupleLiteral() {

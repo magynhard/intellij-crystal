@@ -976,6 +976,34 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun resolveHash(hash: CrystalHashLiteral): CrystalTypeResolution {
         val entries = hash.hashEntryList?.hashEntryList.orEmpty()
         if (entries.isEmpty()) return CrystalTypeResolution.Unknown
+
+        // `{a: 1, b: "x"}` (colon syntax, identifier keys) is a NAMED TUPLE literal;
+        // only `=>` builds a Hash. Mixed forms are not valid crystal.
+        val allColonNamed = entries.all { entry ->
+            entry.node.findChildByType(CrystalTypes.COLON) != null &&
+                entry.node.findChildByType(CrystalTypes.DOUBLE_ARROW) == null
+        }
+        if (allColonNamed && entries.isNotEmpty()) {
+            var allIdentifiers = true
+            val parts = mutableListOf<String>()
+            for (entry in entries) {
+                val exprs = entry.expressionList
+                val nameExpr = exprs.getOrNull(0)
+                val nameText = nameExpr?.text?.trim().orEmpty()
+                if (!Regex("[a-z_][A-Za-z0-9_]*").matches(nameText)) {
+                    allIdentifiers = false
+                    break
+                }
+                val valueType = exprs.lastOrNull()?.let(::resolve)
+                    as? CrystalTypeResolution.Known
+                    ?: return CrystalTypeResolution.Unknown
+                parts.add("$nameText: ${valueType.types.joinToString(" | ") { it.name }}")
+            }
+            if (allIdentifiers && parts.isNotEmpty()) {
+                return knownType("NamedTuple(${parts.joinToString(", ")})")
+            }
+        }
+
         val keys = entries.map { entry ->
             if (entry.node.findChildByType(CrystalTypes.COLON) != null) {
                 knownType("Symbol")

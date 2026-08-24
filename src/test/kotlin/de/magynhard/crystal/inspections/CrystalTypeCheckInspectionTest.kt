@@ -540,11 +540,12 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testHashLiteralShorthandNoError() {
+    // {a: 1} is a NamedTuple literal in crystal — it does NOT satisfy Hash(Symbol, Int32).
+    fun testNamedTupleLiteralAgainstHashParameterIsReported() {
         myFixture.configureByText("test.cr", """
             def foo(h : Hash(Symbol, Int32))
             end
-            foo({a: 1})
+            foo(<error descr="Type mismatch: expected 'Hash(Symbol, Int32)', got 'NamedTuple(a: Int32)'">{a: 1}</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -571,7 +572,7 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def foo(s : String)
             end
-            foo(<error descr="Type mismatch: expected 'String', got 'Hash(Symbol, Int32)'">{a: 1}</error>)
+            foo(<error descr="Type mismatch: expected 'String', got 'NamedTuple(a: Int32)'">{a: 1}</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -704,6 +705,29 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
             require "./mylib"
 
             shout(<error descr="Type mismatch: expected 'String', got 'Int32'">123</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+    // ==================== NamedTuple literal vs {k: T} parameter notation ====================
+
+    fun testNamedTupleLiteralMatchesBraceTupleParameter() {
+        myFixture.configureByText("test.cr", """
+            def greet(user : {name: String, title: String})
+              puts "Hello, #{"x"}!"
+            end
+
+            greet({name: "Smith", title: "Dr."})
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNamedTupleLiteralWithWrongValueTypesIsReported() {
+        myFixture.configureByText("test.cr", """
+            def greet(user : {name: String, title: String})
+              puts "Hello"
+            end
+
+            greet(<error descr="Type mismatch: expected '{name: String, title: String}', got 'NamedTuple(name: Int32, title: Int32)'">{name: 1, title: 2}</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }
