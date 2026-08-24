@@ -2,7 +2,7 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
-## [0.2.1] — 2026-08-24
+## [0.2.2] — 2026-08-24
 
 ### Added
 
