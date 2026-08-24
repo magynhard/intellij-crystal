@@ -5,6 +5,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 
@@ -66,7 +67,11 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val project = reference.project
         val scope = GlobalSearchScope.projectScope(project)
         val methodName = methodNameElement.text
-        val methods = CrystalIndexService.findTopLevelMethods(methodName, project, scope).toList()
+        // Require-graph visibility: a top-level method in an unrelated file is NOT
+        // callable here — crystal would report `undefined local variable or method`.
+        var methods = CrystalRequireVisibility.visibleMethods(
+            CrystalIndexService.findTopLevelMethods(methodName, project, scope), reference
+        )
         if (methods.isEmpty()) return
 
         val crystalReference = reference.reference as? CrystalReference
@@ -92,7 +97,11 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
         val project = callExpr.project
         val scope = GlobalSearchScope.projectScope(project)
-        val methods = CrystalIndexService.findMethods(methodName, project, scope).toList()
+        // Require-graph visibility: methods from files this call cannot see must
+        // not participate in the overload set.
+        val methods = CrystalRequireVisibility.visibleMethods(
+            CrystalIndexService.findMethods(methodName, project, scope).toList(), callExpr
+        )
 
         if (methods.isEmpty()) return
 

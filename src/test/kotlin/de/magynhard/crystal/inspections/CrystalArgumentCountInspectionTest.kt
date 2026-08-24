@@ -1723,4 +1723,55 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+    // ==================== Require-graph visibility for unqualified calls ====================
+
+    private val topLevelProcess = """
+        def process(items : Int32) : Nil
+        end
+    """.trimIndent()
+
+    fun testArgumentlessCallToUnrequiredTopLevelMethodStaysSilent() {
+        myFixture.addFileToProject("mylib.cr", topLevelProcess)
+        myFixture.configureByText("main.cr", """
+            begin
+              process
+            rescue ex : ArgumentError | IndexError | KeyError | NilAssertionError | TypeCastError
+              puts "Value error: #{"x"}"
+            end
+        """.trimIndent())
+        // crystal run reports `undefined local variable or method 'process'` here —
+        // the definition lives in an unrelated, unrequired file.
+        myFixture.checkHighlighting()
+    }
+
+    fun testArgumentlessCallToRequiredTopLevelMethodReportsMissingArgs() {
+        myFixture.addFileToProject("mylib.cr", topLevelProcess)
+        myFixture.configureByText("main.cr", """
+            require "./mylib"
+
+            begin
+              <error descr="Missing required argument(s): 'items'">process</error>
+            rescue ex : ArgumentError | IndexError | KeyError | NilAssertionError | TypeCastError
+              puts "Value error: #{"x"}"
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCallWithArgumentsToUnrequiredFileStaysSilent() {
+        myFixture.addFileToProject("mylib.cr", topLevelProcess)
+        myFixture.configureByText("main.cr", "process(1, 5)")
+        // Unrelated file: no overload set, no "too many arguments" false positive.
+        myFixture.checkHighlighting()
+    }
+
+    fun testCallWithArgumentsToRequiredFileStillReportsTooMany() {
+        myFixture.addFileToProject("mylib.cr", topLevelProcess)
+        myFixture.configureByText("main.cr", """
+            require "./mylib"
+
+            process(1, <error descr="Too many arguments: expected at most 1, got 2">5</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

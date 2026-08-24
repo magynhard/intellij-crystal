@@ -559,4 +559,47 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertTrue("Should contain 'enum' keyword", doc!!.contains("enum"))
         assertTrue("Should contain enum name 'Color'", doc.contains("Color"))
     }
+    // ==================== Require-graph visibility for name fallbacks ====================
+
+    fun testHoverOnUndefinedNameDoesNotLeakUnrequiredSignature() {
+        myFixture.addFileToProject("mylib.cr", "def process(items : Int32) : Nil\nend")
+        myFixture.configureByText("main.cr", """
+            begin
+              pro<caret>cess
+            rescue ex : ArgumentError
+              puts ex.message
+            end
+        """.trimIndent())
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        // The variable fallback may still render type info for the identifier itself,
+        // but it must NOT leak the unrelated file's method signature.
+        if (target is CrystalMethodDefinition) {
+            fail("Undefined name must not resolve to an unrelated file's method")
+        }
+        val doc = target?.let { provider.generateDoc(it, leaf) }
+        assertTrue("Unrequired 'process(items)' signature must not appear", doc?.contains("items") != true)
+    }
+
+    fun testHoverOnRequiredTopLevelMethodShowsItsDoc() {
+        myFixture.addFileToProject("mylib.cr", "# Processes items.\ndef process(items : Int32) : Nil\nend")
+        myFixture.configureByText("main.cr", """
+            require "./mylib"
+
+            begin
+              pro<caret>cess
+            rescue ex : ArgumentError
+              puts ex.message
+            end
+        """.trimIndent())
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        assertNotNull("Required top-level method should resolve", target)
+        val doc = provider.generateDoc(target!!, leaf)
+        assertNotNull(doc)
+        assertTrue(doc!!.contains("process"))
+        assertTrue(doc.contains("Processes items."))
+    }
 }

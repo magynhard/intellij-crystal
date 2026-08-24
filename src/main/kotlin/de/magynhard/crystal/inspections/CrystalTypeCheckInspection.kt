@@ -5,6 +5,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -64,7 +65,11 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // Find all overloads of this method
         val project = callExpr.project
         val scope = GlobalSearchScope.projectScope(project)
-        var methods = CrystalIndexService.findMethods(methodName, project, scope).toList()
+        // Require-graph visibility: methods from files this call cannot see must
+        // not participate in the overload set.
+        var methods = CrystalRequireVisibility.visibleMethods(
+            CrystalIndexService.findMethods(methodName, project, scope).toList(), callExpr
+        )
 
         // Check record definition first — if `record Config, ...` exists in the
         // current file, its parameters take priority over any `class Config`

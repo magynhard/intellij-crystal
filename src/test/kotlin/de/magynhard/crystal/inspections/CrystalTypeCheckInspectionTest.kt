@@ -689,4 +689,22 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         // inspection must stay silent instead of falling back to name-only lookup.
         myFixture.checkHighlighting()
     }
+    // ==================== Require-graph visibility for unqualified calls ====================
+
+    fun testTypeCheckAgainstUnrequiredFileStaysSilent() {
+        myFixture.addFileToProject("mylib.cr", "def shout(x : String)\nend")
+        myFixture.configureByText("main.cr", "shout(123)")
+        // crystal: undefined method — must not report Int32/String mismatch.
+        myFixture.checkHighlighting()
+    }
+
+    fun testTypeCheckAgainstRequiredFileStillReportsMismatch() {
+        myFixture.addFileToProject("mylib.cr", "def shout(x : String)\nend")
+        myFixture.configureByText("main.cr", """
+            require "./mylib"
+
+            shout(<error descr="Type mismatch: expected 'String', got 'Int32'">123</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

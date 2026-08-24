@@ -3,6 +3,8 @@ package de.magynhard.crystal.psi
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
@@ -24,16 +26,34 @@ class CrystalReference(
         val local = resolveLocalDeclaration()
         if (local != null) return local
 
-        // 2. StubIndex lookup (fast — in-memory index)
-        val scope = GlobalSearchScope.allScope(element.project)
-        val types = CrystalIndexService.findTypes(name, element.project, scope)
+        // 2. StubIndex lookup (fast — in-memory index), restricted to the
+        //    require-graph visibility of this file. Without this filter, an
+        //    undefined name would "resolve" to an arbitrary same-named method
+        //    from anywhere in the index (allScope), leaking unrelated
+        //    signatures into hover documentation and Go to Definition.
+        val sources = CrystalRequireGraphService.getInstance(element.project).effectiveSources(element)
+        if (sources.files.isEmpty()) return null
+
+        val types = CrystalIndexService.findTypes(name, element.project, scope())
+            .filter { sources.contains(it) }
         if (types.isNotEmpty()) return types.first()
 
-        val methods = CrystalIndexService.findMethods(name, element.project, scope)
-        if (methods.isNotEmpty()) return methods.first()
+        val methods = CrystalIndexService.findMethods(name, element.project, scope())
+            .filter { sources.contains(it) }
+        if (methods.isNotEmpty()) return deterministicCandidate(methods)
 
         return null
     }
+
+    /** Stable pick for diagnostics/hover: prefer top-level defs, then enclosing name, then file. */
+    private fun deterministicCandidate(methods: List<PsiElement>): PsiElement =
+        methods.minWithOrNull(
+            compareBy<PsiElement> { it !is CrystalMethodDefinition }
+                .thenBy { (it as? CrystalMethodDefinition)?.let(CrystalCompletionHelper::getEnclosingClassName) ?: "" }
+                .thenBy { (it as? CrystalMethodDefinition)?.containingFile?.name ?: "" }
+        ) ?: methods.first()
+
+    private fun scope(): GlobalSearchScope = GlobalSearchScope.allScope(element.project)
 
     /** Resolves only preceding assignments and enclosing parameters, without index access. */
     fun resolveLocalDeclaration(): PsiElement? {
