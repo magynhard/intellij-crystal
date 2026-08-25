@@ -2,11 +2,12 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
-## [0.2.5]
+## [0.2.5] — 2026-08-25
 
 ### Changed
 
 - **Compile target raised to IntelliJ 2026.2 (build 262)** — the plugin now compiles against and requires IntelliJ 2026.2 or later (`sinceBuild=262`), matching the current platform release. The Gradle build uses the final 2026.2 GA build (262.10315.19) and the Kotlin/Java toolchain moved to JDK 25, as required by the 2026.2 platform jars.
+- **README reorganized around installation and core user features** — streamlined the public documentation while retaining platform-specific dependency setup, documented compiler configuration and project creation, clarified ECR and type-inference limits, removed incorrect platform guidance, and moved implementation details out of the primary user flow. Contributor setup now reflects the JDK 25 build toolchain.
 
 ### Bug Fixes
 

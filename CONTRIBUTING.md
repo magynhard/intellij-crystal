@@ -132,4 +132,5 @@ cd intellij-crystal
 ./gradlew runIde         # launch a dev IDE with the plugin loaded
 ```
 
-Requires JDK 21. See [README.md](README.md) for full setup instructions.
+The build uses JDK 25, which Gradle can provision automatically through Foojay.
+See [README.md](README.md) for full setup instructions.

@@ -9,120 +9,80 @@
 [![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=darkslategray&label=Crystal)](https://crystal-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg?style=plastic&logo=mit&labelColor=beige)](LICENSE)
 
-Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBrains IDEs.
+Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compatible JetBrains IDEs. The plugin provides editing, navigation, code intelligence, testing, and debugging through a native IntelliJ Platform integration without requiring a language server.
 
 > [!WARNING]
-> Early Beta — This plugin is in active development. Bugs are to be expected.
-> Please [open an issue](https://github.com/magynhard/intellij-crystal/issues/new/choose)
-> and fill out the template carefully (current/expected examples are required)
-> so we can triage effectively.
+> **Early Beta** — This plugin is under active development. Bugs and unsupported Crystal constructs are to be expected. Please [open an issue](https://github.com/magynhard/intellij-crystal/issues/new/choose) with a minimal example and the current and expected behavior.
 
 ![New Project Wizard](doc/img/screenshots/001_new_project.png)
+
+## Highlights
+
+### Editing
+
+- Syntax and semantic highlighting for Crystal code, including macros, annotations, heredocs, regex, percent literals, and interpolation
+- Keyword block highlighting for structures such as `if`/`elsif`/`else`/`end`, methods, types, and exception handling
+- Code folding, brace matching, line comments, automatic indentation, and automatic `end` insertion
+- Formatting through Crystal's canonical `crystal tool format`
+- 21 live templates for common Crystal constructs
+- Dedicated color settings and TODO/FIXME indexing
+
+### Code Intelligence
+
+- Context-aware completion for local variables, parameters, methods, constants, types, namespaces, and `require` paths
+- Receiver-aware DOT completion for literals, variables, method results, collections, constructors, and supported unions
+- Require-aware method visibility based on the current file, its transitive dependencies, and the configured Crystal prelude
+- Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View
+- Parameter Info for parenthesized calls, bare calls, DOT calls, constructors, and overloads
+- Quick Documentation with rendered Crystal doc comments, Markdown, and navigable type links
+- Hover information for variables, parameters, definitions, and inferred method return types
+- Rename refactoring with compiler verification
+
+### Inspections
+
+- Argument count and argument type validation, including named arguments, defaults, overloads, splats, and double splats
+- Instance-variable type validation and unused-assignment detection
+- Diagnostics for invalid empty collections, `lib fun` parameters without types, invalid single-quoted strings, and colon spacing
+- Crystal-specific diagnostics for invalid dynamic `require` contexts and malformed multiline union types
+
+The plugin's type inference supports many common literals, collections, variables, control-flow expressions, constructors, and call chains. It is intended to provide useful editor feedback, not to replace the Crystal compiler's complete type system.
+
+### Run, Test, and Debug
+
+- Run configurations for `crystal run`, `crystal build`, and `crystal spec`
+- Configurable compiler path, arguments, environment variables, and working directory
+- Integrated spec runner with gutter actions, individual test execution, and a result tree
+- Debugging through `lldb-dap`, including breakpoints, stepping, variable inspection, and bundled Crystal LLDB formatters
+- Context actions for running Crystal files directly
 
 ![Test Runner](doc/img/screenshots/002_testrunner.png)
 
 ![Debugger](doc/img/screenshots/003_debugger.png)
 
+### Embedded Crystal Templates
 
-## Features
+`.ecr` and `.html.ecr` files receive Crystal highlighting inside `<% %>` tags and HTML highlighting outside them. Completion, navigation, Parameter Info, documentation, hover information, Find Usages, and inspections are available inside injected Crystal code.
 
-### Syntax & Editing
+ECR code intelligence currently uses the configured Crystal prelude but does not infer a compiling project or shard entrypoint. Core types and literal methods are available, while project-specific declarations may not resolve inside a template yet.
 
-- **Syntax Highlighting** — 60+ keywords, operators, strings with interpolation, numbers, symbols, regex, percent literals, heredocs, annotations, macros
-- **Semantic Highlighting** — PSI-based annotator distinguishes variables, methods, types, parameters, and macro fresh vars
-- **Keyword Block Highlighting** — cursor on `if`, `else`, `elsif`, `end`, `begin`, `rescue`, `ensure`, `case`, `when`, `def`, `class`, `module` etc. highlights all related structural keywords of the enclosing block
-- **Color Settings Page** — customizable colors for all token types
-- **Code Folding** — collapse blocks, methods, classes, multi-line comments, arrays, hashes
-- **Brace Matching** — parentheses, brackets, braces, percent literal delimiters, `do`/`end` pairs
-- **Auto-Insert** — automatic closing quotes, brackets, `end` after block keywords, auto-indentation after block openers
-- **Line Commenter** — toggle `#` comments
-- **Postfix Control Flow** — parser recognizes `expr if condition`, `expr unless condition`, `expr while condition`
-- **TODO/FIXME Indexing** — highlights and indexes task comments
+### Project Setup
 
-### Navigation
-
-- **Go to Definition** (Ctrl+Click / Ctrl+B) — jump to class, module, struct, enum, method definitions, instance/class variable declarations (`@name`, `@@name`), and DOT-call methods (`obj.method`, `Class.method`)
-- **Namespace Access** — hovering and Go to Definition for intermediate namespace segments (e.g. `Inner` in `Outer::Inner.method`)
-- **Go to Symbol** (Ctrl+Alt+Shift+N) — find any symbol in the project
-- **Go to Class** (Ctrl+N) — find classes, modules, structs, enums, aliases, annotations, and libs
-- **Find Usages** (Alt+F7) — find all usages of methods, classes, instance variables (`@name`), and class variables (`@@name`) within the enclosing class
-- **Structure View** — PSI-based tree with nested types, methods, macros, constants
-- **Embedded Crystal (ECR) Templates** — `.ecr` and `.html.ecr` files with full template language support:
-  - `<% %>` tag parsing with Crystal syntax highlighting inside tags, HTML highlighting outside
-  - **Full Crystal code intelligence inside `<% %>` tags** — code completion, Go to Definition, Parameter Info, hover, Find Usages, and inspections work inside ECR tags via language injection; DOT completion exposes core literal methods from the configured prelude without leaking unrelated project or shard context
-  - 2-tab Structure View: ECR tab (tag snippets plus an `@instance_variables` group with navigation), HTML tab (element tree)
-  - `<%>` file icon, HTML code folding, `LayeredLexerEditorHighlighter` with Crystal + HTML layers
-- **Parameter Info** (Ctrl+P) — shows method signature at call site for parenthesized calls, bare calls, DOT-calls, `ClassName.new(...)`, and overloads; project-wide via StubIndex
-- **Quick Documentation** (Ctrl+Q) — rendered doc comments with syntax-highlighted signature and Markdown support; clicking type names navigates to their documentation
-- **Hover Type Info** — hovering over a variable shows the inferred type in a two-line popup (`String (Variable)` / `my_variable`), including local variables, instance variables, and method arguments; method return types inferred from body when no annotation exists
-- **Parameter Hover** — hovering over a parameter name shows a parameter-specific popup with type (hyperlinked) and name
-- **Definition Hover** — hovering over a definition name (e.g. `def butter`) shows the documentation popup
-
-### Code Completion
-
-- **Context-aware completion** (Ctrl+Space) — exact dot-completion on type objects and grouped/value expressions (including literals, ranges, operators, method results, chains, and fully resolved unions), inherited primitive methods such as `3.times`, and best-effort certain methods from macro-heavy stdlib types; method candidates follow the current file's forward `require` closure and prelude without leaking optional reopenings from unrelated files; plus free-text completion for classes/methods/locals/stdlib types and type completion after `:` in annotations, inside generics (`Array(<caret>)`), and in union types (`String | <caret>`)
-- **`require` completion** — standalone `req<caret>` statements insert `require ""` and open path completion for relative files, project shards, and stdlib entries, including explicitly typed `.cr` paths; invalid dynamic contexts receive the matching compiler diagnostic instead of a generic parser error
-- **Overloaded methods** — multiple overloads of the same method appear as separate entries, each showing its parameter signature
-- **Record macro completion** — completion, parameter info, and argument inspections for record macros
-- **Auto-completion for `::`** — typing `::` after a CONSTANT triggers the completion popup automatically
-- **Parameter priority boost** — parameters appear higher in the completion popup with bold styling
-
-### Refactoring
-
-- **Rename** (Shift+F6) — in-place rename with preview dialog and automatic compiler verification (`crystal build --no-codegen`)
-- **Names Validator** — validates Crystal identifier rules (including `?` and `!` suffixes)
-
-### Code Formatting
-
-- **Reformat Code** (Ctrl+Alt+L) — delegates to `crystal tool format` via stdin/stdout
-- No configuration needed — Crystal's formatter has no options
-
-### Run & Debug
-
-- **Run Configurations** — crystal run, build, and spec with configurable arguments, environment variables, and working directory
-- **Debugger** — breakpoints, variable inspection, and stepping via lldb-dap (DAP protocol)
-- **Test Runner** — integrated spec runner with gutter icons, single-test execution, and result tree
-- **Context-aware** — right-click a `.cr` file to run it
-
-### Code Generation
-
-- **Live Templates** — 21 snippets for common Crystal patterns (class, module, struct, def, spec, etc.)
-
-### Inspections
-
-- **Type checking** — validates argument types against parameter annotations (supports numeric autocasting, union types, nilable types, overloads)
-- **Argument count** — validates number of arguments against method signature (supports named args, splat, double-splat, default values)
-- **Unused variables** — reports assigned-but-never-read local variables
-- **Empty collection literals** — reports `[] of T` / `{} of K => V` style issues
-- **Missing type in lib fun** — reports parameters without type annotations in lib fun definitions
-- **Colon spacing** — reports missing space after `:` in type annotations (e.g. `x:Int32`)
-- **Instance variable type** — validates instance variable types against declarations
-- **Invalid single-quote string** — reports non-ASCII characters in single-quote strings
-
-### Parser
-
-- **GrammarKit BNF parser** — covers classes, modules, structs, enums, methods, macros, control flow, postfix if/unless/while/until/rescue, typed declarations, expressions with operator precedence, type references with generics (variadic `*T`, defaults `T = X`), union types, blocks, literals, percent literals (`%w[]`, `%i[]`, `%x()`) with string interpolation, regex with string interpolation, backtick command literals with string interpolation, lib blocks (fun, union, struct, enum, external vars, varargs), top-level fun, wrapping operators, `previous_def`, `out` parameters, pattern matching (pin `^var`, guards), annotations on parameters, rescue in method body with typed rescue (union types, variable binding), condition assignments (`while x = expr`), metaclass types (`T.class`), backslash line continuation, method chaining across newlines, trailing commas, `&.method` shorthand with operators and bracket access (`&.[]`, `&.[1]`), `::Foo` global namespace prefix, external parameter names, command literals, `$?` global variable, range with omitted start in bracket access (`arr[..2]`, `arr[1..]`), postfix `?`/`!` after macro interpolation
-- **StubIndex** — project-wide indexes for navigable declarations and symbols
-- **Error-tolerant** — pin/recovery rules ensure the parser works with incomplete code while typing
+- New Project Wizard for Crystal applications and libraries
+- Automatic Crystal compiler detection with a configurable project-level compiler path
+- Crystal version and standard-library status in the project settings
+- Targeted standard-library indexing with a manual re-index action
 
 ## Requirements
 
-- **IntelliJ Platform** 2026.2 or later
-- **Crystal** compiler (for formatting and compiler verification)
-- **LLDB DAP** (optional, for debugging) — the `lldb-dap` binary must be installed
+- **IntelliJ Platform 2026.2 or later**
+- **Crystal 1.x** for project creation, formatting, compiler-assisted checks, running, testing, debugging, and standard-library code intelligence
+- **LLDB DAP** (optional) for debugging
 
-See [Installing Dependencies](#installing-dependencies) below for OS-specific instructions.
+The plugin searches `PATH` and common installation locations for the Crystal compiler. You can configure a different executable under **Settings | Languages & Frameworks | Crystal**.
 
-## Installation
+For debugging, `lldb-dap` must be available as that command or installed in one of the standard locations checked by the plugin. Native Windows support is experimental and less extensively tested than Linux and macOS support.
 
 ### Installing Dependencies
-
-This plugin depends on the **Crystal compiler** and (optionally) the **LLDB DAP** debugger.
-Both binaries must be available in your `PATH`. The plugin additionally checks
-`/usr/bin/lldb-dap` and `/usr/local/bin/lldb-dap` for auto-detection.
-
-> Planned: automatic detection of versioned binaries (e.g. `lldb-dap-22`) and a
-> custom install path setting will be added in a future release.
 
 #### Linux — Arch / Manjaro / EndeavourOS / CachyOS
 
@@ -130,28 +90,26 @@ Both binaries must be available in your `PATH`. The plugin additionally checks
 sudo pacman -S crystal shards lldb
 ```
 
-The `lldb` package already ships `lldb-dap`.
+The `lldb` package includes `lldb-dap`.
 
 #### Linux — Debian / Ubuntu / Mint / Pop!_OS
 
-Crystal (official install script):
+Install Crystal with the official installation script:
 
 ```bash
 curl -fsSL https://crystal-lang.org/install.sh | sudo bash
 ```
 
-LLDB DAP — the default `lldb` package in Debian/Ubuntu repos is often too old or
-does not ship `lldb-dap`. Use the official LLVM apt script for a current release:
+The default `lldb` package in Debian and Ubuntu repositories may be too old or may not include `lldb-dap`. For a current LLVM release, use the official LLVM apt script:
 
 ```bash
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 sudo ./llvm.sh 22
-sudo apt install lldb-22   # ensures lldb-dap-22 is included
+sudo apt install lldb-22
 ```
 
-The binary is installed as `/usr/bin/lldb-dap-22`. Either add it to your `PATH` as
-`lldb-dap`, or symlink it so the plugin finds it automatically:
+The package installs a versioned binary such as `/usr/bin/lldb-dap-22`. The plugin currently looks for `lldb-dap`, so make the binary available under that name:
 
 ```bash
 sudo ln -s /usr/bin/lldb-dap-22 /usr/bin/lldb-dap
@@ -171,164 +129,98 @@ sudo zypper install crystal lldb
 
 #### macOS
 
-Crystal and LLVM via Homebrew (recommended):
+Install Crystal and LLVM through Homebrew:
 
 ```bash
 brew install crystal llvm
 ```
 
-Homebrew does not install into `/usr/local/bin/` on Apple Silicon. Either add
-the LLVM `bin/` directory to your `PATH`, or create a symlink:
+On Apple Silicon, Homebrew does not install LLVM into `/usr/local/bin`. Add its `bin` directory to `PATH`, or create a symlink so the plugin can find `lldb-dap`:
 
 ```bash
 sudo ln -s "$(brew --prefix llvm)/bin/lldb-dap" /usr/local/bin/lldb-dap
 ```
 
-The system `lldb` provided by Xcode Command Line Tools
-(`xcode-select --install`) does not always include `lldb-dap`. Homebrew LLVM is
-the more reliable option.
+The LLDB installation provided by Xcode Command Line Tools does not always include `lldb-dap`; Homebrew LLVM is the more reliable option.
 
 #### Windows
 
-> Native Windows support is a work in progress. WSL2 is currently the most
-> reliable option — follow the Debian/Ubuntu instructions above inside WSL.
+Native Windows support is experimental and requires the MSVC toolchain.
 
-For native installs (MSVC toolchain):
+1. Install [Microsoft Visual C++ Build Tools](https://aka.ms/vs/17/release/vs_BuildTools.exe) with either the **Desktop development with C++** workload or the MSVC v143 component and a current Windows SDK.
+2. Download a current MSVC build from the [Crystal releases page](https://github.com/crystal-lang/crystal/releases/latest). The `*-msvc-unsupported.exe` installer adds Crystal to `PATH` automatically; the ZIP archive provides a portable alternative.
+3. Install LLVM from the [LLVM releases page](https://github.com/llvm/llvm-project/releases/latest). Enable **Add LLVM to the system PATH for all users** during installation so `lldb-dap.exe` is discoverable.
 
-**1. Microsoft Visual C++ Build Tools**
+For a MinGW-w64-based Crystal installation, see the [official Crystal Windows guide](https://crystal-lang.org/install/on_windows/).
 
-Crystal on Windows requires the MSVC toolchain. Download the
-[Visual Studio Build Tools installer](https://aka.ms/vs/17/release/vs_BuildTools.exe)
-and select either:
-
-- Workload: *Desktop development with C++*, or
-- Individual component: *MSVC v143 - VS 2022 C++ x64/x86 build tools* plus
-  *Windows 10 SDK* (or newer)
-
-**2. Crystal**
-
-Download the latest `*-msvc-*` build from the
-[Crystal releases page](https://github.com/crystal-lang/crystal/releases/latest):
-
-- `crystal-<version>-msvc-unsupported.exe` — GUI installer, adds Crystal to `PATH` automatically (recommended)
-- `crystal-<version>-msvc-unsupported.zip` — portable archive
-
-For a MinGW-w64-based alternative, see the
-[official Crystal Windows guide](https://crystal-lang.org/install/on_windows/).
-
-**3. LLDB DAP (for debugging)**
-
-Download the latest LLVM Windows installer from the
-[LLVM releases page](https://github.com/llvm/llvm-project/releases/latest):
-
-- `LLVM-<VERSION>-win64.exe`
-
-During installation, enable **"Add LLVM to the system PATH for all users"** so
-`lldb-dap.exe` is discoverable by the plugin.
-
-#### Verifying the installation
+#### Verifying the Installation
 
 ```bash
 crystal --version
 lldb-dap --help
 ```
 
-If both commands work from a fresh shell, the plugin will pick up the toolchain
-automatically.
+Only the Crystal command is required when you do not need debugging. If Crystal is installed outside `PATH` and the known detection locations, select its executable under **Settings | Languages & Frameworks | Crystal**.
 
-### From JetBrains Marketplace
+## Installation
 
-The recommended way to install:
+1. Open **Settings | Plugins | Marketplace** in your IDE.
+2. Search for **Crystal Language**.
+3. Install the plugin and restart the IDE.
+4. Open **Settings | Languages & Frameworks | Crystal** to verify the detected compiler and standard library.
 
-1. In your IDE, open *Settings → Plugins → Marketplace*
-2. Search for **Crystal Language**
-3. Click **Install** and restart the IDE
+Direct link: [Crystal Language on the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32180-crystal-language)
 
-Direct link: [Crystal Language on JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32180-crystal-language)
+The plugin is incompatible with the older `net.kenro.ji.jin.intellij.crystal-2` plugin. Disable or remove that plugin before installing this one.
 
-### From Source
+## Known Limitations
+
+- The plugin is an early beta; some Crystal syntax and IDE workflows remain unsupported or incomplete.
+- Editor type inference is intentionally conservative and cannot reproduce every compile-time macro or type-system decision made by the Crystal compiler.
+- ECR injections currently have prelude-based code intelligence without project- or shard-entrypoint context.
+- Native Windows support is experimental.
+
+Please report parser errors, false-positive inspections, missing completion, navigation problems, and uncomfortable workflows through the [issue templates](https://github.com/magynhard/intellij-crystal/issues/new/choose).
+
+## Architecture
+
+Code intelligence is implemented directly on the IntelliJ Platform and does not require an external LSP:
+
+```text
+Crystal.flex (JFlex)     -> Lexer and tokenization
+Crystal.bnf (GrammarKit) -> Parser and PSI tree
+Stub indexes             -> Project-wide declarations and navigation
+PSI analysis             -> Completion, references, inspections, and type inference
+```
+
+External toolchain actions continue to use the canonical Crystal and LLVM tools: formatting delegates to `crystal tool format`, run and test configurations invoke `crystal`, and debugging uses `lldb-dap`.
+
+## Development
+
+The project uses Kotlin, Java, JFlex, GrammarKit, and the IntelliJ Platform SDK. JDK 25 is used by the build; Gradle can provision the toolchain automatically through Foojay.
 
 ```bash
 git clone https://github.com/magynhard/intellij-crystal.git
 cd intellij-crystal
-./gradlew buildPlugin
+./gradlew build          # Compile and run all tests
+./gradlew buildPlugin    # Build the installable plugin ZIP
+./gradlew runIde         # Launch a development IDE
+./gradlew generateLexer  # Regenerate the Crystal lexer
+./gradlew generateParser # Regenerate the Crystal parser and PSI
 ```
 
-The plugin ZIP will be at `build/distributions/`. Install via *Settings → Plugins → Install Plugin from Disk*.
-
-To run a development IDE instance:
-
-```bash
-./gradlew runIde
-```
-
-## Architecture
-
-```
-Crystal.flex (JFlex)     →  Lexer (tokenization, highlighting)
-Crystal.bnf (GrammarKit) →  Parser (PSI tree, structure)
-Stubs                    →  StubIndex (indexed declarations, navigation, completion)
-```
-
-### Design Decisions
-
-- **All features plugin-native**: No external LSP dependency — everything works offline and instantly
-- **StubIndex over FileBasedIndex**: indexed declaration lookup without runtime project-wide file scans
-- **External formatter**: Crystal's built-in `crystal tool format` is canonical — no need to reimplement
-- **Rename strategy**: Token-based + preview dialog + compiler verification
-- **Generated files committed**: Standard convention for GrammarKit-based plugins to ensure reproducible builds
-
-## Development
-
-### Project Structure
-
-```
-src/main/kotlin/de/magynhard/crystal/
-├── lexer/              # JFlex lexer definition + token types
-├── parser/             # GrammarKit BNF grammar
-├── psi/                # PSI element types and stub mixins
-├── stubs/              # StubIndex infrastructure
-├── highlighting/       # Syntax highlighter + color settings
-├── structure/          # Structure View (PSI-based)
-├── navigation/         # Go to Symbol/Class, Find Usages, Parameter Info, Go to Definition
-├── formatting/         # External formatter (crystal tool format)
-├── refactoring/        # Rename support + compiler verification
-├── run/                # Run configurations
-└── *.kt                # Core (language, file type, icons, commenter, etc.)
-
-src/main/gen/           # Generated lexer, parser, and PSI classes (committed)
-src/main/resources/     # plugin.xml, icons, live templates
-src/test/               # Lexer tests + test data
-```
-
-### Build
-
-Requires JDK 25.
-
-```bash
-./gradlew build          # Compile + tests (no distributable ZIP)
-./gradlew buildPlugin    # Build installable plugin ZIP (build/distributions/)
-./gradlew generateLexer  # Regenerate lexer from Crystal.flex
-./gradlew generateParser # Regenerate parser from Crystal.bnf
-./gradlew runIde         # Launch development IDE
-```
+Generated lexer, parser, and PSI sources are committed for reproducible builds.
 
 ## Contributing
 
-Issues and pull requests are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md)
-before opening an issue — it explains the three issue types and what
-information we need.
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or starting a larger change.
 
-- 🐛 [Report a bug](https://github.com/magynhard/intellij-crystal/issues/new/choose) — something doesn't work as expected
-- ✨ [Request a feature](https://github.com/magynhard/intellij-crystal/issues/new/choose) — a Crystal construct or IDE feature that isn't supported yet
-- 🦥 [Report a UX issue](https://github.com/magynhard/intellij-crystal/issues/new/choose) — something works but feels clunky
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to report issues and contribute.
+- [Report a bug](https://github.com/magynhard/intellij-crystal/issues/new/choose)
+- [Request a feature](https://github.com/magynhard/intellij-crystal/issues/new/choose)
+- [Report a UX issue](https://github.com/magynhard/intellij-crystal/issues/new/choose)
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE).
 
-This project includes **Crystal LLDB Formatters** (`src/main/resources/debugger/crystal_formatters.py`)
-from the [Crystal Programming Language](https://github.com/crystal-lang/crystal),
-licensed under the [Apache License 2.0](https://github.com/crystal-lang/crystal/blob/master/etc/lldb/crystal_formatters.py).
+This project includes [Crystal LLDB Formatters](https://github.com/crystal-lang/crystal/blob/master/etc/lldb/crystal_formatters.py), licensed under the Apache License 2.0.
