@@ -106,6 +106,12 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.2.4</h3>
+<ul>
+  <li><b>Marketplace verification fixed</b> — the ECR Structure View no longer uses internal platform API (<code>StructureViewComposite</code>); it is built on the public <code>TemplateLanguageStructureViewBuilder</code>, so uploads pass plugin verification again</li>
+  <li><b>Simplified ECR Structure View</b> — the former separate Crystal tab merged into the ECR tab as an <code>@instance_variables</code> group node (shown when instance variables exist) with navigation to each variable's first occurrence; the HTML tab is unchanged</li>
+  <li><b>More robust module dependency</b> — the SM Test Runner module dependency is now optional, so the plugin stays fully enabled even in environments where that module is absent</li>
+</ul>
 <h3>0.2.3</h3>
 <ul>
   <li><b>Full stdlib indexing for Enumerable and String</b> — parser and lexer gaps broke parsing inside real crystal sources, silently hiding most methods from completion. Enumerable now exposes ~131 indexed methods (<code>sum</code>, <code>max</code>, <code>map</code>, …), String ~180 (<code>upcase</code>, <code>downcase</code>, <code>gsub</code>, …)</li>
