@@ -388,6 +388,22 @@ For **all `.ecr` files** (both `.ecr` and `.html.ecr`), the IDE implicitly activ
 
 This is achieved via the **Template Language** infrastructure: `EmbeddedCrystalLanguage` implements the `TemplateLanguage` marker interface; `EcrHtmlFile` uses a `TemplateDataElementType` with `EmbeddedCrystalLanguage` as the lexer source to re-parse HTML regions with the HTML parser; and `TemplateLanguageStructureViewBuilder` automatically combines the base language (ECR tags) and template data language (HTML) into a unified Structure View.
 
+### 6.3.1 Structure View — 2 Tabs via `TemplateLanguageStructureViewBuilder`
+
+The ECR Structure View shows two tabs, built entirely on public platform API:
+
+| Tab | Title | Content |
+| :--- | :--- | :--- |
+| ECR | `EmbeddedCrystalLanguage.displayName` = "ECR" | All `<% %>` tag snippets plus an `@instance_variables` group node (only when instance variables exist) whose children navigate to each variable's first occurrence |
+| HTML | HTML language display name | Full HTML element hierarchy from the registered HTML structure view builder |
+
+Implementation details:
+
+- `EcrStructureViewFactory` returns `TemplateLanguageStructureViewBuilder.create(psiFile) { file, editor -> EcrStructureViewModel(file, editor) }`. The builder composes the composite view itself: for the base language it uses the provided model factory; for every other view-provider language (HTML) it queries the registered `PsiStructureViewFactory`.
+- Tab titles come from `Language.getDisplayName()`, tab icons from the language's file type icon.
+- The internal API classes `StructureViewComposite` / `StructureViewComposite.StructureViewDescriptor` must NOT be used from plugin code — the Marketplace verifier reports them as internal API violations. `TemplateLanguageStructureViewBuilder` is the public-API replacement (it creates the composite internally).
+- The former third tab ("Crystal" instance variables) was merged into the ECR tab as the `CrystalInstanceVariablesGroupElement` group node (`@instance_variables`, variable icon) to keep all navigation capability without internal API. The group is omitted when no instance variables are present.
+
 #### Implementation Sketch — `TemplateDataElementType`
 
 ```kotlin
@@ -451,7 +467,7 @@ The following extension points in `plugin.xml` are required:
 | `com.intellij.lang.syntaxHighlighterFactory` | `EmbeddedCrystalSyntaxHighlighterFactory` for `EmbeddedCrystalLanguage` | Provides ECR syntax highlighting (ECR tags + template data language delegation) |
 | `com.intellij.editorHighlighterProvider` | `EcrEditorHighlighterProvider` for filetype="Embedded Crystal" implementationClass="...EcrEditorHighlighterProvider" | Provides layered editor highlighter (ECR tags + Crystal + HTML layers) |
 | `com.intellij.lang.fileViewProviderFactory` | `EmbeddedCrystalFileViewProviderFactory` for `EmbeddedCrystal` | Provides the multi-language `FileViewProvider` (ECR + HTML) |
-| `com.intellij.lang.psiStructureViewFactory` | `EcrStructureViewFactory` for `EmbeddedCrystal` | Provides 3-section Structure View (ECR + HTML + Crystal) |
+| `com.intellij.lang.psiStructureViewFactory` | `EcrStructureViewFactory` for `EmbeddedCrystal` | Provides the 2-tab Structure View (ECR + HTML) via `TemplateLanguageStructureViewBuilder` |
 | `com.intellij.iconProvider` | `CrystalIconProvider` (extended) or new `EmbeddedCrystalIconProvider` | Returns the `<%>` icon for `.ecr` file variants |
 | `com.intellij.multiHostInjector` | `CrystalEcrInjector` | Injects `CrystalLanguage` into `ecrBody` PSI elements, enabling full Crystal code intelligence (completion, navigation, highlighting, inspections) inside `<% %>` tags |
 

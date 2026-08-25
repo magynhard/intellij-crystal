@@ -225,7 +225,7 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>HtmlTools</depends>
-    <depends>intellij.platform.smRunner</depends>
+    <depends optional="true">intellij.platform.smRunner</depends>
 
     <incompatible-with>net.kenro.ji.jin.intellij.crystal-2</incompatible-with>
 

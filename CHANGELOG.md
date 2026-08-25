@@ -2,6 +2,19 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.2.4]
+
+### Added
+
+### Bug Fixes
+
+- **Replace internal Structure View API so Marketplace upload passes verification** — uploading 0.2.3 was blocked by the plugin verifier reporting four internal API violations (`StructureViewComposite`, `StructureViewComposite.StructureViewDescriptor`, and both constructors) in `EcrStructureViewFactory`. The factory now returns a `TemplateLanguageStructureViewBuilder` — public platform API designed exactly for template languages like ECR — which composes the composite view itself from the base language model (ECR tags) and every other view-provider language's registered builder (HTML). No internal classes are referenced anymore; the verifier reports zero internal API usages.
+- **Make the `intellij.platform.smRunner` module dependency optional** — the hard `<depends>intellij.platform.smRunner</depends>` added for RubyMine compatibility disabled the entire plugin in environments where that module is not installed as a standalone plugin (e.g. the platform test application), silently dropping every extension point and breaking all editor features under test. The depends is now `optional="true"`; every target IDE bundles the module, so the spec test-runner feature remains fully available in production IDEs while the plugin degrades gracefully where it is absent.
+
+### Changed
+
+- **ECR Structure View: three sections merged into two tabs** — with the switch to `TemplateLanguageStructureViewBuilder`, the former separate "Crystal" tab (`@instance_variables`) became an `@instance_variables` group node inside the ECR tab (shown only when instance variables exist), keeping navigation to each variable's first occurrence. Tab titles are unchanged ("ECR", "HTML"); tab icons now come from the respective file types.
+
 ## [0.2.3] — 2026-08-24
 
 ### Added

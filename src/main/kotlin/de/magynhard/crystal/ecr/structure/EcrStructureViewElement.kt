@@ -32,11 +32,15 @@ class EcrStructureViewElement(private val element: PsiElement) :
     override fun getChildren(): Array<TreeElement> {
         return when (element) {
             is EmbeddedCrystalFile -> {
-                element.children
+                val tags = element.children
                     .filterIsInstance<CrystalEcrEcrPart>()
                     .mapNotNull { it.ecrTag }
                     .map { EcrStructureViewElement(it) }
-                    .toTypedArray()
+                if (CrystalInstanceVariableExtractor.extractAll(element).isEmpty()) {
+                    tags.toTypedArray()
+                } else {
+                    (tags + CrystalInstanceVariablesGroupElement(element)).toTypedArray()
+                }
             }
             else -> emptyArray()
         }
