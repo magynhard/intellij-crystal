@@ -27,6 +27,7 @@ dependencies {
     intellijPlatform {
         intellijIdea("2026.1.3")
         bundledModule("intellij.platform.dap")
+        bundledModule("intellij.platform.smRunner")
         bundledPlugin("HtmlTools")
         testFramework(TestFrameworkType.Platform)
     }
