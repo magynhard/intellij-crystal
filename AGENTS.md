@@ -105,6 +105,8 @@ src/test/           JUnit 4 tests (BasePlatformTestCase + pure unit tests)
 
 All extensions are registered in `src/main/resources/META-INF/plugin.xml`. When adding new extension points, register them there — not via code-based registration.
 
+- **Optional extension fragments must be wired via `<depends optional="true" config-file="...">`.** A fragment descriptor in `META-INF` that no `depends` entry references is silently never loaded — its extensions vanish in production (this broke the ECR Structure View and the spec test locator in 0.2.5 while all tests stayed green, because the test application does not install bundled content modules and `EcrStructureViewTest` invokes the factory directly). An undeclared module dependency additionally triggers `NoSuchClassError`-style binary-incompatibility reports from the Marketplace verifier. `PluginDescriptorConsistencyTest` fails the build on orphaned fragments, dangling `config-file` references, and missing `optional="true"` attributes.
+
 ## External Dependencies
 
 - Crystal compiler at `/usr/bin/crystal` (used by formatter, run configs)

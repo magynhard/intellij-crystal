@@ -2,6 +2,18 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.2.6] — 2026-08-25
+
+### Bug Fixes
+
+- **Restore ECR Structure View and spec test locator by wiring the optional dependency fragments** — 0.2.5 moved the SM Test Runner and Structure View extensions into the fragment descriptors `plugin-smRunner.xml` and `plugin-structureView.xml` but never linked them from `plugin.xml` (the `<depends optional="true" config-file="...">` entries were missing), so both fragments were silently never loaded: the ECR Structure View factory disappeared from production IDEs and `CrystalTestLocator` was not registered. Both fragments are now wired via optional depends on `intellij.platform.smRunner` and `intellij.platform.structureView` (both verified as public modules of the 2026.2 bundled `platform-testRunner-plugin` / `platform-structureView-plugin`).
+- **Fix 14 Marketplace verifier binary-incompatibility problems against RubyMine RM-262** — without the declared optional module dependency, the verifier could not resolve any SM Test Runner class referenced by the spec test runner (`OutputToGeneralTestEventsConverter`, `GeneralTestEventsProcessor`, `SMTestLocator`, `SMTRunnerConsoleProperties`, `SMCustomMessagesParsing`, `SMTestRunnerConnectionUtil`, and the `sm.runner.events` package), reporting `NoSuchClassError` risks. The optional depends declaration restores resolvability.
+- **Consolidate the DAP debug adapter registration** — the `debugAdapterSupportProvider` extension lived in an orphaned `intellij.platform.dap.xml` fragment since its introduction; the debugger only worked because `CrystalDebugProgramRunner` registers the provider programmatically at runtime. The provider is now declared in the main plugin descriptor (the DAP module is a hard dependency there), the orphaned fragment file is deleted, and the runtime registration remains as a guarded fallback that becomes a no-op once the declarative registration loads.
+
+### Added
+
+- **`PluginDescriptorConsistencyTest`** — pure JUnit test that parses `src/main/resources/META-INF/plugin.xml` and fails the build when a `config-file` reference dangles, when an optional fragment descriptor is orphaned (never loaded at runtime), or when the smRunner/structureView depends lose their `optional="true"` attribute (a hard depends would disable the whole plugin in the platform test application).
+
 ## [0.2.5] — 2026-08-25
 
 ### Changed
@@ -16,7 +28,7 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   - `XDebuggerManager.startSession(environment, starter)` plus `XDebugSession.getRunContentDescriptor()` replaced with the session builder API (`newSessionBuilder(starter).environment(env).startSession()` returning `XSessionStartedResult`, whose descriptor is used directly) — exactly what the platform's own implementation delegates to.
   - `MarkdownParser(flavour)` replaced with `MarkdownParser(flavour, false, CancellationToken.NonCancellable)` and `buildMarkdownTreeFromString(String)` switched to the CharSequence overload (requires an `@OptIn` for the markdown library's new `@ExperimentalApi`).
   - `ProjectTopics.PROJECT_ROOTS` replaced with `ModuleRootListener.TOPIC`.
-- **Optional module dependencies now declare config-file fragments** — both optional depends (`intellij.platform.smRunner`, `intellij.platform.structureView`) specify `config-file` descriptors holding their dependent extensions (`testLocator`, ECR structure view factory), resolving the plugin-configuration defect from the plugin checker. The ECR Structure View factory moved into `plugin-structureView.xml`; it is registered only when the structure view module is present (every target IDE bundles it).
+- **Optional module dependencies moved into extension fragments** — the `testLocator` extension and the ECR Structure View factory moved into the optional dependency fragments `plugin-smRunner.xml` and `plugin-structureView.xml`, registered only when the respective module is present (every target IDE bundles them). Note: 0.2.5 shipped these fragments without the required `config-file` links in `plugin.xml`, so the fragments were never loaded — the wiring was completed in 0.2.6.
 
 ### Added
 

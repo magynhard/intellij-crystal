@@ -1,12 +1,5 @@
 # TODO — IntelliJ Crystal Plugin
 
-## Plugin Metadata
-
-- [ ] **Restore optional extension-fragment links** — connect
-  `plugin-smRunner.xml` and `plugin-structureView.xml` from `plugin.xml` using the
-  IntelliJ 2026.2 optional dependency format, then verify that `CrystalTestLocator`
-  and the ECR Structure View factory are present in the packaged plugin.
-
 ## Rename Refactoring — Follow-up Tasks
 
 The scope-aware rename infrastructure is in place (PsiNameIdentifierOwner on
