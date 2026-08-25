@@ -27,7 +27,7 @@
 ./gradlew test --tests "de.magynhard.crystal.CrystalEnterHandlerTest.testEndInsertedAfterDef"  # single test
 ```
 
-- Gradle 9.4.1 (wrapper committed), JDK 21 required
+- Gradle 9.4.1 (wrapper committed), JDK 25 required (toolchain auto-provisioned via foojay)
 - `buildSearchableOptions` may fail due to IntelliJ Platform bug — not a plugin issue, ignore it
 
 ## Code Generation

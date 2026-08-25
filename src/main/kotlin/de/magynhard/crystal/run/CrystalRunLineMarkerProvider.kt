@@ -30,7 +30,7 @@ class CrystalRunLineMarkerProvider : RunLineMarkerContributor() {
         val parent = element.parent ?: return null
 
         val actions = ExecutorAction.getActions(0)
-        val tooltipProvider = { _: PsiElement ->
+        val tooltipProvider = java.util.function.Function<PsiElement, String> { _ ->
             when (text) {
                 "describe", "context" -> "Run spec suite"
                 "it" -> "Run spec"
@@ -40,8 +40,8 @@ class CrystalRunLineMarkerProvider : RunLineMarkerContributor() {
 
         return Info(
             AllIcons.RunConfigurations.TestState.Run,
-            tooltipProvider,
-            *actions
+            actions,
+            tooltipProvider
         )
     }
 }

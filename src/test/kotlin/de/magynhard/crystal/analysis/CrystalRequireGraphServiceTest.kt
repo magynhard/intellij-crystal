@@ -601,6 +601,12 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
                 "src/chain_$index.cr",
                 "require \"./chain_$target\"",
             )
+            // The platform asserts on >100 uncommitted documents, so commit periodically.
+            if (index % 50 == 49) {
+                ApplicationManager.getApplication().invokeAndWait {
+                    PsiDocumentManager.getInstance(project).commitAllDocuments()
+                }
+            }
         }
         flushFixtureFiles()
 

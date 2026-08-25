@@ -25,9 +25,11 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdea("2026.1.3")
+        intellijIdea("262.10315.19")
         bundledModule("intellij.platform.dap")
         bundledModule("intellij.platform.smRunner")
+        bundledModule("intellij.platform.testRunner")
+        bundledModule("intellij.platform.structureView")
         bundledPlugin("HtmlTools")
         testFramework(TestFrameworkType.Platform)
     }
@@ -45,7 +47,7 @@ intellijPlatform {
             url = "https://github.com/magynhard"
         }
         ideaVersion {
-            sinceBuild = "261"
+            sinceBuild = "262"
         }
     }
 
@@ -99,5 +101,5 @@ tasks {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }

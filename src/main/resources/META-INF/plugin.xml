@@ -106,6 +106,12 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.2.5</h3>
+<ul>
+  <li><b>IntelliJ 2026.2 required</b> — the plugin now targets the current platform release (build 262)</li>
+  <li><b>All deprecated API usage eliminated</b> — run gutter markers, debug session start, markdown rendering, and module-root listeners use the modern platform APIs; zero deprecated and zero scheduled-for-removal usages remain</li>
+  <li><b>Cleaner optional dependencies</b> — SM Test Runner and Structure View integrations are declared as proper optional dependency fragments</li>
+</ul>
 <h3>0.2.4</h3>
 <ul>
   <li><b>Marketplace verification fixed</b> — the ECR Structure View no longer uses internal platform API (<code>StructureViewComposite</code>); it is built on the public <code>TemplateLanguageStructureViewBuilder</code>, so uploads pass plugin verification again</li>
@@ -231,7 +237,6 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>HtmlTools</depends>
-    <depends optional="true">intellij.platform.smRunner</depends>
 
     <incompatible-with>net.kenro.ji.jin.intellij.crystal-2</incompatible-with>
 
@@ -270,10 +275,6 @@
         <lang.syntaxHighlighterFactory
                 language="EmbeddedCrystal"
                 implementationClass="de.magynhard.crystal.ecr.EmbeddedCrystalSyntaxHighlighterFactory"/>
-
-        <lang.psiStructureViewFactory
-                language="EmbeddedCrystal"
-                implementationClass="de.magynhard.crystal.ecr.EcrStructureViewFactory"/>
 
         <multiHostInjector
                 implementation="de.magynhard.crystal.ecr.CrystalEcrInjector"/>
@@ -429,9 +430,6 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.run.CrystalRunLineMarkerProvider"/>
 
-        <testLocator
-                implementation="de.magynhard.crystal.run.CrystalTestLocator"/>
-
         <defaultLiveTemplates file="/liveTemplates/Crystal.xml"/>
 
         <liveTemplateContext
@@ -493,7 +491,7 @@
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalAnnotationIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalLibIndex"/>
 
-        <stubElementTypeHolder class="de.magynhard.crystal.stubs.CrystalStubElementTypeHolder"/>
+        <stubElementTypeHolder class="de.magynhard.crystal.stubs.CrystalStubElementTypeHolder" externalIdPrefix="crystal."/>
 
         <additionalTextAttributes scheme="Default" file="colorSchemes/CrystalDefault.xml"/>
         <additionalTextAttributes scheme="Darcula" file="colorSchemes/CrystalDarcula.xml"/>

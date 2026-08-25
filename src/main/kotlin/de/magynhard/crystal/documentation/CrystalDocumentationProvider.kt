@@ -17,8 +17,10 @@ import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
+import org.intellij.markdown.ExperimentalApi
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
+import org.intellij.markdown.parser.CancellationToken
 import org.intellij.markdown.parser.MarkdownParser
 
 /**
@@ -525,9 +527,13 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     // ==================== Markdown Rendering ====================
 
+    @OptIn(ExperimentalApi::class)
     private fun renderMarkdown(markdown: String, context: PsiElement): String {
         val flavour = GFMFlavourDescriptor()
-        val parsedTree = MarkdownParser(flavour).buildMarkdownTreeFromString(markdown)
+        // Widen to CharSequence explicitly so the non-deprecated overload is selected.
+        val markdownText: CharSequence = markdown
+        val parsedTree = MarkdownParser(flavour, false, CancellationToken.NonCancellable)
+            .buildMarkdownTreeFromString(markdownText)
         var html = HtmlGenerator(markdown, parsedTree, flavour).generateHtml()
 
         // Strip the wrapping <body> tags that HtmlGenerator adds

@@ -1,0 +1,8 @@
+<idea-plugin>
+    <!-- Loaded only when the intellij.platform.smRunner module is present.
+         Extensions here depend on SM Test Runner classes (SMTestLocator). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <testLocator
+                implementation="de.magynhard.crystal.run.CrystalTestLocator"/>
+    </extensions>
+</idea-plugin>

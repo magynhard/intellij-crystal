@@ -1,0 +1,10 @@
+<idea-plugin>
+    <!-- Loaded only when the intellij.platform.structureView module is present.
+         The ECR Structure View factory uses TemplateLanguageStructureViewBuilder
+         from that module. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <lang.psiStructureViewFactory
+                language="EmbeddedCrystal"
+                implementationClass="de.magynhard.crystal.ecr.EcrStructureViewFactory"/>
+    </extensions>
+</idea-plugin>

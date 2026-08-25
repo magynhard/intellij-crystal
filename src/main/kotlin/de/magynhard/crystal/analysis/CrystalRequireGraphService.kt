@@ -1,8 +1,5 @@
-@file:Suppress("DEPRECATION")
-
 package de.magynhard.crystal.analysis
 
-import com.intellij.ProjectTopics
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.injected.editor.VirtualFileWindow
 import com.intellij.openapi.Disposable
@@ -387,7 +384,7 @@ internal class CrystalRequireGraphService private constructor(
         project.messageBus.connect(parentDisposable).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
             override fun after(events: List<VFileEvent>) = handleVfsEvents(events)
         })
-        project.messageBus.connect(parentDisposable).subscribe(ProjectTopics.PROJECT_ROOTS, object : ModuleRootListener {
+        project.messageBus.connect(parentDisposable).subscribe(ModuleRootListener.TOPIC, object : ModuleRootListener {
             override fun rootsChanged(event: ModuleRootEvent) = invalidateAll()
         })
     }

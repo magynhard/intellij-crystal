@@ -2,6 +2,25 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.2.5]
+
+### Changed
+
+- **Compile target raised to IntelliJ 2026.2 (build 262)** — the plugin now compiles against and requires IntelliJ 2026.2 or later (`sinceBuild=262`), matching the current platform release. The Gradle build uses the final 2026.2 GA build (262.10315.19) and the Kotlin/Java toolchain moved to JDK 25, as required by the 2026.2 platform jars.
+
+### Bug Fixes
+
+- **Zero scheduled-for-removal and zero deprecated API usages** — the Marketplace verifier reported one scheduled-for-removal and six deprecated API usages; all are fixed:
+  - `RunLineMarkerContributor.Info(Icon, util.Function, vararg AnAction)` replaced with the non-deprecated `(Icon, Array<AnAction>, java.util.function.Function)` constructor.
+  - `XDebuggerManager.startSession(environment, starter)` plus `XDebugSession.getRunContentDescriptor()` replaced with the session builder API (`newSessionBuilder(starter).environment(env).startSession()` returning `XSessionStartedResult`, whose descriptor is used directly) — exactly what the platform's own implementation delegates to.
+  - `MarkdownParser(flavour)` replaced with `MarkdownParser(flavour, false, CancellationToken.NonCancellable)` and `buildMarkdownTreeFromString(String)` switched to the CharSequence overload (requires an `@OptIn` for the markdown library's new `@ExperimentalApi`).
+  - `ProjectTopics.PROJECT_ROOTS` replaced with `ModuleRootListener.TOPIC`.
+- **Optional module dependencies now declare config-file fragments** — both optional depends (`intellij.platform.smRunner`, `intellij.platform.structureView`) specify `config-file` descriptors holding their dependent extensions (`testLocator`, ECR structure view factory), resolving the plugin-configuration defect from the plugin checker. The ECR Structure View factory moved into `plugin-structureView.xml`; it is registered only when the structure view module is present (every target IDE bundles it).
+
+### Added
+
+- **Structure view stub element types comply with the 2026.2 holder contract** — `CrystalStubElementTypeHolder` became a Java interface with static fields so the platform can enumerate stub element types without class initialization (`externalIdPrefix="crystal."`), fixing `ExceptionInInitializerError` crashes during inspections on 2026.2.
+
 ## [0.2.4] — 2026-08-25
 
 ### Added

@@ -5,7 +5,7 @@
 # Crystal Language Plugin for JetBrains IDEs
 
 [![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.2.4-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/32180-crystal-language)
-[![IntelliJ Platform](https://img.shields.io/badge/Platform-2026.1+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
+[![IntelliJ Platform](https://img.shields.io/badge/Platform-2026.2+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
 [![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=darkslategray&label=Crystal)](https://crystal-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg?style=plastic&logo=mit&labelColor=beige)](LICENSE)
 
@@ -107,7 +107,7 @@ Crystal language support for IntelliJ IDEA, WebStorm, RubyMine, and other JetBra
 
 ## Requirements
 
-- **IntelliJ Platform** 2026.1 or later
+- **IntelliJ Platform** 2026.2 or later
 - **Crystal** compiler (for formatting and compiler verification)
 - **LLDB DAP** (optional, for debugging) — the `lldb-dap` binary must be installed
 
@@ -303,7 +303,7 @@ src/test/               # Lexer tests + test data
 
 ### Build
 
-Requires JDK 21.
+Requires JDK 25.
 
 ```bash
 ./gradlew build          # Compile + tests (no distributable ZIP)

@@ -46,10 +46,12 @@ class CrystalDebugProgramRunner : GenericProgramRunner<RunnerSettings>() {
             launchArgs.arguments
         )
 
-        val session = XDebuggerManager.getInstance(environment.project)
-            .startSession(environment, starter)
+        val result = XDebuggerManager.getInstance(environment.project)
+            .newSessionBuilder(starter)
+            .environment(environment)
+            .startSession()
 
-        return session.runContentDescriptor
+        return result.runContentDescriptor
     }
 
     private fun ensureProviderRegistered(environment: ExecutionEnvironment) {

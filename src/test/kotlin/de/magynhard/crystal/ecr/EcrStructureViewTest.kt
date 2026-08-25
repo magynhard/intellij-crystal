@@ -2,7 +2,6 @@ package de.magynhard.crystal.ecr
 
 import com.intellij.ide.structureView.impl.StructureViewComposite
 import com.intellij.ide.structureView.impl.TemplateLanguageStructureViewBuilder
-import com.intellij.lang.LanguageStructureViewBuilder
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.ecr.structure.CrystalInstanceVariablesGroupElement
 import de.magynhard.crystal.ecr.structure.EcrStructureViewElement
@@ -23,8 +22,10 @@ class EcrStructureViewTest : BasePlatformTestCase() {
             </html>
             """.trimIndent()
         )
-        val builder = LanguageStructureViewBuilder.getInstance()
-            .getStructureViewBuilder(myFixture.file)
+        // The ECR factory is registered via plugin-structureView.xml, which is only loaded
+        // when the intellij.platform.structureView module is installed. The platform test
+        // application does not install bundled content modules, so invoke the factory directly.
+        val builder = EcrStructureViewFactory().getStructureViewBuilder(myFixture.file)
         assertNotNull("Should return a structure view builder for .ecr files", builder)
         return builder as TemplateLanguageStructureViewBuilder
     }
