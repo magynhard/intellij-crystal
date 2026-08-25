@@ -15,6 +15,8 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 > **Early Beta** — This plugin is under active development. Bugs and unsupported Crystal constructs are to be expected. Please [open an issue](https://github.com/magynhard/intellij-crystal/issues/new/choose) with a minimal example and the current and expected behavior.
 
 ![New Project Wizard](doc/img/screenshots/001_new_project.png)
+![Test Runner](doc/img/screenshots/002_testrunner.png)
+![Debugger](doc/img/screenshots/003_debugger.png)
 
 ## Highlights
 
@@ -54,10 +56,6 @@ The plugin's type inference supports many common literals, collections, variable
 - Integrated spec runner with gutter actions, individual test execution, and a result tree
 - Debugging through `lldb-dap`, including breakpoints, stepping, variable inspection, and bundled Crystal LLDB formatters
 - Context actions for running Crystal files directly
-
-![Test Runner](doc/img/screenshots/002_testrunner.png)
-
-![Debugger](doc/img/screenshots/003_debugger.png)
 
 ### Embedded Crystal Templates
 
