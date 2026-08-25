@@ -23,8 +23,6 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ## [0.2.4] — 2026-08-25
 
-### Added
-
 ### Bug Fixes
 
 - **Replace internal Structure View API so Marketplace upload passes verification** — uploading 0.2.3 was blocked by the plugin verifier reporting four internal API violations (`StructureViewComposite`, `StructureViewComposite.StructureViewDescriptor`, and both constructors) in `EcrStructureViewFactory`. The factory now returns a `TemplateLanguageStructureViewBuilder` — public platform API designed exactly for template languages like ECR — which composes the composite view itself from the base language model (ECR tags) and every other view-provider language's registered builder (HTML). No internal classes are referenced anymore; the verifier reports zero internal API usages.
