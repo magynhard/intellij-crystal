@@ -2,6 +2,12 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.2.8] — 2026-xx-xx
+
+### Bug Fixes
+
+- **Parse special global variables inside string interpolation** — `"#{$1}"` (e.g. in regex-replacement blocks like `str.sub(/\.map(...)\s*\.sum/) { ".sum#{$1}" }`) produced `<expression> expected, got '$'` because the `<INTERPOLATION>` lexer state had no `{GLOBAL_VAR}` rule, so `$` fell through to the `BAD_CHARACTER` fallback. `$1`, `$~`, `$?`, and named globals now lex as `GLOBAL_VAR` inside interpolation; the same rule was added to the `<MACRO_INTERPOLATION>` and `<MACRO_CONTROL>` states to keep them mirrored. Covered by the new `GlobalVarInterpolation` parser test across string, regex, command, heredoc, percent-literal, nested-interpolation, and top-level contexts.
+
 ## [0.2.7] — 2026-08-25
 
 ### Bug Fixes

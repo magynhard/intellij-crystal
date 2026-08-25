@@ -131,6 +131,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testGlobalVarInterpolation() {
+        doTest(true)
+    }
+
     fun testBlockParam() {
         doTest(true)
     }

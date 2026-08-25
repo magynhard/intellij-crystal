@@ -504,6 +504,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
+  {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
   "."                  { return CrystalTypes.DOT; }
@@ -650,6 +651,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
+  {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
   "->"                 { return CrystalTypes.ARROW; }
@@ -711,6 +713,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
+  {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }

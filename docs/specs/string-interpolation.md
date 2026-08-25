@@ -194,6 +194,28 @@ x = "WORLD"
 
 Verified — `%W(...)` and `%I(...)` produce syntax errors in Crystal. Not part of the language. No implementation needed.
 
+### Global variables inside interpolation (`#{$1}`)
+
+Crystal allows special and named global variables inside interpolation — most commonly regex match groups in `String#sub`/`gsub` replacement blocks:
+
+```crystal
+fix = line_text.sub(/\.map(\s*\{.*\})\s*\.sum/) { ".sum#{$1}" }
+```
+
+**Lexer rule:** The `<INTERPOLATION>` state must lex `$`-variables as `GLOBAL_VAR` (same pattern as `<YYINITIAL>`):
+
+```jflex
+GLOBAL_VAR = "$" ({IDENTIFIER} | {DIGIT}+ | "~" | "?")
+```
+
+This covers numeric match groups (`$1`…), the last-match variable (`$~`), child process status (`$?`), and named globals (`$stdout`). Without this rule, `$` fell through to the `[^] → BAD_CHARACTER` fallback, producing `<expression> expected, got '$'`.
+
+**Parser:** No change needed — `variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT` already accepts `GLOBAL_VAR`, so interpolated globals parse as `CrystalVariableReferenceImpl`.
+
+**Mirroring:** Per the lexer-state mirror rule, `{GLOBAL_VAR}` was also added to `<MACRO_INTERPOLATION>` and `<MACRO_CONTROL>` so globals are valid expressions in macro interpolation/control contexts too.
+
+**Test coverage:** `GlobalVarInterpolation.cr` parser test covers globals in double-quoted strings, regex literals, command literals, heredocs, interpolating percent literals, nested interpolation, dot-call chains (`$1.upcase`), and top-level usage.
+
 ---
 
 ## Edge Cases
