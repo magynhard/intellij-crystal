@@ -471,6 +471,14 @@ The following extension points in `plugin.xml` are required:
 | `com.intellij.iconProvider` | `CrystalIconProvider` (extended) or new `EmbeddedCrystalIconProvider` | Returns the `<%>` icon for `.ecr` file variants |
 | `com.intellij.multiHostInjector` | `CrystalEcrInjector` | Injects `CrystalLanguage` into `ecrBody` PSI elements, enabling full Crystal code intelligence (completion, navigation, highlighting, inspections) inside `<% %>` tags |
 
+`EcrStructureViewFactory` must be registered directly in the main `plugin.xml`,
+and `intellij.platform.structureView` must be declared through the modern
+`<dependencies><module name="..."/></dependencies>` mechanism. Do not place the
+factory behind a legacy `<depends optional="true" config-file="...">` targeting
+the product module: the runtime plugin loader treats that name as an unresolved
+plugin ID and excludes the fragment. `EcrStructureViewTest` resolves the builder
+through `LanguageStructureViewBuilder` to cover the real extension-point path.
+
 This architecture mirrors how RubyMine handles `.erb` files: a dedicated template language (`ERBLanguage`), a file type (`ERBFileType`), a template data language mechanism (`TemplateDataElementType` + `TemplateLanguageStructureViewBuilder`), and a recognizable `<%>` icon.
 
 ### 6.5 Crystal Language Injection into `<% %>` Tags

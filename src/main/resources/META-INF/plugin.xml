@@ -108,10 +108,10 @@
     <change-notes><![CDATA[
 <h3>0.2.6</h3>
 <ul>
-  <li><b>ECR Structure View restored</b> — the optional dependency fragments introduced in 0.2.5 were never linked from the plugin descriptor, so the ECR Structure View factory and the spec test locator were silently not registered. Both fragments are now wired via <code>depends</code> with <code>config-file</code>.</li>
-  <li><b>Marketplace verification clean</b> — the missing SM Test Runner module declaration caused 14 binary-incompatibility problems against RubyMine 262; declaring the optional module dependency resolves them all.</li>
+  <li><b>ECR Structure View restored</b> — the optional dependency fragments introduced in 0.2.5 were never loaded (and product module names cannot be resolved as <code>depends</code> targets at runtime anyway), so the ECR Structure View factory and the spec test locator were silently not registered. Both extensions are now registered directly in the main plugin descriptor, matching the always-available platform modules they use.</li>
+  <li><b>Marketplace verification clean</b> — the missing SM Test Runner module declaration caused 14 binary-incompatibility problems against RubyMine 262. The 2026.2 product modules are now declared through the modern <code>dependencies/module</code> mechanism, which both the IDE runtime and verifier understand.</li>
   <li><b>Debugger registration consolidated</b> — the DAP debug adapter support provider is now declared in the main plugin descriptor; the orphaned fragment file was removed (the runtime fallback registration remains as a safety net).</li>
-  <li><b>Descriptor wiring regression guard</b> — a new consistency test fails the build when a fragment descriptor is orphaned or a <code>config-file</code> reference dangles.</li>
+  <li><b>Descriptor wiring regression guard</b> — a new consistency test fails the build when dependent extensions disappear from the descriptor or a fragment/<code>config-file</code> reference becomes inconsistent.</li>
 </ul>
 <h3>0.2.5</h3>
 <ul>
@@ -244,16 +244,15 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>HtmlTools</depends>
-    <!-- Optional module fragments: each config-file descriptor is loaded only when
-         the referenced module is present. PluginDescriptorConsistencyTest guards
-         against orphaned fragments and dangling config-file references. -->
-    <depends optional="true" config-file="plugin-smRunner.xml">intellij.platform.smRunner</depends>
-    <depends optional="true" config-file="plugin-structureView.xml">intellij.platform.structureView</depends>
 
     <incompatible-with>net.kenro.ji.jin.intellij.crystal-2</incompatible-with>
 
+    <!-- Product modules use the modern module dependency mechanism. Legacy
+         <depends> treats these names as plugin IDs and cannot resolve them. -->
     <dependencies>
         <module name="intellij.platform.dap"/>
+        <module name="intellij.platform.smRunner"/>
+        <module name="intellij.platform.structureView"/>
     </dependencies>
 
     <extensions defaultExtensionNs="com.intellij">
@@ -432,6 +431,13 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.structure.CrystalStructureViewFactory"/>
 
+        <!-- Registered unconditionally: the structure view module classes are always
+             available to plugin classloaders (see CrystalStructureViewFactory above),
+             and a config-file depends on the product module never resolves at runtime. -->
+        <lang.psiStructureViewFactory
+                language="EmbeddedCrystal"
+                implementationClass="de.magynhard.crystal.ecr.EcrStructureViewFactory"/>
+
         <configurationType
                 implementation="de.magynhard.crystal.run.CrystalRunConfigurationType"/>
 
@@ -441,6 +447,11 @@
         <runLineMarkerContributor
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.run.CrystalRunLineMarkerProvider"/>
+
+        <!-- Registered unconditionally: the SM Test Runner classes are provided by
+             the required product module declared above. -->
+        <testLocator
+                implementation="de.magynhard.crystal.run.CrystalTestLocator"/>
 
         <defaultLiveTemplates file="/liveTemplates/Crystal.xml"/>
 
