@@ -50,8 +50,11 @@ private fun getNameFromTypeName(element: PsiElement): String? {
 private fun getNameFromMethodName(element: PsiElement): String? {
     // Primary path: regular method names have an IDENTIFIER/CONSTANT leaf.
     //   def kung, def self.tanzen, def self.Build
+    // Setter definitions (`def host=(host : String?)`) lex as IDENTIFIER + ASSIGN;
+    // the trailing ASSIGN belongs to the name, so they are indexed as "host="
+    // (Crystal semantics) and stay distinct from a getter "host".
     val identifier = findNameIdentifierInMethodName(element)
-    if (identifier != null) return identifier.text
+    if (identifier != null) return identifier.text + setterNameSuffix(identifier.node)
 
     // Fallback: operator methods (def self.+, def self.[]) and keyword methods
     // (def self.require, def self.class) have no single IDENTIFIER/CONSTANT
@@ -73,6 +76,16 @@ private fun getNameFromMethodName(element: PsiElement): String? {
         child = child.treeNext
     }
     return sb.toString().takeIf { it.isNotEmpty() }
+}
+
+// Returns "=" when the token right after the name identifier (ignoring whitespace)
+// is an ASSIGN — i.e. this definition is a setter (`def host=(value)`).
+private fun setterNameSuffix(identifierNode: ASTNode): String {
+    var next = identifierNode.treeNext
+    while (next != null && next.elementType == com.intellij.psi.TokenType.WHITE_SPACE) {
+        next = next.treeNext
+    }
+    return if (next?.elementType == CrystalTypes.ASSIGN) "=" else ""
 }
 
 private fun setNameOnIdentifier(nameIdentifier: PsiElement?, name: String): PsiElement? {

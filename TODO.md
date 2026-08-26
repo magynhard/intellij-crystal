@@ -118,10 +118,12 @@ type. This ensures consistent behavior regardless of what the user types.
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
   call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);
   the receiver-postfixed `::method` form needs a postfix operator or `dot_call_access` extension.
-- [ ] **Investigate flaky `CrystalIndexServiceTest.testExcludedScopeTypeIsFiltered`** — one full-suite run
-  failed with `expected:<[ExcludedType]> but was:<[]>` (empty StubIndex result for an excluded-scope
-  fixture class); the test passed in isolation and in two consecutive clean full-suite reruns. Suspected
-  platform indexing race (VFS refresh vs. StubIndex query), not a parser/indexing semantics issue.
+- [ ] **Investigate flaky `CrystalIndexServiceTest` scope tests** — twice now a full-suite run failed
+  (`testExcludedScopeTypeIsFiltered` / `testProcessesTypeNameCandidatesOutsideProvidedScope`) with
+  StubIndex results missing just-added fixture types (`expected:<[ExcludedType]> but was:<[]>`), while
+  the tests passed in isolation and on immediate full-suite rerun. Suspected platform indexing race
+  (VFS refresh vs. StubIndex query) plus cross-project name bleed in the shared test index; both
+  failures predate and are unrelated to recent grammar changes.
 
 ## Completion Follow-up
 

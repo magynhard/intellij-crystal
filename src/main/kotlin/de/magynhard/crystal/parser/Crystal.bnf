@@ -336,7 +336,12 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-private method_name ::= IDENTIFIER
+// PEG longest-match-first: setter definitions (def host=, def self.env=) must be
+// tried before plain IDENTIFIER, otherwise the parser consumes only the name and
+// strands the '=' (broke stdlib files like uri.cr with `def host=(host : String?)`).
+private method_name ::= IDENTIFIER ASSIGN
+              | SELF DOT IDENTIFIER ASSIGN
+              | IDENTIFIER
               | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
               | keyword_as_method
               | operator_method_name
@@ -358,6 +363,15 @@ private macro_body_element ::= MACRO_BODY_CONTENT
 // Leading/trailing NLS: stdlib writes multi-line interpolations
 // (Enumerable::Reflect#type spans `{{\n raise(...)\n }}` across lines).
 macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifier] NLS MACRO_INTERPOLATION_END
+
+// Macro-interpolated callee: `def {{method.id}}(path)` plus call forms like
+// `{{method.id}} path, form: body` (stdlib http/client.cr generates these inside
+// {% for %} loops). Without the bare-argument alternative the tail after the
+// interpolation was parsed as a separate bogus statement. The !DOT / !LBRACKET /
+// binary-op guards mirror method_call_expression so postfix chains and binary
+// expressions after the interpolation still attach through the normal paths.
+private macro_interpolation_call ::= macro_interpolation [call_args | !DOT !LBRACKET !binary_op_lookahead bare_argument_list] [block]
+
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 // CHAR_LITERAL and GLOBAL_VAR must stay in sync with the <MACRO_CONTROL> lexer state,
 // which can emit them anywhere inside {% ... %} (e.g. `{% if x == 'a' %}`).
@@ -699,9 +713,8 @@ private primary_expression ::= grouped_expression
                              | offsetof_expression
                                    | uninitialized_expression
                                    | asm_expression
-                                   | macro_interpolation
+                                   | macro_interpolation_call
                               | yield_expression
-                              | macro_interpolation
                               | if_statement
                               | unless_statement
                              | case_statement
@@ -742,6 +755,12 @@ private binary_op_lookahead ::= (PLUS | MINUS | STAR | SLASH | DOUBLE_SLASH | PE
      | LPAREN | LBRACKET | LBRACE
      | PERCENT_LITERAL_BEGIN | PERCENT_SYMBOL_BEGIN
      | HEREDOC_START | COMMAND_BEGIN | REGEX_BEGIN | MACRO_INTERPOLATION_BEGIN)
+
+// Same guard for NESTED bare calls (see bare_method_call_expression), additionally
+// blocking range operators unconditionally: inside an argument list an identifier
+// directly followed by ".." / "..." always continues a Range (`consume first..,
+// other`, `consume first..n`) — never a nested call.
+private nested_call_lookahead ::= binary_op_lookahead | (DOTDOT | DOTDOTDOT)
 
 // Implicit object call: .method, .method(args), or .[index] (used in &.foo shorthand and case/when patterns)
 // AS/AS_QUESTION are needed for the &. shorthand without receiver (`to_a(&.as(T))`):
@@ -849,6 +868,7 @@ private bare_primary_expression ::= grouped_expression
                                   | require_statement
                                   | bare_method_call_expression
                                   | implicit_object_call
+                                  | macro_interpolation_call
                                   | literal
                                   | instance_var_access
                                   | class_var_access
@@ -860,10 +880,17 @@ private bare_primary_expression ::= grouped_expression
                                   | offsetof_expression
                                   | uninitialized_expression
                                   | asm_expression
-                                  | macro_interpolation
+                                  | macro_interpolation_call
                                   | SELF
 
-bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args {
+// Bare calls nest inside argument lists exactly like Crystal: `exec new_request method,
+// path` parses as exec(new_request(method, path)) — the inner call consumes the whole
+// comma-separated tail. Without the second alternative the tail was split off into a
+// bogus multi-assignment statement (broke stdlib http/client.cr). The guards mirror
+// method_call_expression: no member access, no index, and no binary-operator lookahead,
+// so `width + height` stays a binary expression instead of becoming call arguments.
+bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
+                              | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !nested_call_lookahead bare_argument_list {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 

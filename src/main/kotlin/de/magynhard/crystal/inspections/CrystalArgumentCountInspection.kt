@@ -399,7 +399,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
             is CrystalBareMethodCallExpression -> {
                 val callArgs = callExpr.callArgs
-                val argList = callArgs.argumentList
+                val argList = callArgs?.argumentList
                 if (argList != null) {
                     for (arg in argList.argumentList) {
                         result.add(extractArgInfo(arg))

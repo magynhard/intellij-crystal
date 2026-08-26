@@ -1792,4 +1792,42 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== constructors behind setter definitions (uri.cr regression) ====================
+    //
+    // `def host=(...)` used to break the grammar, corrupting stub indexing of the
+    // surrounding type so its `initialize` went missing and constructor calls fell
+    // back to the zero-argument implicit-constructor rule ("expected at most 0").
+
+    fun testConstructorAfterSetterDefinitionAcceptsPositionalArgs() {
+        myFixture.configureByText("test.cr", """
+            struct URI
+              def initialize(@scheme = nil, host = nil, @port = nil)
+              end
+
+              def host=(host : String?)
+                @host = host
+              end
+            end
+
+            URI.new("http", "localhost", 9999)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testConstructorAfterSetterDefinitionStillFlagsExcessArguments() {
+        myFixture.configureByText("test.cr", """
+            struct URI
+              def initialize(@scheme = nil, host = nil, @port = nil)
+              end
+
+              def host=(host : String?)
+                @host = host
+              end
+            end
+
+            URI.new("http", "localhost", 9999, <error descr="Too many arguments: expected at most 3, got 4">8080</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

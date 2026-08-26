@@ -7,7 +7,10 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalBareMethodCallExpression extends PsiElement {
 
-  @NotNull
+  @Nullable
+  CrystalBareArgumentList getBareArgumentList();
+
+  @Nullable
   CrystalCallArgs getCallArgs();
 
 }
