@@ -312,6 +312,42 @@ internal class CrystalMethodHierarchy(
         return encodeFields(listOf(method.name.orEmpty(), parameters.size.toString()) + parameters)
     }
 
+    internal fun constructorDispatchSignatures(method: CrystalMethodDefinition): Set<String> {
+        val parameterList = method.parameterList ?: return setOf(encodeFields(emptyList()))
+        var signatures = setOf(emptyList<String>())
+        for (parameter in parameterList.parameterList) {
+            val descriptor = constructorDispatchParameter(parameter, parameterList)
+            val withParameter = signatures.mapTo(linkedSetOf()) { it + descriptor }
+            signatures = if (parameter.expression != null) signatures + withParameter else withParameter
+        }
+        return signatures.mapTo(linkedSetOf()) { encodeFields(it) }
+    }
+
+    private fun constructorDispatchParameter(
+        parameter: CrystalParameter,
+        parameterList: CrystalParameterList
+    ): String {
+        val kind = when {
+            parameter.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null ||
+                parameter.node.findChildByType(CrystalTypes.WRAP_DOUBLE_STAR) != null -> "double-splat"
+            parameter.node.findChildByType(CrystalTypes.STAR) != null ||
+                parameter.node.findChildByType(CrystalTypes.WRAP_STAR) != null -> "splat"
+            parameter.node.findChildByType(CrystalTypes.AMPERSAND) != null -> "block"
+            isNamedOnly(parameter, parameterList) -> "named-only"
+            else -> "regular"
+        }
+        val callName = if (kind == "named-only") {
+            val identifiers = parameter.node.getChildren(null)
+                .filter { it.elementType == CrystalTypes.IDENTIFIER }
+                .map { it.text }
+            identifiers.firstOrNull()
+                ?: parameter.instanceVarAccess?.name?.removePrefix("@").orEmpty()
+        } else {
+            ""
+        }
+        return encodeFields(listOf(kind, callName, canonicalTypeRestriction(parameter, kind)))
+    }
+
     private fun canonicalParameter(parameter: CrystalParameter, parameterList: CrystalParameterList?): String {
         val kind = when {
             parameter.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null ||

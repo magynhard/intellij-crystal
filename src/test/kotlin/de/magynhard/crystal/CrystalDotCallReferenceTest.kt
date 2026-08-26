@@ -202,7 +202,7 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
     // ==================== .new constructor ====================
 
     fun testDotNewResolvesToInitialize() {
-        // .new resolves to initialize (Crystal's constructor: def self.new > record > initialize)
+        // With no explicit self.new overload, .new resolves to initialize.
         val resolved = resolveAtCaret("""
             class Senf
               def initialize(x : Int32)

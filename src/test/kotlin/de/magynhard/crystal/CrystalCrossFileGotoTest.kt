@@ -12,8 +12,8 @@ import de.magynhard.crystal.psi.*
  * Resolution path matches what the platform does for Ctrl+B:
  * 1. PsiReference on the element or its parent (CrystalDotCallAccess for DOT-calls,
  *    CrystalVariableReference for direct calls).
- * 2. GotoDeclarationHandler delegation/fallback, including polyvariant `.new` targets
- *    (resolves to self.new > record > initialize).
+ * 2. GotoDeclarationHandler delegation/fallback, including the combined explicit
+ *    `self.new` and initializer-backed polyvariant `.new` targets.
  */
 class CrystalCrossFileGotoTest : BasePlatformTestCase() {
 

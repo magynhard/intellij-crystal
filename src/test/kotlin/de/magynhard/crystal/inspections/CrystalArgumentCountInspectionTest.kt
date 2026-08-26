@@ -854,7 +854,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testDirectGenericConstructorUsesSelfNewPrecedence() {
+    fun testDirectGenericConstructorCombinesSelfNewAndInitializeOverloads() {
         myFixture.configureByText("test.cr", """
             class Box(T)
               def self.new(first, second)
@@ -863,7 +863,28 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
               def initialize(first)
               end
             end
-            Box(Int32).<error descr="Missing required argument(s): 'second'">new</error> 1
+            Box(Int32).new 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testParameterlessGenericInitializerRemainsAvailableBesideSelfNewOverloads() {
+        myFixture.configureByText("test.cr", """
+            class Queue(T)
+              def initialize
+              end
+
+              def initialize(initial_capacity : Int)
+              end
+
+              def self.new(array : Array(T))
+                Queue(T).new(array.size)
+              end
+            end
+
+            Queue(Int32).new
+            Queue(Int32).new(16)
+            Queue(Int32).new([1, 2, 3])
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -939,7 +960,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testConstructorDefinitionSetPriorityDoesNotFallThrough() {
+    fun testConstructorCombinesExplicitNewAndInitializeDefinitionSets() {
         myFixture.configureByText("test.cr", """
             class Explicit
               def self.new(first, second)
@@ -947,7 +968,8 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
               def initialize(first)
               end
             end
-            Explicit.<error descr="Missing required argument(s): 'second'">new</error> 1
+            Explicit.new 1
+            Explicit.<error descr="Missing required argument(s): 'first'">new</error>
 
             class Initialized
               def initialize(first, second)

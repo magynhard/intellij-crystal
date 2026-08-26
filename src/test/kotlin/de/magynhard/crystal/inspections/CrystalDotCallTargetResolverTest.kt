@@ -944,7 +944,7 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         }
     }
 
-    fun testDirectGenericConstructorUsesSelfNewPrecedence() {
+    fun testDirectGenericConstructorCombinesSelfNewAndInitializeOverloads() {
         val methods = assertMethods(
             """
                 class Box(T)
@@ -959,11 +959,74 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
             "new",
             "Box(Int32)",
             "Box",
+            "Box",
             "Box"
         )
 
-        assertTrue(CrystalPsiUtils.isSelfMethod(methods.methods.single()))
-        assertEquals("first, second", methods.methods.single().parameterList?.text)
+        assertEquals(listOf("new", "initialize"), methods.methods.map { it.name })
+        assertTrue(CrystalPsiUtils.isSelfMethod(methods.methods.first()))
+        assertEquals(listOf("first, second", "first"), methods.methods.map { it.parameterList?.text })
+    }
+
+    fun testExplicitSelfNewShadowsOverlappingInitializerForwarder() {
+        val methods = assertMethods(
+            """
+                class Factory
+                  def initialize(value : Int32 = 1)
+                  end
+
+                  def self.new(replacement : Int32)
+                  end
+                end
+                Factory.new(1)
+            """.trimIndent(),
+            "new",
+            "Factory",
+            "Factory",
+            "Factory"
+        )
+
+        assertEquals("new", methods.methods.single().name)
+        assertEquals("replacement : Int32", methods.methods.single().parameterList?.text)
+    }
+
+    fun testNamedOnlyExternalNamesControlInitializerForwarderShadowing() {
+        val distinct = assertMethods(
+            """
+                class DistinctFactory
+                  def initialize(*, left value : Int32)
+                  end
+
+                  def self.new(*, right value : Int32)
+                  end
+                end
+                DistinctFactory.new(left: 1)
+            """.trimIndent(),
+            "new",
+            "DistinctFactory",
+            "DistinctFactory",
+            "DistinctFactory",
+            "DistinctFactory"
+        )
+        assertEquals(listOf("new", "initialize"), distinct.methods.map { it.name })
+
+        val shadowed = assertMethods(
+            """
+                class ShadowedFactory
+                  def initialize(*, option original : Int32)
+                  end
+
+                  def self.new(*, option replacement : Int32)
+                  end
+                end
+                ShadowedFactory.new(option: 1)
+            """.trimIndent(),
+            "new",
+            "ShadowedFactory",
+            "ShadowedFactory",
+            "ShadowedFactory"
+        )
+        assertEquals("new", shadowed.methods.single().name)
     }
 
     fun testDirectGenericConstructorUsesImplicitConstructor() {
@@ -1078,7 +1141,7 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertEquals("value", methods.methods.single().parameterList?.text)
     }
 
-    fun testConstructorUsesInheritedSelfNewDefinitionSetBeforeInitialize() {
+    fun testConstructorCombinesInheritedSelfNewAndDirectInitialize() {
         val methods = assertMethods(
             """
                 class Parent
@@ -1096,11 +1159,12 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
             "new",
             "Child",
             "Child",
-            "Parent"
+            "Parent",
+            "Child"
         )
 
-        assertEquals("new", methods.methods.single().name)
-        assertEquals("required", methods.methods.single().parameterList?.text)
+        assertEquals(listOf("new", "initialize"), methods.methods.map { it.name })
+        assertEquals(listOf("required", null), methods.methods.map { it.parameterList?.text })
     }
 
     fun testExtendedModuleNewCannotHideInheritedSelfNewConstructor() {
@@ -1156,14 +1220,14 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertEquals(listOf("initialize", "initialize"), methods.methods.map { it.name })
     }
 
-    fun testConstructorReturnsCompleteDirectAndInheritedSelfNewSetOnly() {
+    fun testConstructorReturnsCompleteSelfNewAndInitializeOverloadPool() {
         val methods = assertMethods(
             """
                 class Parent
                   def self.new(parent_value)
                   end
 
-                  def initialize(excluded_parent_initializer)
+                  def initialize(parent_initializer : String)
                   end
                 end
 
@@ -1171,7 +1235,7 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
                   def self.new(child_value, optional = 1)
                   end
 
-                  def initialize(excluded_child_initializer)
+                  def initialize(child_initializer : Bool)
                   end
                 end
 
@@ -1181,14 +1245,17 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
             "Child",
             "Child",
             "Child",
+            "Parent",
+            "Child",
             "Parent"
         )
 
-        assertEquals(listOf("new", "new"), methods.methods.map { it.name })
-        assertTrue(methods.methods.all(CrystalPsiUtils::isSelfMethod))
+        assertEquals(listOf("new", "new", "initialize", "initialize"), methods.methods.map { it.name })
+        assertTrue(methods.methods.take(2).all(CrystalPsiUtils::isSelfMethod))
+        assertTrue(methods.methods.drop(2).none(CrystalPsiUtils::isSelfMethod))
     }
 
-    fun testConstructorIgnoresUnresolvedExtendBeforeInitializeFallback() {
+    fun testConstructorIgnoresUnresolvedExtendWhenCollectingInitializers() {
         val methods = assertMethods(
             """
                 class Factory

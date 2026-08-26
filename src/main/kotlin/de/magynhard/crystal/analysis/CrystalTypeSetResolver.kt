@@ -165,7 +165,6 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             includeModuleEdges = false
         )
         if (!selfNew.complete) return CrystalConstructorResolution.Incomplete(identity)
-        if (selfNew.methods.isNotEmpty()) return CrystalConstructorResolution.Methods(identity, selfNew.methods)
         val initializers = hierarchy.collectNamedMethods(
             identity,
             CrystalReceiverMode.INSTANCE,
@@ -173,10 +172,16 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             actualSelf = false
         )
         if (!initializers.complete) return CrystalConstructorResolution.Incomplete(identity)
-        return if (initializers.methods.isEmpty()) {
+        val explicitSignatures = selfNew.methods
+            .flatMapTo(linkedSetOf(), hierarchy::constructorDispatchSignatures)
+        val forwardedInitializers = initializers.methods.filter { initializer ->
+            hierarchy.constructorDispatchSignatures(initializer).none(explicitSignatures::contains)
+        }
+        val methods = selfNew.methods + forwardedInitializers
+        return if (methods.isEmpty()) {
             CrystalConstructorResolution.Implicit(identity)
         } else {
-            CrystalConstructorResolution.Methods(identity, initializers.methods)
+            CrystalConstructorResolution.Methods(identity, methods)
         }
     }
 

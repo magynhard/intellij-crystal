@@ -41,8 +41,8 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
         if (resolved != null) return arrayOf(resolved)
 
         // 2. GotoDeclarationHandler fallback — exercised by the platform when no
-        //    PsiReference resolves. Handles the .new constructor special case
-        //    (resolves to self.new > record > initialize).
+        //    PsiReference resolves. Handles the combined explicit self.new and
+        //    initializer-backed .new constructor targets.
         val handler = CrystalGotoDeclarationHandler()
         return handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
     }
@@ -157,20 +157,18 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
         assertEquals("initialize", (targets[0] as CrystalMethodDefinition).name)
     }
 
-    fun testNewGoesToSelfNewWhenDefined() {
+    fun testNewGoesToSelfNewAndInitializeOverloads() {
         val targets = gotoTargets("""
             class Senf
               def self.new
               end
-              def initialize
+              def initialize(value : Int32)
               end
             end
             Senf.n<caret>ew
         """.trimIndent())
-        assertNotNull("Should resolve Senf.new to def self.new (priority over initialize)", targets)
-        assertTrue(targets!!.isNotEmpty())
-        assertTrue("Target should be a method definition", targets[0] is CrystalMethodDefinition)
-        assertEquals("new", (targets[0] as CrystalMethodDefinition).name)
+        assertNotNull("Should resolve Senf.new to def self.new and def initialize", targets)
+        assertEquals(listOf("new", "initialize"), targets!!.map { (it as CrystalMethodDefinition).name })
     }
 
     fun testNewGoesToRecord() {

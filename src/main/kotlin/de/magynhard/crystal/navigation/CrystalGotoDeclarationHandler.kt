@@ -13,8 +13,8 @@ import de.magynhard.crystal.psi.*
  * Handles Go to Definition (Ctrl+Click / Ctrl+B) for:
  * 1. Identifiers after DOT (e.g. "Apfel.tanzen" → jumps to "def self.tanzen" or "def tanzen")
  * 2. Instance variables (@name) and class variables (@@name) → jumps to property declaration or shows all usages
- * 3. ".new" on a class (e.g. "Senf.new") → jumps to "def self.new", "record Senf", or "def initialize"
- *    following Crystal's constructor resolution order (self.new > record > initialize).
+ * 3. ".new" on a class (e.g. "Senf.new") → jumps to its explicit "def self.new" and
+ *    compiler-forwarded "def initialize" overloads, or to the matching record declaration.
  */
 class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
 
@@ -107,11 +107,8 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
     }
 
     /**
-     * Resolves "ClassName.new" to its actual target, following Crystal's constructor
-     * resolution order:
-     * 1. "def self.new" in the class — explicit override of the default constructor
-     * 2. "record ClassName, ..." macro — auto-generates "new" with record fields
-     * 3. "def initialize" in the class — called by the built-in "Class#new"
+     * Resolves "ClassName.new" to its actual targets: a record declaration, or the combined
+     * overload pool of explicit "def self.new" methods and compiler-forwarded initializers.
      */
     private fun findNewTargets(className: String, sourceElement: PsiElement): List<PsiElement> {
         return when (val resolution = CrystalTypeSetResolver.session(sourceElement)

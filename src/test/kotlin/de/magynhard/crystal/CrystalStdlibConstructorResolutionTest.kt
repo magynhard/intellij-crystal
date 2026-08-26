@@ -2,7 +2,10 @@ package de.magynhard.crystal
 
 import com.intellij.psi.PsiElement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.analysis.CrystalConstructorResolution
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.documentation.CrystalDocumentationProvider
+import de.magynhard.crystal.inspections.CrystalArgumentCountInspection
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 
@@ -19,7 +22,7 @@ class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
     private fun stdlibAvailable(): Boolean {
         val src = java.io.File("/usr/lib/crystal")
         return src.isDirectory && java.io.File(src, "prelude.cr").isFile &&
-            java.io.File(src, "http/client.cr").isFile
+            java.io.File(src, "http/client.cr").isFile && java.io.File(src, "deque.cr").isFile
     }
 
     private fun setupRealStdlibProject() {
@@ -36,8 +39,9 @@ class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
                 myFixture.addFileToProject("$rootPrefix/$relative/${it.relativeTo(d).path}", it.readText())
             }
         }
-        addReal("prelude.cr"); addReal("uri.cr"); addReal("http.cr")
-        addRealDir("http"); addRealDir("uri")
+        addReal("prelude.cr"); addReal("iterable.cr"); addReal("enumerable.cr"); addReal("indexable.cr")
+        addReal("uri.cr"); addReal("http.cr"); addReal("deque.cr")
+        addRealDir("indexable"); addRealDir("http"); addRealDir("uri")
 
         val rootVFile = requireNotNull(
             myFixture.addFileToProject("$rootPrefix/.keep", "").virtualFile.parent
@@ -101,5 +105,25 @@ class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
             "Hover should contain the constructor name: $doc",
             doc.contains("new")
         )
+    }
+
+    fun testDequeParameterlessNewUsesInitializeBesideExplicitSelfNewOverloads() {
+        if (!stdlibAvailable()) return
+        setupRealStdlibProject()
+        myFixture.enableInspections(CrystalArgumentCountInspection::class.java)
+        myFixture.configureByText("main.cr", "require \"deque\"\n\nd = Deque(Int32).new")
+        val resolution = CrystalTypeSetResolver.session(myFixture.file)
+            .resolveConstructor("Deque(Int32)", myFixture.file)
+        assertTrue("Expected Deque constructor methods, got $resolution", resolution is CrystalConstructorResolution.Methods)
+        val resolvedNames = (resolution as CrystalConstructorResolution.Methods).methods.map { it.name }
+        assertTrue("Expected explicit self.new overloads: $resolvedNames", resolvedNames.contains("new"))
+        assertTrue("Expected compiler-forwarded initialize overloads: $resolvedNames", resolvedNames.contains("initialize"))
+        myFixture.checkHighlighting()
+
+        val targets = gotoTargets("require \"deque\"\n\nd = Deque(Int32).n<caret>ew")
+        assertNotNull("Deque(Int32).new should expose explicit new and initialize overloads", targets)
+        val names = targets!!.map { (it as CrystalMethodDefinition).name }
+        assertTrue("Expected explicit self.new overloads: $names", names.contains("new"))
+        assertTrue("Expected compiler-forwarded initialize overloads: $names", names.contains("initialize"))
     }
 }

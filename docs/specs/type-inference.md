@@ -116,8 +116,9 @@ The edge contributes methods only when the parent declaration is indexed.
 
 Constructor and record collision classification is neutral and shared by DOT targets and PSI
 references. Ordered lexical candidates choose a record before a type at the same exact identity,
-then continue outward only when that identity has neither. An exact class or struct may resolve through
-`self.new`, then `initialize`, then implicit construction. Modules and enums are unavailable;
+then continue outward only when that identity has neither. An exact class or struct combines explicit
+`self.new` methods with the implicit `new` overloads forwarded to every `initialize`; only an empty
+combined set yields implicit zero-argument construction. Modules and enums are unavailable;
 abstract classes are rejected; macro-controlled or incomplete exact declarations are incomplete.
 Multiple constructor methods remain a multi-target result. `CrystalDotCallReference.multiResolve()`
 returns every exact overload for IntelliJ's navigation chooser, while `resolve()` returns a target

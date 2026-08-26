@@ -141,5 +141,7 @@ Rule since this fix: **explicit definitions win**.
   `testUndefinedNameOnMacroGeneratingClassStaysSuppressed`.
 - Real stdlib integration (skipped without local Crystal):
   `CrystalStdlibConstructorResolutionTest` — `HTTP::Client.new` resolves to the
-  explicit `def self.new` overloads, `URI.new` to `initialize`, and the hover popup
-  renders the constructor signature instead of the "Any (Variable)" fallback.
+  explicit `def self.new` overloads, `URI.new` to `initialize`, and `Deque(Int32).new`
+  includes both explicit `self.new` and initializer-backed overloads without a false
+  missing-argument diagnostic. The hover popup renders a constructor signature instead
+  of the "Any (Variable)" fallback.

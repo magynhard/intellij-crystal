@@ -44,4 +44,9 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val client = findStdlibFile("http/client.cr") ?: return
         assertParsesCleanly(client)
     }
+
+    fun testDequeCrParsesWithoutErrors() {
+        val deque = findStdlibFile("deque.cr") ?: return
+        assertParsesCleanly(deque)
+    }
 }
