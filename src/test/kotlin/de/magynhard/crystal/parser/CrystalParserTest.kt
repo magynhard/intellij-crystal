@@ -151,6 +151,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testNilableParenthesizedType() {
+        doTest(true)
+    }
+
     fun testBlockParam() {
         doTest(true)
     }

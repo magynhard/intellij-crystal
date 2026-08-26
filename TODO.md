@@ -115,6 +115,7 @@ type. This ensures consistent behavior regardless of what the user types.
 
 ## Parser Follow-up
 
+- [ ] **Parse multi-value return expressions** — real stdlib `hash.cr` uses `return entry, entry_index`, but `return_statement` currently accepts only one expression and reports an unexpected comma. Add tuple-style multi-value support without losing the existing `CrystalReturnStatement.expression` PSI contract, or deliberately migrate consumers such as `CrystalTypeSetResolver` to a list-valued return shape. Cover `return a, b`, postfix modifiers, and analogous `break`/`next` forms if Crystal permits them.
 - [ ] **Handle `Foo::bar` with lowercase identifiers as method calls** — `namespace_access` only matches
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
   call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);

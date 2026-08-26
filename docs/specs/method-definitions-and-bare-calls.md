@@ -45,7 +45,27 @@ leaf; `getNameFromMethodName` appends `=` when the next significant sibling toke
 
 **Stub version:** Parsing-semantics changes in this area require bumping
 `CrystalParserDefinition.FILE.getStubVersion()` so persisted indexes rebuild
-(currently at 8, bumped for setter support).
+(currently at 9; the latest bump restores constructors after nilable compound
+type restrictions).
+
+## Nilable compound type restrictions
+
+Crystal permits `?` after parenthesized, Tuple, and NamedTuple type forms:
+
+```crystal
+block : (Hash(K, V), K -> V)?
+entry : {Entry(K, V), Int32}?
+options : {name: String, count: Int32}?
+```
+
+Each compound branch of `type_single` consumes its optional `QUESTION` suffix.
+Without that suffix on the parenthesized branch, real `hash.cr` stopped parsing at
+`Hash#initialize(block : (Hash(K, V), K -> V)? = nil, ...)`; both later
+`Hash.self.new` overloads disappeared from the method index, and valid
+`Hash(String, Int32).new(0)` calls were checked only against the earlier
+parameterless initializer. Tuple and NamedTuple branches follow the same language
+rule and prevent an equivalent error on return types such as
+`{Entry(K, V), Int32}?`.
 
 ## Nested bare calls in argument lists
 
@@ -124,6 +144,7 @@ Rule since this fix: **explicit definitions win**.
 ## Test Coverage
 
 - Parser goldens: `SetterMethodDefinition.cr`, `MacroInterpolatedCallee.cr`,
+  `NilableParenthesizedType.cr`,
   `MethodCalls.cr` (nested dot-call tail), `ExpressionAndRangeReplay.cr` (range
   binding), existing implicit-constructor inspection fixtures.
 - Stdlib canary: `CrystalStdlibSourceParseTest` parses the real `/usr/lib/crystal`
@@ -143,5 +164,6 @@ Rule since this fix: **explicit definitions win**.
   `CrystalStdlibConstructorResolutionTest` — `HTTP::Client.new` resolves to the
   explicit `def self.new` overloads, `URI.new` to `initialize`, and `Deque(Int32).new`
   includes both explicit `self.new` and initializer-backed overloads without a false
-  missing-argument diagnostic. The hover popup renders a constructor signature instead
-  of the "Any (Variable)" fallback.
+  missing-argument diagnostic. `Hash(String, Int32).new(0)` resolves to the explicit
+  default-value overload without a false excess-argument diagnostic. The hover popup
+  renders a constructor signature instead of the "Any (Variable)" fallback.

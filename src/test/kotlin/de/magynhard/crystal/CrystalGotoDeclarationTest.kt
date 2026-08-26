@@ -182,6 +182,30 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
             targets[0].text.contains("record"))
     }
 
+    fun testHashStyleDefaultValueNewSurvivesNilableProcParameter() {
+        val targets = gotoTargets("""
+            class Dictionary(K, V)
+              def initialize(block : (Dictionary(K, V), K -> V)? = nil, *, initial_capacity = nil)
+              end
+
+              def self.new(default_value : V, initial_capacity = nil)
+              end
+            end
+
+            Dictionary(String, Int32).n<caret>ew(0)
+        """.trimIndent())
+
+        assertNotNull("Should resolve the Hash-style default-value constructor", targets)
+        assertTrue(
+            "Expected self.new(default_value : V, ...), got ${targets!!.map { it.text.take(80) }}",
+            targets.any {
+                it is CrystalMethodDefinition &&
+                    it.name == "new" &&
+                    it.parameterList?.text?.contains("default_value : V") == true
+            }
+        )
+    }
+
     fun testNewOnClassWithMacroGeneratedMethodsStillResolves() {
         // A textually written def self.new is real even when the same class also
         // generates methods through {% for %} loops with macro-interpolated names

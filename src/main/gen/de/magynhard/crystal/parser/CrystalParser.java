@@ -7379,9 +7379,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                        | type_path [type_arguments] [DOT CLASS] [QUESTION] (STAR | DOUBLE_STAR)* [LBRACKET INTEGER_LITERAL RBRACKET]
   //                        | SELF [QUESTION]
   //                        | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN [QUESTION]
-  //                        | LPAREN type_reference (COMMA type_reference)* RPAREN
-  //                        | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
-  //                        | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
+  //                        | LPAREN type_reference (COMMA type_reference)* RPAREN [QUESTION]
+  //                        | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE [QUESTION]
+  //                        | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE [QUESTION]
   //                        | IDENTIFIER
   static boolean type_single(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_single")) return false;
@@ -7553,7 +7553,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // LPAREN type_reference (COMMA type_reference)* RPAREN
+  // LPAREN type_reference (COMMA type_reference)* RPAREN [QUESTION]
   private static boolean type_single_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_single_4")) return false;
     boolean result_;
@@ -7562,6 +7562,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && type_reference(builder_, level_ + 1);
     result_ = result_ && type_single_4_2(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
+    result_ = result_ && type_single_4_4(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -7588,7 +7589,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
+  // [QUESTION]
+  private static boolean type_single_4_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_4_4")) return false;
+    consumeToken(builder_, QUESTION);
+    return true;
+  }
+
+  // LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE [QUESTION]
   private static boolean type_single_5(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_single_5")) return false;
     boolean result_;
@@ -7600,6 +7608,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && type_single_5_5(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACE);
+    result_ = result_ && type_single_5_8(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -7629,7 +7638,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
+  // [QUESTION]
+  private static boolean type_single_5_8(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_5_8")) return false;
+    consumeToken(builder_, QUESTION);
+    return true;
+  }
+
+  // LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE [QUESTION]
   private static boolean type_single_6(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_single_6")) return false;
     boolean result_;
@@ -7640,6 +7656,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && type_single_6_3(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACE);
+    result_ = result_ && type_single_6_6(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -7666,6 +7683,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && type_reference(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
+  }
+
+  // [QUESTION]
+  private static boolean type_single_6_6(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_single_6_6")) return false;
+    consumeToken(builder_, QUESTION);
+    return true;
   }
 
   /* ********************************************************** */

@@ -889,6 +889,25 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testGenericHashStyleDefaultValueConstructorAfterNilableProcParameter() {
+        myFixture.configureByText("test.cr", """
+            class Dictionary(K, V)
+              def initialize
+              end
+
+              def initialize(block : (Dictionary(K, V), K -> V)? = nil, *, initial_capacity = nil)
+              end
+
+              def self.new(default_value : V, initial_capacity = nil)
+              end
+            end
+
+            counts = Dictionary(String, Int32).new(0)
+            Dictionary(String, Int32).new(0, nil, <error descr="Too many arguments: expected at most 2, got 3">1</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testDirectGenericImplicitConstructorReportsExcessArgument() {
         myFixture.configureByText("test.cr", """
             class Box(T)

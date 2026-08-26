@@ -22,7 +22,8 @@ class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
     private fun stdlibAvailable(): Boolean {
         val src = java.io.File("/usr/lib/crystal")
         return src.isDirectory && java.io.File(src, "prelude.cr").isFile &&
-            java.io.File(src, "http/client.cr").isFile && java.io.File(src, "deque.cr").isFile
+            java.io.File(src, "http/client.cr").isFile && java.io.File(src, "deque.cr").isFile &&
+            java.io.File(src, "hash.cr").isFile
     }
 
     private fun setupRealStdlibProject() {
@@ -40,7 +41,8 @@ class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
             }
         }
         addReal("prelude.cr"); addReal("iterable.cr"); addReal("enumerable.cr"); addReal("indexable.cr")
-        addReal("uri.cr"); addReal("http.cr"); addReal("deque.cr")
+        addReal("uri.cr"); addReal("http.cr"); addReal("deque.cr"); addReal("hash.cr")
+        addReal("crystal/hasher.cr")
         addRealDir("indexable"); addRealDir("http"); addRealDir("uri")
 
         val rootVFile = requireNotNull(
@@ -125,5 +127,33 @@ class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
         val names = targets!!.map { (it as CrystalMethodDefinition).name }
         assertTrue("Expected explicit self.new overloads: $names", names.contains("new"))
         assertTrue("Expected compiler-forwarded initialize overloads: $names", names.contains("initialize"))
+    }
+
+    fun testHashDefaultValueNewResolvesToExplicitSelfNew() {
+        if (!stdlibAvailable()) return
+        setupRealStdlibProject()
+        myFixture.enableInspections(CrystalArgumentCountInspection::class.java)
+        myFixture.configureByText("main.cr", "counts = Hash(String, Int32).new(0)")
+
+        val resolution = CrystalTypeSetResolver.session(myFixture.file)
+            .resolveConstructor("Hash(String, Int32)", myFixture.file)
+        assertTrue("Expected Hash constructor methods, got $resolution", resolution is CrystalConstructorResolution.Methods)
+        val methods = (resolution as CrystalConstructorResolution.Methods).methods
+        assertTrue(
+            "Expected Hash.self.new(default_value : V, ...), got ${methods.map { it.text.take(80) }}",
+            methods.any { it.name == "new" && it.parameterList?.text?.contains("default_value : V") == true }
+        )
+        myFixture.checkHighlighting()
+
+        val targets = gotoTargets("counts = Hash(String, Int32).n<caret>ew(0)")
+        assertNotNull("Hash(String, Int32).new should resolve to constructor overloads", targets)
+        assertTrue(
+            "Expected Hash.self.new(default_value : V, ...), got ${targets!!.map { it.text.take(80) }}",
+            targets.any {
+                it is CrystalMethodDefinition &&
+                    it.name == "new" &&
+                    it.parameterList?.text?.contains("default_value : V") == true
+            }
+        )
     }
 }
