@@ -29,6 +29,12 @@ public class CrystalInClauseImpl extends ASTWrapperPsiElement implements Crystal
 
   @Override
   @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
@@ -37,6 +43,12 @@ public class CrystalInClauseImpl extends ASTWrapperPsiElement implements Crystal
   @NotNull
   public CrystalExpressionList getExpressionList() {
     return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpressionList.class));
+  }
+
+  @Override
+  @Nullable
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
   @Override

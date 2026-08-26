@@ -135,6 +135,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPostfixModifierAssignment() {
+        doTest(true)
+    }
+
     fun testBlockParam() {
         doTest(true)
     }

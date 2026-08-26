@@ -28,9 +28,21 @@ public class CrystalPostfixModifierImpl extends ASTWrapperPsiElement implements 
   }
 
   @Override
+  @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
   @NotNull
   public CrystalExpression getExpression() {
     return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalExpression.class));
+  }
+
+  @Override
+  @Nullable
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
 }

@@ -440,7 +440,12 @@ expression_statement ::= expression [expression_assign_suffix [postfix_modifier]
 
 private expression_assign_suffix ::= assign_op NLS expression
 
-postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) expression
+// Postfix modifiers and in-clause guards accept assignments as their condition
+// (`return [] of T unless t = h[k]?`, `puts x if v = f`), mirroring block-level
+// `condition`. Both rules stay private/flat so no extra PSI composite is created.
+postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) condition_with_assignment
+
+private condition_with_assignment ::= condition_assignment | expression
 
 // ==================== Control Flow ====================
 
@@ -492,7 +497,7 @@ private when_entry_list ::= implicit_when_comparison (macro_argument_trivia COMM
 
 private implicit_when_comparison ::= DOT operator_method_name NLS expression
 
-in_clause ::= IN expression_list [IF expression] then_clause statement_list
+in_clause ::= IN expression_list [IF condition_with_assignment] then_clause statement_list
 
 rescue_clause ::= RESCUE [rescue_spec] then_clause statement_list
 
