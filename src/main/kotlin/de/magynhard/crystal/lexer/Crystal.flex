@@ -506,6 +506,9 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
   {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  // Invalid multi-character single-quote string (same guard as YYINITIAL)
+  "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
+  {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
   "."                  { return CrystalTypes.DOT; }
   "("                  { return CrystalTypes.LPAREN; }
@@ -653,6 +656,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
+  {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
   "->"                 { return CrystalTypes.ARROW; }
   "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
@@ -716,6 +721,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
+  {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
   "->"                 { return CrystalTypes.ARROW; }
   "=>"                 { return CrystalTypes.DOUBLE_ARROW; }

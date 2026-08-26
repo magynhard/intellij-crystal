@@ -178,6 +178,49 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testCharLiteralInInterpolation() {
+        val tokens = nonWhitespaceTokens("\"cat-#{rule_id.split('-').last.rjust(3, '0')}\"")
+        val types = tokens.map { it.first }
+        assertTrue("Should contain CHAR_LITERAL for '-'", tokens.any { it.first == CrystalTypes.CHAR_LITERAL && it.second == "'-'" })
+        assertTrue("Should contain CHAR_LITERAL for '0'", tokens.any { it.first == CrystalTypes.CHAR_LITERAL && it.second == "'0'" })
+        assertFalse("Interpolation with char literals must not produce BAD_CHARACTER",
+            types.contains(TokenType.BAD_CHARACTER))
+    }
+
+    @Test
+    fun testCharLiteralEscapeSequencesInInterpolation() {
+        for (literal in listOf("'\\n'", "'\\t'", "'\\''", "'\\\\'")) {
+            val tokens = nonWhitespaceTokens("\"#{$literal}\"")
+            assertTrue("'${literal.replace("\\", "\\\\")}' inside interpolation should lex as CHAR_LITERAL, got: $tokens",
+                tokens.any { it.first == CrystalTypes.CHAR_LITERAL })
+            assertFalse(tokens.any { it.first == TokenType.BAD_CHARACTER })
+        }
+    }
+
+    @Test
+    fun testInvalidCharLiteralIsSingleBadCharacter() {
+        // Top level
+        val top = tokenize("'ab'")
+        val badTop = top.filter { it.first == TokenType.BAD_CHARACTER }
+        assertEquals("Multi-character single-quote literal should be one BAD_CHARACTER token at top level", 1, badTop.size)
+        assertEquals("'ab'", badTop[0].second)
+
+        // Inside interpolation
+        val interpolated = tokenize("\"#{'ab'}\"")
+        val badInterpolated = interpolated.filter { it.first == TokenType.BAD_CHARACTER }
+        assertEquals("Multi-character single-quote literal should be one BAD_CHARACTER token inside interpolation", 1, badInterpolated.size)
+        assertEquals("'ab'", badInterpolated[0].second)
+    }
+
+    @Test
+    fun testCharLiteralInMacroControl() {
+        val tokens = nonWhitespaceTokens("{% if x == 'a' %}")
+        assertTrue("Macro control should lex the char comparison operand as CHAR_LITERAL, got: $tokens",
+            tokens.any { it.first == CrystalTypes.CHAR_LITERAL && it.second == "'a'" })
+        assertFalse(tokens.any { it.first == TokenType.BAD_CHARACTER })
+    }
+
+    @Test
     fun testOperators() {
         val cases = mapOf(
             "<=>" to CrystalTypes.SPACESHIP,

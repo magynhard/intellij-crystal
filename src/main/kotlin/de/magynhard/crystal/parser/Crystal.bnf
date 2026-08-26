@@ -359,8 +359,10 @@ private macro_body_element ::= MACRO_BODY_CONTENT
 // (Enumerable::Reflect#type spans `{{\n raise(...)\n }}` across lines).
 macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifier] NLS MACRO_INTERPOLATION_END
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
-private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
-    | INTEGER_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
+// CHAR_LITERAL and GLOBAL_VAR must stay in sync with the <MACRO_CONTROL> lexer state,
+// which can emit them anywhere inside {% ... %} (e.g. `{% if x == 'a' %}`).
+private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+    | INTEGER_LITERAL | CHAR_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
     | SYMBOL_LITERAL | SYMBOL_COLON
     | TRUE | FALSE | NIL
     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM

@@ -216,6 +216,26 @@ This covers numeric match groups (`$1`…), the last-match variable (`$~`), chil
 
 **Test coverage:** `GlobalVarInterpolation.cr` parser test covers globals in double-quoted strings, regex literals, command literals, heredocs, interpolating percent literals, nested interpolation, dot-call chains (`$1.upcase`), and top-level usage.
 
+### Char literals inside interpolation (`#{'a'}`)
+
+Char literals are valid expressions everywhere Crystal accepts expressions, including inside interpolation and macro control blocks:
+
+```crystal
+dir = "cat-#{rule_id.split('-').last.rjust(3, '0')}"
+macro flags_macro
+  {% if x == 'a' %}
+  {% end %}
+end
+```
+
+**Lexer rule:** The `<INTERPOLATION>` state lexes `'…'` via the same `CHAR_LITERAL` pattern as `<YYINITIAL>` (including escape forms `'\n'`, `'\t'`, `'\''`, `'\u{1F600}'`). The YYINITIAL guard for invalid multi-character single-quote literals (`'ab'` → one `BAD_CHARACTER` token) is mirrored as well, so error diagnostics behave identically in both contexts.
+
+**Mirroring:** `{CHAR_LITERAL}` plus the invalid-literal guard were added to `<MACRO_INTERPOLATION>` and `<MACRO_CONTROL>` per the lexer-state mirror rule.
+
+**Parser:** No interpolation-side change needed — `literal` already accepts `CHAR_LITERAL`. However, `macro_control_token` (the token whitelist for `{% … %}` bodies) had to be extended with `CHAR_LITERAL` and `GLOBAL_VAR`: without them the parser aborted the pinned `macro_definition` rule when a char literal or global appeared inside `{% if x == 'a' %}`, leaving the rest of the file parsed at top level. Keep `macro_control_token` in sync with everything the `<MACRO_CONTROL>` lexer state can emit.
+
+**Test coverage:** `CharLiteralInterpolation.cr` parser test covers char literals in string, regex, command, heredoc, and percent-literal interpolation, nested strings, escape sequences, top-level regression guards, and macro control comparisons. `CrystalLexerTest.testCharLiteralInInterpolation`, `testCharLiteralEscapeSequencesInInterpolation`, `testInvalidCharLiteralIsSingleBadCharacter`, and `testCharLiteralInMacroControl` cover the lexer level including the invalid-literal guard.
+
 ---
 
 ## Edge Cases
