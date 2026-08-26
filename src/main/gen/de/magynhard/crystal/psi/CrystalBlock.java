@@ -19,7 +19,7 @@ public interface CrystalBlock extends PsiElement {
   @NotNull
   List<CrystalRescueClause> getRescueClauseList();
 
-  @NotNull
+  @Nullable
   CrystalStatementList getStatementList();
 
 }

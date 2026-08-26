@@ -115,6 +115,10 @@ type. This ensures consistent behavior regardless of what the user types.
 
 ## Parser Follow-up
 
+- [ ] **Support brace blocks after `&.` shorthand (`f &.m { }`)** — `implicit_object_call` accepts no
+  trailing `[block]`, so the unparenthesized proc-plus-block form (`select &.even? { }`) fails to parse.
+  Parenthesized usage (`select(&.even?)`) is unaffected. Rare in real code; extend the rule with a
+  `[block]` tail (and cover it in a parser test) when a real-world case appears.
 - [ ] **Parse multi-value return expressions** — real stdlib `hash.cr` uses `return entry, entry_index`, but `return_statement` currently accepts only one expression and reports an unexpected comma. Add tuple-style multi-value support without losing the existing `CrystalReturnStatement.expression` PSI contract, or deliberately migrate consumers such as `CrystalTypeSetResolver` to a list-valued return shape. Cover `return a, b`, postfix modifiers, and analogous `break`/`next` forms if Crystal permits them.
 - [ ] **Handle `Foo::bar` with lowercase identifiers as method calls** — `namespace_access` only matches
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope

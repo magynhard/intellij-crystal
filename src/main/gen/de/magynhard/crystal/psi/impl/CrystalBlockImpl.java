@@ -52,9 +52,9 @@ public class CrystalBlockImpl extends ASTWrapperPsiElement implements CrystalBlo
   }
 
   @Override
-  @NotNull
+  @Nullable
   public CrystalStatementList getStatementList() {
-    return notNullChild(PsiTreeUtil.getChildOfType(this, CrystalStatementList.class));
+    return PsiTreeUtil.getChildOfType(this, CrystalStatementList.class);
   }
 
 }

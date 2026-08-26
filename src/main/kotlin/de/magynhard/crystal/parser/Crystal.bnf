@@ -370,7 +370,11 @@ macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifi
 // interpolation was parsed as a separate bogus statement. The !DOT / !LBRACKET /
 // binary-op guards mirror method_call_expression so postfix chains and binary
 // expressions after the interpolation still attach through the normal paths.
-private macro_interpolation_call ::= macro_interpolation [call_args | !DOT !LBRACKET !binary_op_lookahead bare_argument_list] [block]
+// The !LBRACE guard: a leading LBRACE after the callee is a BLOCK (bound by the
+// trailing [block]) per Crystal semantics, never a hash argument. Braces after a
+// comma inside bare arguments remain hash literals (real Crystal: `f 1, {"a" => 1}`
+// parses as hash argument).
+private macro_interpolation_call ::= macro_interpolation [call_args | !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list] [block]
 
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 // CHAR_LITERAL and GLOBAL_VAR must stay in sync with the <MACRO_CONTROL> lexer state,
@@ -643,7 +647,10 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // method_call_expression): without them, a bracket access binds as an Array-literal
 // argument (config(["envs"])) and a following chained dot expression binds as
 // arguments of the dot-call itself (cpu_count[.to_i, debug : Bool = ...]).
-dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [call_args | !DOT !LBRACKET bare_argument_list] {
+// !LBRACE: `{` directly after the method name starts a BLOCK (consumed by the
+// trailing [block]), never a hash argument — real Crystal parses `obj.m { }` as an
+// empty block; only braces after a comma (`f 1, {…}`) are hash literals.
+dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [call_args | !DOT !LBRACKET !LBRACE bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
@@ -730,8 +737,12 @@ grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAR
 // and bare ::ident fall through to this rule. Without it, ::raise inside a do-block
 // breaks the block parse, backtracks the whole postfix chain, and collapses every
 // subsequent statement into error recovery (see Enumerable#indexable cascade).
+// The !LBRACE guard on the bare-argument alternative: `{` directly after the callee
+// starts a BLOCK (bound by the trailing [block] or the block-only alternatives below),
+// never a hash argument — real Crystal parses `Thread.new { }` as an empty block and
+// even errors on `f {"a" => 1}`; braces after a comma (`f 1, {…}`) stay hash literals.
 method_call_expression ::= [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !binary_op_lookahead bare_argument_list [block]
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
                          | (IDENTIFIER | CONSTANT) block
                          | (SUPER | PREVIOUS_DEF) call_args
@@ -894,8 +905,10 @@ bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 
-block ::= DO [PIPE NLS parameter_list NLS PIPE] statement_list rescue_clause* [else_clause] [ensure_clause] END
-        | LBRACE [PIPE NLS parameter_list NLS PIPE] statement_list RBRACE
+// Empty bodies are valid Crystal: `Thread.new { }`, `spawn { }`, `f do end`.
+// The statement_list is optional in both alternatives.
+block ::= DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* [else_clause] [ensure_clause] END
+        | LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
 proc_literal ::= ARROW LPAREN NLS parameter_list NLS RPAREN LBRACE statement_list RBRACE
