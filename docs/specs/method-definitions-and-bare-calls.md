@@ -100,6 +100,27 @@ Resolution of such calls stays suppressed (macro-generated names), consistent wi
 DOT-call architecture; the goal here is error-free parsing so surrounding definitions
 index cleanly.
 
+## Macro uncertainty vs. explicitly defined methods
+
+`collectNamedMethods` treats a type whose members include macro-interpolated method
+names (`def {{method.id}}`) as *uncertain* — the type might expose names nobody wrote
+textually. Historically this uncertainty suppressed **every** named lookup against the
+type, which broke real stdlib resolution: `HTTP::Client.new(...)` could not reach the
+explicitly written `def self.new(uri, tls)` overloads in http/client.cr because the
+same class also generates `get`/`post`/… through `{% for %}` loops. Symptoms were
+"Any (Variable)" hovers, dead Go-to-definition, and silently skipped argument-count
+checks.
+
+Rule since this fix: **explicit definitions win**.
+
+- A lookup for a name that IS textually defined on the type resolves normally,
+  regardless of macro-generated siblings.
+- A lookup for a name that is NOT defined anywhere stays incomplete (authoritative
+  suppression) when the type has macro-generated method names — the macro could be
+  producing exactly that name.
+- Names collected inside macro-control regions with a known textual name (`macroDepth
+  > 0`, non-interpolated) keep their existing `uncertainMethodNames` suppression.
+
 ## Test Coverage
 
 - Parser goldens: `SetterMethodDefinition.cr`, `MacroInterpolatedCallee.cr`,
@@ -111,4 +132,14 @@ index cleanly.
   hand-written fixtures; a grammar gap there degrades indexing silently.
 - Inspection: `CrystalArgumentCountInspectionTest.testConstructorAfterSetterDefinition*`
   verifies constructors behind setter definitions accept positional args and still flag
-  genuine excess.
+  genuine excess; `testConstructorInMacroGeneratingClassIsStillChecked` covers the same
+  behind `{% for %}`-generated siblings.
+- Resolution semantics: `CrystalMethodHierarchyTest.testInterpolatedMacroMethodNameSuppressesOnlyUnknownNames`
+  (explicit names resolve, unknown names stay suppressed),
+  `CrystalGotoDeclarationTest.testNewOnClassWithMacroGeneratedMethodsStillResolves` /
+  `testInitializeOnClassWithMacroGeneratedMethodsStillResolves` /
+  `testUndefinedNameOnMacroGeneratingClassStaysSuppressed`.
+- Real stdlib integration (skipped without local Crystal):
+  `CrystalStdlibConstructorResolutionTest` — `HTTP::Client.new` resolves to the
+  explicit `def self.new` overloads, `URI.new` to `initialize`, and the hover popup
+  renders the constructor signature instead of the "Any (Variable)" fallback.

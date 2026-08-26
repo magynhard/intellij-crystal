@@ -53,18 +53,31 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
         assertFalse(hidden.complete)
     }
 
-    fun testInterpolatedMacroMethodNameMakesNamedLookupIncomplete() {
+    fun testInterpolatedMacroMethodNameSuppressesOnlyUnknownNames() {
         val file = myFixture.configureByText(
             "test.cr",
             "class Service\n  def visible\n  end\n  def {{dynamic_name}}\n  end\nend"
         )
-        val result = CrystalTypeSetResolver.session(file).collectNamedMethods(
+        val session = CrystalTypeSetResolver.session(file)
+
+        // An explicitly written method stays resolvable even when sibling methods are
+        // generated through macro interpolation (stdlib http/client.cr pattern).
+        val visible = session.collectNamedMethods(
             CrystalTypeIdentity("Service", "Service"),
             CrystalReceiverMode.INSTANCE,
             "visible"
         )
+        assertTrue(visible.complete)
+        assertEquals(listOf("visible"), visible.methods.map { it.name })
 
-        assertFalse(result.complete)
+        // A name that is not explicitly defined anywhere is genuinely uncertain: the
+        // macro could generate it, so the lookup must stay incomplete.
+        val unknown = session.collectNamedMethods(
+            CrystalTypeIdentity("Service", "Service"),
+            CrystalReceiverMode.INSTANCE,
+            "anything_else"
+        )
+        assertFalse(unknown.complete)
     }
 
     fun testAllMethodCollectionReportsIncompleteMacroControlledMethods() {

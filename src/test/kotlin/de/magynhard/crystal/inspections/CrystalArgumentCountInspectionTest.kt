@@ -1830,4 +1830,24 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testConstructorInMacroGeneratingClassIsStillChecked() {
+        myFixture.configureByText("test.cr", """
+            class Channel
+              {% for name in %w(open close) %}
+                def {{name.id}}
+                  nil
+                end
+              {% end %}
+
+              def initialize(capacity : Int32)
+              end
+            end
+
+            Channel.new(1)
+
+            Channel.<error descr="Missing required argument(s): 'capacity'">new</error>()
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

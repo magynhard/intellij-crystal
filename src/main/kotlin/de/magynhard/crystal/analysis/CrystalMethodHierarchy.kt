@@ -114,13 +114,20 @@ internal class CrystalMethodHierarchy(
         val seen = mutableSetOf<String>()
         for (exposure in hierarchy.exposures) {
             val typeMetadata = metadata(exposure.type, exposure.declarationMode, includeModuleEdges)
-            if (typeMetadata.unknownMethodName || methodName in typeMetadata.uncertainMethodNames) {
+            if (methodName in typeMetadata.uncertainMethodNames) {
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             val candidates = findExactMethods(exposure.type).filter { method ->
                 method.name == methodName &&
                     CrystalPsiUtils.isSelfMethod(method) == (exposure.declarationMode == CrystalReceiverMode.STATIC) &&
                     (actualSelf == null || CrystalPsiUtils.isSelfMethod(method) == actualSelf)
+            }
+            // Macro-generated method names (def {{...}}) make a type's member set
+            // uncertain — but only for names that are NOT explicitly defined. A
+            // textually written `def self.new` is real regardless of what the type's
+            // {% for %} loops additionally generate (stdlib http/client.cr).
+            if (candidates.isEmpty() && typeMetadata.hasMacroGeneratedMethodNames) {
+                return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             if (candidates.groupBy(::canonicalSignature).values.any { group ->
                     group.map { it.containingFile?.virtualFile?.path }.distinct().size > 1
@@ -187,7 +194,7 @@ internal class CrystalMethodHierarchy(
         val superclasses = mutableListOf<CrystalTypeIdentity>()
         val uncertainMethodNames = mutableSetOf<String>()
         val edgeFiles = mutableSetOf<String>()
-        var unknownMethodName = false
+        var hasMacroGeneratedMethodNames = false
         var complete = exactDeclarations.isNotEmpty()
 
         for (declaration in exactDeclarations) {
@@ -209,9 +216,9 @@ internal class CrystalMethodHierarchy(
                         if (member is CrystalMethodDefinition &&
                             CrystalPsiUtils.isSelfMethod(member) == (mode == CrystalReceiverMode.STATIC)) {
                             if (member.macroInterpolation != null) {
-                                unknownMethodName = true
+                                hasMacroGeneratedMethodNames = true
                             } else if (macroDepth > 0) {
-                                member.name?.let(uncertainMethodNames::add) ?: run { unknownMethodName = true }
+                                member.name?.let(uncertainMethodNames::add) ?: run { hasMacroGeneratedMethodNames = true }
                             }
                         }
                         if (macroDepth > 0 && isRelevantMacroControlledEdge(member, mode, includeModuleEdges)) {
@@ -263,7 +270,7 @@ internal class CrystalMethodHierarchy(
             distinctSuperclasses.singleOrNull(),
             complete,
             uncertainMethodNames,
-            unknownMethodName
+            hasMacroGeneratedMethodNames
         )
     }
 
@@ -408,7 +415,7 @@ internal class CrystalMethodHierarchy(
         val superclass: CrystalTypeIdentity?,
         val complete: Boolean,
         val uncertainMethodNames: Set<String>,
-        val unknownMethodName: Boolean
+        val hasMacroGeneratedMethodNames: Boolean
     )
     private data class HierarchyCollection(val exposures: List<TypeExposure>, val complete: Boolean)
 }

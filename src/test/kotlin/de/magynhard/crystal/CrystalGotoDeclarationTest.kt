@@ -184,6 +184,74 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
             targets[0].text.contains("record"))
     }
 
+    fun testNewOnClassWithMacroGeneratedMethodsStillResolves() {
+        // A textually written def self.new is real even when the same class also
+        // generates methods through {% for %} loops with macro-interpolated names
+        // (stdlib http/client.cr pattern). Macro uncertainty must not suppress
+        // explicitly defined names.
+        val targets = gotoTargets("""
+            class Client
+              {% for method in %w(get post) %}
+                def {{method.id}}(path)
+                  nil
+                end
+              {% end %}
+
+              def self.new(url : String)
+                instance
+              end
+
+              def initialize
+              end
+            end
+
+            Client.n<caret>ew("http://localhost")
+        """.trimIndent())
+        assertNotNull("Should resolve Client.new despite macro-generated sibling names", targets)
+        assertTrue(targets!!.isNotEmpty())
+        assertTrue(targets[0] is CrystalMethodDefinition)
+        assertEquals("new", (targets[0] as CrystalMethodDefinition).name)
+    }
+
+    fun testInitializeOnClassWithMacroGeneratedMethodsStillResolves() {
+        val targets = gotoTargets("""
+            class Client
+              {% for method in %w(get post) %}
+                def {{method.id}}(path)
+                  nil
+                end
+              {% end %}
+
+              def initialize
+              end
+            end
+
+            Client.n<caret>ew
+        """.trimIndent())
+        assertNotNull("Should resolve to explicit initialize behind macro-generated siblings", targets)
+        assertTrue(targets!!.isNotEmpty())
+        assertEquals("initialize", (targets[0] as CrystalMethodDefinition).name)
+    }
+
+    fun testUndefinedNameOnMacroGeneratingClassStaysSuppressed() {
+        // The name is NOT explicitly defined anywhere and the class generates methods
+        // through macros — the member set is genuinely uncertain here, so the exact
+        // reference must stay authoritative-empty instead of guessing.
+        val targets = gotoTargets("""
+            class Client
+              {% for method in %w(get post) %}
+                def {{method.id}}(path)
+                  nil
+                end
+              {% end %}
+            end
+
+            Client.myste<caret>rious_method
+        """.trimIndent())
+        assertNotNull("Exact reference stays authoritative", targets)
+        assertEquals(0, targets!!.size)
+    }
+
     fun testNewOnUnknownClassReturnsNoTargets() {
         val targets = gotoTargets("""
             class Senf

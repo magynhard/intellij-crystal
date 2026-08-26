@@ -124,6 +124,13 @@ type. This ensures consistent behavior regardless of what the user types.
   the tests passed in isolation and on immediate full-suite rerun. Suspected platform indexing race
   (VFS refresh vs. StubIndex query) plus cross-project name bleed in the shared test index; both
   failures predate and are unrelated to recent grammar changes.
+- [ ] **Close the cold-cache stdlib window in `CrystalRequireGraphService`** — the production
+  constructor wires its stdlib-root supplier to `cachedStdlibPath` only, so until some other component
+  (typically the async library provider) publishes a discovered root, bare stdlib requires resolve to
+  nothing and stdlib symbols stay invisible. The state self-heals via the null→root generation bump in
+  `captureGeneration`, but there is an early window after project open where resolution silently fails.
+  Consider triggering discovery from the graph (without blocking read actions on `crystal env`) or
+  publishing the root earlier during project startup.
 
 ## Completion Follow-up
 
