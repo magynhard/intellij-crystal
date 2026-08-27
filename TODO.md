@@ -120,9 +120,13 @@ type. This ensures consistent behavior regardless of what the user types.
   stores per line via `CrystalLexerAdapter.getState()`). After an incremental relex restart inside/below a
   multi-heredoc header chain, the queue is empty and remaining bodies are lexed as ordinary code until the file
   is re-parsed from the top. Parser/batch behavior is correct (see `MultiHeredocBodies` fixture: 4 bodies, 0
-  errors). Fix direction: encode the pending delimiter sequence into the adapter state (like the existing
-  `interpolationDepth` encoding) or replace the queue with a state-machine that re-derives remaining bodies from
-  the already-emitted HEREDOC_START markers; also verify `heredocId` restoration for body relexes.
+  errors). COLORING is solved independently via PSI-enforced annotator
+  attributes (v12.2, see docs/specs/heredoc-calls.md) — remaining impact is
+  limited to token-level consumers of the LAYER lexer. Fix direction if that
+  ever matters: encode the pending delimiter sequence into the adapter state
+  (like the existing `interpolationDepth` encoding) or re-derive remaining
+  bodies from the already-emitted HEREDOC_START markers; also verify
+  `heredocId` restoration for body relexes.
 
 ## Parser Follow-up
 

@@ -74,13 +74,25 @@ METHOD_CALL_EXPRESSION(assert_diff)
 nodes, so counting, splat/named handling and type resolution work uniformly.
 `CrystalTypeSetResolver` maps a raw `HEREDOC_START` expression to `String`.
 
-## Highlighting
+## Highlighting (PSI-enforced, v12.2)
 
-- `HEREDOC_CONTENT` → string color.
-- `HEREDOC_START` / `HEREDOC_END` → key `CRYSTAL_HEREDOC_DELIMITER`
-  (default: parameter-style; user chose "body=string color, delimiters
-  variable-like"). Configurable via Settings color page entry
-  "Heredoc delimiter".
+- `HEREDOC_CONTENT` → string color; `HEREDOC_START` / `HEREDOC_END` → key
+  `CRYSTAL_HEREDOC_DELIMITER` (default: parameter-style; user chose
+  "body=string color, delimiters variable-like"). Configurable via Settings
+  color page entry "Heredoc delimiter".
+- **Enforcement layer:** these colors are applied by `CrystalAnnotator` with
+  `enforcedTextAttributes` resolved from the active scheme. The layer lexer's
+  incremental restarts lose the expected terminator id (renames, structural
+  edits), which previously left bodies/terminators painted as ordinary code
+  until a full re-parse (file reopen). PSI-enforced attributes are immune:
+  every reparse produces fresh nodes and the annotator re-asserts colors.
+- Interpolations inside bodies keep their own colors: enforcement only covers
+  `HEREDOC_CONTENT`/`STRING_ESCAPE` leaves whose parent is the
+  `CrystalHerdDocLiteral`; interpolation internals (BEGIN/END + inner
+  expression) are skipped by the annotator scanner.
+- While a header/terminator pair is temporarily MISMATCHED (mid-rename), the
+  region honestly renders as code until the pair is consistent again — after
+  the second rename colors snap back without reopening the file.
 
 ## Chained bodies (multi-heredoc)
 

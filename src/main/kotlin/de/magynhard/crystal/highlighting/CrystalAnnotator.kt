@@ -61,13 +61,28 @@ class CrystalAnnotator : Annotator {
 
         // Validate heredoc pairs: start must have matching end delimiter
         if (elementType == CrystalTypes.HEREDOC_START) {
+            enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.HEREDOC_DELIMITER)
             validateHeredocStart(element, holder)
             return
         }
 
         // Validate heredoc end delimiter indent
         if (elementType == CrystalTypes.HEREDOC_END) {
+            enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.HEREDOC_DELIMITER)
             validateHeredocEnd(element, holder)
+            return
+        }
+
+        // Heredoc body content: string color, enforced via PSI so incremental
+        // lexer restarts (renames/structural edits) cannot leave stale colors
+        if (elementType == CrystalTypes.HEREDOC_CONTENT && element.parent is CrystalHeredocLiteral) {
+            enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.STRING)
+            return
+        }
+
+        // Heredoc body escapes
+        if (elementType == CrystalTypes.STRING_ESCAPE && element.parent is CrystalHeredocLiteral) {
+            enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.STRING_ESCAPE)
             return
         }
 
@@ -262,6 +277,23 @@ class CrystalAnnotator : Annotator {
                 .enforcedTextAttributes(attrs)
                 .create()
         }
+    }
+
+    /**
+     * v12.2: PSI-enforced heredoc coloring. The layer lexer loses the expected
+     * terminator id on incremental restarts (header/terminator renames,
+     * structural edits), which leaves bodies and terminators painted as
+     * ordinary code until a full re-parse. Enforced attributes derived from the
+     * PSI are immune to that drift.
+     */
+    private fun enforceHeredocColor(element: PsiElement, holder: AnnotationHolder, key: TextAttributesKey) {
+        val scheme = EditorColorsManager.getInstance().globalScheme
+        val attrs = scheme.getAttributes(key) ?: return
+        if (attrs.foregroundColor == null && attrs.backgroundColor == null && attrs.effectColor == null) return
+        holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+            .range(element)
+            .enforcedTextAttributes(attrs)
+            .create()
     }
 
     /**

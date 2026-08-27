@@ -1,5 +1,8 @@
 package de.magynhard.crystal
 
+import com.intellij.openapi.editor.colors.EditorColorsManager
+import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.openapi.util.TextRange
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.highlighting.CrystalSyntaxHighlighter
 
@@ -340,5 +343,61 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
         val singleQuoteErrors = errors.filter { it.description?.contains("single quotes can only contain one character") == true }
         assertTrue("Valid char literal should not produce error", singleQuoteErrors.isEmpty())
+    }
+
+    // ==================== Heredoc PSI-enforced coloring (v12.2) ====================
+
+    private fun schemeForeground(key: TextAttributesKey) =
+        EditorColorsManager.getInstance().globalScheme.getAttributes(key)?.foregroundColor
+
+    private fun forcedStringOverlaps(text: String, range: TextRange) =
+        myFixture.doHighlighting().filter { info ->
+            info.forcedTextAttributes?.foregroundColor == schemeForeground(CrystalSyntaxHighlighter.STRING)
+                && TextRange(info.getStartOffset(), info.getEndOffset()).intersects(range.startOffset, range.endOffset)
+        }
+
+    fun testHeredocBodyContentEnforcedWithStringColor() {
+        myFixture.configureByText("test.cr", "f = <<-EXAMPLE\n  Some stuff inside\nEXAMPLE")
+        val contentRange = TextRange(myFixture.file.text.indexOf("Some stuff"), myFixture.file.text.indexOf("inside") + 6)
+        val enforced = forcedStringOverlaps(myFixture.file.text, contentRange)
+        assertTrue("Body content must carry enforced string color", enforced.isNotEmpty())
+    }
+
+    fun testHeredocDelimitersEnforced() {
+        myFixture.configureByText("test.cr", "f = <<-EXAMPLE\n  Some stuff inside\nEXAMPLE")
+        val highlights = myFixture.doHighlighting()
+        val delimiterFg = schemeForeground(CrystalSyntaxHighlighter.HEREDOC_DELIMITER)
+        val marker = highlights.find {
+            it.text.contains("<<-EXAMPLE") && it.forcedTextAttributes?.foregroundColor == delimiterFg
+        }
+        assertNotNull("Header marker must carry enforced delimiter color", marker)
+        val terminator = highlights.find {
+            it.getStartOffset() > myFixture.file.text.indexOf("Some stuff")
+                && it.text.contains("EXAMPLE") && it.forcedTextAttributes?.foregroundColor == delimiterFg
+        }
+        assertNotNull("Terminator must carry enforced delimiter color", terminator)
+    }
+
+    fun testMultiHeredocAllBodiesEnforced() {
+        myFixture.configureByText("test.cr", "assert_diff(<<-FIRST, <<-SECOND)\n  one\nFIRST\n  two\nSECOND")
+        val firstBody = TextRange(myFixture.file.text.indexOf("one"), myFixture.file.text.indexOf("one") + 3)
+        val secondBody = TextRange(myFixture.file.text.indexOf("two"), myFixture.file.text.indexOf("two") + 3)
+        assertTrue(forcedStringOverlaps(myFixture.file.text, firstBody).isNotEmpty())
+        assertTrue(forcedStringOverlaps(myFixture.file.text, secondBody).isNotEmpty())
+    }
+
+    fun testInterpolationInsideHeredocKeepsItsOwnColors() {
+        myFixture.configureByText("test.cr", "f = <<-EXAMPLE\n  value #{name} here\nEXAMPLE")
+        val text = myFixture.file.text
+        val interpStart = text.indexOf("#{")
+        val interpEnd = text.indexOf("}") + 1
+        val stringForcedInside = myFixture.doHighlighting().filter { info ->
+            val forced = info.forcedTextAttributes?.foregroundColor
+            forced == schemeForeground(CrystalSyntaxHighlighter.STRING)
+                && info.getStartOffset() < interpEnd && info.getEndOffset() > interpStart
+        }
+        assertTrue(
+            "Enforced string color must not flood interpolation regions",
+            stringForcedInside.isEmpty())
     }
 }
