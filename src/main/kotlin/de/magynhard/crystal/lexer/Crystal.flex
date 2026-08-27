@@ -25,6 +25,17 @@ import com.intellij.psi.TokenType;
   private boolean heredocIndented = false;
   private boolean heredocRaw = false;
 
+  // Same-line delimited heredocs queue up (multi-heredoc headers like
+  // f(a, <<-X, <<-Y)): delimiter text is consumed silently, and each queued
+  // entry opens its own body at the next newline, so everything in between
+  // lexes as ordinary code (commas, numbers, strings, closers).
+  private static final class PendingHeredoc {
+    final String id;
+    final boolean raw;
+    PendingHeredoc(String id, boolean raw) { this.id = id; this.raw = raw; }
+  }
+  private final java.util.ArrayDeque<PendingHeredoc> pendingHeredocs = new java.util.ArrayDeque<>();
+
   // State stack for nested string interpolation
   private final java.util.ArrayDeque<Integer> stateStack = new java.util.ArrayDeque<>();
   private final java.util.ArrayDeque<Integer> depthStack = new java.util.ArrayDeque<>();
@@ -127,7 +138,7 @@ CHAR_LITERAL = "'" ( [^'\\] | {CHAR_ESCAPE} ) "'"
 // Symbol (simple forms only — :"string" handled separately for interpolation support)
 SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
 
-%state STRING INTERPOLATION REGEX BACKTICK PERCENT_LITERAL HEREDOC_BODY HEREDOC_START_LINE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
+%state STRING INTERPOLATION REGEX BACKTICK PERCENT_LITERAL HEREDOC_BODY HEREDOC_PREAMBLE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
 
 %%
 
@@ -135,7 +146,10 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   // Whitespace and comments
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   "\\" (\r\n | \r | \n) { return TokenType.WHITE_SPACE; }
-  {NEWLINE}            { if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); } return CrystalTypes.NEWLINE; }
+  {NEWLINE}            { PendingHeredoc ph = pendingHeredocs.pollFirst();
+                         if (ph != null) { heredocId = ph.id; heredocRaw = ph.raw; yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_START; } // body opener
+                         if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); }
+                         return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
 
   // Keywords (longest match first for keywords with ? suffix)
@@ -217,21 +231,18 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTypes.FLOAT_LITERAL; }
   {INTEGER}            { return CrystalTypes.INTEGER_LITERAL; }
 
-  // Heredoc start: <<-IDENTIFIER or <<-'IDENTIFIER'
+  // Heredoc header: <<-IDENTIFIER or <<-'IDENTIFIER'. Emits a MARKER token
+  // (delimiter span) that lives inside the argument list; the remaining header
+  // line lexes as ordinary code (commas, numbers, closers, further markers).
+  // Bodies are queued and open at the next newline via HEREDOC_START drain.
   "<<-'" [A-Za-z_][A-Za-z0-9_]* "'"  {
                          String text = yytext().toString();
-                         heredocId = text.substring(4, text.length() - 1);
-                         heredocIndented = true;
-                         heredocRaw = true;
-                         yybegin(HEREDOC_START_LINE);
+                         pendingHeredocs.addLast(new PendingHeredoc(text.substring(4, text.length() - 1), true));
                          return CrystalTypes.HEREDOC_START;
                        }
   "<<-" [A-Za-z_][A-Za-z0-9_]*       {
                          String text = yytext().toString();
-                         heredocId = text.substring(3);
-                         heredocIndented = true;
-                         heredocRaw = false;
-                         yybegin(HEREDOC_START_LINE);
+                         pendingHeredocs.addLast(new PendingHeredoc(text.substring(3), false));
                          return CrystalTypes.HEREDOC_START;
                        }
 
@@ -571,10 +582,10 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {NEWLINE}            { return percentTokenType; }
 }
 
-<HEREDOC_START_LINE> {
-  // Consume the rest of the line after <<-ID (could have more code on same line)
-  {NEWLINE}            { yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_CONTENT; }
-  .+                   { return CrystalTypes.HEREDOC_START; }
+<HEREDOC_PREAMBLE> {
+  // Newline following a finished body when further delimiters were queued on
+  // the original line: it opens the next literal.
+  {NEWLINE}            { yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_START; }
 }
 
 <HEREDOC_BODY> {
@@ -582,7 +593,14 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   ^[ \t]* {CONSTANT}  {
                          String text = yytext().toString().trim();
                          if (text.equals(heredocId)) {
-                           yybegin(YYINITIAL);
+                           PendingHeredoc ph = pendingHeredocs.pollFirst();
+                           if (ph != null) {
+                             heredocId = ph.id;
+                             heredocRaw = ph.raw;
+                             yybegin(HEREDOC_PREAMBLE);
+                           } else {
+                             yybegin(YYINITIAL);
+                           }
                            return CrystalTypes.HEREDOC_END;
                          }
                          return CrystalTypes.HEREDOC_CONTENT;
@@ -590,7 +608,14 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   ^[ \t]* {IDENTIFIER} {
                          String text = yytext().toString().trim();
                          if (text.equals(heredocId)) {
-                           yybegin(YYINITIAL);
+                           PendingHeredoc ph = pendingHeredocs.pollFirst();
+                           if (ph != null) {
+                             heredocId = ph.id;
+                             heredocRaw = ph.raw;
+                             yybegin(HEREDOC_PREAMBLE);
+                           } else {
+                             yybegin(YYINITIAL);
+                           }
                            return CrystalTypes.HEREDOC_END;
                          }
                          return CrystalTypes.HEREDOC_CONTENT;

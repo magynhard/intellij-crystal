@@ -382,12 +382,11 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             is CrystalMethodCallExpression -> {
                 val callArgs = callExpr.callArgs
                 if (callArgs != null) {
-                    val argList = callArgs.argumentList
-                    if (argList != null) {
-                        for (arg in argList.argumentList) {
-                            result.add(extractArgInfo(arg))
-                        }
+                    for (arg in CrystalPsiCallArguments.getArguments(callArgs)) {
+                        result.add(extractArgInfo(arg))
                     }
+                    // (v12: heredoc headers are ordinary marker arguments inside
+                    // the list — no extra terminator accounting needed.)
                     return result
                 }
                 val bareArgList = callExpr.bareArgumentList
@@ -414,11 +413,8 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val result = mutableListOf<ArgumentInfo>()
         when (argsElement) {
             is CrystalCallArgs -> {
-                val argList = argsElement.argumentList
-                if (argList != null) {
-                    for (arg in argList.argumentList) {
-                        result.add(extractArgInfo(arg))
-                    }
+                for (arg in CrystalPsiCallArguments.getArguments(argsElement)) {
+                    result.add(extractArgInfo(arg))
                 }
             }
             is CrystalBareArgumentList -> {

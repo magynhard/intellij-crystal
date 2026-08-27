@@ -46,6 +46,12 @@ public class CrystalAssignmentImpl extends CrystalAssignmentMixin implements Cry
 
   @Override
   @Nullable
+  public CrystalHeredocBodies getHeredocBodies() {
+    return PsiTreeUtil.getChildOfType(this, CrystalHeredocBodies.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalInstanceVarAccess getInstanceVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }

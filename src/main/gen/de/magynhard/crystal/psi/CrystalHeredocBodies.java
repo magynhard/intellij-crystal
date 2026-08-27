@@ -5,12 +5,9 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalCallArgs extends PsiElement {
+public interface CrystalHeredocBodies extends PsiElement {
 
-  @Nullable
-  CrystalArgumentList getArgumentList();
-
-  @Nullable
-  CrystalHeredocBodies getHeredocBodies();
+  @NotNull
+  List<CrystalHeredocLiteral> getHeredocLiteralList();
 
 }

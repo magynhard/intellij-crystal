@@ -50,9 +50,6 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalHashLiteral> getHashLiteralList();
 
   @NotNull
-  List<CrystalHeredocLiteral> getHeredocLiteralList();
-
-  @NotNull
   List<CrystalIfStatement> getIfStatementList();
 
   @NotNull

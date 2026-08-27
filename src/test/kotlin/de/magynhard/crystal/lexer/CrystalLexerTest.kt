@@ -312,6 +312,18 @@ class CrystalLexerTest {
         assertTrue("Should contain HEREDOC_END", types.contains(CrystalTypes.HEREDOC_END))
     }
 
+
+
+
+    @Test
+    fun testPlainEolHeredocDoesNotDisturbFollowingCode() {
+        // After a plain eol heredoc finished, subsequent code must lex normally
+        val text = "<<-E\nx\nE\nlater = 1"
+        val tokens = nonWhitespaceTokens(text)
+        val laterIdx = tokens.indexOfFirst { it.second == "later" }
+        assertEquals("'later' should be IDENTIFIER", CrystalTypes.IDENTIFIER, tokens[laterIdx].first)
+    }
+
     @Test
     fun testHeredocRaw() {
         val text = "<<-'RAW'\n  no #{interpolation}\n  RAW"

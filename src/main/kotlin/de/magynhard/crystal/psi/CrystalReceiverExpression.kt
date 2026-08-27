@@ -139,7 +139,7 @@ object CrystalReceiverExpression {
             ?: return null
         if (children.size != 2 || children[1] !== callArgs) return null
 
-        val typeArguments = callArgs.argumentList?.argumentList.orEmpty()
+        val typeArguments = CrystalPsiCallArguments.getArguments(callArgs)
         if (typeArguments.isEmpty() || typeArguments.any { argument ->
                 val expression = argument.expression ?: return@any true
                 if (directSignificantChildren(argument) != listOf(expression)) return@any true

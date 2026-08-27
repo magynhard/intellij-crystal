@@ -1779,11 +1779,18 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             assertReceiverPresentationParity(EXPRESSION_TYPES_REQUIRE, receiver, listOf(expectedPresentation))
         }
 
-        val heredoc = "<<-TEXT\nhello\nTEXT"
+        // Heredoc bodies terminate on a LONE delimiter line in real Crystal —
+        // postfix chains after the body are not valid syntax, so String-typing
+        // is verified through a variable holding the heredoc instead.
         val expectedHeredoc = listOf("upcase|()|String|Method")
-        assertEquals(expectedHeredoc, completionPresentations("$EXPRESSION_TYPES_REQUIRE\n$heredoc\n.<caret>"))
-        assertEquals(expectedHeredoc, completionPresentations("$EXPRESSION_TYPES_REQUIRE\n($heredoc\n).<caret>"))
-        assertEquals(expectedHeredoc, completionPresentations("$EXPRESSION_TYPES_REQUIRE\n(($heredoc\n)).<caret>"))
+        val heredocVar = "$EXPRESSION_TYPES_REQUIRE\n" +
+            "def wrapped\n" +
+            "  s = <<-TEXT\n" +
+            "  hello\n" +
+            "  TEXT\n" +
+            "  s.<caret>\n" +
+            "end"
+        assertEquals(expectedHeredoc, completionPresentations(heredocVar))
 
         assertFalse(completionNames("$EXPRESSION_TYPES_REQUIRE\n3.<caret>").contains("float_only"))
         assertFalse(completionNames("$EXPRESSION_TYPES_REQUIRE\n3.14.<caret>").contains("times"))

@@ -456,7 +456,7 @@ statement ::= if_statement
             | macro_control
             | expression_statement
 
-expression_statement ::= expression [expression_assign_suffix [postfix_modifier] | postfix_modifier]
+expression_statement ::= expression [expression_assign_suffix [postfix_modifier] | postfix_modifier] [heredoc_bodies]
 
 private expression_assign_suffix ::= assign_op NLS expression
 
@@ -559,7 +559,7 @@ with_yield_statement ::= WITH expression YIELD {pin=1}
 
 // ==================== Assignments ====================
 
-assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] {pin=2
+assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] [heredoc_bodies] {pin=2
   mixin="de.magynhard.crystal.psi.impl.CrystalAssignmentMixin"
 }
 
@@ -779,7 +779,17 @@ private nested_call_lookahead ::= binary_op_lookahead | (DOTDOT | DOTDOTDOT)
 implicit_object_call ::= DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CLASS_VAR | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | operator_method_name) [call_args]
                        | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
 
-call_args ::= LPAREN NLS argument_list NLS RPAREN
+// Third alternative group — closeless heredoc calls (`f(rule, <<-CRYSTAL)`): the
+// lexer folds the ')' and any further same-line code after the delimiter into a
+// SECOND HEREDOC_START absorbed inside the heredoc literal, so such argument
+// Heredoc-call arguments are plain argument_list entries: each heredoc header
+// is a MARKER argument (HEREDOC_START token, see lexer), and the matching
+// string bodies are attached at statement level via [heredoc_bodies].
+// Parenthesized heredoc calls keep their bodies INSIDE call_args: the body
+// opener token is the newline after the header line, so the sequence
+// [ARGUMENT_LIST][bodies][RPAREN] tiles contiguously. Bare (paren-less) calls
+// attach bodies at statement level instead.
+call_args ::= LPAREN NLS argument_list heredoc_bodies? NLS RPAREN
             | LPAREN RPAREN
 
 argument_list ::= macro_argument_trivia argument (macro_argument_trivia COMMA macro_argument_trivia argument)* [macro_argument_trivia COMMA] macro_argument_trivia
@@ -931,7 +941,7 @@ private literal ::= INTEGER_LITERAL
                   | SELF
                   | SUPER
                   | PREVIOUS_DEF
-                  | heredoc_literal
+                  | heredoc_marker
                   | percent_literal
 
 private interpolation_expression ::= STRING_INTERPOLATION_BEGIN expression [postfix_modifier] STRING_INTERPOLATION_END
@@ -940,7 +950,18 @@ string_expression ::= (STRING_LITERAL | STRING_ESCAPE | interpolation_expression
 regex_expression ::= REGEX_BEGIN (REGEX_LITERAL | STRING_ESCAPE | interpolation_expression)* REGEX_END
 command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | interpolation_expression)* COMMAND_END
 
-heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | interpolation_expression)* HEREDOC_END?
+// Heredoc STRING BODY: opener token + content lines + terminator. Bodies are
+// attached to the statement owning the call whose argument list contained the
+// matching header MARKER (see heredoc_marker), one body per marker in order.
+heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | interpolation_expression)* [HEREDOC_END]
+
+// Header MARKER inside argument lists: consumes only the delimiter token; the
+// string body follows after the call (see heredoc_bodies).
+private heredoc_marker ::= HEREDOC_START
+
+// String bodies for heredoc headers used as call arguments: bound after the
+// owning call's statement. Marker N-th (argument order) pairs with body N-th.
+heredoc_bodies ::= heredoc_literal+
 
 // Word arrays (%w/%W) get their own BEGIN/END pair so type inference can
 // distinguish Array(String) from plain %q/%Q strings sharing PERCENT_LITERAL_*.

@@ -113,12 +113,6 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
-  public List<CrystalHeredocLiteral> getHeredocLiteralList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalHeredocLiteral.class);
-  }
-
-  @Override
-  @NotNull
   public List<CrystalIfStatement> getIfStatementList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalIfStatement.class);
   }

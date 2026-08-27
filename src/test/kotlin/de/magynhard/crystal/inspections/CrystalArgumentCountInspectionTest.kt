@@ -9,6 +9,97 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.enableInspections(CrystalArgumentCountInspection::class.java)
     }
 
+    fun testFourHeredocArgumentsCounted() {
+        myFixture.configureByText("test.cr", """
+            def assert_findings(a : String, b : String, c : String, d : String)
+            end
+
+            module M
+              it "chained" do
+                assert_findings(<<-A, <<-B, <<-C, <<-D)
+                  one
+                A
+                  two
+                B
+                  three
+                C
+                  four
+                D
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "All four heredoc marker arguments must be counted",
+            highlights.any { it.description?.contains("Missing required argument") == true })
+    }
+
+    fun testMultiHeredocArgumentsCounted() {
+        myFixture.configureByText("test.cr", """
+            def assert_diff(first : String, second : String)
+            end
+
+            module M
+              it "compares" do
+                assert_diff(<<-FIRST, <<-SECOND)
+                  def hello
+                    puts "hello"
+                  end
+                FIRST
+                  def world
+                    puts "world"
+                  end
+                SECOND
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Both heredoc marker arguments must be counted",
+            highlights.any { it.description?.contains("Missing required argument") == true })
+    }
+
+    // ==================== Closeless Heredoc Calls ====================
+
+    fun testCloselessHeredocCallHasAllArguments() {
+        // Real spec shape: `assert_finding(rule, <<-CRYSTAL)` with the call's `)`
+        // folded into the literal — must count as two supplied arguments.
+        myFixture.configureByText("test.cr", """
+            def assert_finding(rule : String, code : String)
+            end
+
+            rule = "r"
+            module Catalyst
+              module Rules
+                describe ExceptionToUnion do
+                  it "detects raise" do
+                    assert_finding(rule, <<-CRYSTAL)
+                      def process(id : Int32) : String
+                        raise ArgumentError.new("invalid id")
+                      end
+                    CRYSTAL
+                  end
+                end
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Complete closeless heredoc call must not be flagged missing args",
+            highlights.any { it.description?.contains("Missing required argument") == true })
+    }
+
+    fun testCloselessHeredocCallMissingArgStillReported() {
+        myFixture.configureByText("test.cr", """
+            def assert_finding(rule : String, code : String)
+            end
+
+            rule = "r"
+            <error descr="Missing required argument(s): 'code'">assert_finding</error>(rule, )
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Missing Required Arguments ====================
 
     fun testMissingOneRequiredArg() {

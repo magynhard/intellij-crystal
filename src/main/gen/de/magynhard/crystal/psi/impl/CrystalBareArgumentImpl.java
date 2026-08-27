@@ -107,12 +107,6 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
 
   @Override
   @NotNull
-  public List<CrystalHeredocLiteral> getHeredocLiteralList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalHeredocLiteral.class);
-  }
-
-  @Override
-  @NotNull
   public List<CrystalImplicitObjectCall> getImplicitObjectCallList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalImplicitObjectCall.class);
   }

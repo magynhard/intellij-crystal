@@ -456,9 +456,9 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def foo(n : Int32)
             end
-            foo(<error descr="Type mismatch: expected 'Int32', got 'String'"><<-HEREDOC
+            foo(<error descr="Type mismatch: expected 'Int32', got 'String'"><<-HEREDOC</error>
             hello
-            HEREDOC</error>
+            HEREDOC
             )
         """.trimIndent())
         myFixture.checkHighlighting()

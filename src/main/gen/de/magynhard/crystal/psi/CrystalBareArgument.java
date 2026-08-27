@@ -47,9 +47,6 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalHashLiteral> getHashLiteralList();
 
   @NotNull
-  List<CrystalHeredocLiteral> getHeredocLiteralList();
-
-  @NotNull
   List<CrystalImplicitObjectCall> getImplicitObjectCallList();
 
   @NotNull

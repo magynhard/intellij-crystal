@@ -200,6 +200,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             CrystalTypes.INTEGER_LITERAL -> return resolveInteger(element.text)
             CrystalTypes.FLOAT_LITERAL -> return resolveFloat(element.text)
             CrystalTypes.STRING_LITERAL -> return knownType("String")
+            // v12 heredoc header marker: the in-list argument expression is the
+            // raw opener token; the string body lives in the trailing bodies node.
+            CrystalTypes.HEREDOC_START -> return knownType("String")
             CrystalTypes.CHAR_LITERAL -> return knownType("Char")
             CrystalTypes.SYMBOL_LITERAL -> return knownType("Symbol")
             CrystalTypes.TRUE, CrystalTypes.FALSE -> return knownType("Bool")
@@ -323,7 +326,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val path = if (callArgs == null) elements else elements.dropLast(1)
         val root = path.lastOrNull()?.let(CrystalReceiverExpression::extractExactConstantTypeRoot) ?: return null
         if (callArgs != null) {
-            val arguments = callArgs.argumentList?.argumentList.orEmpty()
+            val arguments = CrystalPsiCallArguments.getArguments(callArgs)
             if (arguments.isEmpty() || arguments.any {
                     it.expression?.let(CrystalReceiverExpression::extractExactConstantTypeRoot) == null
                 }) return null

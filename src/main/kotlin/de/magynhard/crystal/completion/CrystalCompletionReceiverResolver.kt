@@ -109,7 +109,7 @@ internal object CrystalCompletionReceiverResolver {
         val pathRoot = pathElements.lastOrNull()?.let(CrystalReceiverExpression::extractExactConstantTypeRoot)
             ?: return null
         if (callArgs != null) {
-            val arguments = callArgs.argumentList?.argumentList.orEmpty()
+            val arguments = CrystalPsiCallArguments.getArguments(callArgs)
             if (arguments.isEmpty() || arguments.any { argument ->
                     val argumentExpression = argument.expression ?: return@any true
                     CrystalReceiverExpression.extractExactConstantTypeRoot(argumentExpression) == null

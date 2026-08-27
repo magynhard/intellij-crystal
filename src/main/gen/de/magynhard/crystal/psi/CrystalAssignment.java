@@ -17,6 +17,9 @@ public interface CrystalAssignment extends PsiElement {
   CrystalExpression getExpression();
 
   @Nullable
+  CrystalHeredocBodies getHeredocBodies();
+
+  @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
   @Nullable

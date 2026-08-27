@@ -113,8 +113,26 @@ type. This ensures consistent behavior regardless of what the user types.
 - [ ] **Evaluate type-check overloads as complete calls, not independent slots** — `CrystalTypeCheckInspection` currently accepts each argument when any overload accepts that slot, so different slots can be validated by different overloads. Combined constructor pools make this especially visible: a call such as `Deque(Int32).new([1], 2)` can pass per-slot checks even though no single `new` overload accepts the complete call. Reuse one applicability result per overload across arity, names, and all resolved argument types before deciding whether to report.
 - [ ] **Index Crystal load order for cross-file type reopenings** — preserve require-graph order when identical methods or include/extend edges are reopened across files; until load order is indexed, the shared resolver suppresses identical cross-file signatures and multiple relevant cross-file edges whose precedence cannot be proven, retains callable-distinct overloads, and keeps exact same-file source precedence.
 
+## IDE / Incremental Lexing Follow-up
+
+- [ ] **Restore heredoc delimiter queue across incremental relexes** — the v12 lexer queues same-line heredoc
+  delimiters in a runtime `ArrayDeque<PendingHeredoc>` (fields are NOT part of the int lexer state IntelliJ
+  stores per line via `CrystalLexerAdapter.getState()`). After an incremental relex restart inside/below a
+  multi-heredoc header chain, the queue is empty and remaining bodies are lexed as ordinary code until the file
+  is re-parsed from the top. Parser/batch behavior is correct (see `MultiHeredocBodies` fixture: 4 bodies, 0
+  errors). Fix direction: encode the pending delimiter sequence into the adapter state (like the existing
+  `interpolationDepth` encoding) or replace the queue with a state-machine that re-derives remaining bodies from
+  the already-emitted HEREDOC_START markers; also verify `heredocId` restoration for body relexes.
+
 ## Parser Follow-up
 
+- [ ] **Parse comma-separated assignments inside parenthesized calls (`compute(x = 5, y = 6)`)** — valid Crystal
+  (verified: compiles and evaluates both assignments in order), but neither the bare-argument path (grouped
+  expressions hold at most one assignment) nor `argument_list` (`argument` cannot consume `id = expr`) accepts it.
+  PRE-EXISTING gap, verified against the baseline grammar while landing heredoc marker support (v12). Fix likely:
+  extend `argument` with an assignment alternative mirroring grouped-expression semantics, or route multi-group
+  lists through a dedicated `assignment_argument` element — careful with `named_argument {pin=2}` interplay.
+  Single-assignment form `consume(value = "ready")` works (see docs/specs/heredoc-calls.md binding matrix).
 - [ ] **Support brace blocks after `&.` shorthand (`f &.m { }`)** — `implicit_object_call` accepts no
   trailing `[block]`, so the unparenthesized proc-plus-block form (`select &.even? { }`) fails to parse.
   Parenthesized usage (`select(&.even?)`) is unaffected. Rare in real code; extend the rule with a

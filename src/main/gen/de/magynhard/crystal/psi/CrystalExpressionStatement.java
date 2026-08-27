@@ -11,6 +11,9 @@ public interface CrystalExpressionStatement extends PsiElement {
   List<CrystalExpression> getExpressionList();
 
   @Nullable
+  CrystalHeredocBodies getHeredocBodies();
+
+  @Nullable
   CrystalPostfixModifier getPostfixModifier();
 
 }

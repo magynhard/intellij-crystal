@@ -50,6 +50,7 @@ public interface CrystalTypes {
   IElementType HASH_ENTRY = new CrystalElementType("HASH_ENTRY");
   IElementType HASH_ENTRY_LIST = new CrystalElementType("HASH_ENTRY_LIST");
   IElementType HASH_LITERAL = new CrystalElementType("HASH_LITERAL");
+  IElementType HEREDOC_BODIES = new CrystalElementType("HEREDOC_BODIES");
   IElementType HEREDOC_LITERAL = new CrystalElementType("HEREDOC_LITERAL");
   IElementType IF_STATEMENT = new CrystalElementType("IF_STATEMENT");
   IElementType IMPLICIT_OBJECT_CALL = new CrystalElementType("IMPLICIT_OBJECT_CALL");
@@ -405,6 +406,9 @@ public interface CrystalTypes {
       }
       else if (type == HASH_LITERAL) {
         return new CrystalHashLiteralImpl(node);
+      }
+      else if (type == HEREDOC_BODIES) {
+        return new CrystalHeredocBodiesImpl(node);
       }
       else if (type == HEREDOC_LITERAL) {
         return new CrystalHeredocLiteralImpl(node);

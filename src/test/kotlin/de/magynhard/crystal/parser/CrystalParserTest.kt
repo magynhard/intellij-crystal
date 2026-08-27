@@ -267,6 +267,26 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+
+
+
+
+    fun testMultiHeredocBodies() {
+        doTest(true)
+    }
+
+    fun testSpecModulesWithHeredocs() {
+        doTest(true)
+    }
+
+    fun testHeredocClosingParenCalls() {
+        doTest(true)
+    }
+
+    fun testGroupedAssignmentParens() {
+        doTest(true)
+    }
+
     fun testRecordMacro() {
         doTest(true)
     }

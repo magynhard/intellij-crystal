@@ -211,7 +211,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         val result = mutableListOf<ArgumentInfo>()
         when (argsElement) {
             is CrystalCallArgs -> {
-                argsElement.argumentList?.argumentList?.forEach { arg ->
+                CrystalPsiCallArguments.getArguments(argsElement).forEach { arg ->
                     extractArgumentInfo(arg)?.let { result.add(it) }
                 }
             }
@@ -451,14 +451,11 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
         when (callExpr) {
             is CrystalMethodCallExpression -> {
-                // Try call_args (parenthesized)
+                // Try call_args (parenthesized; helper covers closeless heredoc shape too)
                 val callArgs = callExpr.callArgs
                 if (callArgs != null) {
-                    val argList = callArgs.argumentList
-                    if (argList != null) {
-                        for (arg in argList.argumentList) {
-                            extractArgumentInfo(arg)?.let { result.add(it) }
-                        }
+                    for (arg in CrystalPsiCallArguments.getArguments(callArgs)) {
+                        extractArgumentInfo(arg)?.let { result.add(it) }
                     }
                     return result
                 }
@@ -473,11 +470,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             is CrystalBareMethodCallExpression -> {
                 val callArgs = callExpr.callArgs
                 if (callArgs != null) {
-                    val argList = callArgs.argumentList
-                    if (argList != null) {
-                        for (arg in argList.argumentList) {
-                            extractArgumentInfo(arg)?.let { result.add(it) }
-                        }
+                    for (arg in CrystalPsiCallArguments.getArguments(callArgs)) {
+                        extractArgumentInfo(arg)?.let { result.add(it) }
                     }
                 }
             }

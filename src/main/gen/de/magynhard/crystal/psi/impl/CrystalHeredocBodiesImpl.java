@@ -11,14 +11,14 @@ import static de.magynhard.crystal.psi.CrystalTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalCallArgsImpl extends ASTWrapperPsiElement implements CrystalCallArgs {
+public class CrystalHeredocBodiesImpl extends ASTWrapperPsiElement implements CrystalHeredocBodies {
 
-  public CrystalCallArgsImpl(@NotNull ASTNode node) {
+  public CrystalHeredocBodiesImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitCallArgs(this);
+    visitor.visitHeredocBodies(this);
   }
 
   @Override
@@ -28,15 +28,9 @@ public class CrystalCallArgsImpl extends ASTWrapperPsiElement implements Crystal
   }
 
   @Override
-  @Nullable
-  public CrystalArgumentList getArgumentList() {
-    return PsiTreeUtil.getChildOfType(this, CrystalArgumentList.class);
-  }
-
-  @Override
-  @Nullable
-  public CrystalHeredocBodies getHeredocBodies() {
-    return PsiTreeUtil.getChildOfType(this, CrystalHeredocBodies.class);
+  @NotNull
+  public List<CrystalHeredocLiteral> getHeredocLiteralList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalHeredocLiteral.class);
   }
 
 }
