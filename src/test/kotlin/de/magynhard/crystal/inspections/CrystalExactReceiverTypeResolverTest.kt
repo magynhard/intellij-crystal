@@ -1,6 +1,5 @@
 package de.magynhard.crystal.inspections
 
-import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiWhiteSpace
@@ -23,13 +22,10 @@ import java.io.File
 import java.nio.file.Files
 
 class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
-    init {
-        VfsRootAccess.allowRootAccess(testRootDisposable, "/usr/lib/crystal")
-    }
-
 
     override fun setUp() {
         super.setUp()
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
         CrystalRequireGraphService.installForTests(
             project,
             CrystalRequirePathResolver(project) { null },

@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
+
     private val listenerDisposables = mutableListOf<Disposable>()
     private val fixtureFiles = mutableMapOf<String, VirtualFile>()
 

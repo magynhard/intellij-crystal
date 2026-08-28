@@ -23,6 +23,7 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
         fixtureRoot = myFixture.tempDirFixture.findOrCreateDir("")
         initialFixturePaths = collectPaths(fixtureRoot)
         installSyntheticStdlib(project, myFixture, testRootDisposable)

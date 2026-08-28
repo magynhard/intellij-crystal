@@ -137,15 +137,28 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             || element is CrystalEnumDefinition || element is CrystalParameter) {
             return element
         }
+        // Resolve via reference FIRST: method calls — e.g. {{ run("…") }} inside
+        // macro context — must not be misidentified as variables merely because
+        // no definition sits in the PSI ancestor chain (top-level calls have
+        // none). Only non-definition resolutions (assignments → variable hover)
+        // fall through to the variable path below.
+        val ref = element.reference ?: element.parent?.reference
+        if (ref != null) {
+            val resolved = ref.resolve()
+            if (resolved != null && resolved != element) {
+                if (resolved is CrystalMethodDefinition || resolved is CrystalClassDefinition
+                    || resolved is CrystalModuleDefinition || resolved is CrystalStructDefinition
+                    || resolved is CrystalEnumDefinition) {
+                    return resolved
+                }
+                // Non-definition resolutions (assignments behind variable
+                // references) fall through to the variable path below with the
+                // ORIGINAL element, preserving variable type-inference hovers.
+            }
+        }
         // Variable identifier — return directly for type info rendering
         if (isVariableIdentifier(element)) {
             return element
-        }
-        // Try resolving via reference
-        val ref = element.reference
-        if (ref != null) {
-            val resolved = ref.resolve()
-            if (resolved != null && resolved != element) return resolveTarget(resolved)
         }
         // Walk up a few levels to find a definition (for leaf tokens like IDENTIFIER in a method name)
         var current: PsiElement? = element.parent

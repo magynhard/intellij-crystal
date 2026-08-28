@@ -1,6 +1,5 @@
 package de.magynhard.crystal
 
-import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.psi.PsiElement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
@@ -20,6 +19,12 @@ import de.magynhard.crystal.psi.CrystalMethodDefinition
  */
 class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
 
+    override fun setUp() {
+        super.setUp()
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
+    }
+
+
     private fun stdlibAvailable(): Boolean {
         val src = java.io.File("/usr/lib/crystal")
         return src.isDirectory && java.io.File(src, "prelude.cr").isFile &&
@@ -28,7 +33,7 @@ class CrystalStdlibConstructorResolutionTest : BasePlatformTestCase() {
     }
 
     private fun setupRealStdlibProject() {
-        VfsRootAccess.allowRootAccess(testRootDisposable, "/usr/lib/crystal/compiler", "/usr/lib/crystal")
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
 
         val src = java.io.File("/usr/lib/crystal")
         val rootPrefix = "realStdlib"

@@ -103,6 +103,19 @@ polls the next entry, sets `heredocId`/`heredocRaw`, and enters
 `CrystalHerdDocLiteral` per header, in argument order — verified up to four
 bodies (`MultiHeredocBodies` fixture mirrors the original report).
 
+## Root registration (v13.2)
+
+`CrystalStdlibRoots.enumerate` registers `compiler/crystal/macros.cr` as a
+single-file stdlib root (the rest of the compiler tree stays excluded). The
+compiler/ subtree is excluded everywhere else, so the enumeration falls back
+to a synchronous `refreshAndFindFileByIoFile` when the subtree was never
+refreshed into the VFS. Test suite: the VFS persistence remembers the
+compiler/ subtree across tests, so the suite registers `/usr/lib/crystal`
+once for the whole test application
+(`CrystalTestVfsRoots.ensureStdlibRootAllowed`, called from the stdlib-gated
+setups) — per-test registrations die with each test and cannot cover
+background indexing.
+
 ## Known limitations
 
 - IDE incremental relexes inside/below a multi-heredoc header chain currently
@@ -128,3 +141,12 @@ bodies (`MultiHeredocBodies` fixture mirrors the original report).
 - `CrystalTypeCheckInspectionTest` — heredoc marker matches `String`; mismatch
   highlights the marker token with "got 'String'".
 - `CrystalLexerTest` — EOL-heredoc state hygiene regression.
+
+## Hover resolution order (v13.1)
+
+`CrystalDocumentationProvider.resolveTarget` resolves the PSI reference
+BEFORE the variable-fallback: definition-typed resolutions (methods,
+classes, modules, structs, enums) render their real signature — this is
+what makes `{{ run("…") }}` show the builtin macro-method signature.
+Variable usages (reference resolving to an assignment) keep the
+type-inference rendering with the muted "(Variable)" suffix.

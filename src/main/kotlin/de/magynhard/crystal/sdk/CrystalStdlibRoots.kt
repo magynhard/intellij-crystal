@@ -1,5 +1,6 @@
 package de.magynhard.crystal.sdk
 
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 
 /**
@@ -76,9 +77,16 @@ object CrystalStdlibRoots {
         // The builtin macro-method API (run, puts, flag?, …) lives in the
         // excluded compiler tree but is part of the user-facing surface:
         // index the single file so macro-context calls resolve to it.
-        // BISECT-DISABLED: stdlibRoot.findFileByRelativePath("compiler/crystal/macros.cr")
-        //     ?.takeIf { it.extension == "cr" }
-        //     ?.let { result.add(it) }
+        // VFS note: the compiler/ subtree may never have been refreshed into
+        // the virtual file system (it is excluded everywhere else), so
+        // findFileByRelativePath alone can return null — fall back to a
+        // synchronous refresh of the file from disk.
+        val macrosCandidate = stdlibRoot.findFileByRelativePath("compiler/crystal/macros.cr")
+            ?: LocalFileSystem.getInstance().refreshAndFindFileByIoFile(
+                java.io.File(stdlibRoot.path, "compiler/crystal/macros.cr"))
+        macrosCandidate
+            ?.takeIf { it.extension == "cr" }
+            ?.let { result.add(it) }
         return result
     }
 

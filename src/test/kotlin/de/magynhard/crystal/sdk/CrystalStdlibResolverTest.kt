@@ -10,8 +10,10 @@ import java.util.concurrent.TimeUnit
 
 class CrystalStdlibResolverTest : BasePlatformTestCase() {
 
+
     override fun setUp() {
         super.setUp()
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
         val prelude = myFixture.addFileToProject("fixture-stdlib/prelude.cr", "").virtualFile
         myFixture.addFileToProject("fixture-stdlib/string.cr", "class String; end")
         val root = requireNotNull(prelude.parent)

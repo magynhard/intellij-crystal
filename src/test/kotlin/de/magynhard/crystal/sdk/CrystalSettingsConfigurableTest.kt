@@ -17,6 +17,7 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
         CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { null }
         CrystalRequireGraphService.installForTests(
             project,

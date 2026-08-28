@@ -11,6 +11,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class CrystalStdlibIndexRefresherTest : BasePlatformTestCase() {
 
+
     fun testRefreshNotifiesSyntheticLibraryRootsWithoutCreatingModuleLibrary() {
         myFixture.addFileToProject("main.cr", "puts 1")
         val stdlibRoot = myFixture.tempDirFixture.findOrCreateDir("stdlib")

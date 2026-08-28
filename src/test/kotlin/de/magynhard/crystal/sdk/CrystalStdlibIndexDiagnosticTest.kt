@@ -13,6 +13,7 @@ import de.magynhard.crystal.stubs.CrystalMethodIndex
 
 class CrystalStdlibIndexDiagnosticTest : BasePlatformTestCase() {
 
+
     override fun getTestDataPath(): String = "src/test/testData"
 
     private fun setupStdlib(): Boolean {
