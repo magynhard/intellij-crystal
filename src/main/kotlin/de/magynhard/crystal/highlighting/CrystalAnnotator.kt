@@ -10,6 +10,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.injection.CrystalHeredocInjection
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 
@@ -74,15 +75,22 @@ class CrystalAnnotator : Annotator {
         }
 
         // Heredoc body content: string color, enforced via PSI so incremental
-        // lexer restarts (renames/structural edits) cannot leave stale colors
+        // lexer restarts (renames/structural edits) cannot leave stale colors.
+        // Bodies whose marker injects an embedded language (<<-SQL, ...) keep
+        // their injected highlighting instead — the enforced string color would
+        // fight the injected fragment's own colors.
         if (elementType == CrystalTypes.HEREDOC_CONTENT && element.parent is CrystalHeredocLiteral) {
-            enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.STRING)
+            if (!CrystalHeredocInjection.willInject(element.parent as CrystalHeredocLiteral)) {
+                enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.STRING)
+            }
             return
         }
 
-        // Heredoc body escapes
+        // Heredoc body escapes — skipped for injected bodies like content above
         if (elementType == CrystalTypes.STRING_ESCAPE && element.parent is CrystalHeredocLiteral) {
-            enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.STRING_ESCAPE)
+            if (!CrystalHeredocInjection.willInject(element.parent as CrystalHeredocLiteral)) {
+                enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.STRING_ESCAPE)
+            }
             return
         }
 

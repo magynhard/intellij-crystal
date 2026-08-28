@@ -67,6 +67,21 @@ inference) via `heredoc_bodies` on `call_args`/`expression_statement`/
 `assignment`. Read call arguments only through `CrystalPsiCallArguments`;
 terminators must stand alone on their line (real Crystal rule).
 
+**Heredoc bodies are injection hosts with marker pairing (v14):**
+`heredoc_literal` implements `PsiLanguageInjectionHost` (BNF `implements` +
+`CrystalHeredocLiteralMixin`) so `CrystalHeredocInjector` injects embedded
+languages for language markers (`<<-SQL`, `<<-JAVASCRIPT`, `<<-CRYSTAL`, …;
+alias table + generic language-ID fallback in `CrystalHeredocInjection`).
+Two structural traps: (1) the body literal's own `HEREDOC_START` token is the
+newline body opener whose TEXT is `"\n"` — the real `<<-MARKER` header token
+lives OUTSIDE the literal and is paired with bodies by document order
+(`resolveBodyMarker`); (2) `interpolation_expression` is a PRIVATE (inlined)
+rule — interpolations appear as flattened `STRING_INTERPOLATION_BEGIN` /
+expression / `STRING_INTERPOLATION_END` children, there is no
+`CrystalInterpolationExpression` interface. Injection places split at
+interpolations with language-specific placeholder prefixes; the annotator
+skips enforced body coloring for injectable bodies.
+
 **DOT-calls use `dot_call_access` with polyvariant `CrystalDotCallReference`** — The public `dot_call_access` rule creates a real PSI composite via `CrystalDotCallReferenceMixin`. The reference consumes the shared exact DOT target resolver and `multiResolve()` returns every exact regular or constructor overload; `resolve()` returns a target only when unique. Its result is authoritative even when empty, so unknown, incomplete, suppressed, and ambiguous receivers never use a name-only fallback. `CrystalGotoDeclarationHandler` retains shared exact constructor fallback only for PSI shapes where no polyvariant DOT reference exists.
 - **Parameter Info for DOT-calls** works via `findMethodNameFromSiblings` which traverses `prevSibling` of the args holder to find `IDENTIFIER` preceded by `DOT`. For bare DOT-calls without args, `scanBackwardsForBareCall` + `findMethodNameInLeaves` handles the DOT pattern. The `extractIdentifierFromCallExpression` function is ONLY called for `CrystalMethodCallExpression` parents (which never contain DOT-calls per BNF). Do not modify it for DOT-call support — it would have no effect.
 - **Type Check Inspection uses `ProblemHighlightType.GENERIC_ERROR`** — not `GENERIC_ERROR_OR_WARNING`. The latter may fail to render visible markers depending on theme/inspection level configuration. Always highlight the innermost literal/expression element (unwrap `CrystalBareArgument`/`CrystalArgument` wrappers) for `registerProblem` to ensure visibility.
@@ -89,6 +104,7 @@ src/main/kotlin/de/magynhard/crystal/
 ├── lexer/          Crystal.flex + CrystalTokenTypes.kt (TokenSets)
 ├── parser/         Crystal.bnf
 ├── highlighting/   Syntax highlighter + Annotator + Color settings
+├── injection/      Heredoc embedded-language injection (marker→language, MultiHostInjector)
 ├── psi/            CrystalNamedElement, CrystalReference, CrystalReferenceContributor
 ├── navigation/     GoTo Symbol/Class, Find Usages, Parameter Info
 ├── run/            Run configurations (run/build/spec)

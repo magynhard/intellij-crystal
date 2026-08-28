@@ -94,6 +94,50 @@ nodes, so counting, splat/named handling and type resolution work uniformly.
   region honestly renders as code until the pair is consistent again — after
   the second rename colors snap back without reopening the file.
 
+## Embedded language injection (v14)
+
+Heredoc bodies whose marker names a language get syntax highlighting of that
+language injected via the platform's `MultiHostInjector` API
+(`CrystalHeredocInjector`), mirroring RubyMine's heredoc injection where the
+marker is "generally intuitive" language ID.
+
+- **Marker resolution** (`CrystalHeredocInjection.resolveLanguage`): a curated
+  alias table (case-insensitive) maps markers to candidate language IDs —
+  `SQL`; `JS`/`JAVASCRIPT`/`ECMASCRIPT` → JavaScript; `TS`/`TYPESCRIPT`;
+  `CSS`; `HTML`; `XML`; `JSON`; `YAML`/`YML` → yaml; `MD`/`MARKDOWN`;
+  `SH`/`SHELL`/`BASH` → Shell Script; `REGEX`/`REGEXP` → RegExp;
+  `CR`/`CRYSTAL` → Crystal (self, always available); `RUBY` → ruby;
+  `HAML` → Haml. Beyond the table, the marker is matched case-insensitively
+  against every registered language ID (e.g. `<<-KOTLIN` in IDEA,
+  `<<-PYTHON` in PyCharm). Exact-case matches win; otherwise matches are
+  ordered by ID. Languages that are not installed resolve to null — the
+  heredoc keeps its ordinary string highlighting (no injection, no guessing).
+- **Marker source:** the `<<-MARKER` header token lives in the owning
+  statement/call expression; the body literal's own `HEREDOC_START` token is
+  the newline body opener. Headers and body literals are paired by document
+  order (`resolveBodyMarker`), one body per marker.
+- **Injection host:** `heredoc_literal` now implements
+  `PsiLanguageInjectionHost` (BNF `implements` + `CrystalHeredocLiteralMixin`):
+  `isValidHost=true`, simple (identity) literal text escaper, and an
+  `ElementManipulator` (`CrystalHeredocLiteralManipulator`) whose range is the
+  body span between the delimiters.
+- **Interpolation handling:** injection places are the consecutive
+  `HEREDOC_CONTENT`/`STRING_ESCAPE` leaf runs; interpolation expressions cut
+  the places apart. Each place after a gap gets a language-specific synthetic
+  placeholder prefix (`NULL` for SQL, `null` for JavaScript/TypeScript/yaml,
+  `0` for JSON/CSS, `<!-- -->` for HTML/XML, otherwise empty) so the injected
+  document stays syntactically valid while the interpolation itself keeps its
+  Crystal coloring.
+- **Annotator interplay:** for bodies that will be injected, the PSI-enforced
+  string coloring of `HEREDOC_CONTENT`/`STRING_ESCAPE` is skipped — the
+  injected fragment supplies its own colors; delimiter enforcement is
+  unaffected. Non-injectable heredocs keep the enforced string colors.
+- **Write-back:** single-place bodies (raw heredocs, interpolation-free) map
+  the injected fragment 1:1, so fragment-editor edits are written back exactly.
+  Multi-place (interpolated) bodies are not reconstructed from the flat
+  fragment text — edits are ignored rather than corrupting interpolations
+  (tracked in TODO.md).
+
 ## Chained bodies (multi-heredoc)
 
 Each queued delimiter opens its own body: at every body's terminator the lexer
@@ -118,6 +162,9 @@ background indexing.
 
 ## Known limitations
 
+- Fragment-editor edits of INTERPOLATED injected heredocs are not written back
+  (single-place bodies are); tracked in TODO.md. No `# language=` comment
+  injection, injection intention, or injection settings UI yet.
 - IDE incremental relexes inside/below a multi-heredoc header chain currently
   restart with an EMPTY delimiter queue (queue state is not encoded in the
   int lexer state), so remaining bodies can be lexed as ordinary code until a

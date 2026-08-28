@@ -4,6 +4,7 @@ package de.magynhard.crystal.psi;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiLanguageInjectionHost;
 
 public class CrystalVisitor extends PsiElementVisitor {
 
@@ -172,7 +173,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitHeredocLiteral(@NotNull CrystalHeredocLiteral o) {
-    visitPsiElement(o);
+    visitPsiLanguageInjectionHost(o);
   }
 
   public void visitIfStatement(@NotNull CrystalIfStatement o) {
@@ -433,6 +434,10 @@ public class CrystalVisitor extends PsiElementVisitor {
 
   public void visitYieldStatement(@NotNull CrystalYieldStatement o) {
     visitPsiElement(o);
+  }
+
+  public void visitPsiLanguageInjectionHost(@NotNull PsiLanguageInjectionHost o) {
+    visitElement(o);
   }
 
   public void visitNamedElement(@NotNull CrystalNamedElement o) {

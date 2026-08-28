@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestResult
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.grammarkit.tasks.GenerateParserTask
 import org.jetbrains.grammarkit.tasks.GenerateLexerTask
@@ -93,6 +96,19 @@ tasks {
 
     compileKotlin {
         dependsOn(generateLexer, generateParser, "generateEcrLexer", "generateEcrParser")
+    }
+
+    test {
+        // The stdlib library provider legitimately enumerates the real Crystal
+        // distribution (/usr/lib/crystal, including compiler/crystal/macros.cr for
+        // the builtin macro-method API). Background index activities hit the VFS
+        // root check at racy points — depending on test-class order the check runs
+        // before any test registered the allowance and the error is attributed to
+        // whichever test is currently running, flaking the suite. The platform
+        // provides this switch to disable the check when VFS roots are legitimately
+        // accessed (IDE test infrastructure guidance); per-class allowances
+        // (CrystalTestVfsRoots) remain for individually executed test classes.
+        systemProperty("NO_FS_ROOTS_ACCESS_CHECK", "true")
     }
 
     withType<JavaCompile>().configureEach {

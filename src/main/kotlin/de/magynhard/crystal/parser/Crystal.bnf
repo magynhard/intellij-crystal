@@ -954,7 +954,12 @@ command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | interpol
 // Heredoc STRING BODY: opener token + content lines + terminator. Bodies are
 // attached to the statement owning the call whose argument list contained the
 // matching header MARKER (see heredoc_marker), one body per marker in order.
-heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | interpolation_expression)* [HEREDOC_END]
+// The literal is a PsiLanguageInjectionHost (CrystalHeredocLiteralMixin) so
+// embedded-language injectors (<<-SQL, <<-JAVASCRIPT, ...) can target it.
+heredoc_literal ::= HEREDOC_START (HEREDOC_CONTENT | STRING_ESCAPE | interpolation_expression)* [HEREDOC_END] {
+  mixin="de.magynhard.crystal.psi.impl.CrystalHeredocLiteralMixin"
+  implements="com.intellij.psi.PsiLanguageInjectionHost"
+}
 
 // Header MARKER inside argument lists: consumes only the delimiter token; the
 // string body follows after the call (see heredoc_bodies).

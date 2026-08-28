@@ -8,12 +8,11 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalHeredocLiteralImpl extends ASTWrapperPsiElement implements CrystalHeredocLiteral {
+public class CrystalHeredocLiteralImpl extends CrystalHeredocLiteralMixin implements CrystalHeredocLiteral {
 
-  public CrystalHeredocLiteralImpl(@NotNull ASTNode node) {
+  public CrystalHeredocLiteralImpl(ASTNode node) {
     super(node);
   }
 

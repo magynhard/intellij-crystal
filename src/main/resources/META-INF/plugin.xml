@@ -468,6 +468,14 @@
         <gotoDeclarationHandler
                 implementation="de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler"/>
 
+        <!-- Embedded-language injection into heredocs (<<-SQL, <<-JAVASCRIPT, ...) -->
+        <multiHostInjector
+                implementation="de.magynhard.crystal.injection.CrystalHeredocInjector"/>
+
+        <elementManipulator
+                forClass="de.magynhard.crystal.psi.CrystalHeredocLiteral"
+                implementationClass="de.magynhard.crystal.injection.CrystalHeredocLiteralManipulator"/>
+
         <lang.findUsagesProvider
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.navigation.CrystalFindUsagesProvider"/>
