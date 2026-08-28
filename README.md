@@ -35,7 +35,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Receiver-aware DOT completion for literals, variables, method results, collections, constructors, and supported unions
 - Require-aware method visibility based on the current file, its transitive dependencies, and the configured Crystal prelude
 - Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View
-- Embedded language highlighting in heredocs — `<<-SQL`, `<<-JAVASCRIPT`, `<<-CSS`, `<<-HTML`, `<<-JSON`, `<<-YAML`, `<<-CRYSTAL` and other language markers inject the target language's syntax highlighting when its plugin is installed
+- Embedded language highlighting in heredocs and strings — `<<-SQL`, `<<-JAVASCRIPT`, `<<-CSS`, `<<-HTML`, `<<-JSON`, `<<-YAML`, `<<-CRYSTAL` and other language markers inject the target language's syntax highlighting when its plugin is installed; `# language=<id>` comments above heredocs or strings do the same (with optional `prefix=`/`suffix=`)
 - Parameter Info for parenthesized calls, bare calls, DOT calls, constructors, and overloads
 - Quick Documentation with rendered Crystal doc comments, Markdown, and navigable type links
 - Hover information for variables, parameters, definitions, and inferred method return types

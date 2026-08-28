@@ -947,7 +947,14 @@ private literal ::= INTEGER_LITERAL
 
 private interpolation_expression ::= STRING_INTERPOLATION_BEGIN expression [postfix_modifier] STRING_INTERPOLATION_END
 
-string_expression ::= (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
+// Double-quoted string content: plain chunks, escapes, and inlined
+// interpolations. The expression is a PsiLanguageInjectionHost
+// (CrystalStringExpressionMixin) so `# language=<id>` comments can inject an
+// embedded language into the string content (between the quotes).
+string_expression ::= (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+ {
+  mixin="de.magynhard.crystal.psi.impl.CrystalStringExpressionMixin"
+  implements="com.intellij.psi.PsiLanguageInjectionHost"
+}
 regex_expression ::= REGEX_BEGIN (REGEX_LITERAL | STRING_ESCAPE | interpolation_expression)* REGEX_END
 command_expression ::= COMMAND_BEGIN (COMMAND_LITERAL | STRING_ESCAPE | interpolation_expression)* COMMAND_END
 

@@ -82,6 +82,27 @@ expression / `STRING_INTERPOLATION_END` children, there is no
 interpolations with language-specific placeholder prefixes; the annotator
 skips enforced body coloring for injectable bodies.
 
+**Comment-driven injection owns Crystal strings (v14.1):** `# language=<id>`
+comments on the adjacent line inject languages into heredocs AND string
+literals (`string_expression` is a `PsiLanguageInjectionHost` via
+`CrystalStringExpressionMixin` with an offset-mapping escaper that decodes
+Crystal escapes; `updateText` re-encodes on single-place write-back).
+`CrystalHeredocInjection.resolveInjectionPlan` is the single decision point:
+a resolvable comment wins over the marker, an unresolvable comment falls
+back to the marker. `CrystalLanguageInjectionSupport`
+(useDefaultCommentInjector=false, registered under the
+`org.intellij.plugins.intelliLang.languageSupport` EP) silences the generic
+IntelliLang comment contributor — without it the platform double-injects
+comment targets. `require "…"` strings are excluded from injection.
+**Do NOT declare `<module name="org.intellij.intelliLang"/>` in plugin.xml
+`<dependencies>`**: the module dependency reorders class initialization and
+breaks the `stubElementTypeHolder` registration ("All stub element types
+should be created before index initialization" — CrystalAnnotatorTest
+regressions). The `languageSupport` EP resolves via the
+`bundledModule("org.intellij.intelliLang")` build classpath alone; only add
+the module declaration together with a fix that makes the stub holder
+registration independent of classloading order.
+
 **DOT-calls use `dot_call_access` with polyvariant `CrystalDotCallReference`** — The public `dot_call_access` rule creates a real PSI composite via `CrystalDotCallReferenceMixin`. The reference consumes the shared exact DOT target resolver and `multiResolve()` returns every exact regular or constructor overload; `resolve()` returns a target only when unique. Its result is authoritative even when empty, so unknown, incomplete, suppressed, and ambiguous receivers never use a name-only fallback. `CrystalGotoDeclarationHandler` retains shared exact constructor fallback only for PSI shapes where no polyvariant DOT reference exists.
 - **Parameter Info for DOT-calls** works via `findMethodNameFromSiblings` which traverses `prevSibling` of the args holder to find `IDENTIFIER` preceded by `DOT`. For bare DOT-calls without args, `scanBackwardsForBareCall` + `findMethodNameInLeaves` handles the DOT pattern. The `extractIdentifierFromCallExpression` function is ONLY called for `CrystalMethodCallExpression` parents (which never contain DOT-calls per BNF). Do not modify it for DOT-call support — it would have no effect.
 - **Type Check Inspection uses `ProblemHighlightType.GENERIC_ERROR`** — not `GENERIC_ERROR_OR_WARNING`. The latter may fail to render visible markers depending on theme/inspection level configuration. Always highlight the innermost literal/expression element (unwrap `CrystalBareArgument`/`CrystalArgument` wrappers) for `registerProblem` to ensure visibility.

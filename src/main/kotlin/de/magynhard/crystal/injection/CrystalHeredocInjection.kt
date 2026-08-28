@@ -85,7 +85,7 @@ object CrystalHeredocInjection {
      * `<<-MARKER` header token lives in the owning statement/call expression.
      * Headers and bodies are paired by document order (one body per marker).
      */
-    fun resolveBodyMarker(literal: CrystalHeredocLiteral): String? {
+    fun resolveBodyHeader(literal: CrystalHeredocLiteral): com.intellij.lang.ASTNode? {
         val bodies = literal.parent as? CrystalHeredocBodies ?: return null
         val owner = bodies.parent ?: return null
         val headers = collectHeaderStartTokens(owner)
@@ -93,8 +93,11 @@ object CrystalHeredocInjection {
             .sortedBy { it.textOffset }
         val index = allLiterals.indexOf(literal)
         if (index < 0 || index >= headers.size) return null
-        return extractMarker(headers[index].text)
+        return headers[index]
     }
+
+    fun resolveBodyMarker(literal: CrystalHeredocLiteral): String? =
+        resolveBodyHeader(literal)?.let { extractMarker(it.text) }
 
     /**
      * Header `HEREDOC_START` tokens under [owner] in document order — tokens
@@ -132,10 +135,32 @@ object CrystalHeredocInjection {
     }
 
     /** True when this heredoc's marker resolves to an installed language. */
-    fun willInject(literal: CrystalHeredocLiteral): Boolean {
-        val marker = resolveBodyMarker(literal) ?: return false
-        return resolveLanguage(marker) != null
+    fun willInject(literal: CrystalHeredocLiteral): Boolean = resolveInjectionPlan(literal) != null
+
+    /**
+     * Full injection decision for a heredoc body: a `# language=` comment on
+     * the adjacent line wins; an unresolvable comment language falls back to
+     * the marker; without a comment the marker applies.
+     */
+    fun resolveInjectionPlan(literal: CrystalHeredocLiteral): CrystalHeredocInjectionPlan? {
+        val header = resolveBodyHeader(literal) ?: return null
+        val comment = literal.containingFile
+            ?.let { CrystalLanguageComment.findAdjacentComment(it, header.startOffset) }
+        if (comment != null) {
+            resolveLanguage(comment.languageId)?.let {
+                return CrystalHeredocInjectionPlan(it, comment.prefix, comment.suffix)
+            }
+        }
+        val marker = extractMarker(header.text) ?: return null
+        val language = resolveLanguage(marker) ?: return null
+        return CrystalHeredocInjectionPlan(language, "", "")
     }
+
+    data class CrystalHeredocInjectionPlan(
+        val language: Language,
+        val prefix: String,
+        val suffix: String,
+    )
 
     /** Synthetic prefix for a place that follows an interpolation gap. */
     fun placeholderFor(language: Language): String = PLACEHOLDERS[language.id] ?: ""

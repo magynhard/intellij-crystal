@@ -2,10 +2,7 @@ package de.magynhard.crystal
 
 import com.intellij.lang.Language
 import com.intellij.lang.injection.MultiHostInjector
-import com.intellij.lang.injection.MultiHostRegistrar
-import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiLanguageInjectionHost
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.injection.CrystalHeredocInjection
@@ -25,41 +22,11 @@ import de.magynhard.crystal.psi.CrystalHeredocLiteral
  */
 class CrystalHeredocInjectionTest : BasePlatformTestCase() {
 
-    /** Recording [MultiHostRegistrar] capturing the injection layout. */
-    private class FakeRegistrar : MultiHostRegistrar {
-        var started = false
-        var done = false
-        lateinit var language: Language
-        val places = mutableListOf<Place>()
-
-        class Place(val prefix: String, val suffix: String, val range: TextRange, val content: String)
-
-        override fun startInjecting(language: Language): MultiHostRegistrar {
-            started = true
-            this.language = language
-            return this
-        }
-
-        override fun addPlace(
-            prefix: String?,
-            suffix: String?,
-            context: PsiLanguageInjectionHost,
-            rangeInsideHost: TextRange
-        ): MultiHostRegistrar {
-            places.add(Place(prefix ?: "", suffix ?: "", rangeInsideHost, rangeInsideHost.substring(context.text)))
-            return this
-        }
-
-        override fun doneInjecting() {
-            done = true
-        }
-    }
-
-    private fun inject(code: String): FakeRegistrar? {
+    private fun inject(code: String): FakeInjectionRegistrar? {
         myFixture.configureByText("main.cr", code)
         val host = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalHeredocLiteral::class.java).firstOrNull()
             ?: return null
-        val registrar = FakeRegistrar()
+        val registrar = FakeInjectionRegistrar()
         CrystalHeredocInjector().getLanguagesToInject(registrar, host)
         return if (registrar.started && registrar.done) registrar else null
     }

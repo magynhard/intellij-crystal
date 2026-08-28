@@ -99,7 +99,8 @@ nodes, so counting, splat/named handling and type resolution work uniformly.
 Heredoc bodies whose marker names a language get syntax highlighting of that
 language injected via the platform's `MultiHostInjector` API
 (`CrystalHeredocInjector`), mirroring RubyMine's heredoc injection where the
-marker is "generally intuitive" language ID.
+marker is "generally intuitive" language ID. String literals get the same
+treatment through `# language=` comments (see below).
 
 - **Marker resolution** (`CrystalHeredocInjection.resolveLanguage`): a curated
   alias table (case-insensitive) maps markers to candidate language IDs —
@@ -137,6 +138,61 @@ marker is "generally intuitive" language ID.
   Multi-place (interpolated) bodies are not reconstructed from the flat
   fragment text — edits are ignored rather than corrupting interpolations
   (tracked in TODO.md).
+
+## `# language=` comment injection (v14.1)
+
+A whole-line comment `# language=<id>` on the line immediately above the line
+containing a heredoc header or a string literal injects that language into the
+body/content — the RubyMine persistent-injection convention:
+
+```crystal
+# language=sql prefix="select "
+query = <<-QUERY        # marker QUERY itself resolves to nothing
+user_id
+from relationships
+QUERY
+
+# language=SQL
+sql = "SELECT * FROM users"
+```
+
+- **Syntax** (`CrystalLanguageComment`): `language=<id>` plus optional
+  `prefix="…"` / `suffix="…"`. Values are double-quoted (with `\"` / `\\` and
+  control escapes) or bare non-space tokens — the platform IntelliLang comment
+  attribute syntax. `language=` must carry a non-empty value.
+- **Adjacency:** the comment must be a whole-line Crystal line comment on the
+  line directly above the target line; only whitespace may precede the `#`.
+  A comment further up, a statement between comment and target, or a trailing
+  comment on another statement does not apply.
+- **Scope of one comment:** every heredoc marker and every string literal on
+  the adjacent line below is injected.
+- **Resolution:** the same alias table and generic language-ID fallback as
+  markers (`resolveLanguage`), so `# language=JS` and `# language=sql` work.
+- **Precedence:** a resolvable comment wins over the heredoc marker (it is the
+  more explicit intent and may carry prefix/suffix). An UNRESOLVABLE comment
+  language falls back to the marker injection for heredocs; strings have no
+  marker and simply stay uninjected. Malformed comments (no/empty
+  `language=`) count as absent.
+- **Prefix/suffix:** synthetic injection-document text. The prefix is
+  prepended once at the very start (first place), the suffix appended once at
+  the very end (last place); interpolation gaps still get their placeholders
+  in between. This is the documented remedy for partial statements
+  (`prefix="select "`).
+- **String hosts:** `string_expression` implements
+  `PsiLanguageInjectionHost` (`CrystalStringExpressionMixin`): the injectable
+  range is the content between the quotes; the escaper decodes Crystal escapes
+  (`\n`, `\t`, `\u{…}`, octal, …) so the injected language sees the runtime
+  value and maps decoded offsets back for highlighting; fragment-editor edits
+  are re-encoded on write-back (quotes, backslashes, control characters and
+  `#{` are escaped). Interpolated strings are multi-place and not written
+  back (same policy as heredocs).
+- **No double injection:** a minimal `CrystalLanguageInjectionSupport`
+  (`useDefaultCommentInjector=false`) registers Crystal with IntelliLang so
+  the generic comment contributor stays silent — comment-driven injection is
+  fully owned by `CrystalHeredocInjector`.
+- **Not covered:** percent literals (`%q(…)`), `:"symbol"` strings, `require
+  "…"` paths (deliberately excluded), injection intentions/settings UI, and
+  `# language=` comment completion.
 
 ## Chained bodies (multi-heredoc)
 
@@ -188,6 +244,17 @@ background indexing.
 - `CrystalTypeCheckInspectionTest` — heredoc marker matches `String`; mismatch
   highlights the marker token with "got 'String'".
 - `CrystalLexerTest` — EOL-heredoc state hygiene regression.
+- `CrystalHeredocInjectionTest` — marker resolution, place layout, EP
+  registration, annotator skip agreement (see injection section above).
+- `CrystalHeredocInjectionMarkerTest` — marker extraction regex cases.
+- `CrystalLanguageCommentParseTest` — `# language=` attribute parsing:
+  quoted/bare values, escapes, malformed comments.
+- `CrystalLanguageCommentInjectionTest` — comment precedence over markers,
+  marker fallback for unresolvable comment languages, adjacency rules,
+  prefix/suffix wiring, string-literal injection, require exclusion.
+- `CrystalInjectionHostTest` — escaper decode + offset mapping, heredoc
+  multi-line escaper, single-place write-back (re-encoding), multi-place
+  no-op policy, escaped-`#{` handling.
 
 ## Hover resolution order (v13.1)
 

@@ -2,42 +2,80 @@ package de.magynhard.crystal.injection
 
 import com.intellij.lang.injection.MultiHostInjector
 import com.intellij.lang.injection.MultiHostRegistrar
-import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.CrystalHeredocLiteral
+import de.magynhard.crystal.psi.CrystalStringExpression
+import de.magynhard.crystal.psi.CrystalRequireStatement
 
 /**
- * Injects the language named by a heredoc marker into the heredoc body
- * (`a = <<-SQL … SQL`), giving the embedded code full syntax highlighting
- * (and, where the target plugin provides it, completion) — mirroring
- * RubyMine's heredoc injection.
+ * Injects an embedded language into Crystal string contexts, giving the
+ * embedded code full syntax highlighting — mirroring RubyMine's injection
+ * behavior.
  *
- * The marker is resolved through [CrystalHeredocInjection]: a curated alias
- * table plus a generic case-insensitive language-ID fallback. Bodies with
- * Crystal interpolations (`#{…}`) are injected as multiple places with the
- * interpolations cut out; each place after a gap gets a language-specific
- * synthetic placeholder prefix so the injected document stays syntactically
- * valid, while the interpolation itself keeps its Crystal highlighting.
+ * Two host kinds, two trigger paths:
+ * - **Heredoc bodies** (`a = <<-SQL … SQL`): the marker resolves through
+ *   [CrystalHeredocInjection] (curated aliases + generic language-ID
+ *   fallback). A `# language=<id>` comment on the adjacent line wins over the
+ *   marker and can carry `prefix=` / `suffix=`; an unresolvable comment
+ *   language falls back to the marker.
+ * - **String literals** (`sql = "SELECT …"`): driven exclusively by a
+ *   `# language=<id>` comment on the adjacent line ([CrystalLanguageComment]).
+ *
+ * Crystal interpolations (`#{…}`) are cut out of the injected places; each
+ * place after a gap gets a language-specific synthetic placeholder prefix so
+ * the injected document stays syntactically valid, while the interpolation
+ * itself keeps its Crystal highlighting. The comment prefix/suffix apply to
+ * the injected document as a whole (first/last place).
  */
 class CrystalHeredocInjector : MultiHostInjector {
 
     override fun getLanguagesToInject(registrar: MultiHostRegistrar, context: PsiElement) {
-        if (context !is CrystalHeredocLiteral) return
-        val marker = CrystalHeredocInjection.resolveBodyMarker(context) ?: return
-        val language = CrystalHeredocInjection.resolveLanguage(marker) ?: return
+        when (context) {
+            is CrystalHeredocLiteral -> injectHeredoc(registrar, context)
+            is CrystalStringExpression -> injectString(registrar, context)
+        }
+    }
 
-        val segments = CrystalHeredocInjection.computeBodySegments(context)
+    override fun elementsToInjectIn(): List<Class<out PsiElement>> =
+        listOf(CrystalHeredocLiteral::class.java, CrystalStringExpression::class.java)
+
+    private fun injectHeredoc(registrar: MultiHostRegistrar, literal: CrystalHeredocLiteral) {
+        val plan = CrystalHeredocInjection.resolveInjectionPlan(literal) ?: return
+        val segments = CrystalHeredocInjection.computeBodySegments(literal)
         if (segments.isEmpty()) return
-        val placeholder = CrystalHeredocInjection.placeholderFor(language)
+        val placeholder = CrystalHeredocInjection.placeholderFor(plan.language)
 
-        registrar.startInjecting(language)
-        for (segment in segments) {
-            val prefix = if (segment.gapsBefore == 0) "" else placeholder
-            registrar.addPlace(prefix, "", context, segment.range)
+        registrar.startInjecting(plan.language)
+        segments.forEachIndexed { index, segment ->
+            val prefix = when {
+                index == 0 -> plan.prefix + if (segment.gapsBefore > 0) placeholder else ""
+                else -> placeholder
+            }
+            val suffix = if (index == segments.size - 1) plan.suffix else ""
+            registrar.addPlace(prefix, suffix, literal, segment.range)
         }
         registrar.doneInjecting()
     }
 
-    override fun elementsToInjectIn(): List<Class<out PsiElement>> =
-        listOf(CrystalHeredocLiteral::class.java)
+    private fun injectString(registrar: MultiHostRegistrar, stringExpression: CrystalStringExpression) {
+        // require "…" strings are dependency paths, not embedded code.
+        if (PsiTreeUtil.getParentOfType(stringExpression, CrystalRequireStatement::class.java, false) != null) return
+
+        val plan = CrystalStringExpressionInjection.resolveInjectionPlan(stringExpression) ?: return
+        val segments = CrystalStringExpressionInjection.computeContentSegments(stringExpression)
+        if (segments.isEmpty()) return
+        val placeholder = CrystalHeredocInjection.placeholderFor(plan.language)
+
+        registrar.startInjecting(plan.language)
+        segments.forEachIndexed { index, segment ->
+            val prefix = when {
+                index == 0 -> plan.prefix + if (segment.gapsBefore > 0) placeholder else ""
+                else -> placeholder
+            }
+            val suffix = if (index == segments.size - 1) plan.suffix else ""
+            registrar.addPlace(prefix, suffix, stringExpression, segment.range)
+        }
+        registrar.doneInjecting()
+    }
 }

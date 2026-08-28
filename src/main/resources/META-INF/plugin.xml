@@ -468,13 +468,23 @@
         <gotoDeclarationHandler
                 implementation="de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler"/>
 
-        <!-- Embedded-language injection into heredocs (<<-SQL, <<-JAVASCRIPT, ...) -->
+        <!-- Embedded-language injection into heredocs (<<-SQL, <<-JAVASCRIPT, ...)
+             and string literals (via # language=<id> comments) -->
         <multiHostInjector
                 implementation="de.magynhard.crystal.injection.CrystalHeredocInjector"/>
 
         <elementManipulator
                 forClass="de.magynhard.crystal.psi.CrystalHeredocLiteral"
                 implementationClass="de.magynhard.crystal.injection.CrystalHeredocLiteralManipulator"/>
+
+        <elementManipulator
+                forClass="de.magynhard.crystal.psi.CrystalStringExpression"
+                implementationClass="de.magynhard.crystal.injection.CrystalStringExpressionManipulator"/>
+
+        <!-- Owns comment-driven injection for Crystal hosts (keeps the generic
+             IntelliLang comment contributor from double-injecting) -->
+        <org.intellij.plugins.intelliLang.languageSupport
+                implementation="de.magynhard.crystal.injection.CrystalLanguageInjectionSupport"/>
 
         <lang.findUsagesProvider
                 language="Crystal"

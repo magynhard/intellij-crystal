@@ -349,7 +349,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitStringExpression(@NotNull CrystalStringExpression o) {
-    visitPsiElement(o);
+    visitPsiLanguageInjectionHost(o);
   }
 
   public void visitStructDefinition(@NotNull CrystalStructDefinition o) {

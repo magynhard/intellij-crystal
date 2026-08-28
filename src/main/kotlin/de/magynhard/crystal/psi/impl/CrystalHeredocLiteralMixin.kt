@@ -27,7 +27,7 @@ abstract class CrystalHeredocLiteralMixin(node: ASTNode) :
     override fun isValidHost(): Boolean = true
 
     override fun createLiteralTextEscaper(): LiteralTextEscaper<out PsiLanguageInjectionHost> =
-        LiteralTextEscaper.createSimple(this)
+        CrystalHeredocLiteralEscaper(this)
 
     /**
      * Writes an edited injected fragment back into the body.

@@ -2,17 +2,18 @@
 
 ## Heredoc Embedded-Language Injection Follow-up
 
-- [ ] **Write back fragment-editor edits for interpolated injected heredocs** — single-place
-  bodies (raw heredocs, interpolation-free) write fragment-editor edits back exactly via
-  `CrystalHeredocLiteralMixin.updateText`; multi-place (interpolated) bodies ignore edits rather
-  than corrupting interpolations, because the flat fragment text cannot be reconstructed into
-  per-place ranges. A correct implementation needs place-boundary tracking in the injected
+- [ ] **Write back fragment-editor edits for interpolated injected heredocs/strings** — single-place
+  bodies (raw heredocs, interpolation-free heredocs/strings) write fragment-editor edits back
+  exactly (`updateText` re-encodes for strings); multi-place (interpolated) bodies ignore edits
+  rather than corrupting interpolations, because the flat fragment text cannot be reconstructed
+  into per-place ranges. A correct implementation needs place-boundary tracking in the injected
   document (e.g. placeholder sentinel scanning or a DocumentWindow-aware write path).
-- [ ] **`# language=<id>` comment injection and injection settings UI** — RubyMine also supports
-  persistent injections via `# language=SQL prefix="select "` comments before strings/heredocs,
-  plus the "Inject language or reference" intention and the Language Injections settings page.
-  Only heredoc-marker injection is implemented; comment-based, prefix/suffix-carrying injections
-  and any UI are out of scope so far.
+- [ ] **Injection intentions and settings UI** — "Inject language or reference" intention,
+  `# language=` comment completion, and a Language-Injections-style settings page are not
+  implemented; only heredoc-marker and `# language=` comment injection exist.
+- [ ] **`# language=` comments for percent literals and `:"symbol"` strings** — percent literals
+  (`%q(…)` etc.) and `symbol_string_expression` are not injection hosts; only `heredoc_literal`
+  and `string_expression` hosts exist.
 
 ## Inlay Hints (Issue #2)
 
