@@ -52,6 +52,19 @@ import com.intellij.psi.TokenType;
     return true;
   }
 
+  // Backtick method-name disambiguation (macros.cr defines `def \`(command) : MacroId`):
+  // a backtick directly after the `def` keyword is a METHOD NAME, not a command literal.
+  private boolean isBacktickMethodName() {
+    int pos = zzStartRead - 1;
+    while (pos >= 0 && (zzBuffer.charAt(pos) == ' ' || zzBuffer.charAt(pos) == '\t')) pos--;
+    if (pos < 3) return false;
+    if (zzBuffer.charAt(pos) == 'f'
+        && zzBuffer.charAt(pos - 1) == 'e'
+        && zzBuffer.charAt(pos - 2) == 'd'
+        && (pos == 3 || !Character.isLetterOrDigit(zzBuffer.charAt(pos - 4)))) return true;
+    return false;
+  }
+
   // Macro body state tracking
   private boolean macroHeaderSeen = false;
   private int macroBodyDepth = 0;
@@ -360,7 +373,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
 
   // Command literal
-  "`"                    { pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
+  "`"                    { if (isBacktickMethodName()) { return CrystalTypes.BACKTICK; }
+                           pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
 
   // Regex literal (only in operator position — not after identifiers, constants, literals, ) or ])
   "/"                    { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; }

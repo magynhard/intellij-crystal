@@ -3650,7 +3650,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
+  // ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION | ASM
   //                             | BEGIN | BREAK
   //                             | CASE | CLASS
   //                             | DEF | DO
@@ -3678,6 +3678,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     boolean result_;
     result_ = consumeToken(builder_, ABSTRACT);
     if (!result_) result_ = consumeToken(builder_, ALIAS);
+    if (!result_) result_ = consumeToken(builder_, ANNOTATION);
     if (!result_) result_ = consumeToken(builder_, AS);
     if (!result_) result_ = consumeToken(builder_, AS_QUESTION);
     if (!result_) result_ = consumeToken(builder_, ASM);
@@ -4766,7 +4767,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // IDENTIFIER ASSIGN
+  // BACKTICK
+  //               |  IDENTIFIER ASSIGN
   //               | SELF DOT IDENTIFIER ASSIGN
   //               | IDENTIFIER
   //               | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
@@ -4777,10 +4779,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "method_name")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = parseTokens(builder_, 0, IDENTIFIER, ASSIGN);
+    result_ = consumeToken(builder_, BACKTICK);
+    if (!result_) result_ = parseTokens(builder_, 0, IDENTIFIER, ASSIGN);
     if (!result_) result_ = parseTokens(builder_, 0, SELF, DOT, IDENTIFIER, ASSIGN);
     if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
-    if (!result_) result_ = method_name_3(builder_, level_ + 1);
+    if (!result_) result_ = method_name_4(builder_, level_ + 1);
     if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
     if (!result_) result_ = operator_method_name(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
@@ -4789,19 +4792,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
-  private static boolean method_name_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "method_name_3")) return false;
+  private static boolean method_name_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_name_4")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeTokens(builder_, 0, SELF, DOT);
-    result_ = result_ && method_name_3_2(builder_, level_ + 1);
+    result_ = result_ && method_name_4_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation
-  private static boolean method_name_3_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "method_name_3_2")) return false;
+  private static boolean method_name_4_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_name_4_2")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, CONSTANT);

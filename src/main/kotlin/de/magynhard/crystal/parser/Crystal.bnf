@@ -339,7 +339,8 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
 // PEG longest-match-first: setter definitions (def host=, def self.env=) must be
 // tried before plain IDENTIFIER, otherwise the parser consumes only the name and
 // strands the '=' (broke stdlib files like uri.cr with `def host=(host : String?)`).
-private method_name ::= IDENTIFIER ASSIGN
+private method_name ::= BACKTICK
+              |  IDENTIFIER ASSIGN
               | SELF DOT IDENTIFIER ASSIGN
               | IDENTIFIER
               | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
@@ -665,7 +666,7 @@ namespace_access ::= DOUBLE_COLON CONSTANT {
 }
 
 // Keywords that Crystal allows as method names after DOT
-private keyword_as_method ::= ABSTRACT | ALIAS | AS | AS_QUESTION | ASM
+private keyword_as_method ::= ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION | ASM
                             | BEGIN | BREAK
                             | CASE | CLASS
                             | DEF | DO

@@ -131,6 +131,7 @@ public interface CrystalTypes {
   IElementType ASSIGN = new CrystalTokenType("ASSIGN");
   IElementType AS_QUESTION = new CrystalTokenType("AS_QUESTION");
   IElementType AT = new CrystalTokenType("AT");
+  IElementType BACKTICK = new CrystalTokenType("BACKTICK");
   IElementType BANG = new CrystalTokenType("BANG");
   IElementType BEGIN = new CrystalTokenType("BEGIN");
   IElementType BREAK = new CrystalTokenType("BREAK");

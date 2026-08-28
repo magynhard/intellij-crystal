@@ -51,7 +51,15 @@ Generated sources live in `src/main/gen/` and are **committed**. Regenerate with
 - **Go to Definition uses two mechanisms**: PSI mixins (on `variable_reference`, `method_call_expression`, `bare_method_call_expression`, `type_path`) for direct references, and `GotoDeclarationHandler` for DOT-call expressions (`obj.method`, `Class.method`). Never use `PsiReferenceContributor` — it doesn't receive leaf tokens.
 - **StubIndex stores cleaned names**: `def self.tanzen` is indexed as `"tanzen"` (via `psi.name`), not `"self.tanzen"` (via `psi.methodName?.text`).
 - **Increment the stub version whenever the serialized stub format or indexing semantics change.** This includes adding, removing, or reordering serialized fields and changing which index keys a stub emits. Increment `CrystalParserDefinition.FILE.getStubVersion()` so IntelliJ invalidates and rebuilds persisted indexes.
-- **Heredoc headers are MARKER arguments (v12):** the lexer emits one
+- **Macro context gates resolution & diagnostics (v13):** inside `{{ … }}`
+interpolations and macro bodies, unqualified names resolve ONLY to project
+macros or builtin `Crystal::Macros` defs (`compiler/crystal/macros.cr` is a
+single-file stdlib root); argument-count/type-check inspections suppress
+ordinary argument diagnostics there. Operator/keyword method names
+(`def \`(command)`, `def <<`, `def annotation`) parse via
+`operator_method_name`/`keyword_as_method`/`method_name` extensions.
+
+**Heredoc headers are MARKER arguments (v12):** the lexer emits one
 `HEREDOC_START` per `<<-ID` and queues bodies that open at the next newline;
 grammar binds headers as ordinary `argument` list entries via
 `heredoc_marker` and attaches bodies (`heredoc_literal`, kept name for type

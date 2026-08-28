@@ -59,6 +59,25 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("Missing required argument") == true })
     }
 
+    fun testMacroInterpolationArgCountSuppressed() {
+        myFixture.configureByText("test.cr", """
+            module Catalyst
+              class CLI
+                def self.run(args : Array(String)) : Int32
+                  0
+                end
+              end
+            end
+
+            {{ run("a", "b", "c") }}
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Macro-context call argument counting must be suppressed",
+            highlights.any { it.description?.contains("argument") == true
+                && it.description?.contains("expected") ?: false })
+    }
+
     // ==================== Closeless Heredoc Calls ====================
 
     fun testCloselessHeredocCallHasAllArguments() {

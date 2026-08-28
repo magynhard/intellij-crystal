@@ -45,6 +45,31 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(client)
     }
 
+    fun testMacrosCrParsesWithoutErrors() {
+        // Builtin macro-method API (run, puts, flag?, …) — lives in the
+        // excluded compiler tree and is indexed as a single-file root.
+        // KNOWN GAP: `def [](name : …)`-style bracket method definitions do
+        // not parse yet (their lines are tolerated below; tracked in TODO.md).
+        val macros = findStdlibFile("compiler/crystal/macros.cr") ?: return
+        val text = macros.readText()
+        val tolerantLine: (Int) -> Boolean = { offset ->
+            val lineStart = text.lastIndexOf('\n', (offset - 1).coerceAtLeast(0)) + 1
+            val lineEnd = text.indexOf('\n', offset).let { if (it == -1) text.length else it }
+            text.substring(lineStart, lineEnd).trimStart().startsWith("def [")
+        }
+        myFixture.configureByText(macros.name, text)
+        val errors = PsiTreeUtil.collectElementsOfType(myFixture.file, PsiErrorElement::class.java)
+        val blocking = errors.filter { !tolerantLine(it.textOffset) }
+        if (blocking.isNotEmpty()) {
+            val sb = StringBuilder("=== Parse errors in ${macros.path} (first 5 of ${blocking.size}) ===\n")
+            for (error in blocking.take(5)) {
+                sb.appendLine("At offset ${error.textOffset}: ${error.errorDescription}")
+                sb.appendLine("  Context: '${error.parent.text.take(120).replace('\n', ' ')}'")
+            }
+            fail(sb.toString())
+        }
+    }
+
     fun testDequeCrParsesWithoutErrors() {
         val deque = findStdlibFile("deque.cr") ?: return
         assertParsesCleanly(deque)

@@ -440,6 +440,45 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    // ==================== Macro context (v13) ====================
+
+    fun testMacroInterpolationCallNotTypeChecked() {
+        // Catalyst shape: top-level {{ run("…") }} must resolve to the builtin
+        // macro run(filename, *args) — NOT to Catalyst::CLI.run(Array(String)).
+        myFixture.configureByText("test.cr", """
+            module Catalyst
+              class CLI
+                def self.run(args : Array(String)) : Int32
+                  0
+                end
+              end
+            end
+
+            {{ run("../scripts/generate_rules_require.cr") }}
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Macro-context call must not be type-checked against ordinary methods",
+            highlights.any { it.description?.contains("Type mismatch") == true
+                || it.description?.contains("Missing required argument") == true
+                || it.description?.contains("Too many arguments") == true })
+    }
+
+    fun testQualifiedMethodCallTypeMismatchStillReported() {
+        myFixture.configureByText("test.cr", """
+            module Catalyst
+              class CLI
+                def self.run(args : Array(String)) : Int32
+                  0
+                end
+              end
+            end
+
+            Catalyst::CLI.run(<error descr="Type mismatch: expected 'Array(String)', got 'String'">"str"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testHeredocLiteralMatchesStringType() {
         myFixture.configureByText("test.cr", """
             def foo(s : String)

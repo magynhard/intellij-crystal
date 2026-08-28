@@ -109,12 +109,13 @@ internal class CrystalMethodHierarchy(
         NamedCollectionKey(receiverType, mode, methodName, actualSelf, includeModuleEdges)
     ) {
         val hierarchy = collectHierarchy(receiverType, mode, includeModuleEdges)
-        if (!hierarchy.complete) return@getOrPut CrystalMethodCollection(emptyList(), false)
+        if (!hierarchy.complete) { println("V13DEBUG hierarchy-incomplete recv=" + receiverType + " name=" + methodName); return@getOrPut CrystalMethodCollection(emptyList(), false) }
         val result = mutableListOf<CrystalMethodDefinition>()
         val seen = mutableSetOf<String>()
         for (exposure in hierarchy.exposures) {
             val typeMetadata = metadata(exposure.type, exposure.declarationMode, includeModuleEdges)
             if (methodName in typeMetadata.uncertainMethodNames) {
+                println("V13DEBUG uncertain-name type=" + exposure.type + " name=" + methodName)
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             val candidates = findExactMethods(exposure.type).filter { method ->
@@ -127,6 +128,7 @@ internal class CrystalMethodHierarchy(
             // textually written `def self.new` is real regardless of what the type's
             // {% for %} loops additionally generate (stdlib http/client.cr).
             if (candidates.isEmpty() && typeMetadata.hasMacroGeneratedMethodNames) {
+                println("V13DEBUG macrogen-empty type=" + exposure.type + " name=" + methodName)
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             if (candidates.groupBy(::canonicalSignature).values.any { group ->
@@ -198,7 +200,7 @@ internal class CrystalMethodHierarchy(
         var complete = exactDeclarations.isNotEmpty()
 
         for (declaration in exactDeclarations) {
-            if (CrystalPsiUtils.isInsideMacroControlRegion(declaration)) complete = false
+            if (CrystalPsiUtils.isInsideMacroControlRegion(declaration)) { println("V13DEBUG incomplete-region type=" + type + " decl=" + declaration.text.take(40)); complete = false }
             val body = when (declaration) {
                 is CrystalClassDefinition -> declaration.classBody
                 is CrystalModuleDefinition -> declaration.classBody
@@ -222,6 +224,7 @@ internal class CrystalMethodHierarchy(
                             }
                         }
                         if (macroDepth > 0 && isRelevantMacroControlledEdge(member, mode, includeModuleEdges)) {
+                            println("V13DEBUG incomplete-edge type=" + type + " member=" + member.text.take(40))
                             complete = false
                             return@forEach
                         }
@@ -230,7 +233,7 @@ internal class CrystalMethodHierarchy(
                                 resolveEdge(member.typeReference, member)?.let {
                                     includes.add(it)
                                     edgeFiles.add(member.containingFile.virtualFile?.path.orEmpty())
-                                } ?: run { complete = false }
+                                } ?: run { println("V13DEBUG incomplete-include-null type=" + type + " member=" + member.text.take(40)); complete = false }
                             }
                             is CrystalExtendStatement -> if (includeModuleEdges && mode == CrystalReceiverMode.STATIC) {
                                 if (member.node.findChildByType(CrystalTypes.SELF) != null ||
@@ -285,9 +288,12 @@ internal class CrystalMethodHierarchy(
         for (candidate in candidates) {
             val identities = findTypesByName(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName)
                 .filter { it == candidate }.distinct()
+            println("V13DEBUG edge root=$root simple=$simpleName candidate=$candidate identities=$identities")
+            println("V13DEBUG edge rawTypes=" + findTypesByName(simpleName).mapNotNull { CrystalPsiUtils.buildQualifiedName(it) })
             if (identities.size > 1) return null
             identities.singleOrNull()?.let { return CrystalTypeIdentity(simpleName, it) }
         }
+        println("V13DEBUG edge EXHAUSTED root=$root candidates=$candidates")
         return null
     }
 

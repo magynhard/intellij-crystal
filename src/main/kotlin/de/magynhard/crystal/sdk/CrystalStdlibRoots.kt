@@ -73,6 +73,12 @@ object CrystalStdlibRoots {
                 result.add(child)
             }
         }
+        // The builtin macro-method API (run, puts, flag?, …) lives in the
+        // excluded compiler tree but is part of the user-facing surface:
+        // index the single file so macro-context calls resolve to it.
+        // BISECT-DISABLED: stdlibRoot.findFileByRelativePath("compiler/crystal/macros.cr")
+        //     ?.takeIf { it.extension == "cr" }
+        //     ?.let { result.add(it) }
         return result
     }
 

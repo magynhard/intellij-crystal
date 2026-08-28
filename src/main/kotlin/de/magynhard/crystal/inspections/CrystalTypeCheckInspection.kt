@@ -31,6 +31,10 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
+                // Macro context: {{ … }} interpolations and macro bodies hold
+                // AST arguments resolved by the compiler as macros — ordinary
+                // argument diagnostics do not apply (v13).
+                if (CrystalMacroContext.isInMacroContext(element)) return
                 when (element) {
                     is CrystalMethodCallExpression -> {
                         checkMethodCall(element, holder)

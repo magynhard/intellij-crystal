@@ -21,6 +21,11 @@ class CrystalReference(
     rangeLength: Int
 ) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
+    companion object {
+        /** Builtin macro-method API module (compiler/crystal/macros.cr). */
+        const val CRYSTAL_MACROS_MODULE = "Crystal::Macros"
+    }
+
     override fun resolve(): PsiElement? {
         // 1. Local scope fallback (fast — no I/O, walks up PSI tree)
         val local = resolveLocalDeclaration()
@@ -31,6 +36,24 @@ class CrystalReference(
         //    undefined name would "resolve" to an arbitrary same-named method
         //    from anywhere in the index (allScope), leaking unrelated
         //    signatures into hover documentation and Go to Definition.
+        // Macro context ({{ … }} interpolations, macro bodies): unqualified
+        // names resolve to macros or builtin Crystal::Macros macro-methods —
+        // never to ordinary project methods (Catalyst::CLI.run must not capture
+        // {{ run("…") }}).
+        if (CrystalMacroContext.isInMacroContext(element)) {
+            val macros = CrystalIndexService.findMacros(name, element.project, scope())
+                .filter { it.project == element.project }
+            if (macros.isNotEmpty()) {
+                return macros.minByOrNull { it.containingFile?.name ?: "" }
+            }
+            val builtinMacroMethods = CrystalIndexService.findMethods(name, element.project, scope())
+                .filter { isBuiltinMacroMethodDef(it) }
+            if (builtinMacroMethods.isNotEmpty()) {
+                return builtinMacroMethods.minByOrNull { it.containingFile?.name ?: "" }
+            }
+            return null
+        }
+
         val sources = CrystalRequireGraphService.getInstance(element.project).effectiveSources(element)
         if (sources.files.isEmpty()) return null
 
@@ -43,6 +66,19 @@ class CrystalReference(
         if (methods.isNotEmpty()) return deterministicCandidate(methods)
 
         return null
+    }
+
+    /**
+     * Builtin macro-method defs (run, system, …) live in compiler/crystal/macros.cr
+     * inside module Crystal::Macros — the enclosing-name helper reports the last
+     * segment ("Macros"), so both spellings plus the file path are checked.
+     */
+    private fun isBuiltinMacroMethodDef(def: PsiElement): Boolean {
+        if (def !is CrystalMethodDefinition) return false
+        val owner = CrystalCompletionHelper.getEnclosingClassName(def) ?: return false
+        if (owner != CRYSTAL_MACROS_MODULE && owner != "Macros") return false
+        val path = def.containingFile?.virtualFile?.path ?: return false
+        return path.contains("compiler/crystal/")
     }
 
     /** Stable pick for diagnostics/hover: prefer top-level defs, then enclosing name, then file. */

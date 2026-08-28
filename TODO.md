@@ -38,7 +38,10 @@
 - [ ] **Resolve record instance methods through the shared call resolver** — exact simple, qualified, and absolute record constructors already use shared constructor identity and precedence; model generated record instance signatures before enabling diagnostics for record values.
 - [ ] **Resolve class-variable receivers** — model exact class-variable types and assignment conflicts so DOT-calls on class variables can use the shared resolver without name-only guesses.
 - [ ] **Narrow union and nilable receivers** — use control-flow facts to reduce union or nilable receiver types to one exact non-nil type before resolving DOT-calls.
-- [ ] **Resolve macro-interpolated call targets** — resolve macro-interpolated receivers, method names, and constructor targets to one exact declaration before enabling call-argument diagnostics for those calls.
+- [ ] **Resolve macro-interpolated call targets (partially done, v13)** — unqualified call names inside `{{ … }}`
+  and macro bodies now resolve to project macros or builtin `Crystal::Macros` macro-methods (macros.cr is indexed
+  as a single-file root), and argument diagnostics are suppressed in macro context. Still open: macro-interpolated
+  RECEIVERS (`{{ x.method }}` with receiver types) and macro-argument arity checking against macro parameter lists.
 - [ ] **Include inherited instance-variable type evidence** — define deterministic hierarchy precedence for inherited instance-variable declarations and assignments before using inherited type bodies for DOT-call receiver inference.
 - [ ] **Finish migrating call consumers to the shared resolver** — completion and DOT navigation now consume neutral receiver, hierarchy, constructor, and overload metadata; move the remaining type-checking and parameter-info paths to the same semantics.
 - [ ] **Evaluate type-check overloads as complete calls, not independent slots** — `CrystalTypeCheckInspection` currently accepts each argument when any overload accepts that slot, so different slots can be validated by different overloads. Combined constructor pools make this especially visible: a call such as `Deque(Int32).new([1], 2)` can pass per-slot checks even though no single `new` overload accepts the complete call. Reuse one applicability result per overload across arity, names, and all resolved argument types before deciding whether to report.

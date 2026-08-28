@@ -271,6 +271,7 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
 
 
 
+
     fun testMultiHeredocBodies() {
         doTest(true)
     }

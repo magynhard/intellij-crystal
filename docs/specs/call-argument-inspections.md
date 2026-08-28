@@ -267,3 +267,24 @@ Automated tests must cover the following behavior across parenthesized, bare-arg
 - Single ownership of every call site, with no duplicate diagnostics from nested DOT-call, call-expression, argument-list, or method-name PSI.
 
 Existing direct-call shadowing, parameter classification, excess-argument, named-argument, and splat-expansion behavior remains unchanged except where this contract explicitly unifies resolution across call syntax. Record instance calls remain suppressed pending exact generated-signature resolution; exact qualified record constructors use the shared constructor resolver now.
+
+## Macro context (v13)
+
+Calls inside `{{ … }}` macro interpolations and macro definition bodies are
+exempt from ordinary argument diagnostics: their arguments are ASTs consumed
+by macro expansion, not typed values. Resolution and diagnostics rules:
+
+- Unqualified call names in macro context resolve to project macros
+  (`CrystalMacroDefinition`) or builtin `Crystal::Macros` macro-methods
+  (`run(filename, *args) : MacroId`, `system`, `puts`, … — from
+  `compiler/crystal/macros.cr`, indexed as a single-file stdlib root; the
+  rest of the compiler tree stays excluded). Ordinary project methods with
+  the same name (e.g. `Catalyst::CLI.run`) are NOT candidates there.
+- Argument-count and type-check inspections suppress all argument
+  diagnostics for calls inside macro context.
+- Qualified calls outside macro context keep full diagnostics
+  (`Catalyst::CLI.run("str")` still reports the `Array(String)` mismatch,
+  highlighted on the offending argument).
+- Operator-named and special method definitions parse for the stdlib macro
+  API: backtick (`` def `(command) ``), shift/comparison/power/bracket names
+  (`def <<`, `def ==`, `def [](index)`, `def []=(index, value)`, …).
