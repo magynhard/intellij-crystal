@@ -76,8 +76,11 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         // 3. Fallback for DOT-call identifiers (Apfel.tanzen, a.essen, Senf.new) —
         //    these have no PsiReference today. Delegate to the GotoDeclarationHandler,
         //    which knows how to resolve the DOT pattern via sibling/leaf scanning.
+        //    PsiFile targets (require navigation) are excluded — hovering a require
+        //    string must not pop an empty documentation box.
         val handler: GotoDeclarationHandler = CrystalGotoDeclarationHandler()
         val targets = handler.getGotoDeclarationTargets(unwrapped, targetOffset, editor)
+            ?.filterNot { it is PsiFile }
         if (targets?.firstOrNull() != null) return targets.first()
 
         // 4. Definition/parameter walk-up: hovering over the definition name itself

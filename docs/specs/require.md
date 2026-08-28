@@ -180,6 +180,37 @@ at the collected content boundary immediately before a PSI-validated closing quo
 invalid escape/codepoint sequences are excluded conservatively. Consequently, invalidation watches the decoded candidate
 paths rather than the source spelling.
 
+## Go to Declaration
+
+Go to Definition (Ctrl+Click / Ctrl+B) navigates from a `require` statement to the required
+file(s). The navigation target is the resolved `PsiFile`; the IDE opens it. Every position of
+the statement navigates: the `require` keyword itself and every leaf of the string expression
+(string literals and string escapes).
+
+Resolution is delegated to the shared require infrastructure — `CrystalRequireCollector.extractStaticPath`
+for the static path and `CrystalRequirePathResolver` for compiler-faithful file resolution — so
+navigation, completion, and the require graph share one resolution semantics. There is no
+separate path-expansion implementation for navigation.
+
+Behavioral rules:
+
+- **Relative requires** (`./user`, `../models/user`, `.hidden`) resolve against the directory of
+  the file containing the `require` and open that single file when it exists.
+- **Non-relative requires** (`json`, `kemal`, `kemal/helpers`) search the project `lib/` root and
+  then the configured stdlib root, stopping at the first compiler-ordered existing form.
+- **Wildcards** (`./models/*`, `./models/**`) navigate to all matching files. The IDE presents
+  them as a multiple-target popup; results are ordered like the compiler's traversal.
+- **A bare directory is never expanded** — `require "./models"` with no `models.cr` /
+  `models/models.cr` reports "Cannot find declaration", exactly like the compiler rejects it.
+- **Dynamic paths** (interpolated strings) and malformed strings are unresolvable: the handler
+  returns no targets and the IDE reports "Cannot find declaration to go to" instead of guessing.
+- **Unresolved static paths** (e.g. `require "./missing"`) return no targets.
+- **Stdlib requires** navigate into the installed Crystal distribution's source files (e.g.
+  `require "json"` opens `json.cr`); this works for files outside the project content and is
+  gated on a detectable Crystal compiler in tests.
+- **Hover** over a require string never opens a documentation popup: the documentation
+  provider excludes `PsiFile` targets when delegating to the declaration handler.
+
 ## Path Completion
 
 Path completion is active only when the caret is inside the string expression of a `CrystalRequireStatement`. Other string literals retain normal string-completion suppression.
@@ -301,3 +332,8 @@ Automated coverage protects:
 - Missing exact shard-file create, rename, move, and delete lifecycle through a canonical external target.
 - Prelude-root selection across custom roots, blank entries, optional `src/`, absent preludes, and Unix/Windows path forms.
 - Platform-neutral Unix and Windows `CRYSTAL_PATH` parsing without subprocesses in unit tests.
+- Go to Declaration on the `require` keyword and the string literal: relative file, subdirectory
+  file, wildcard multi-target popup, bare-directory and missing-path suppression, interpolated
+  path suppression, project-`lib/` shard resolution, and stdlib navigation (gated on an installed
+  Crystal compiler).
+- Suite-wide stdlib VFS root allowance surviving Application recreation between test classes.

@@ -15,6 +15,9 @@ import de.magynhard.crystal.psi.*
  * 2. Instance variables (@name) and class variables (@@name) → jumps to property declaration or shows all usages
  * 3. ".new" on a class (e.g. "Senf.new") → jumps to its explicit "def self.new" and
  *    compiler-forwarded "def initialize" overloads, or to the matching record declaration.
+ * 4. require statements → jumps to the required file(s): relative requires resolve
+ *    against the containing file's directory, library requires search the project's
+ *    `lib` directories and the Crystal standard library (compiler semantics).
  */
 class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
 
@@ -26,6 +29,18 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         if (sourceElement == null) return null
 
         val elementType = sourceElement.node.elementType
+
+        // Require statements: navigate to the required file(s). Multiple matches
+        // (wildcard requires) are returned together — the platform shows a popup.
+        if (elementType == CrystalTypes.STRING_LITERAL || elementType == CrystalTypes.STRING_ESCAPE ||
+            elementType == CrystalTypes.REQUIRE
+        ) {
+            val requireStatement =
+                PsiTreeUtil.getParentOfType(sourceElement, CrystalRequireStatement::class.java, false)
+                    ?: return null
+            val targets = CrystalRequireResolver.resolveRequireTargets(requireStatement)
+            return if (targets.isEmpty()) null else targets.toTypedArray()
+        }
 
         // Handle instance variables (@name) and class variables (@@name)
         if (elementType == CrystalTypes.INSTANCE_VAR || elementType == CrystalTypes.CLASS_VAR) {
