@@ -11,6 +11,9 @@ public interface CrystalTypeReference extends PsiElement {
   List<CrystalExpression> getExpressionList();
 
   @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
+  @NotNull
   List<CrystalTypeArguments> getTypeArgumentsList();
 
   @NotNull

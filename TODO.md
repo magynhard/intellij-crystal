@@ -111,6 +111,10 @@
 
 ## Completion Follow-up
 
+- [ ] **Resolve generic include edges for primitive receivers** — `struct Int`/`struct Float`
+  include `Comparable(Precise)` / `Comparable(Number)` with generic arguments; the hierarchy
+  walk cannot resolve generic include edges, so comparison methods (`>`, `<`, `<=`, `clamp`
+  overloads) inherited through Comparable are not offered on numeric literal receivers yet.
 - [ ] **Design an explicit opt-in for project-root recursive require wildcards** — retain suppression for recursive targets equal to or containing the project root (`./**`, `../**`, and deeper ancestors) until an implementation can prove a bounded traversal root, expose cancellation/progress, avoid `FileTypeIndex` and project-wide index scans, and cover large projects without completion latency regressions.
 - [ ] **Bound require-graph root caches and compose prelude source sets** — add per-root LRU or lifecycle eviction with deterministic invalidation, preserve active closure ownership and retry semantics, and represent effective sources as a shared prelude plus root-local set without eagerly copying the prelude for every cached root. Acceptance requires bounded memory under many queried roots, unchanged membership/snapshot coherence, and concurrency tests for eviction during dirty validation.
 - [ ] **Evaluate repeated DOT reference result caching independently** — do not broaden the current completion-session optimization into cross-invocation or PSI-reference caches until invalidation and identity semantics have a dedicated design and measurements.

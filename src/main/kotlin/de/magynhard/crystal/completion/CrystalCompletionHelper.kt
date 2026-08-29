@@ -190,8 +190,11 @@ object CrystalCompletionHelper {
         val methods = mutableListOf<CrystalCollectedMethod>()
         for (typeName in typeNames.distinct()) {
             val identity = session.resolveType(typeName, context) ?: return emptyList()
+            // Lenient by design: incomplete collections (macro-generated members
+            // in stdlib types like Number) still carry every explicitly written
+            // method — completion must not lose suggestions over them.
             val collection = session.collectMethods(identity, mode)
-            if (!collection.complete) return emptyList()
+            if (collection.methods.isEmpty()) return emptyList()
             methods.addAll(collection.methods)
         }
         val result = mutableListOf<LookupElement>()

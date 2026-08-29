@@ -39,4 +39,10 @@ public class CrystalMultiAssignmentImpl extends ASTWrapperPsiElement implements 
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMultiAssignTarget.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalPostfixModifier getPostfixModifier() {
+    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
+  }
+
 }

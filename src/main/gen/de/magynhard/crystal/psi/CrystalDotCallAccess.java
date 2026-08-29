@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalDotCallAccess extends PsiElement {
 
   @Nullable
+  CrystalArrayLiteral getArrayLiteral();
+
+  @Nullable
   CrystalBareArgumentList getBareArgumentList();
 
   @Nullable

@@ -13,4 +13,7 @@ public interface CrystalMultiAssignment extends PsiElement {
   @NotNull
   List<CrystalMultiAssignTarget> getMultiAssignTargetList();
 
+  @Nullable
+  CrystalPostfixModifier getPostfixModifier();
+
 }

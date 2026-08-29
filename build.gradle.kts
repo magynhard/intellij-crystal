@@ -99,6 +99,12 @@ tasks {
         dependsOn(generateLexer, generateParser, "generateEcrLexer", "generateEcrParser")
     }
 
+    // compileJava compiles the generated parser/lexer sources — it must never
+    // run against stale generation output (flip-flopping parse results).
+    compileJava {
+        dependsOn(generateLexer, generateParser, "generateEcrLexer", "generateEcrParser")
+    }
+
     test {
         // The stdlib library provider legitimately enumerates the real Crystal
         // distribution (/usr/lib/crystal, including compiler/crystal/macros.cr for

@@ -65,8 +65,6 @@ internal class CrystalMethodHierarchy(
         includeModuleEdges: Boolean = true
     ): CrystalAllMethodCollection = allCollections.getOrPut(CollectionKey(receiverType, mode, includeModuleEdges)) {
         val hierarchy = collectHierarchy(receiverType, mode, includeModuleEdges)
-        if (!hierarchy.complete) return@getOrPut CrystalAllMethodCollection(emptyList(), false)
-
         val result = mutableListOf<CrystalCollectedMethod>()
         val seenSignatures = mutableSetOf<String>()
         for (exposure in hierarchy.exposures) {
@@ -75,12 +73,19 @@ internal class CrystalMethodHierarchy(
                 .filter { CrystalPsiUtils.isSelfMethod(it) == (exposure.declarationMode == CrystalReceiverMode.STATIC) }
                 .filter { it.macroInterpolation == null && it.name !in typeMetadata.uncertainMethodNames }
             val signatures = exposedMethods.groupBy(::canonicalSignature)
-            if (signatures.values.any { group ->
+            if (hierarchy.complete && signatures.values.any { group ->
                     group.map { it.containingFile?.virtualFile?.path }.distinct().size > 1
                 }) {
+                // Strict mode (used by resolution-backed consumers): cross-file
+                // reopenings with identical signatures cannot be precedence-proven.
                 return@getOrPut CrystalAllMethodCollection(emptyList(), false)
             }
-            for (method in exposedMethods) {
+            // Lenient mode (incomplete hierarchy — macro-generated members in
+            // stdlib types like Number): offer every explicitly written method;
+            // macro-generated names and edges beyond incomplete types are absent.
+            // First occurrence per signature wins.
+            for (group in signatures.values) {
+                val method = group.first()
                 val signature = canonicalSignature(method)
                 if (seenSignatures.add(signature)) {
                     result.add(
@@ -96,7 +101,7 @@ internal class CrystalMethodHierarchy(
                 }
             }
         }
-        CrystalAllMethodCollection(result, true)
+        CrystalAllMethodCollection(result, hierarchy.complete)
     }
 
     fun collectNamedMethods(
@@ -109,13 +114,12 @@ internal class CrystalMethodHierarchy(
         NamedCollectionKey(receiverType, mode, methodName, actualSelf, includeModuleEdges)
     ) {
         val hierarchy = collectHierarchy(receiverType, mode, includeModuleEdges)
-        if (!hierarchy.complete) { println("V13DEBUG hierarchy-incomplete recv=" + receiverType + " name=" + methodName); return@getOrPut CrystalMethodCollection(emptyList(), false) }
+        if (!hierarchy.complete) return@getOrPut CrystalMethodCollection(emptyList(), false)
         val result = mutableListOf<CrystalMethodDefinition>()
         val seen = mutableSetOf<String>()
         for (exposure in hierarchy.exposures) {
             val typeMetadata = metadata(exposure.type, exposure.declarationMode, includeModuleEdges)
             if (methodName in typeMetadata.uncertainMethodNames) {
-                println("V13DEBUG uncertain-name type=" + exposure.type + " name=" + methodName)
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             val candidates = findExactMethods(exposure.type).filter { method ->
@@ -128,7 +132,6 @@ internal class CrystalMethodHierarchy(
             // textually written `def self.new` is real regardless of what the type's
             // {% for %} loops additionally generate (stdlib http/client.cr).
             if (candidates.isEmpty() && typeMetadata.hasMacroGeneratedMethodNames) {
-                println("V13DEBUG macrogen-empty type=" + exposure.type + " name=" + methodName)
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             if (candidates.groupBy(::canonicalSignature).values.any { group ->
@@ -200,7 +203,7 @@ internal class CrystalMethodHierarchy(
         var complete = exactDeclarations.isNotEmpty()
 
         for (declaration in exactDeclarations) {
-            if (CrystalPsiUtils.isInsideMacroControlRegion(declaration)) { println("V13DEBUG incomplete-region type=" + type + " decl=" + declaration.text.take(40)); complete = false }
+            if (CrystalPsiUtils.isInsideMacroControlRegion(declaration)) { complete = false }
             val body = when (declaration) {
                 is CrystalClassDefinition -> declaration.classBody
                 is CrystalModuleDefinition -> declaration.classBody
@@ -224,7 +227,6 @@ internal class CrystalMethodHierarchy(
                             }
                         }
                         if (macroDepth > 0 && isRelevantMacroControlledEdge(member, mode, includeModuleEdges)) {
-                            println("V13DEBUG incomplete-edge type=" + type + " member=" + member.text.take(40))
                             complete = false
                             return@forEach
                         }
@@ -233,7 +235,7 @@ internal class CrystalMethodHierarchy(
                                 resolveEdge(member.typeReference, member)?.let {
                                     includes.add(it)
                                     edgeFiles.add(member.containingFile.virtualFile?.path.orEmpty())
-                                } ?: run { println("V13DEBUG incomplete-include-null type=" + type + " member=" + member.text.take(40)); complete = false }
+                                } ?: run { complete = false }
                             }
                             is CrystalExtendStatement -> if (includeModuleEdges && mode == CrystalReceiverMode.STATIC) {
                                 if (member.node.findChildByType(CrystalTypes.SELF) != null ||
@@ -288,12 +290,9 @@ internal class CrystalMethodHierarchy(
         for (candidate in candidates) {
             val identities = findTypesByName(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName)
                 .filter { it == candidate }.distinct()
-            println("V13DEBUG edge root=$root simple=$simpleName candidate=$candidate identities=$identities")
-            println("V13DEBUG edge rawTypes=" + findTypesByName(simpleName).mapNotNull { CrystalPsiUtils.buildQualifiedName(it) })
             if (identities.size > 1) return null
             identities.singleOrNull()?.let { return CrystalTypeIdentity(simpleName, it) }
         }
-        println("V13DEBUG edge EXHAUSTED root=$root candidates=$candidates")
         return null
     }
 
@@ -474,7 +473,11 @@ private val IMPLICIT_PRIMITIVE_SUPERCLASSES = mapOf(
     "UInt64" to "UInt",
     "UInt128" to "UInt",
     "Float32" to "Float",
-    "Float64" to "Float"
+    "Float64" to "Float",
+    // The source never declares these supers (compiler-imposed primitive
+    // hierarchy): without the extra hop, Number's methods (round, clamp, step)
+    // are unreachable from Float64/Float receivers.
+    "Float" to "Number",
 )
 
 internal fun normalizeExactTypeRoot(typeText: String): String? {

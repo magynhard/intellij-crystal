@@ -74,4 +74,28 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val deque = findStdlibFile("deque.cr") ?: return
         assertParsesCleanly(deque)
     }
+
+    fun testIntCrParsesWithoutErrors() {
+        // int.cr defines struct Int (line ~67) BEFORE macro-heavy method bodies
+        // ({% begin %} blocks with {{@type}}::CONST, line ~151+) and struct
+        // Int32/Int64/UInt32 (line ~1303) AFTER them. A parse failure in the
+        // macro region silently removes Int32 etc. from stub indexing and kills
+        // literal DOT completion (5.<caret>) — this canary guards that.
+        val int = findStdlibFile("int.cr") ?: return
+        assertParsesCleanly(int)
+    }
+
+    fun testFloatCrParsesWithoutErrors() {
+        // float.cr defines struct Float64 (line ~335) after {% if flag? %}
+        // blocks (line ~281+).
+        val float = findStdlibFile("float.cr") ?: return
+        assertParsesCleanly(float)
+    }
+
+    fun testNumberAndComparableCrParseWithoutErrors() {
+        for (name in listOf("number.cr", "comparable.cr")) {
+            val file = findStdlibFile(name) ?: continue
+            assertParsesCleanly(file)
+        }
+    }
 }

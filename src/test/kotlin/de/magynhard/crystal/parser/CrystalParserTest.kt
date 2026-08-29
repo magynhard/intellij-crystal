@@ -179,6 +179,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPrimitiveStdlibParsePatterns() {
+        doTest(true)
+    }
+
     fun testNamedTuple() {
         doTest(true)
     }
