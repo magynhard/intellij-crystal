@@ -253,6 +253,7 @@
         <module name="intellij.platform.dap"/>
         <module name="intellij.platform.smRunner"/>
         <module name="intellij.platform.structureView"/>
+        <module name="intellij.platform.langInjection"/>
     </dependencies>
 
     <extensions defaultExtensionNs="com.intellij">
@@ -483,8 +484,6 @@
 
         <!-- Owns comment-driven injection for Crystal hosts (keeps the generic
              IntelliLang comment contributor from double-injecting) -->
-        <org.intellij.plugins.intelliLang.languageSupport
-                implementation="de.magynhard.crystal.injection.CrystalLanguageInjectionSupport"/>
 
         <lang.findUsagesProvider
                 language="Crystal"
@@ -593,6 +592,16 @@
     <extensions defaultExtensionNs="com.intellij.platform.dap">
         <debugAdapterSupportProvider
                 implementation="de.magynhard.crystal.debugger.CrystalDebugAdapterSupportProvider"/>
+    </extensions>
+
+    <!-- Crystal's language injection support: owns comment-driven injection for
+         Crystal hosts so the generic IntelliLang comment contributor cannot
+         double-inject. NOTE: the extension namespace is org.intellij.intelliLang
+         (the declaring module's package id), not the EP's qualified-name prefix;
+         the module dependency is intellij.platform.langInjection. -->
+    <extensions defaultExtensionNs="org.intellij.intelliLang">
+        <languageSupport
+                implementation="de.magynhard.crystal.injection.CrystalLanguageInjectionSupport"/>
     </extensions>
 
     <projectListeners>

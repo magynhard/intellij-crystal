@@ -147,4 +147,23 @@ class CrystalLanguageCommentInjectionTest : BasePlatformTestCase() {
         assertTrue(elementClasses.contains(CrystalHeredocLiteral::class.java))
         assertTrue(elementClasses.contains(CrystalStringExpression::class.java))
     }
+
+    // ==================== Generic IntelliLang contributor silencer ====================
+
+    fun testGenericCommentContributorStaysSilentForCrystalHosts() {
+        myFixture.configureByText("main.cr", "# language=SQL\ns = \"SELECT 1\"\n")
+        val host = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalStringExpression::class.java).first()
+
+        // CommentLanguageInjector's contract: for a host with an applicable
+        // LanguageInjectionSupport that does NOT use the default comment
+        // injector, the generic comment contribution is skipped. Crystal owns
+        // comment-driven injection (alias resolution, interpolation splitting),
+        // so its support must opt out — otherwise the platform double-injects.
+        val crystalSupport = org.intellij.plugins.intelliLang.inject.InjectorUtils
+            .getActiveInjectionSupports()
+            .find { it.id == "crystal" }
+        assertNotNull("CrystalLanguageInjectionSupport must be registered", crystalSupport)
+        assertTrue(crystalSupport!!.isApplicableTo(host))
+        assertFalse("Crystal must opt out of the generic comment injector", crystalSupport.useDefaultCommentInjector())
+    }
 }

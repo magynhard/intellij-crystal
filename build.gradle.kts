@@ -33,7 +33,7 @@ dependencies {
         bundledModule("intellij.platform.smRunner")
         bundledModule("intellij.platform.testRunner")
         bundledModule("intellij.platform.structureView")
-        bundledModule("org.intellij.intelliLang")
+        bundledModule("intellij.platform.langInjection")
         bundledPlugin("HtmlTools")
         testFramework(TestFrameworkType.Platform)
     }

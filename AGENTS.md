@@ -94,14 +94,24 @@ back to the marker. `CrystalLanguageInjectionSupport`
 `org.intellij.plugins.intelliLang.languageSupport` EP) silences the generic
 IntelliLang comment contributor — without it the platform double-injects
 comment targets. `require "…"` strings are excluded from injection.
-**Do NOT declare `<module name="org.intellij.intelliLang"/>` in plugin.xml
-`<dependencies>`**: the module dependency reorders class initialization and
-breaks the `stubElementTypeHolder` registration ("All stub element types
-should be created before index initialization" — CrystalAnnotatorTest
-regressions). The `languageSupport` EP resolves via the
-`bundledModule("org.intellij.intelliLang")` build classpath alone; only add
-the module declaration together with a fix that makes the stub holder
-registration independent of classloading order.
+**IntelliLang EP registration gotchas (v14.2):** the `languageSupport`
+extension MUST use `defaultExtensionNs="org.intellij.intelliLang"` with a
+plain `<languageSupport/>` tag — the EP's qualified-name prefix
+(`org.intellij.plugins.intelliLang.`) does NOT resolve as an extension
+namespace (DatabaseTools is the in-product precedent). The module
+dependency is `intellij.platform.langInjection` (artifact name — NOT the
+fragment's `<module value="org.intellij.intelliLang"/>`). Without the
+module dependency the extension loads silently-excluded (EP list shows
+only xml/js/java/ftl/groovy/kotlin/sql).
+**Stub element type constants must exist before index initialization**
+(`IStubElementType` constructor fails with "All stub element types should
+be created before index initialization"). The platform's holder
+enumeration normally creates them, but plugin descriptor loading order
+(e.g. after adding `<module name="intellij.platform.langInjection"/>`)
+can defer it past index init. `CrystalFileType`'s static init therefore
+references `CrystalStubElementTypeHolder` to force initialization at file
+type registration (application start) — keep that reference when touching
+the file type or the stub holder.
 
 **DOT-calls use `dot_call_access` with polyvariant `CrystalDotCallReference`** — The public `dot_call_access` rule creates a real PSI composite via `CrystalDotCallReferenceMixin`. The reference consumes the shared exact DOT target resolver and `multiResolve()` returns every exact regular or constructor overload; `resolve()` returns a target only when unique. Its result is authoritative even when empty, so unknown, incomplete, suppressed, and ambiguous receivers never use a name-only fallback. `CrystalGotoDeclarationHandler` retains shared exact constructor fallback only for PSI shapes where no polyvariant DOT reference exists.
 - **Parameter Info for DOT-calls** works via `findMethodNameFromSiblings` which traverses `prevSibling` of the args holder to find `IDENTIFIER` preceded by `DOT`. For bare DOT-calls without args, `scanBackwardsForBareCall` + `findMethodNameInLeaves` handles the DOT pattern. The `extractIdentifierFromCallExpression` function is ONLY called for `CrystalMethodCallExpression` parents (which never contain DOT-calls per BNF). Do not modify it for DOT-call support — it would have no effect.
