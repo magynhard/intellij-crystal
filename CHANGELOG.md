@@ -2,7 +2,7 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
-## [0.2.8] — 2026-xx-xx
+## [0.2.8] — 2026-08-30
 
 ### Added
 - **`# language=<id>` comment injection into heredocs and string literals** — the RubyMine persistent-injection convention now works for Crystal: a whole-line `# language=<id>` comment on the line directly above a heredoc header or string literal injects that language into the body/content, with optional `prefix="…"` / `suffix="…"` attributes (the documented remedy for partial SQL statements). Resolution reuses the marker alias table plus the generic language-ID fallback (`# language=JS` works); a resolvable comment wins over the heredoc marker, an unresolvable one falls back to the marker; `require "…"` paths are excluded. String literals became `PsiLanguageInjectionHost`es: the escaper decodes Crystal escapes so the injected language sees the runtime value and maps offsets back for highlighting, and fragment-editor edits are re-encoded on write-back (interpolated bodies stay no-op). A minimal `CrystalLanguageInjectionSupport` silences the generic IntelliLang comment contributor, making double injections impossible. Covered by `CrystalLanguageCommentParseTest`, `CrystalLanguageCommentInjectionTest`, and `CrystalInjectionHostTest`; specified in docs/specs/heredoc-calls.md.
