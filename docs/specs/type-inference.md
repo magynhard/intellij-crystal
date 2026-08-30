@@ -106,11 +106,27 @@ but not merely because an unrelated method name is macro-controlled.
 Implicit-self methods take precedence. One exact top-level method remains a fallback only when the
 implicit-self hierarchy has no candidate; ambiguous top-level overloads are unknown.
 
-Crystal's compiler-implicit primitive hierarchy is represented as neutral exact hierarchy edges:
-signed `Int8`/`Int16`/`Int32`/`Int64`/`Int128` inherit `Int`, unsigned
-`UInt8`/`UInt16`/`UInt32`/`UInt64`/`UInt128` inherit `UInt`, and `Float32`/`Float64` inherit
-`Float`. Traversal uses the same visited set as explicit hierarchy traversal and remains cycle-safe.
-The edge contributes methods only when the parent declaration is indexed.
+Crystal's compiler-imposed hierarchy is represented as neutral exact hierarchy edges. The stdlib
+source never declares these superclasses, so they are implicit (verified against the compiler):
+signed `Int8`/`Int16`/`Int32`/`Int64`/`Int128` and unsigned `UInt8`/`UInt16`/`UInt32`/`UInt64`/
+`UInt128` inherit `Int` (the stdlib source declares no abstract `UInt`; `UInt32.superclass == Int`),
+`Float32`/`Float64` inherit `Float`, `Int` and `Float` inherit `Number`, and
+`Number`/`Struct`/`Enum`/`Bool`/`Char`/`Symbol` inherit `Value`, while `Value` and `Reference`
+inherit `Object`. A `class` or `struct` declaration without a `superclassClause` inherits the
+compiler-imposed base — `Reference` for classes, `Struct` for structs — so every resolved type
+reaches `Object` and methods written inside a reopened `class Object` (e.g. `Object#to_json : String`
+from `require "json"`, the target a bare `{…}.to_json` call dispatches to) are exposed to every
+receiver for lookup, navigation, argument validation, and completion. User-defined `enum Status`
+declarations inherit the `Enum` base (the compiler-imposed parent — NOT `Struct`; verified via
+`Status < Enum`), so enum receivers reach `Enum` (to_s/hash/<=>) and through `Value` the `Object`
+root (`{…}.to_json` from `require "json"`). An enum's `: Type` suffix (e.g. `enum Color : UInt8`)
+is the underlying storage type and never treated as a superclass edge. `Object` itself stays the
+hierarchy root: it receives no implicit edge and cannot self-loop. Modules cannot inherit and keep
+no superclass. The implicit base edge degrades gracefully: when the base declaration (`Reference`,
+`Struct`, `Enum`, `Value`, `Object`) is not indexed in the caller's require closure, the edge is
+dropped and the type stays chainless but complete, exactly like a type without any hierarchy.
+Traversal uses the same visited set as explicit hierarchy traversal and remains cycle-safe. The
+edge contributes methods only when the parent declaration is indexed.
 
 ## Constructors
 

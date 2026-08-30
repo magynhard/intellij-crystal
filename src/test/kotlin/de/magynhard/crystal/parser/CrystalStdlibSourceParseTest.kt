@@ -98,4 +98,13 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
             assertParsesCleanly(file)
         }
     }
+
+    fun testJsonToJsonCrParsesWithoutErrors() {
+        // json/to_json.cr reopens `class Object` (with a zero-argument
+        // Object#to_json) and reopens `struct NamedTuple`/`struct Enum` with
+        // {% for %} loops inside method bodies. The Object re-open supplies the
+        // zero-arg to_json overload every `{…}.to_json` call dispatches to.
+        val tojson = findStdlibFile("json/to_json.cr") ?: return
+        assertParsesCleanly(tojson)
+    }
 }

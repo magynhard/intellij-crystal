@@ -208,6 +208,7 @@ internal class CrystalMethodHierarchy(
                 is CrystalClassDefinition -> declaration.classBody
                 is CrystalModuleDefinition -> declaration.classBody
                 is CrystalStructDefinition -> declaration.classBody
+                is CrystalEnumDefinition -> declaration.enumBody
                 else -> null
             }
             if (body != null) {
@@ -256,6 +257,10 @@ internal class CrystalMethodHierarchy(
             val superclass = when (declaration) {
                 is CrystalClassDefinition -> declaration.superclassClause?.typeReference
                 is CrystalStructDefinition -> declaration.superclassClause?.typeReference
+                // An enum's optional `: Type` suffix is the base enum type
+                // (`enum Color : UInt8`), never a nominal superclass — enums
+                // always inherit the compiler-imposed `Enum` struct.
+                is CrystalEnumDefinition -> null
                 else -> null
             }
             if (superclass != null) {
@@ -265,6 +270,7 @@ internal class CrystalMethodHierarchy(
 
         if (superclasses.isEmpty()) {
             implicitPrimitiveSuperclass(type)?.let(superclasses::add)
+                ?: implicitDeclaredKindSuperclass(type, exactDeclarations)?.let(superclasses::add)
         }
 
         val distinctSuperclasses = superclasses.distinct()
@@ -303,6 +309,35 @@ internal class CrystalMethodHierarchy(
             CrystalPsiUtils.buildQualifiedName(it) == parentName
         }
         return if (declarations.isEmpty()) null else CrystalTypeIdentity(parentName, parentName)
+    }
+
+    /**
+     * Every Crystal class/struct/enum without a declared superclass inherits the
+     * compiler-imposed base (class → Reference → Object, struct → Struct →
+     * Value → Object, enum → Enum → Value → Object). Neither Reference, Value,
+     * Struct, nor Enum declare their superclass in stdlib source, so these edges
+     * are invisible to source-only resolution and must be implicit. Modules
+     * cannot inherit. An enum's `: Type` suffix is the underlying integer type,
+     * not a nominal superclass, so it is never treated as one.
+     */
+    private fun implicitDeclaredKindSuperclass(
+        type: CrystalTypeIdentity,
+        declarations: List<CrystalNamedElement>
+    ): CrystalTypeIdentity? {
+        // Object is the hierarchy root (Object.superclass == nil) and must not
+        // fall through to the generic class → Reference edge.
+        if (type.simpleName == "Object") return null
+        val parentName = when {
+            declarations.any { it is CrystalEnumDefinition } -> "Enum"
+            declarations.any { it is CrystalStructDefinition } -> "Struct"
+            declarations.any { it is CrystalClassDefinition } -> "Reference"
+            else -> return null
+        }
+        if (parentName == type.simpleName) return null
+        val parentDeclarations = findTypesByName(parentName).filter {
+            CrystalPsiUtils.buildQualifiedName(it) == parentName
+        }
+        return if (parentDeclarations.isEmpty()) null else CrystalTypeIdentity(parentName, parentName)
     }
 
     private fun findExactMethods(type: CrystalTypeIdentity): List<CrystalMethodDefinition> = methods.getOrPut(type) {
@@ -467,17 +502,35 @@ private val IMPLICIT_PRIMITIVE_SUPERCLASSES = mapOf(
     "Int32" to "Int",
     "Int64" to "Int",
     "Int128" to "Int",
-    "UInt8" to "UInt",
-    "UInt16" to "UInt",
-    "UInt32" to "UInt",
-    "UInt64" to "UInt",
-    "UInt128" to "UInt",
+    // The source never declares an abstract `UInt` and the compiler-imposed
+    // parent is Int (crystal eval: UInt32.superclass == Int, UInt32 < Int) —
+    // mapping to "UInt" resolved to nothing and left UInt receivers chainless.
+    "UInt8" to "Int",
+    "UInt16" to "Int",
+    "UInt32" to "Int",
+    "UInt64" to "Int",
+    "UInt128" to "Int",
     "Float32" to "Float",
     "Float64" to "Float",
     // The source never declares these supers (compiler-imposed primitive
     // hierarchy): without the extra hop, Number's methods (round, clamp, step)
     // are unreachable from Float64/Float receivers.
     "Float" to "Number",
+    // No stdlib base type declares its superclass either (compiler-imposed,
+    // verified via crystal eval: Reference < Object, Value < Object,
+    // Struct < Value, Number < Value, Int < Number, Enum/Bool/Char/Symbol < Value).
+    // Without these edges the hierarchy walk never reaches Object, so methods
+    // written inside a reopened `class Object` (e.g. Object#to_json from
+    // `require "json"`) are invisible to every receiver.
+    "Int" to "Number",
+    "Number" to "Value",
+    "Enum" to "Value",
+    "Bool" to "Value",
+    "Char" to "Value",
+    "Symbol" to "Value",
+    "Struct" to "Value",
+    "Value" to "Object",
+    "Reference" to "Object",
 )
 
 internal fun normalizeExactTypeRoot(typeText: String): String? {

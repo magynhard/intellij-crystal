@@ -133,12 +133,14 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
     }
 
     fun testEveryImplicitPrimitiveFamilyUsesItsCompilerParent() {
+        // Compiler truth (crystal eval): Int8..Int128.superclass == Int,
+        // UInt8..UInt128.superclass == Int (the stdlib source declares no abstract
+        // `UInt`), Float32/Float64.superclass == Float.
         val signed = listOf("Int8", "Int16", "Int32", "Int64", "Int128")
         val unsigned = listOf("UInt8", "UInt16", "UInt32", "UInt64", "UInt128")
         val floats = listOf("Float32", "Float64")
         val declarations = buildString {
-            append("struct Int\n  def signed_parent\n  end\nend\n")
-            append("struct UInt\n  def unsigned_parent\n  end\nend\n")
+            append("struct Int\n  def int_parent\n  end\nend\n")
             append("struct Float\n  def float_parent\n  end\nend\n")
             (signed + unsigned + floats).forEach { append("struct $it\nend\n") }
         }
@@ -147,14 +149,14 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
 
         signed.forEach { type ->
             assertEquals(
-                listOf("signed_parent"),
+                listOf("int_parent"),
                 session.collectMethods(CrystalTypeIdentity(type, type), CrystalReceiverMode.INSTANCE)
                     .methods.map { it.method.name }
             )
         }
         unsigned.forEach { type ->
             assertEquals(
-                listOf("unsigned_parent"),
+                listOf("int_parent"),
                 session.collectMethods(CrystalTypeIdentity(type, type), CrystalReceiverMode.INSTANCE)
                     .methods.map { it.method.name }
             )
@@ -252,5 +254,172 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
 
         assertTrue(result.complete)
         assertEquals(listOf("loaded_parent"), result.methods.map { it.method.name })
+    }
+
+    // ==================== Compiler-imposed base hierarchy ====================
+
+    fun testStructWithoutDeclaredSuperclassReachesObjectThroughStructAndValue() {
+        // Compiler truth: struct X → Struct → Value → Object (no stdlib struct
+        // declares its superclass). Reported false positive: {…}.to_json was
+        // checked against NamedTuple#to_json(json) only, while Object#to_json
+        // (the zero-argument target the compiler dispatches to) was invisible.
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Object\n  def object_marker\n  end\nend\n" +
+                "struct Value\n  def value_marker\n  end\nend\n" +
+                "struct Struct\n  def struct_marker\n  end\nend\n" +
+                "struct NamedTuple\n  def own\n  end\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("NamedTuple", "NamedTuple"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(
+            listOf("own", "struct_marker", "value_marker", "object_marker"),
+            result.methods.map { it.method.name }
+        )
+        assertEquals(listOf(0, 1, 2, 3), result.methods.map { it.depth })
+    }
+
+    fun testClassWithoutDeclaredSuperclassReachesObjectThroughReference() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Object\n  def object_marker\n  end\nend\n" +
+                "class Reference\n  def reference_marker\n  end\nend\n" +
+                "class String\n  def own\n  end\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("String", "String"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(
+            listOf("own", "reference_marker", "object_marker"),
+            result.methods.map { it.method.name }
+        )
+    }
+
+    fun testPrimitiveChainReachesObjectRootThroughNumberAndValue() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Object\n  def object_marker\n  end\nend\n" +
+                "struct Value\n  def value_marker\n  end\nend\n" +
+                "struct Number\n  def number_marker\n  end\nend\n" +
+                "struct Int\n  def int_marker\n  end\nend\n" +
+                "struct Int32\n  def own\n  end\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("Int32", "Int32"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(
+            listOf("own", "int_marker", "number_marker", "value_marker", "object_marker"),
+            result.methods.map { it.method.name }
+        )
+    }
+
+    fun testObjectRootDoesNotInheritReferenceSelfLoop() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Object\n  def object_marker\n  end\nend\n" +
+                "class Reference\n  def reference_marker\n  end\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("Object", "Object"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(listOf("object_marker"), result.methods.map { it.method.name })
+    }
+
+    fun testImplicitBaseEdgeDegradesGracefullyWithoutBaseDeclarations() {
+        // No Struct/Value/Object declarations visible → the implicit edge is
+        // dropped silently and the type stays chainless-but-complete.
+        val file = myFixture.configureByText("test.cr", "struct NamedTuple\n  def own\n  end\nend")
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("NamedTuple", "NamedTuple"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(listOf("own"), result.methods.map { it.method.name })
+    }
+
+    fun testEnumReachesObjectThroughEnumAndValue() {
+        // Compiler truth (crystal eval): user enum Status < Enum (its real
+        // parent — NOT Struct), Enum < Value. json/to_json.cr's reopened
+        // `struct Enum` supplies to_json; enum.cr's `abstract struct Enum`
+        // supplies to_s/hash.
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Object\n  def object_marker\n  end\nend\n" +
+                "struct Value\n  def value_marker\n  end\nend\n" +
+                "struct Enum\n  def enum_marker\n  end\nend\n" +
+                "enum Status\n  ACTIVE\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("Status", "Status"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        assertEquals(
+            listOf("enum_marker", "value_marker", "object_marker"),
+            result.methods.map { it.method.name }
+        )
+        assertEquals(listOf(1, 2, 3), result.methods.map { it.depth })
+    }
+
+    fun testEnumBodyMethodsAndBaseEnumMethodsAreCollected() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "struct Enum\n  def enum_marker : String\n  end\nend\n" +
+                "enum Status\n  ACTIVE\n  def label\n  end\n  def self.default\n  end\nend"
+        )
+        val session = CrystalTypeSetResolver.session(file)
+        val identity = CrystalTypeIdentity("Status", "Status")
+
+        val instance = session.collectMethods(identity, CrystalReceiverMode.INSTANCE)
+        val static = session.collectMethods(identity, CrystalReceiverMode.STATIC)
+        val named = session.collectNamedMethods(identity, CrystalReceiverMode.INSTANCE, "label")
+
+        assertTrue(instance.complete)
+        assertTrue(static.complete)
+        assertTrue(named.complete)
+        assertEquals(listOf("label", "enum_marker"), instance.methods.map { it.method.name })
+        assertEquals(listOf("label"), named.methods.map { it.name })
+        assertEquals(listOf("default"), static.methods.map { it.method.name })
+    }
+
+    fun testEnumTypeSuffixIsNotTreatedAsSuperclass() {
+        // `enum Color : UInt8` — the colon suffix is the underlying integer
+        // type, not a nominal superclass; the compiler-imposed Enum parent
+        // must stay the only edge.
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Object\n  def object_marker\n  end\nend\n" +
+                "struct Value\n  def value_marker\n  end\nend\n" +
+                "struct Enum\n  def enum_marker\n  end\nend\n" +
+                "struct UInt8\n  def uint_marker\n  end\nend\n" +
+                "enum Color : UInt8\n  RED\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("Color", "Color"),
+            CrystalReceiverMode.INSTANCE
+        )
+
+        assertTrue(result.complete)
+        // Enum → Value → Object, but NOT UInt8 (the `: UInt8` suffix is the
+        // underlying storage type, invisible to method lookup).
+        assertEquals(
+            listOf("enum_marker", "value_marker", "object_marker"),
+            result.methods.map { it.method.name }
+        )
     }
 }

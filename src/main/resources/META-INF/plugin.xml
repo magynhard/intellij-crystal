@@ -106,6 +106,10 @@
 ]]></description>
 
     <change-notes><![CDATA[
+<h3>0.2.9</h3>
+<ul>
+  <li><b>Enum receivers join the compiler-imposed base hierarchy</b> — user-defined enums inherit the implicit <code>Enum → Value → Object</code> chain, so <code>s.to_json</code> on an enum-typed parameter (after <code>require "json"</code>) no longer reports "Missing required argument(s): 'json'", and <code>Enum#to_s</code>/<code>hash</code>/<code>&lt;=&gt;</code> plus <code>Object</code> methods become reachable for completion and navigation. The <code>: Type</code> suffix (<code>enum Color : UInt8</code>) stays the storage type, not a superclass.</li>
+</ul>
 <h3>0.2.8</h3>
 <ul>
   <li><b>Embedded language highlighting in heredocs</b> — heredoc bodies whose marker names a language (<code>&lt;&lt;-SQL</code>, <code>&lt;&lt;-JAVASCRIPT</code>, <code>&lt;&lt;-YAML</code>, …) now show that language's syntax highlighting, mirroring RubyMine's heredoc injection. A curated alias table plus a case-insensitive language-ID fallback covers every installed language; uninstalled languages keep plain string highlighting, and Crystal interpolations (<code>#{…}</code>) keep their Crystal coloring instead of target-language errors.</li>
@@ -115,6 +119,7 @@
   <li><b>Heredoc calls inside argument lists</b> — <code>assert_diff(&lt;&lt;-FIRST, &lt;&lt;-SECOND)</code> and mixed normal/heredoc argument lists parse correctly (previously falsely marked "expected, got 'do'"); heredoc coloring is now PSI-enforced, so renaming delimiters no longer leaves bodies or terminators styled as ordinary code.</li>
   <li><b>Empty brace blocks after method calls</b> — <code>Thread.new { }</code> and <code>spawn { }</code> are no longer flagged with "Empty hash literal requires type".</li>
   <li><b>Constructor resolution across stdlib types</b> — <code>Hash(String, Int32).new(0)</code>, <code>Deque(Int32).new</code> (initializer-backed overloads), <code>URI.new("http", …)</code> (types defining setters), and <code>HTTP::Client.new(uri, tls)</code> (macro-generated methods) resolve to their real overloads instead of "Too many arguments" errors or "Any (Variable)" hovers.</li>
+  <li><b>Compiler-imposed base hierarchy</b> — every resolved receiver now reaches the implicit <code>Object</code> root, so bare calls validate against inherited overloads: <code>{error: "User not found"}.to_json</code> (after <code>require "json"</code>) no longer reports "Missing required argument(s): 'json'" and Go to Definition offers the full overload chooser.</li>
   <li><b>Macro context resolution</b> — unqualified calls inside <code>{{ … }}</code> now resolve only to project macros and builtin <code>Crystal::Macros</code> methods, so <code>{{ run("…") }}</code> no longer reports false type mismatches; hovering a top-level call shows the real method documentation instead of "Any (Variable)".</li>
   <li><b>Parser robustness</b> — char literals inside string interpolation and macro control blocks, special global variables (<code>#{$1}</code>) inside interpolations, and assignments in postfix modifier conditions (<code>return [] of Result unless target = …</code>) now parse correctly.</li>
   <li><b>Registration fixes</b> — the language injection support extension and stub element type initialization now load reliably under the 2026.2 module mechanism, eliminating double injections and "All stub element types should be created before index initialization" regressions.</li>
