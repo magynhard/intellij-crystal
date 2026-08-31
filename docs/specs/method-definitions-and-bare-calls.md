@@ -67,6 +67,40 @@ parameterless initializer. Tuple and NamedTuple branches follow the same languag
 rule and prevent an equivalent error on return types such as
 `{Entry(K, V), Int32}?`.
 
+## Type-shaped macro arguments (`property upgrade_handler : (IO ->)?`)
+
+Macro calls in property/getter position take `name : value` arguments, and the value
+side is not always an expression — Crystal's macro argument parser also accepts type
+shapes:
+
+```crystal
+property upgrade_handler : (IO ->)?        # http/server/response.cr
+getter block : (->) | Nil                  # spec/example.cr
+```
+
+`bare_expression` has no proc-type rule, so these previously failed the whole
+`bare_argument_list` and every member of the stdlib file after the shape silently
+dropped from stub indexing. The visible symptom was exactly the empty-constructor
+fallback: `HTTP::Server::Response.new(io)` (kemal spec/event_stream_spec.cr:72)
+reported "Too many arguments: expected at most 0, got 1" highlighted on `io`, while
+`HTTP::Request.new` on the same page resolved fine.
+
+Resolution: a dedicated `named_type_bare_argument` alternative
+(`IDENTIFIER COLON type_reference [named_bare_type_default]`) sits in `bare_argument`
+AFTER `named_bare_argument` (PEG order — expression-shaped values keep parsing as
+expressions). Two GrammarKit traps are documented in the BNF comments: a second
+alternative on the `private named_bare_argument` rule gets common-prefix-factored
+away (and flips GrammarKit's global error pinning, breaking deque.cr/to_json.cr),
+and `pin=2` commits the rule after `IDENTIFIER COLON` (`result_ || pinned_`) so a
+failing tail could never fall through — `named_bare_argument` therefore carries no
+pin; the required prefix makes the pin unnecessary for correct parsing.
+
+Known limits (TODO.md): shapes where `bare_expression` half-matches still mis-shape
+(`property level : Severity? = nil` — the `?` becomes a stray ternary QUESTION,
+`= nil` an assignment tail; `property select_context : SelectContext(Nil)?` — the
+generic type parses as a bare method call), and trailing `{ ... }` default-value
+blocks (spec/context.cr) are not consumed yet.
+
 ## Nested bare calls in argument lists
 
 Crystal command syntax nests: `exec new_request method, path` parses as
@@ -147,10 +181,14 @@ Rule since this fix: **explicit definitions win**.
   `NilableParenthesizedType.cr`,
   `MethodCalls.cr` (nested dot-call tail), `ExpressionAndRangeReplay.cr` (range
   binding), existing implicit-constructor inspection fixtures.
-- Stdlib canary: `CrystalStdlibSourceParseTest` parses the real `/usr/lib/crystal`
-  `uri.cr` and `http/client.cr` when a local Crystal is installed and fails on any
-  `PsiErrorElement`. This canary exists because stdlib files use far more syntax than
-  hand-written fixtures; a grammar gap there degrades indexing silently.
+- Stdlib canary: `CrystalStdlibSourceParseTest` parses real `/usr/lib/crystal`
+  sources when a local Crystal is installed (currently `uri.cr`, `http/client.cr`,
+  `http/server/response.cr` — the type-shaped macro argument regression source —,
+  `http/server/context.cr`, `http/server/request_processor.cr`, `deque.cr`,
+  `int.cr`, `float.cr`, `number.cr`, `comparable.cr`, `json/to_json.cr`, and the
+  compiler's `crystal/macros.cr`) and fails on any `PsiErrorElement`. This canary
+  exists because stdlib files use far more syntax than hand-written fixtures; a
+  grammar gap there degrades indexing silently.
 - Inspection: `CrystalArgumentCountInspectionTest.testConstructorAfterSetterDefinition*`
   verifies constructors behind setter definitions accept positional args and still flag
   genuine excess; `testConstructorInMacroGeneratingClassIsStillChecked` covers the same

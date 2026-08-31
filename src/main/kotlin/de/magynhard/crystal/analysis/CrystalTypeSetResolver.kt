@@ -752,7 +752,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (element is CrystalStringExpression || element is CrystalSymbolStringExpression ||
             element is CrystalHeredocLiteral) return false
         if (element is CrystalArrayLiteral) return element.expressionList?.expressionList.orEmpty().any(::mayRaise)
-        if (element is CrystalTupleLiteral) return element.expressionList.expressionList.any(::mayRaise)
+        if (element is CrystalTupleLiteral) return element.expressionList?.expressionList.orEmpty().any(::mayRaise)
         if (element is CrystalHashLiteral) return element.hashEntryList?.hashEntryList.orEmpty()
             .flatMap { it.expressionList }.any(::mayRaise)
         if (element is CrystalMethodCallExpression || element is CrystalBareMethodCallExpression ||
@@ -1034,7 +1034,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun resolveTuple(tuple: CrystalTupleLiteral): CrystalTypeResolution {
-        val expressions = tuple.expressionList.expressionList
+        val expressions = tuple.expressionList?.expressionList.orEmpty()
         val results = expressions.map(::resolve)
         if (results.any { it is CrystalTypeResolution.Unknown }) return CrystalTypeResolution.Unknown
         val names = results.map { (it as CrystalTypeResolution.Known).types.joinToString(" | ") { type -> type.name } }

@@ -109,6 +109,7 @@
 <h3>0.2.9</h3>
 <ul>
   <li><b>Enum receivers join the compiler-imposed base hierarchy</b> — user-defined enums inherit the implicit <code>Enum → Value → Object</code> chain, so <code>s.to_json</code> on an enum-typed parameter (after <code>require "json"</code>) no longer reports "Missing required argument(s): 'json'", and <code>Enum#to_s</code>/<code>hash</code>/<code>&lt;=&gt;</code> plus <code>Object</code> methods become reachable for completion and navigation. The <code>: Type</code> suffix (<code>enum Color : UInt8</code>) stays the storage type, not a superclass.</li>
+  <li><b>Type-shaped macro arguments parse</b> — <code>property upgrade_handler : (IO -&gt;)?</code> (proc types, <code>(-&gt;) | Nil</code> unions, nilable types with defaults in property/getter macro calls) no longer breaks parsing of the whole stdlib file; <code>HTTP::Server::Response.new(io)</code> (kemal specs) no longer reports a false "Too many arguments: expected at most 0, got 1".</li>
 </ul>
 <h3>0.2.8</h3>
 <ul>

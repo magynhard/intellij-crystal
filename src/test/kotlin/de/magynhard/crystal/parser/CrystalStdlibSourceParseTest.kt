@@ -107,4 +107,28 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val tojson = findStdlibFile("json/to_json.cr") ?: return
         assertParsesCleanly(tojson)
     }
+
+    fun testHttpServerResponseCrParsesWithoutErrors() {
+        // http/server/response.cr is the ONLY stdlib file with a parenthesized
+        // type in a property macro argument (`property upgrade_handler :
+        // (IO ->)?`, line ~45) sitting directly above `def initialize(@io : IO,
+        // @version = "HTTP/1.1")` (line ~50). A parse gap there silently drops
+        // the constructor from stub indexing, which makes every
+        // `HTTP::Server::Response.new(io)` call resolve to the implicit
+        // zero-argument constructor and report false "Too many arguments"
+        // (reported in kemal's spec/event_stream_spec.cr). It also carries the
+        // nested `class Output < IO` with a `property!` macro call.
+        val response = findStdlibFile("http/server/response.cr") ?: return
+        assertParsesCleanly(response)
+    }
+
+    fun testHttpServerContextCrParsesWithoutErrors() {
+        val context = findStdlibFile("http/server/context.cr") ?: return
+        assertParsesCleanly(context)
+    }
+
+    fun testHttpServerRequestProcessorCrParsesWithoutErrors() {
+        val processor = findStdlibFile("http/server/request_processor.cr") ?: return
+        assertParsesCleanly(processor)
+    }
 }

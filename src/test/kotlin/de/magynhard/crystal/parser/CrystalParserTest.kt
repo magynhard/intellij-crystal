@@ -23,6 +23,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testNamedTypeBareArguments() {
+        doTest(true)
+    }
+
     fun testEnumerableStdlibPatterns() {
         doTest(true)
     }

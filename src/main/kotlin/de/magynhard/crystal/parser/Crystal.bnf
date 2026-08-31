@@ -847,17 +847,38 @@ private named_argument ::= IDENTIFIER COLON expression {pin=2}
 bare_argument_list ::= bare_argument (macro_argument_trivia COMMA macro_argument_trivia bare_argument)* [COMMA macro_argument_trivia]
 
 bare_argument ::= named_bare_argument
+                | named_type_bare_argument
                 | STAR bare_expression
                 | DOUBLE_STAR bare_expression
                 | AMPERSAND bare_expression
                 | bare_expression
                 | OUT IDENTIFIER
 
-// Named bare argument: requires both IDENTIFIER and COLON to match before committing.
-// Without pin=2, the optional [IDENTIFIER COLON] prefix would greedily consume
-// IDENTIFIER even when COLON doesn't follow, causing binary expressions like
-// x * scalar to be misparsed (x consumed, * scalar treated as unary star).
-private named_bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_expression] {pin=2}
+// Named bare argument: the IDENTIFIER COLON prefix is REQUIRED, so a missing
+// colon simply fails the rule and the argument falls back to bare_expression
+// (x * scalar stays a binary expression). No pin here: with pin=2 the rule
+// commits after IDENTIFIER COLON (result_ || pinned_) and a failing tail —
+// proc-type macro arguments like `upgrade_handler : (IO ->)?` — could never
+// fall through to named_type_bare_argument below.
+private named_bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_expression]
+
+// TYPE-shaped macro argument, reached only when named_bare_argument fails (PEG
+// order): proc types in property/getter macro calls like
+// `property upgrade_handler : (IO ->)?` (stdlib http/server/response.cr) or
+// `(->) | Nil` (spec/example.cr) are not expressions — bare_expression has no
+// ARROW rule. Without this alternative the whole stdlib file after the shape
+// fails to parse and its members silently drop from stub indexing (false
+// "Too many arguments" on HTTP::Server::Response.new(io) in kemal specs).
+// Kept as a separate rule (not a second named_bare_argument alternative):
+// GrammarKit factors the shared IDENTIFIER COLON prefix of a multi-alternative
+// private rule and drops the type tail, which also flips its global error
+// pinning and breaks previously clean files (deque.cr, json/to_json.cr).
+private named_type_bare_argument ::= IDENTIFIER COLON type_reference [named_bare_type_default] {pin=2}
+
+// Wrapped so the optional `expression` stays inside a private rule: GrammarKit's
+// @NotNull inference flips unrelated element accessors (CrystalTupleLiteral,
+// CrystalAsmOperand) when `expression` appears directly in an optional position.
+private named_bare_type_default ::= ASSIGN expression
 
 // Bare expression: same as expression but does not consume blocks or assignments
 // This prevents the bare argument from eating the 'do' that belongs to the outer method call

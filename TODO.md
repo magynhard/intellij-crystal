@@ -115,6 +115,21 @@
   include `Comparable(Precise)` / `Comparable(Number)` with generic arguments; the hierarchy
   walk cannot resolve generic include edges, so comparison methods (`>`, `<`, `<=`, `clamp`
   overloads) inherited through Comparable are not offered on numeric literal receivers yet.
+- [ ] **Type-shaped macro arguments that bare_expression half-matches** — the new
+  `named_type_bare_argument` alternative only triggers when `bare_expression` fails entirely.
+  Shapes where the expression parse "succeeds" but is semantically a type stay mis-shaped:
+  `property level : Severity? = nil` (log/broadcast_backend.cr) parses `Severity` as an
+  expression, the `?` as a stray ternary QUESTION and `= nil` as an assignment tail, and
+  `property select_context : SelectContext(Nil)?` (channel.cr) parses the generic type as a
+  bare method call. Consequence: the nilability/generic information is lost from the PSI (no
+  parse error, so no canary signal). A correct fix needs type-aware macro-argument parsing
+  (e.g. preferring type_reference when the value starts with CONSTANT/LPAREN-type shapes)
+  without breaking expression-valued macro args; pinned by NamedTypeBareArguments.txt.
+- [ ] **Property default-value blocks in macro arguments** — `getter root_context :
+  RootContext { RootContext.new(self) }` (spec/context.cr:150) leaves the trailing
+  `{ ... }` default block unconsumed and currently breaks the bare-argument list. Accept an
+  optional block tail on type-shaped macro arguments (or bare arguments generally) and verify
+  the block does not swallow blocks belonging to an enclosing call.
 - [ ] **Design an explicit opt-in for project-root recursive require wildcards** — retain suppression for recursive targets equal to or containing the project root (`./**`, `../**`, and deeper ancestors) until an implementation can prove a bounded traversal root, expose cancellation/progress, avoid `FileTypeIndex` and project-wide index scans, and cover large projects without completion latency regressions.
 - [ ] **Bound require-graph root caches and compose prelude source sets** — add per-root LRU or lifecycle eviction with deterministic invalidation, preserve active closure ownership and retry semantics, and represent effective sources as a shared prelude plus root-local set without eagerly copying the prelude for every cached root. Acceptance requires bounded memory under many queried roots, unchanged membership/snapshot coherence, and concurrency tests for eviction during dirty validation.
 - [ ] **Evaluate repeated DOT reference result caching independently** — do not broaden the current completion-session optimization into cross-invocation or PSI-reference caches until invalidation and identity semantics have a dedicated design and measurements.

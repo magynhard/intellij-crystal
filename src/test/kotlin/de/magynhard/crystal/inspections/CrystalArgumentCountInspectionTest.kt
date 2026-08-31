@@ -2001,4 +2001,68 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Type-shaped macro arguments (kemal regression) ====================
+
+    fun testConstructorAfterTypeShapedMacroArgumentStillResolves() {
+        // Reported in kemal spec/event_stream_spec.cr:72: `property
+        // upgrade_handler : (IO ->)?` above the initialize made the whole
+        // stdlib file fail to parse, the constructor dropped from indexing and
+        // HTTP::Server::Response.new(io) fell back to the implicit
+        // zero-argument constructor ("Too many arguments: expected at most 0,
+        // got 1" highlighted on `io`).
+        myFixture.configureByText("test.cr", """
+            class HTTP::Server
+              class Response < IO
+                property upgrade_handler : (IO ->)?
+
+                def initialize(@io : IO, @version = "HTTP/1.1")
+                end
+              end
+            end
+
+            io = IO::Memory.new
+            HTTP::Server::Response.new(io)
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Constructor behind a type-shaped macro argument must still resolve",
+            highlights.any { it.description?.contains("Too many arguments") == true })
+    }
+
+    fun testConstructorWithReopenedClassAndMacroControlledNestedType() {
+        // The full kemal shape: the reopened class (no superclass, {% if %}
+        // block with a nested class) must not blank the constructor pool.
+        myFixture.configureByText("test.cr", """
+            class HTTP::Server
+              class Response < IO
+                property upgrade_handler : (IO ->)?
+
+                def initialize(@io : IO, @version = "HTTP/1.1")
+                end
+              end
+            end
+
+            class HTTP::Server::Response
+              def headers_sent? : Bool
+                wrote_headers?
+              end
+
+              {% if compare_versions(Crystal::VERSION, "1.3.0") < 0 %}
+                class Output
+                  def close
+                    previous_def
+                  end
+                end
+              {% end %}
+            end
+
+            io = IO::Memory.new
+            HTTP::Server::Response.new(io)
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Reopen with macro-controlled nested class must keep the constructor resolvable",
+            highlights.any { it.description?.contains("Too many arguments") == true })
+    }
 }
