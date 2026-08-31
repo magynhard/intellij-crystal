@@ -69,6 +69,9 @@ intellijPlatform {
 tasks {
     runIde {
         systemProperty("idea.trust.all.projects", "true")
+        // Optional: open a project directly instead of the welcome wizard
+        // (skips the trust/first-run dialogs): RUN_IDE_PROJECT=/path ./gradlew runIde
+        System.getenv("RUN_IDE_PROJECT")?.let { args(it) }
     }
 
     generateLexer {

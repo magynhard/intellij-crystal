@@ -30,6 +30,22 @@
 - Gradle 9.4.1 (wrapper committed), JDK 25 required (toolchain auto-provisioned via foojay)
 - `buildSearchableOptions` may fail due to IntelliJ Platform bug — not a plugin issue, ignore it
 
+### Headless External Inspection Audit
+
+Run the plugin's inspections autonomously against a real external Crystal project without opening a GUI IDE:
+
+```bash
+scripts/crystal-inspect-audit.sh /path/to/project
+```
+
+- Use this after parser, stub/index, resolution, type-inference, or inspection changes to detect real-world false positives and dropped declarations that focused tests may miss. The initial target is commonly `/home/magynhard/dev/github.com/kemalcr/kemal`.
+- The script builds the current dev plugin, installs it into an isolated RubyMine 2026.2 instance, creates fresh IDE indexes for deterministic results, runs JetBrains' language-neutral offline `inspect` command, and prints every `Crystal*.xml` problem as `file:line: description`.
+- Current results are available through `$AUDIT_HOME/out` (an atomically updated symlink); per-run XML reports and IDE logs remain under `$AUDIT_HOME/reports/` and `$AUDIT_HOME/logs/`. Default `AUDIT_HOME` is `/tmp/opencode/rm-audit`.
+- Override locations with `AUDIT_HOME=/tmp/audit RUBYMINE_HOME=/opt/jetbrains/RubyMine scripts/crystal-inspect-audit.sh /path/to/project`.
+- The script copies only `rubymine.key` from the real RubyMine config. It rejects unowned audit directories, path overlap with the plugin repository or inspected project, unsafe symlinks, and concurrent runs; never bypass those guards.
+- Use `rubymine.sh inspect`, not RubyMine's Ruby-oriented `rinspect`: `rinspect` requires a Ruby project/Gemfile and does not work for this Crystal-only audit profile.
+- Full behavior and known limits are specified in `docs/specs/headless-inspect-audit.md`.
+
 ## Code Generation
 
 Generated sources live in `src/main/gen/` and are **committed**. Regenerate with:
