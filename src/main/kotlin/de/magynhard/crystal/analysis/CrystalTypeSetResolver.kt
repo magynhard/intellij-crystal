@@ -1144,8 +1144,13 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return knownType(name, isUnsuffixedNumericLiteral = !normalized.endsWith("f32") && !normalized.endsWith("f64"))
     }
 
-    private fun firstExpressionChild(element: PsiElement): PsiElement? = significantChildren(element).firstOrNull {
-        it.node.elementType !in setOf(CrystalTypes.IDENTIFIER, CrystalTypes.COLON, CrystalTypes.STAR, CrystalTypes.DOUBLE_STAR)
+    private fun firstExpressionChild(element: PsiElement): PsiElement? {
+        val children = significantChildren(element)
+        val colonIndex = children.indexOfFirst { it.node.elementType == CrystalTypes.COLON }
+        val valueChildren = if (colonIndex > 0) children.drop(colonIndex + 1) else children
+        return valueChildren.firstOrNull {
+            it.node.elementType !in setOf(CrystalTypes.IDENTIFIER, CrystalTypes.STAR, CrystalTypes.DOUBLE_STAR)
+        }
     }
 
     private fun methodName(element: PsiElement): String? = element.node.getChildren(null).firstOrNull {

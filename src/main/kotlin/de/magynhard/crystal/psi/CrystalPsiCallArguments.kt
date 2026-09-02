@@ -1,5 +1,7 @@
 package de.magynhard.crystal.psi
 
+import com.intellij.psi.PsiElement
+
 /**
  * Single source of truth for reading call arguments from a [CrystalCallArgs].
  *
@@ -19,5 +21,13 @@ object CrystalPsiCallArguments {
     fun getArguments(callArgs: CrystalCallArgs): List<CrystalArgument> {
         val argList = callArgs.argumentList ?: return emptyList()
         return argList.argumentList.toList()
+    }
+
+    /** Returns the direct token before a named argument's colon. */
+    fun getNamedLabel(argument: PsiElement): String? {
+        if (argument !is CrystalArgument && argument !is CrystalBareArgument) return null
+        val children = argument.node.getChildren(null)
+        val colonIndex = children.indexOfFirst { it.elementType == CrystalTypes.COLON }
+        return children.getOrNull(colonIndex - 1)?.text
     }
 }

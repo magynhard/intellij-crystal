@@ -27,6 +27,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testKeywordNamedArguments() {
+        doTest(true)
+    }
+
     fun testDotCompoundAssignment() {
         doTest(true)
     }

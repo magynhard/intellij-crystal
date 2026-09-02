@@ -1,6 +1,8 @@
 package de.magynhard.crystal.analysis
 
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.psi.CrystalBareArgument
 
 class CrystalTypeSetResolverTest : BasePlatformTestCase() {
 
@@ -459,6 +461,17 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
             "def first\n  second()\nend\ndef second\n  first()\nend\n" +
                 "result = first()\n<caret>result"
         )
+    }
+
+    fun testKeywordNamedBareArgumentResolvesValueType() {
+        val file = myFixture.configureByText("test.cr", "consume for: <caret>\"value\"")
+        val leaf = file.findElementAt(myFixture.caretOffset) ?: error("No PSI at caret")
+        val argument = PsiTreeUtil.getParentOfType(leaf, CrystalBareArgument::class.java)
+            ?: error("No bare argument at caret")
+
+        val result = CrystalTypeSetResolver.resolve(argument) as CrystalTypeResolution.Known
+
+        assertEquals(listOf("String"), result.types.map { it.name })
     }
 
     fun testTypeResolutionUsesOnlyCurrentAndForwardRequiredSources() {

@@ -93,6 +93,13 @@
 
 ## Parser Follow-up
 
+- [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
+  `stdlibParseAudit` corpus from the current 177 errors in 125 of 461 files to zero,
+  then parse all 1,625 distribution sources without errors. Once both are green, add
+  mandatory CI jobs that download the pinned official archive, verify SHA-256
+  `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both
+  scopes. Keep raw `PsiErrorElement` collection and exact file counts; do not add an
+  error allowlist or accepted nonzero threshold. See `docs/specs/stdlib-parser-compatibility.md`.
 - [ ] **Parse comma-separated assignments inside parenthesized calls (`compute(x = 5, y = 6)`)** — valid Crystal
   (verified: compiles and evaluates both assignments in order), but neither the bare-argument path (grouped
   expressions hold at most one assignment) nor `argument_list` (`argument` cannot consume `id = expr`) accepts it.

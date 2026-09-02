@@ -49,6 +49,16 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testKeywordNamedArgsDoNotBindToPositionalParameters() {
+        myFixture.configureByText("test.cr", """
+            def flexible(value : String = "", **kwargs)
+            end
+            flexible(for: 1)
+            flexible for: 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testStringLiteralMatchesString() {
         myFixture.configureByText("test.cr", """
             def greet(name : String)

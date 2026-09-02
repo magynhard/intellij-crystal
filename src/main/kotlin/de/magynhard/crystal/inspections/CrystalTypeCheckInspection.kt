@@ -326,13 +326,16 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 }
                 else -> {
                     val resolved = CrystalExpressionTypeResolver.resolveType(argInfo.expression)
-                    slots.add(
+                    val highlight = findHighlightTarget(argInfo.expression)
+                    slots.add(if (argInfo.name != null) {
+                        EffectiveSlot.Named(argInfo.name, resolved?.typeName, highlight)
+                    } else {
                         EffectiveSlot.Positional(
                             resolved?.typeName,
-                            findHighlightTarget(argInfo.expression),
+                            highlight,
                             resolved?.isUnsuffixedNumericLiteral ?: false,
                         )
-                    )
+                    })
                 }
             }
         }
@@ -427,12 +430,11 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
      */
     private fun findHighlightTarget(element: PsiElement): PsiElement {
         if (element is CrystalBareArgument || element is CrystalArgument) {
-            var child = element.firstChild
+            val colon = element.node.findChildByType(CrystalTypes.COLON)?.psi
+            var child = colon?.nextSibling ?: element.firstChild
             while (child != null) {
                 val type = child.node?.elementType
-                if (type != CrystalTypes.IDENTIFIER && type != CrystalTypes.COLON
-                    && type != CrystalTypes.STAR && type != CrystalTypes.DOUBLE_STAR
-                    && child !is PsiWhiteSpace) {
+                if (type != CrystalTypes.STAR && type != CrystalTypes.DOUBLE_STAR && child !is PsiWhiteSpace) {
                     return child
                 }
                 child = child.nextSibling
@@ -485,17 +487,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     }
 
     private fun extractArgumentInfo(arg: CrystalArgument): ArgumentInfo? {
-        // Check for named argument: IDENTIFIER COLON expression
         val children = arg.node.getChildren(null)
-        var namedLabel: String? = null
-
-        for (i in children.indices) {
-            if (children[i].elementType == CrystalTypes.COLON && i > 0
-                && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
-                namedLabel = children[i - 1].text
-                break
-            }
-        }
+        val namedLabel = CrystalPsiCallArguments.getNamedLabel(arg)
 
         // Splat arguments (* or **) and out arguments
         val firstChildType = children.firstOrNull()?.elementType
@@ -511,18 +504,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     }
 
     private fun extractBareArgumentInfo(bareArg: CrystalBareArgument): ArgumentInfo {
-        // For bare arguments, the structure is more complex
-        // Check for named label (IDENTIFIER COLON)
         val children = bareArg.node.getChildren(null)
-        var namedLabel: String? = null
-
-        for (i in children.indices) {
-            if (children[i].elementType == CrystalTypes.COLON && i > 0
-                && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
-                namedLabel = children[i - 1].text
-                break
-            }
-        }
+        val namedLabel = CrystalPsiCallArguments.getNamedLabel(bareArg)
 
         // The expression is the first significant PSI child that is not the named label
         // For bare_argument, the content is spread as direct children

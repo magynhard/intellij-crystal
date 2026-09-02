@@ -129,3 +129,43 @@ tasks {
 kotlin {
     jvmToolchain(25)
 }
+
+val crystalCorpus = providers.gradleProperty("crystalCorpus").orElse("indexed")
+val crystalStdlibRoot = providers.gradleProperty("crystalStdlibRoot")
+
+val stdlibParseAudit by intellijPlatformTesting.testIde.registering {
+    val scope = crystalCorpus.get()
+    task {
+        group = "verification"
+        description = "Parses the pinned Crystal 1.21.0 source corpus without recovery or exclusions."
+        classpath += files(
+            sourceSets.test.get().runtimeClasspath,
+            configurations["intellijPlatformTestClasspath"]
+        )
+        useJUnit()
+        filter {
+            includeTestsMatching(
+                "de.magynhard.crystal.parser.CrystalStdlibParseAuditTest.testCorpusParsesWithoutErrors"
+            )
+            isFailOnNoMatchingTests = true
+        }
+        systemProperty("NO_FS_ROOTS_ACCESS_CHECK", "true")
+        systemProperty("crystal.stdlib.parse.audit.enabled", "true")
+        systemProperty("crystal.stdlib.parse.audit.root", crystalStdlibRoot.orElse("").get())
+        systemProperty("crystal.stdlib.parse.audit.scope", scope)
+        systemProperty(
+            "crystal.stdlib.parse.audit.report",
+            layout.buildDirectory.file("reports/stdlib-parse-audit/$scope/report.txt").get().asFile.absolutePath
+        )
+        systemProperty(
+            "crystal.stdlib.parse.audit.tsv",
+            layout.buildDirectory.file("reports/stdlib-parse-audit/$scope/errors.tsv").get().asFile.absolutePath
+        )
+        reports.junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/stdlibParseAudit/$scope"))
+        reports.html.outputLocation.set(layout.buildDirectory.dir("reports/tests/stdlibParseAudit/$scope"))
+        maxHeapSize = "4g"
+        maxParallelForks = 1
+        outputs.upToDateWhen { false }
+        outputs.cacheIf { false }
+    }
+}

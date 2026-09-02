@@ -226,6 +226,16 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testDoubleSplatAcceptsKeywordNamedArgs() {
+        myFixture.configureByText("test.cr", """
+            def flexible(**kwargs)
+            end
+            flexible(for: 1)
+            flexible for: 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Block Parameter Not Counted ====================
 
     fun testBlockParamNotCounted() {

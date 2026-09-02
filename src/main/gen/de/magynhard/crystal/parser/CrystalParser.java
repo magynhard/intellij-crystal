@@ -3731,31 +3731,60 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION | ASM
-  //                             | BEGIN | BREAK
-  //                             | CASE | CLASS
-  //                             | DEF | DO
-  //                             | ELSE | ELSIF | END | ENSURE | ENUM | EXTEND
-  //                             | FALSE | FOR | FORALL | FUN
-  //                             | IF | IN | INCLUDE | INSTANCE_SIZEOF | IS_A
-  //                             | LIB
-  //                             | MACRO | MODULE
-  //                             | NEXT | NIL | NIL_QUESTION
-  //                             | OF | OFFSETOF | OUT
-  //                             | POINTEROF | PREVIOUS_DEF | PRIVATE | PROTECTED
-  //                             | REQUIRE | RESCUE | RESPONDS_TO | RETURN
-  //                             | SELECT | SELF | SIZEOF | STRUCT | SUPER
-  //                             | THEN | TRUE | TYPEOF
-  //                             | UNINITIALIZED | UNION | UNLESS | UNTIL
-  //                             | VERBATIM
-  //                             | WHEN | WHILE | WITH
-  //                             | YIELD
+  // keyword_identifier
   //                             | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
   //                             | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP
   //                             | LSHIFT | RSHIFT | AMPERSAND | PIPE | CARET | TILDE
   //                             | DOUBLE_SLASH
   static boolean keyword_as_method(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "keyword_as_method")) return false;
+    boolean result_;
+    result_ = keyword_identifier(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, PLUS);
+    if (!result_) result_ = consumeToken(builder_, MINUS);
+    if (!result_) result_ = consumeToken(builder_, STAR);
+    if (!result_) result_ = consumeToken(builder_, SLASH);
+    if (!result_) result_ = consumeToken(builder_, PERCENT);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
+    if (!result_) result_ = consumeToken(builder_, EQ);
+    if (!result_) result_ = consumeToken(builder_, NEQ);
+    if (!result_) result_ = consumeToken(builder_, LT);
+    if (!result_) result_ = consumeToken(builder_, GT);
+    if (!result_) result_ = consumeToken(builder_, LTE);
+    if (!result_) result_ = consumeToken(builder_, GTE);
+    if (!result_) result_ = consumeToken(builder_, SPACESHIP);
+    if (!result_) result_ = consumeToken(builder_, LSHIFT);
+    if (!result_) result_ = consumeToken(builder_, RSHIFT);
+    if (!result_) result_ = consumeToken(builder_, AMPERSAND);
+    if (!result_) result_ = consumeToken(builder_, PIPE);
+    if (!result_) result_ = consumeToken(builder_, CARET);
+    if (!result_) result_ = consumeToken(builder_, TILDE);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION | ASM
+  //                              | BEGIN | BREAK
+  //                              | CASE | CLASS
+  //                              | DEF | DO
+  //                              | ELSE | ELSIF | END | ENSURE | ENUM | EXTEND
+  //                              | FALSE | FOR | FORALL | FUN
+  //                              | IF | IN | INCLUDE | INSTANCE_SIZEOF | IS_A
+  //                              | LIB
+  //                              | MACRO | MODULE
+  //                              | NEXT | NIL | NIL_QUESTION
+  //                              | OF | OFFSETOF | OUT
+  //                              | POINTEROF | PREVIOUS_DEF | PRIVATE | PROTECTED
+  //                              | REQUIRE | RESCUE | RESPONDS_TO | RETURN
+  //                              | SELECT | SELF | SIZEOF | STRUCT | SUPER
+  //                              | THEN | TRUE | TYPEOF
+  //                              | UNINITIALIZED | UNION | UNLESS | UNTIL
+  //                              | VERBATIM
+  //                              | WHEN | WHILE | WITH
+  //                              | YIELD
+  static boolean keyword_identifier(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "keyword_identifier")) return false;
     boolean result_;
     result_ = consumeToken(builder_, ABSTRACT);
     if (!result_) result_ = consumeToken(builder_, ALIAS);
@@ -3818,26 +3847,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, WHILE);
     if (!result_) result_ = consumeToken(builder_, WITH);
     if (!result_) result_ = consumeToken(builder_, YIELD);
-    if (!result_) result_ = consumeToken(builder_, PLUS);
-    if (!result_) result_ = consumeToken(builder_, MINUS);
-    if (!result_) result_ = consumeToken(builder_, STAR);
-    if (!result_) result_ = consumeToken(builder_, SLASH);
-    if (!result_) result_ = consumeToken(builder_, PERCENT);
-    if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
-    if (!result_) result_ = consumeToken(builder_, EQ);
-    if (!result_) result_ = consumeToken(builder_, NEQ);
-    if (!result_) result_ = consumeToken(builder_, LT);
-    if (!result_) result_ = consumeToken(builder_, GT);
-    if (!result_) result_ = consumeToken(builder_, LTE);
-    if (!result_) result_ = consumeToken(builder_, GTE);
-    if (!result_) result_ = consumeToken(builder_, SPACESHIP);
-    if (!result_) result_ = consumeToken(builder_, LSHIFT);
-    if (!result_) result_ = consumeToken(builder_, RSHIFT);
-    if (!result_) result_ = consumeToken(builder_, AMPERSAND);
-    if (!result_) result_ = consumeToken(builder_, PIPE);
-    if (!result_) result_ = consumeToken(builder_, CARET);
-    if (!result_) result_ = consumeToken(builder_, TILDE);
-    if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
     return result_;
   }
 
@@ -5192,30 +5201,48 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // IDENTIFIER COLON expression
+  // (IDENTIFIER | keyword_identifier) COLON expression
   static boolean named_argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_argument")) return false;
-    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
     boolean result_, pinned_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_);
-    result_ = consumeTokens(builder_, 2, IDENTIFIER, COLON);
+    result_ = named_argument_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
     pinned_ = result_; // pin = 2
     result_ = result_ && expression(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
 
+  // IDENTIFIER | keyword_identifier
+  private static boolean named_argument_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "named_argument_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
+    return result_;
+  }
+
   /* ********************************************************** */
-  // IDENTIFIER COLON bare_expression [ASSIGN bare_expression]
+  // (IDENTIFIER | keyword_identifier) COLON bare_expression [ASSIGN bare_expression]
   static boolean named_bare_argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_bare_argument")) return false;
-    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeTokens(builder_, 0, IDENTIFIER, COLON);
+    result_ = named_bare_argument_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
     result_ = result_ && bare_expression(builder_, level_ + 1);
     result_ = result_ && named_bare_argument_3(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // IDENTIFIER | keyword_identifier
+  private static boolean named_bare_argument_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "named_bare_argument_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
     return result_;
   }
 
@@ -5251,18 +5278,27 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // IDENTIFIER COLON type_reference [named_bare_type_default]
+  // (IDENTIFIER | keyword_identifier) COLON type_reference [named_bare_type_default]
   static boolean named_type_bare_argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_type_bare_argument")) return false;
-    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
     boolean result_, pinned_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_);
-    result_ = consumeTokens(builder_, 2, IDENTIFIER, COLON);
+    result_ = named_type_bare_argument_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
     pinned_ = result_; // pin = 2
     result_ = result_ && report_error_(builder_, type_reference(builder_, level_ + 1));
     result_ = pinned_ && named_type_bare_argument_3(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
+  }
+
+  // IDENTIFIER | keyword_identifier
+  private static boolean named_type_bare_argument_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "named_type_bare_argument_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
+    return result_;
   }
 
   // [named_bare_type_default]

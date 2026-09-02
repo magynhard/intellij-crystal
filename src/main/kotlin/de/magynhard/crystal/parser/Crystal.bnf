@@ -693,29 +693,34 @@ namespace_access ::= DOUBLE_COLON CONSTANT {
 }
 
 // Keywords that Crystal allows as method names after DOT
-private keyword_as_method ::= ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION | ASM
-                            | BEGIN | BREAK
-                            | CASE | CLASS
-                            | DEF | DO
-                            | ELSE | ELSIF | END | ENSURE | ENUM | EXTEND
-                            | FALSE | FOR | FORALL | FUN
-                            | IF | IN | INCLUDE | INSTANCE_SIZEOF | IS_A
-                            | LIB
-                            | MACRO | MODULE
-                            | NEXT | NIL | NIL_QUESTION
-                            | OF | OFFSETOF | OUT
-                            | POINTEROF | PREVIOUS_DEF | PRIVATE | PROTECTED
-                            | REQUIRE | RESCUE | RESPONDS_TO | RETURN
-                            | SELECT | SELF | SIZEOF | STRUCT | SUPER
-                            | THEN | TRUE | TYPEOF
-                            | UNINITIALIZED | UNION | UNLESS | UNTIL
-                            | VERBATIM
-                            | WHEN | WHILE | WITH
-                            | YIELD
+private keyword_as_method ::= keyword_identifier
                             | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
                             | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP
                             | LSHIFT | RSHIFT | AMPERSAND | PIPE | CARET | TILDE
                             | DOUBLE_SLASH
+
+// Crystal accepts word keywords as named argument labels (`for: time`) and as
+// names passed to declaration macros (`property next : Fiber?`). Operators are
+// valid method names but not argument labels, so keep this set separate.
+private keyword_identifier ::= ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION | ASM
+                             | BEGIN | BREAK
+                             | CASE | CLASS
+                             | DEF | DO
+                             | ELSE | ELSIF | END | ENSURE | ENUM | EXTEND
+                             | FALSE | FOR | FORALL | FUN
+                             | IF | IN | INCLUDE | INSTANCE_SIZEOF | IS_A
+                             | LIB
+                             | MACRO | MODULE
+                             | NEXT | NIL | NIL_QUESTION
+                             | OF | OFFSETOF | OUT
+                             | POINTEROF | PREVIOUS_DEF | PRIVATE | PROTECTED
+                             | REQUIRE | RESCUE | RESPONDS_TO | RETURN
+                             | SELECT | SELF | SIZEOF | STRUCT | SUPER
+                             | THEN | TRUE | TYPEOF
+                             | UNINITIALIZED | UNION | UNLESS | UNTIL
+                             | VERBATIM
+                             | WHEN | WHILE | WITH
+                             | YIELD
 
 // ==================== Primary Expressions ====================
 
@@ -845,7 +850,7 @@ private starred_type_expression ::= type_path (STAR | DOUBLE_STAR)+
 // Without pin=2, the optional [IDENTIFIER COLON] prefix would greedily consume
 // IDENTIFIER even when COLON doesn't follow, causing binary expressions like
 // x * 2 to be misparsed (x consumed, * 2 treated as unary star expression).
-private named_argument ::= IDENTIFIER COLON expression {pin=2}
+private named_argument ::= (IDENTIFIER | keyword_identifier) COLON expression {pin=2}
 
 // Bare (parenthesis-free) arguments — used for calls like: describe App5 do ... end
 // Trivia only AROUND commas (never leading/trailing): multi-line bare calls like
@@ -868,7 +873,7 @@ bare_argument ::= named_bare_argument
 // commits after IDENTIFIER COLON (result_ || pinned_) and a failing tail —
 // proc-type macro arguments like `upgrade_handler : (IO ->)?` — could never
 // fall through to named_type_bare_argument below.
-private named_bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_expression]
+private named_bare_argument ::= (IDENTIFIER | keyword_identifier) COLON bare_expression [ASSIGN bare_expression]
 
 // TYPE-shaped macro argument, reached only when named_bare_argument fails (PEG
 // order): proc types in property/getter macro calls like
@@ -881,7 +886,7 @@ private named_bare_argument ::= IDENTIFIER COLON bare_expression [ASSIGN bare_ex
 // GrammarKit factors the shared IDENTIFIER COLON prefix of a multi-alternative
 // private rule and drops the type tail, which also flips its global error
 // pinning and breaks previously clean files (deque.cr, json/to_json.cr).
-private named_type_bare_argument ::= IDENTIFIER COLON type_reference [named_bare_type_default] {pin=2}
+private named_type_bare_argument ::= (IDENTIFIER | keyword_identifier) COLON type_reference [named_bare_type_default] {pin=2}
 
 // Wrapped so the optional `expression` stays inside a private rule: GrammarKit's
 // @NotNull inference flips unrelated element accessors (CrystalTupleLiteral,

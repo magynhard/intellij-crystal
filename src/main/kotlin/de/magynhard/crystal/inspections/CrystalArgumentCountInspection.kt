@@ -432,7 +432,6 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
     private fun extractArgInfo(arg: CrystalArgument): ArgumentInfo {
         val children = arg.node.getChildren(null)
-        var namedLabel: String? = null
         var isSplat = false
         var isDoubleSplat = false
         var isBlockPass = false
@@ -443,15 +442,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             CrystalTypes.DOUBLE_STAR -> isDoubleSplat = true
             CrystalTypes.AMPERSAND -> isBlockPass = true
         }
-        if (!isSplat && !isDoubleSplat && !isBlockPass) {
-            for (i in children.indices) {
-                if (children[i].elementType == CrystalTypes.COLON && i > 0
-                    && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
-                    namedLabel = children[i - 1].text
-                    break
-                }
-            }
-        }
+        val namedLabel = CrystalPsiCallArguments.getNamedLabel(arg)
 
         val resolvedSplatCount = if (isSplat) resolveSplatCount(arg) else null
         val resolvedDoubleSplatKeys = if (isDoubleSplat) resolveDoubleSplatKeys(arg) else null
@@ -461,7 +452,6 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
     private fun extractBareArgInfo(bareArg: CrystalBareArgument): ArgumentInfo {
         val children = bareArg.node.getChildren(null)
-        var namedLabel: String? = null
         var isSplat = false
         var isDoubleSplat = false
         var isBlockPass = false
@@ -472,15 +462,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             CrystalTypes.DOUBLE_STAR -> isDoubleSplat = true
             CrystalTypes.AMPERSAND -> isBlockPass = true
         }
-        if (!isSplat && !isDoubleSplat && !isBlockPass) {
-            for (i in children.indices) {
-                if (children[i].elementType == CrystalTypes.COLON && i > 0
-                    && children[i - 1].elementType == CrystalTypes.IDENTIFIER) {
-                    namedLabel = children[i - 1].text
-                    break
-                }
-            }
-        }
+        val namedLabel = CrystalPsiCallArguments.getNamedLabel(bareArg)
 
         val resolvedSplatCount = if (isSplat) resolveSplatCount(bareArg) else null
         val resolvedDoubleSplatKeys = if (isDoubleSplat) resolveDoubleSplatKeys(bareArg) else null
