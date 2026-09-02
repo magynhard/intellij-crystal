@@ -44,12 +44,48 @@ import com.intellij.psi.TokenType;
   private boolean isRegexAllowed() {
     // Check the character immediately before the current token (skip whitespace already consumed)
     int pos = zzStartRead - 1;
-    while (pos >= 0 && (zzBuffer.charAt(pos) == ' ' || zzBuffer.charAt(pos) == '\t')) pos--;
+    boolean separatedByWhitespace = false;
+    while (pos >= 0 && (zzBuffer.charAt(pos) == ' ' || zzBuffer.charAt(pos) == '\t')) {
+      separatedByWhitespace = true;
+      pos--;
+    }
     if (pos < 0) return true; // start of file
     char c = zzBuffer.charAt(pos);
-    // After identifiers, constants, numbers, ), ] — it's division, not regex
-    if (Character.isLetterOrDigit(c) || c == '_' || c == ')' || c == ']' || c == '"' || c == '\'') return false;
+    // A whitespace-separated slash after a DOT method name is a bare regex argument:
+    // `range.match /pattern/`. Crystal treats a space immediately inside the
+    // slash as division in this ambiguous form. Requiring non-whitespace regex
+    // content and a closing slash keeps chained division in operator position.
+    if ((Character.isLetterOrDigit(c) || c == '_' || c == '?' || c == '!')
+        && separatedByWhitespace && hasDottedReceiverBefore(pos)
+        && zzMarkedPos < zzEndRead && !Character.isWhitespace(zzBuffer.charAt(zzMarkedPos))
+        && hasRegexTerminator()) return true;
+    // After identifiers, constants, numbers, ), ] — it's division, not regex.
+    if (Character.isLetterOrDigit(c) || c == '_' || c == '?' || c == '!' || c == ')' || c == ']' || c == '"' || c == '\'') return false;
     return true;
+  }
+
+  private boolean hasDottedReceiverBefore(int identifierEnd) {
+    int pos = identifierEnd;
+    while (pos >= 0) {
+      char c = zzBuffer.charAt(pos);
+      if (!Character.isLetterOrDigit(c) && c != '_' && c != '?' && c != '!') break;
+      pos--;
+    }
+    return pos >= 0 && zzBuffer.charAt(pos) == '.';
+  }
+
+  private boolean hasRegexTerminator() {
+    boolean escaped = false;
+    for (int pos = zzMarkedPos; pos < zzEndRead; pos++) {
+      char c = zzBuffer.charAt(pos);
+      if (!escaped && c == '/') return true;
+      if (!escaped && c == '\\') {
+        escaped = true;
+      } else {
+        escaped = false;
+      }
+    }
+    return false;
   }
 
   // Backtick method-name disambiguation (macros.cr defines `def \`(command) : MacroId`):

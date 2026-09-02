@@ -27,6 +27,26 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testDotCompoundAssignment() {
+        doTest(true)
+    }
+
+    fun testControlFlowAssignmentValues() {
+        doTest(true)
+    }
+
+    fun testKemalRangeBlock() {
+        doTest(true)
+    }
+
+    fun testDotRegexDivision() {
+        doTest(true)
+    }
+
+    fun testTernaryAssignments() {
+        doTest(true)
+    }
+
     fun testEnumerableStdlibPatterns() {
         doTest(true)
     }

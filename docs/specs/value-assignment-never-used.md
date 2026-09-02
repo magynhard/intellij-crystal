@@ -1,195 +1,121 @@
-# Value Assigned to Variable Never Used
+# Unused Local Assignments
 
-Spec for the `CrystalUnusedVariableInspection` — specifically the "Value assigned to variable is never used" warning.
+Behavioral specification for `CrystalUnusedVariableInspection` and its local
+definition-use analysis.
 
-## Overview
+## Diagnostic Contract
 
-The inspection warns when a value assigned to a local variable is never read before the variable is reassigned or goes out of scope. It is aware of Crystal's control flow — assignments inside conditional branches (which may not execute) do NOT count as overwriting the previous value.
+The inspection reports a plain local-variable assignment when that concrete
+assigned value cannot reach any read on a possible execution path.
 
-## Algorithm
+- A binding with one assignment reports `Variable '<name>' is never used`.
+- A dead definition of a binding assigned more than once reports
+  `Value assigned to '<name>' is never used`.
+- Assignments whose names start with `_` are intentionally unused and are not
+  reported.
+- Instance variables, class variables, constants, parameters, and destructuring
+  targets are outside this inspection's scope.
+- Compound assignments read the previous value before writing the new value;
+  the synthetic write itself is not reportable as a plain unused assignment.
+- Parenthesized simple assignments such as `(value = compute)` create the same
+  binding definition as statement assignments, including inside ternaries.
 
-1. Collect all local variable assignments and references in scope.
-2. For each assignment `A`, find the next assignment `B` to the same variable (by offset).
-3. If the next assignment `B` is inside a conditional branch:
-   - Extend the search range to the next unconditional assignment `C` (or end of scope if none exists).
-   - Check for reads between `A` and `C` (instead of between `A` and `B`).
-4. If no read is found in the search range → report "Value assigned to 'x' is never used".
+## Binding Identity
 
-## Conditional Constructs
+Names alone do not identify local variables. Each method, type body, file, and
+block has a lexical frame. A block parameter shadows an outer binding, while
+an assignment in a block updates an outer binding only when that binding is
+already visible at the block's source position. A new block-local binding does
+not escape the block.
 
-A construct is considered *conditional* when its body may not execute at runtime. The following PSI element types are recognized:
+Method, macro, class, module, struct, enum, and file boundaries never share
+local bindings.
 
-| Construct | Conditional? | Reason |
-|-----------|-------------|--------|
-| `CrystalIfStatement` (with or without else/elsif) | Yes | `if` body only executes when condition is truthy |
-| `CrystalUnlessStatement` | Yes | Body only executes when condition is falsy |
-| `CrystalWhileStatement` | Yes | Body may not execute if condition is initially falsy |
-| `CrystalUntilStatement` | Yes | Body may not execute if condition is initially truthy |
-| `CrystalForStatement` | Yes | Body may not execute if the collection is empty |
-| `CrystalCaseStatement` | Yes | Only executes the matching `when` branch (or none) |
-| `CrystalSelectStatement` | Yes | Only executes the matching `when` branch (or none) |
-| `CrystalBeginStatement` with rescue clauses | Yes | The body after `rescue` only executes if an exception is raised |
-| `CrystalBeginStatement` without rescue | No | Plain `begin...end` always executes its body |
+Rescue variables create clause-local bindings and shadow same-named outer
+locals. Pattern bindings in `case ... in` remain deferred as documented in
+`TODO.md`.
 
-### Purpose of the Rules
+## Definition-Use Analysis
 
-An assignment is considered "used" if its value can possibly be read by subsequent code. When the next assignment to the same variable is inside a conditional branch, the branch may not execute — so the previous assignment's value could still flow through. Therefore, the search for reads must extend past conditional boundaries until the next unconditional overwrite (or end of scope).
+Each reportable assignment creates a distinct definition. The analyzer carries
+the set of definitions that may reach each binding through the PSI control-flow
+structure. A read marks every reaching definition as used.
 
-## Assignment Lifecycle Rules
+- Sequential writes replace the previous reaching definition.
+- `if`, `unless`, `case`, ternaries, short-circuit operators, and `select` merge possible branches, including
+  the path where no branch executes when there is no exhaustive fallback.
+- `while`, `until`, `for`, and call blocks iterate to a fixed point, so a write
+  from one iteration can reach a read in the next iteration.
+- `return`, `break`, and `next`, including postfix forms and assignment-valued
+  forms, terminate the corresponding path after evaluating their value.
+- Rescue handlers conservatively receive every definition that could have been
+  written before an exception in the protected body.
+- `else` on a protected block runs only after normal body completion.
+- `ensure` runs for normal, returning, breaking, and continuing paths; abrupt
+  control flow originating in the ensure body supersedes the protected path.
+- An unreachable definition is not reported because no assignment happened at
+  runtime.
 
-- **Linear consecutive assignments:** Only check for reads between `A` and the next assignment `B`. If `B` always executes, `A`'s value is dead.
-- **Conditional next assignment:** Extend the read-search range to the next unconditional assignment (or end of scope).
-- **Compound assignments** (`x += 1`, `x ||= true`) count as both a read of the current value and a write — they never trigger the warning by themselves.
-- **Any read** (not just direct references — also reads via compound assignment) suppresses the warning for preceding assignments.
+## Blocks And Generated Code
 
-## Examples: Correct Behavior (No Warning Expected)
+Call blocks can execute zero, one, or multiple times and may execute after
+surrounding assignments. Reads captured from an outer frame therefore keep the
+definitions reaching the capture and later definitions that a deferred callback
+could observe live. Definitions overwritten before the capture remain eligible
+for a warning. This intentionally prefers a missed warning over a false warning
+when callback execution timing is unknown.
 
-Unless otherwise stated, no warning is expected on the first assignment.
+A visible project macro or ECR-style macro call may read local bindings through
+generated code. Every definition visible at that call is conservatively marked
+used. Ordinary method calls do not receive this exemption.
 
-### `if` without else
+Injected Crystal fragments for which the IntelliJ injection manager requests
+lenient inspections are skipped. These fragments may be syntactically partial
+or lack the host's bindings; inspecting them independently would produce
+non-actionable warnings in Markdown code fences and similar hosts.
 
-```crystal
-x = ""
-if condition
-  x = "overridden"
-end
-puts x
-```
+## Read Forms
 
-### `unless` without else
+Reads include direct references and all PSI forms that resolve to a local
+binding, including:
 
-```crystal
-x = ""
-unless condition
-  x = "overridden"
-end
-puts x
-```
+- call arguments and string interpolation;
+- DOT-call receivers such as `server.listen`;
+- nil checks and abbreviated-proc receivers such as `value.try(&.to_s)`;
+- index receivers and postfix conditions;
+- the implicit read of `+=`, `||=`, and other compound assignments.
 
-### `begin` with `rescue`
+A method, member, named-argument label, or namespace identifier with the same
+text is not a local read unless local-reference resolution binds it to that
+local declaration.
 
-```crystal
-x = ""
-begin
-  x = compute_something
-rescue
-end
-puts x
-```
-
-### `while` loop (0 iterations possible)
-
-```crystal
-x = ""
-while condition
-  x = "from_loop"
-end
-puts x
-```
-
-### `until` loop (0 iterations possible)
-
-```crystal
-x = ""
-until done
-  x = "from_loop"
-end
-puts x
-```
-
-### `for` loop on potentially empty collection
+## Examples
 
 ```crystal
-x = ""
-for item in items
-  x = item
-end
-puts x
-```
-
-### `case` without else
-
-```crystal
-x = ""
-case value
-when 1
-  x = "one"
-when 2
-  x = "two"
-end
-puts x
-```
-
-### `select` without else
-
-```crystal
-x = ""
-select
-when signal.ready?
-  x = signal.receive
-end
-puts x
-```
-
-### Nested conditionals
-
-```crystal
-x = ""
-if outer
-  if inner
-    x = "deep"
-  end
-end
-puts x
-```
-
-### `elsif` chain without else
-
-```crystal
-x = ""
-if a == 1
-  x = "one"
-elsif a == 2
-  x = "two"
-end
-puts x
-```
-
-## Examples: Should Still Warn
-
-### Linear reassignment
-
-```crystal
-x = 1      # ← warning: value never used
+x = 1      # Value assigned to 'x' is never used
 x = 2
 puts x
 ```
 
-### `begin` without rescue (always executes)
+```crystal
+x = "fallback"
+x = compute if enabled
+puts x                         # Both definitions may reach this read
+```
 
 ```crystal
-x = ""     # ← warning: overwritten unconditionally
+current = handlers.first
+handlers.each do |handler|
+  current.next = handler       # Reads the previous iteration's definition
+  current = handler
+end
+```
+
+```crystal
+value = compute
 begin
-  x = "override"
-end
-puts x
-```
-
-### Unconditional overwrite after conditional
-
-```crystal
-x = ""     # ← warning: overwritten unconditionally by x = 2
-if cond
-  x = 1    # also dead (overwritten by x = 2)
-end
-x = 2
-puts x
-```
-
-### No read before end of scope
-
-```crystal
-def foo
-  x = 42   # ← warning: never read
+  return
+ensure
+  puts value                   # The ensure path reads value before returning
 end
 ```

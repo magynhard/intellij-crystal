@@ -29,6 +29,12 @@ public class CrystalBreakStatementImpl extends ASTWrapperPsiElement implements C
 
   @Override
   @Nullable
+  public CrystalAssignment getAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }

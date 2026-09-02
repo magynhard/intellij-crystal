@@ -1,9 +1,12 @@
 package de.magynhard.crystal.inspections
 
-import com.intellij.codeInspection.*
-import com.intellij.psi.PsiElement
+import com.intellij.codeInspection.LocalInspectionTool
+import com.intellij.codeInspection.ProblemHighlightType
+import com.intellij.codeInspection.ProblemsHolder
+import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.psi.PsiElementVisitor
 import de.magynhard.crystal.CrystalFile
+import de.magynhard.crystal.analysis.CrystalLocalUsageAnalyzer
 import de.magynhard.crystal.psi.*
 
 /**
@@ -19,192 +22,34 @@ import de.magynhard.crystal.psi.*
 class CrystalUnusedVariableInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
+        val injectionManager = InjectedLanguageManager.getInstance(holder.project)
+        if (injectionManager.isInjectedFragment(holder.file) &&
+            injectionManager.shouldInspectionsBeLenient(holder.file)) {
+            return PsiElementVisitor.EMPTY_VISITOR
+        }
         return object : PsiElementVisitor() {
-            override fun visitElement(element: PsiElement) {
+            override fun visitElement(element: com.intellij.psi.PsiElement) {
                 when (element) {
-                    is CrystalMethodDefinition -> analyzeScope(element, holder, skipNestedMethods = false)
-                    is CrystalFile -> analyzeScope(element, holder, skipNestedMethods = true)
+                    is CrystalMethodDefinition -> analyzeScope(element, holder)
+                    is CrystalClassDefinition,
+                    is CrystalModuleDefinition,
+                    is CrystalStructDefinition,
+                    is CrystalEnumDefinition -> analyzeScope(element, holder)
+                    is CrystalFile -> analyzeScope(element, holder)
                 }
             }
         }
     }
 
-    private fun analyzeScope(scope: PsiElement, holder: ProblemsHolder, skipNestedMethods: Boolean) {
-        val assignments = mutableListOf<AssignmentInfo>()
-        val references = mutableListOf<ReferenceInfo>()
-
-        collectElements(scope, assignments, references, skipNestedMethods)
-
-        for ((index, assignment) in assignments.withIndex()) {
+    private fun analyzeScope(scope: com.intellij.psi.PsiElement, holder: ProblemsHolder) {
+        for (assignment in CrystalLocalUsageAnalyzer(scope).analyze()) {
             if (assignment.name.startsWith("_")) continue
-            if (assignment.isCompound) continue
-
-            val assignOffset = assignment.offset
-            val nextAssign = assignments
-                .filter { it.name == assignment.name && it.offset > assignOffset && !it.isCompound }
-                .minByOrNull { it.offset }
-
-            // Use the end offset of the next assignment as upper bound, so that
-            // references on its RHS (e.g. `abc = abc.upcase`) are counted as reads.
-            val nextAssignEndOffset = nextAssign?.identifierElement?.parent?.textRange?.endOffset ?: Int.MAX_VALUE
-
-            // When the next assignment is inside a conditional branch (if/unless/while/until/for/case/
-            // begin+rescue), it may not execute. The current assignment's value is still a fallback
-            // that can be read by any reference after the conditional block. In that case, extend the
-            // search range to include reads up to the next unconditional assignment (or end of scope).
-            val effectiveUpperBound = if (nextAssign != null
-                && isInConditionalBranch(nextAssign.identifierElement.parent)) {
-                val nextUnconditional = assignments
-                    .filter { it.name == assignment.name && it.offset > assignOffset && !it.isCompound }
-                    .firstOrNull { !isInConditionalBranch(it.identifierElement.parent) }
-                nextUnconditional?.identifierElement?.parent?.textRange?.endOffset ?: Int.MAX_VALUE
+            val message = if (assignment.hasOtherAssignments) {
+                "Value assigned to '${assignment.name}' is never used"
             } else {
-                nextAssignEndOffset
+                "Variable '${assignment.name}' is never used"
             }
-
-            val hasRead = references.any { ref ->
-                ref.name == assignment.name && ref.offset > assignOffset && ref.offset < effectiveUpperBound
-            }
-
-            val hasLaterRead = if (nextAssign == null) {
-                references.any { ref ->
-                    ref.name == assignment.name && ref.offset > assignOffset
-                }
-            } else {
-                hasRead
-            }
-
-            if (!hasLaterRead) {
-                val otherAssignments = assignments.count { it.name == assignment.name }
-                val message = if (otherAssignments > 1) {
-                    "Value assigned to '${assignment.name}' is never used"
-                } else {
-                    "Variable '${assignment.name}' is never used"
-                }
-                holder.registerProblem(
-                    assignment.identifierElement,
-                    message,
-                    ProblemHighlightType.LIKE_UNUSED_SYMBOL
-                )
-            }
+            holder.registerProblem(assignment.identifier, message, ProblemHighlightType.LIKE_UNUSED_SYMBOL)
         }
     }
-
-    /**
-     * Checks if [element] is inside a conditional construct that may prevent execution
-     * of the code it contains: if/unless/while/until/for/case/select, or begin+rescue.
-     * Plain `begin ... end` (without rescue) is NOT considered conditional — its body
-     * always executes.
-     */
-    private fun isInConditionalBranch(element: PsiElement): Boolean {
-        var current: PsiElement? = element.parent
-        while (current != null) {
-            when (current) {
-                is CrystalIfStatement,
-                is CrystalUnlessStatement,
-                is CrystalWhileStatement,
-                is CrystalUntilStatement,
-                is CrystalForStatement,
-                is CrystalCaseStatement,
-                is CrystalSelectStatement -> return true
-                is CrystalBeginStatement -> {
-                    if (current.rescueClauseList.isNotEmpty()) return true
-                }
-            }
-            current = current.parent
-        }
-        return false
-    }
-
-    private fun extractLocalAssignment(assignment: CrystalAssignment): AssignmentInfo? {
-        // Skip instance/class var assignments
-        if (assignment.instanceVarAccess != null) return null
-        if (assignment.classVarAccess != null) return null
-
-        // Find the IDENTIFIER token (local variable name)
-        val identifierNode = assignment.node.findChildByType(CrystalTypes.IDENTIFIER) ?: return null
-        val name = identifierNode.text
-
-        // Skip global vars (shouldn't happen since grammar handles them, but safety)
-        if (name.startsWith("$")) return null
-
-        // Check if compound assignment
-        val assignOp = assignment.node.findChildByType(CrystalTypes.ASSIGN)
-        val isCompound = assignOp == null // If no plain ASSIGN, it's a compound op
-
-        val identifierPsi = identifierNode.psi
-
-        return AssignmentInfo(
-            name = name,
-            offset = identifierPsi.textOffset,
-            identifierElement = identifierPsi,
-            isCompound = isCompound
-        )
-    }
-
-    private fun extractVariableReferenceName(ref: CrystalVariableReference): String? {
-        val node = ref.node.findChildByType(CrystalTypes.IDENTIFIER) ?: return null
-        return node.text
-    }
-
-    private fun collectElements(
-        element: PsiElement,
-        assignments: MutableList<AssignmentInfo>,
-        references: MutableList<ReferenceInfo>,
-        skipNestedMethods: Boolean
-    ) {
-        var child = element.firstChild
-        while (child != null) {
-            if (skipNestedMethods && child is CrystalMethodDefinition) {
-                child = child.nextSibling
-                continue
-            }
-            when (child) {
-                is CrystalAssignment -> {
-                    val info = extractLocalAssignment(child)
-                    if (info != null) {
-                        assignments.add(info)
-                        if (info.isCompound) {
-                            references.add(ReferenceInfo(info.name, info.offset))
-                        }
-                    }
-                    collectElements(child, assignments, references, skipNestedMethods)
-                }
-                is CrystalVariableReference -> {
-                    val name = extractVariableReferenceName(child)
-                    if (name != null) {
-                        references.add(ReferenceInfo(name, child.textOffset))
-                    }
-                }
-                is CrystalMethodCallExpression -> {
-                    val methodNameNode = child.node.findChildByType(CrystalTypes.IDENTIFIER)
-                    if (methodNameNode != null) {
-                        references.add(ReferenceInfo(methodNameNode.text, methodNameNode.psi.textOffset))
-                    }
-                    collectElements(child, assignments, references, skipNestedMethods)
-                }
-                is CrystalStringExpression -> {
-                    val astChildren = child.node.getChildren(null)
-                    for (astChild in astChildren) {
-                        val psi = astChild.psi
-                        collectElements(psi, assignments, references, skipNestedMethods)
-                    }
-                }
-                else -> collectElements(child, assignments, references, skipNestedMethods)
-            }
-            child = child.nextSibling
-        }
-    }
-
-    data class AssignmentInfo(
-        val name: String,
-        val offset: Int,
-        val identifierElement: PsiElement,
-        val isCompound: Boolean
-    )
-
-    data class ReferenceInfo(
-        val name: String,
-        val offset: Int
-    )
 }

@@ -15,6 +15,16 @@
   (`%q(…)` etc.) and `symbol_string_expression` are not injection hosts; only `heredoc_literal`
   and `string_expression` hosts exist.
 
+## Unused Assignment Inspection Follow-up
+
+- [ ] **Analyze destructuring assignment targets independently** — represent each local target in tuple,
+  parenthesized, and nested destructuring assignments as its own binding definition, preserve ignored
+  underscore targets, and map subsequent reads to the correct target without treating the complete
+  destructuring expression as one assignment.
+- [ ] **Model `case ... in` pattern bindings as clause-local symbols** — distinguish identifiers that bind
+  matched values from ordinary expression references, including nested tuple/named-tuple patterns and guards,
+  so they neither read nor shadow an unrelated outer local incorrectly.
+
 ## Inlay Hints (Issue #2)
 
 - [ ] **Implement InlayHintsProvider** — show inferred types on variables inline

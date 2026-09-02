@@ -175,6 +175,26 @@ Rule since this fix: **explicit definitions win**.
 - Names collected inside macro-control regions with a known textual name (`macroDepth
   > 0`, non-interpolated) keep their existing `uncertainMethodNames` suppression.
 
+## DOT Member Assignments And Bare Regex Arguments
+
+DOT member compound assignments must be recognized before ordinary DOT-call
+access because GrammarKit uses first-match PEG semantics. The dedicated postfix
+alternative accepts compound operators only; plain setter syntax such as
+`config.host = "localhost"` retains the established expression-statement PSI,
+while `config.server ||= build_server` remains one postfix expression.
+
+A whitespace-separated slash after a DOT method name starts a bare regex
+argument when the slash is immediately followed by non-whitespace regex content
+and an unescaped closing slash exists later in the source. The terminator may be
+on a later line because Crystal regex literals can span lines. A whitespace
+character immediately after the opening slash keeps the token in division
+context, matching the compiler and preserving `object.value / 2 / 3` as two
+division operators. Without a closing slash, `object.value /2` also remains
+division.
+
+These rules are covered by `DotCompoundAssignment`, `DotRegexDivision`, and
+`KemalRangeBlock` parser goldens plus dedicated lexer tests.
+
 ## Test Coverage
 
 - Parser goldens: `SetterMethodDefinition.cr`, `MacroInterpolatedCallee.cr`,

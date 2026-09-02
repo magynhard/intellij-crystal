@@ -86,6 +86,38 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testBareRegexArgumentAfterDotCall() {
+        val tokens = nonWhitespaceTokens("range.match /(\\d{1,})-(\\d{0,})/")
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_END })
+        assertFalse(tokens.any { it.first == CrystalTypes.SLASH })
+    }
+
+    @Test
+    fun testSlashAfterDotCallWithoutRegexTerminatorIsDivision() {
+        val tokens = nonWhitespaceTokens("object.value /2")
+        assertTrue(tokens.any { it.first == CrystalTypes.SLASH })
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
+    fun testChainedDivisionAfterDotCallRemainsDivision() {
+        for (input in listOf("object.value / 2 / 3", "object.value / divisor / scale")) {
+            val tokens = nonWhitespaceTokens(input)
+            assertEquals("Both slashes in '$input'", 2, tokens.count { it.first == CrystalTypes.SLASH })
+            assertFalse("No regex in '$input'", tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        }
+    }
+
+    @Test
+    fun testMultilineBareRegexArgumentAfterDotCall() {
+        val tokens = nonWhitespaceTokens("text.match /foo\nbar/")
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_END })
+        assertFalse(tokens.any { it.first == CrystalTypes.SLASH })
+    }
+
+    @Test
     fun testPostfixIfKeywordInExpressionLexerStates() {
         val inputs = listOf(
             "\"#{require \"./dependency\" if true}\"",

@@ -17,6 +17,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalAsmExpression> getAsmExpressionList();
 
   @NotNull
+  List<CrystalAssignment> getAssignmentList();
+
+  @NotNull
   List<CrystalBareArgumentList> getBareArgumentListList();
 
   @NotNull

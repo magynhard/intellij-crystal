@@ -386,7 +386,7 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
     fun testConditionalAssignInIfElse() {
         myFixture.configureByText("test.cr", """
             def foo
-              x = ""
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = ""
               if true
                 x = "one"
               else
@@ -397,4 +397,407 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Real-World Def-Use Regression Cases ====================
+
+    fun testDotReceiverCountsAsRead() {
+        myFixture.configureByText("test.cr", """
+            def run
+              server = HTTP::Server.new
+              server.each_address { |address| puts address }
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNilCheckAndTryReceiverCountAsReads() {
+        myFixture.configureByText("test.cr", """
+            def parse(headers)
+              content_type = headers["Content-Type"]?
+              return unless content_type
+              content_type.try(&.starts_with?("application/json"))
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCompoundAssignmentsAndPostfixConditionReadsInsideBlock() {
+        myFixture.configureByText("test.cr", """
+            def parse(range)
+              max_ranges = 16
+              requested_bytes = 0_i64
+              parts = 0
+              range.split(',') do |part|
+                parts += 1
+                return if parts > max_ranges
+                requested_bytes += part.size
+                return if requested_bytes > 1024
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCapturedBlockWriteDoesNotKillOuterFallback() {
+        myFixture.configureByText("test.cr", """
+            def run
+              handler_ran = false
+              register do
+                handler_ran = true
+              end
+              dispatch
+              puts handler_ran
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNestedCallbackWriteDoesNotKillOuterFallback() {
+        myFixture.configureByText("test.cr", """
+            def parse
+              test_option = nil
+              configure do |parser|
+                parser.on("--test") do |value|
+                  test_option = value
+                end
+              end
+              puts test_option
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRepeatedBlockWriteReachesNextIterationRead() {
+        myFixture.configureByText("test.cr", """
+            def build(handlers)
+              current_handler = handlers.first
+              handlers.each do |handler|
+                current_handler.next = handler
+                current_handler = handler
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBlockParameterShadowsOuterLocal() {
+        myFixture.configureByText("test.cr", """
+            def run(items)
+              <weak_warning descr="Variable 'item' is never used">item</weak_warning> = "outer"
+              items.each do |item|
+                puts item
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNewBlockLocalDoesNotLeakIntoOuterScope() {
+        myFixture.configureByText("test.cr", """
+            def run(items)
+              items.each do |item|
+                local = item
+                puts local
+              end
+              <weak_warning descr="Variable 'local' is never used">local</weak_warning> = "outer"
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testOpaqueMacroMayReadVisibleLocals() {
+        myFixture.configureByText("test.cr", """
+            macro render(path)
+              ECR.embed({{path}})
+            end
+
+            def show
+              name = "world"
+              render "hello.ecr"
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRegularMethodDoesNotReadEveryVisibleLocal() {
+        myFixture.configureByText("test.cr", """
+            def render(path)
+            end
+
+            def show
+              <weak_warning descr="Variable 'name' is never used">name</weak_warning> = "world"
+              render "hello.ecr"
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCapturedReadMayObserveLaterAssignment() {
+        myFixture.configureByText("test.cr", """
+            def run
+              value = 1
+              register do
+                puts value
+              end
+              value = 2
+              dispatch
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCompoundAssignmentRhsAndNegatedDotCallWithBlock() {
+        myFixture.configureByText("test.cr", """
+            def run(config)
+              server = config.server ||= HTTP::Server.new(config.handlers)
+              if !server.each_address { |_| break true }
+                server.bind_tcp(config.host, config.port)
+              end
+              display(config, server)
+              server.listen
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testOptionalIndexResultUsedByNilCheckAndAbbreviatedProc() {
+        myFixture.configureByText("test.cr", """
+            def raw_body(request)
+              content_type = request.headers["Content-Type"]?
+              return "" if content_type.nil?
+              if content_type.try(&.starts_with?("form")) || content_type.try(&.starts_with?("json"))
+                read_body
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testIndexedReceiverBlockCompoundReadsAndPostfixReturn() {
+        myFixture.configureByText("test.cr", """
+            private def parse_ranges(range_header : String?, file_size : Int64) : Array({Int64, Int64})
+              return [] of {Int64, Int64} unless range_header
+              ranges = [] of {Int64, Int64}
+              return ranges unless range_header.starts_with?("bytes=")
+              max_ranges = config.max_ranges
+              requested_bytes = 0_i64
+              parts = 0
+              range_header[6..].split(",") do |range|
+                parts += 1
+                return [] if parts > max_ranges
+                requested_bytes += range.size
+                return [] if requested_bytes > file_size
+                if match = range.match /(\d{1,})-(\d{0,})/
+                  startb = match[1].to_i64 { 0_i64 }
+                  endb = match[2].to_i64 { 0_i64 }
+                  puts startb, endb
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBlockLocalUsedByPostfixNextWithBareArguments() {
+        myFixture.configureByText("test.cr", """
+            def send_file(env)
+              File.open("file") do |file|
+                if env.has_key?("Range")
+                  ranges = parse_ranges(env["Range"]?, file.size)
+                  next multipart(file, env, ranges) unless ranges.empty?
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRescueMayReadAssignmentMadeBeforeException() {
+        myFixture.configureByText("test.cr", """
+            def process
+              value = "initial"
+              begin
+                value = compute
+                fail
+              rescue
+                puts value
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRescueVariableShadowsOuterBinding() {
+        myFixture.configureByText("test.cr", """
+            def process
+              <weak_warning descr="Variable 'error' is never used">error</weak_warning> = "outer"
+              begin
+                fail
+              rescue error
+                puts error
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testEnsureReadsValueOnReturnPath() {
+        myFixture.configureByText("test.cr", """
+            def process
+              value = compute
+              begin
+                return
+              ensure
+                puts value
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMethodEnsureReadsValueOnReturnPath() {
+        myFixture.configureByText("test.cr", """
+            def process
+              value = compute
+              return
+            ensure
+              puts value
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBlockEnsureReadsBlockLocalOnReturnPath() {
+        myFixture.configureByText("test.cr", """
+            def process
+              transaction do
+                value = compute
+                return
+              ensure
+                puts value
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testShortCircuitWriteDoesNotKillFallback() {
+        myFixture.configureByText("test.cr", """
+            def process(condition)
+              value = "fallback"
+              condition && (value = compute)
+              puts value
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTernaryWritesMergeAtFollowingRead() {
+        myFixture.configureByText("test.cr", """
+            def process(condition)
+              <weak_warning descr="Value assigned to 'value' is never used">value</weak_warning> = "fallback"
+              condition ? (value = first) : (value = second)
+              puts value
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCaseAlternativeGuardDoesNotUnconditionallyOverwrite() {
+        myFixture.configureByText("test.cr", """
+            def process
+              value = "fallback"
+              case
+              when ready?, (value = compute)
+                puts value
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSelectBranchesMergeAtFollowingRead() {
+        myFixture.configureByText("test.cr", """
+            def process(channel)
+              <weak_warning descr="Value assigned to 'value' is never used">value</weak_warning> = "fallback"
+              select
+              when channel.receive
+                value = "received"
+              else
+                value = "ready"
+              end
+              puts value
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testAssignmentValuedPostfixReturnPreservesFallthrough() {
+        myFixture.configureByText("test.cr", """
+            def process(condition)
+              value = "fallback"
+              return <weak_warning descr="Value assigned to 'value' is never used">value</weak_warning> = compute if condition
+              puts value
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testParenthesizedReturnMakesFollowingAssignmentUnreachable() {
+        myFixture.configureByText("test.cr", """
+            def process
+              (return)
+              unreachable = compute
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testElsifConditionWriteReachesElseRead() {
+        myFixture.configureByText("test.cr", """
+            def process(condition)
+              if condition
+                puts "first"
+              elsif value = nil
+                puts "second"
+              else
+                puts value
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testForIteratorWriteDoesNotReadOverwrittenOuterValue() {
+        myFixture.configureByText("test.cr", """
+            def process(items)
+              <weak_warning descr="Value assigned to 'item' is never used">item</weak_warning> = "outer"
+              for item in items
+                puts item
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCaptureDoesNotKeepAlreadyOverwrittenDefinitionLive() {
+        myFixture.configureByText("test.cr", """
+            def process
+              <weak_warning descr="Value assigned to 'value' is never used">value</weak_warning> = 1
+              value = 2
+              register { puts value }
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTypeBodiesAreIndependentScopes() {
+        myFixture.configureByText("test.cr", """
+            class Example
+              <weak_warning descr="Variable 'class_value' is never used">class_value</weak_warning> = 2
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
 }

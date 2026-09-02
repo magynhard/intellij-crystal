@@ -538,15 +538,15 @@ private rescue_spec ::= IDENTIFIER COLON type_reference
 ensure_clause ::= ENSURE statement_list
 
 return_statement ::= RETURN postfix_modifier
-                   | RETURN expression [postfix_modifier]
+                   | RETURN (assignment | expression) [postfix_modifier]
                    | RETURN {pin=1}
 
 break_statement ::= BREAK postfix_modifier
-                  | BREAK expression [postfix_modifier]
+                  | BREAK (assignment | expression) [postfix_modifier]
                   | BREAK {pin=1}
 
 next_statement ::= NEXT postfix_modifier
-                 | NEXT expression [postfix_modifier]
+                 | NEXT (assignment | expression) [postfix_modifier]
                  | NEXT {pin=1}
 
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
@@ -604,6 +604,12 @@ private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_
                      | OR_OR_ASSIGN | AND_AND_ASSIGN
                      | WRAP_PLUS_ASSIGN | WRAP_MINUS_ASSIGN | WRAP_STAR_ASSIGN | WRAP_DOUBLE_STAR_ASSIGN
 
+private compound_assign_op ::= PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
+                              | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
+                              | DOUBLE_STAR_ASSIGN | DOUBLE_SLASH_ASSIGN | LSHIFT_ASSIGN | RSHIFT_ASSIGN
+                              | OR_OR_ASSIGN | AND_AND_ASSIGN
+                              | WRAP_PLUS_ASSIGN | WRAP_MINUS_ASSIGN | WRAP_STAR_ASSIGN | WRAP_DOUBLE_STAR_ASSIGN
+
 // ==================== Expressions ====================
 
 expression ::= or_expression [QUESTION [expression COLON expression]]
@@ -639,11 +645,13 @@ private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET) u
 private postfix_expression ::= primary_expression postfix_op*
 
 private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+                     // PEG: member assignment must precede ordinary dot-call access, otherwise
+                     // `config.server ||= value` commits to `.server` and strands the assign op.
+                     | NLS DOT IDENTIFIER compound_assign_op expression
                      | NLS dot_call_access [block]
                      | namespace_access
                      | LBRACKET argument_list RBRACKET [QUESTION]
                      | call_args [block]
-                     | NLS DOT IDENTIFIER assign_op expression
 
 // DOT-call access: the method-name + optional args part of a DOT-call (e.g. `.tanzen`,
 // `.new(arg)`, `.method arg`). Non-private so it gets a real PSI composite with a
@@ -715,9 +723,9 @@ private keyword_as_method ::= ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION |
 // expression is expected (`self[x || return nil]?`, `cond && break`). Statement
 // positions keep their dedicated return/break/next statements — this alternative
 // only engages when RETURN/BREAK/NEXT appears mid-expression.
-private control_flow_expression ::= RETURN [expression]
-                                   | BREAK [expression]
-                                   | NEXT [expression]
+private control_flow_expression ::= RETURN [assignment | expression]
+                                   | BREAK [assignment | expression]
+                                   | NEXT [assignment | expression]
 
 private primary_expression ::= grouped_expression
                              | control_flow_expression

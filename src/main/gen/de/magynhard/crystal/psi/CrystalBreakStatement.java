@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalBreakStatement extends PsiElement {
 
   @Nullable
+  CrystalAssignment getAssignment();
+
+  @Nullable
   CrystalExpression getExpression();
 
   @Nullable
