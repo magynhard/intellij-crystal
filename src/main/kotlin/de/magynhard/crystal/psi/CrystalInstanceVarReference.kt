@@ -21,10 +21,18 @@ class CrystalInstanceVarReference(element: PsiElement) :
     override fun resolve(): PsiElement? {
         val allOccurrences = CrystalInstanceVarFinder.findAllUsages(varName, element)
         // Resolve to the first occurrence in the class (by text offset)
-        return allOccurrences.minByOrNull { it.textOffset }
+        val firstOccurrence = allOccurrences.minByOrNull { it.textOffset } ?: return null
+        val parameter = PsiTreeUtil.getParentOfType(firstOccurrence, CrystalParameter::class.java, false)
+        val isStorageTarget = parameter?.parameterNameInfo()?.storageName == varName &&
+            (parameter.instanceVarAccess === firstOccurrence || parameter.classVarAccess === firstOccurrence)
+        return if (isStorageTarget) parameter else firstOccurrence
     }
 
     override fun isReferenceTo(target: PsiElement): Boolean {
+        if (target is CrystalParameter) {
+            val sameClass = findEnclosingClass(element) == findEnclosingClass(target)
+            return sameClass && target.parameterNameInfo().storageName == varName
+        }
         // Must be the same type of variable (instance or class)
         if (target !is CrystalInstanceVarAccess && target !is CrystalClassVarAccess) {
             return false

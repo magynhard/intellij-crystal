@@ -1,7 +1,6 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
@@ -377,11 +376,7 @@ internal class CrystalMethodHierarchy(
             else -> "regular"
         }
         val callName = if (kind == "named-only") {
-            val identifiers = parameter.node.getChildren(null)
-                .filter { it.elementType == CrystalTypes.IDENTIFIER }
-                .map { it.text }
-            identifiers.firstOrNull()
-                ?: parameter.instanceVarAccess?.name?.removePrefix("@").orEmpty()
+            parameter.parameterNameInfo().callSiteName.orEmpty()
         } else {
             ""
         }
@@ -398,12 +393,9 @@ internal class CrystalMethodHierarchy(
             parameterList != null && isNamedOnly(parameter, parameterList) -> "named-only"
             else -> "regular"
         }
-        val identifiers = parameter.node.getChildren(null).filter { it.elementType == CrystalTypes.IDENTIFIER }.map { it.text }
-        val internalName = (parameter as? PsiNameIdentifierOwner)?.name
-            ?: parameter.instanceVarAccess?.name ?: identifiers.lastOrNull().orEmpty()
-        val externalName = identifiers.takeIf { it.size > 1 }?.first().orEmpty()
         return encodeFields(
-            listOf(kind, externalName, internalName, canonicalTypeRestriction(parameter, kind),
+            listOf(kind, parameter.parameterNameInfo().callSiteName.orEmpty(), "",
+                canonicalTypeRestriction(parameter, kind),
                 (parameter.expression != null).toString())
         )
     }

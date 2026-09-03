@@ -390,7 +390,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             when (slot) {
                 is EffectiveSlot.Named -> {
                     val param = params.firstOrNull {
-                        CrystalCompletionHelper.extractParameterName(it) == slot.name
+                        it.parameterNameInfo().callSiteName == slot.name
                     } ?: return if (isTarget) ExpandedSlotVerdict.SKIPPED else continue
                     // Named parameters do not consume positional positions.
                     if (!isTarget) continue
@@ -526,7 +526,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // Named argument: find parameter by name
         if (argName != null) {
             for (param in params) {
-                val paramName = CrystalCompletionHelper.extractParameterName(param)
+                val paramName = param.parameterNameInfo().callSiteName
                 if (paramName == argName) return param
             }
             return null
@@ -546,10 +546,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     }
 
     private fun isSplatParameter(param: CrystalParameter): Boolean {
-        val children = param.node.getChildren(null)
-        val firstType = children.firstOrNull()?.elementType
-        return firstType == CrystalTypes.STAR || firstType == CrystalTypes.DOUBLE_STAR
-            || firstType == CrystalTypes.AMPERSAND
+        return param.node.findChildByType(CrystalTypes.STAR) != null ||
+            param.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null ||
+            param.node.findChildByType(CrystalTypes.AMPERSAND) != null
     }
 
     // ==================== Method Name Extraction ====================
@@ -566,9 +565,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 // Check parameters
                 val params = parent.parameterList?.parameterList ?: emptyList()
                 for (param in params) {
-                    val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
-                        ?: param.node.findChildByType(CrystalTypes.INSTANCE_VAR)?.text?.removePrefix("@")
-                    if (paramName == name) return true
+                    if (name in param.localBindingNames()) return true
                 }
                 break
             }

@@ -35,6 +35,40 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
         assertSame(first, second)
     }
 
+    fun testStorageTargetDoesNotChangeCallableSignature() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Service\n  def configure(label @value : Int32)\n  end\n" +
+                "  def configure(label @@value : Int32)\n  end\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("Service", "Service"),
+            CrystalReceiverMode.INSTANCE,
+        )
+        val configureMethods = result.methods.filter { it.method.name == "configure" }
+
+        assertTrue(result.complete)
+        assertEquals(1, configureMethods.size)
+        assertTrue(configureMethods.single().method.text.contains("@@value"))
+    }
+
+    fun testNamedOnlyExternalLabelsDistinguishConstructorSignatures() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "class Service\n  def initialize(*, left @value : Int32)\n  end\n" +
+                "  def initialize(*, right @value : String)\n  end\nend"
+        )
+        val result = CrystalTypeSetResolver.session(file).collectMethods(
+            CrystalTypeIdentity("Service", "Service"),
+            CrystalReceiverMode.INSTANCE,
+        )
+        val constructors = result.methods.filter { it.method.name == "initialize" }
+
+        assertTrue(result.complete)
+        assertEquals(2, constructors.size)
+        assertEquals(2, constructors.map { it.signatureKey }.distinct().size)
+    }
+
     fun testNamedMethodCollectionIsCachedAndMacroNameSensitive() {
         val file = myFixture.configureByText(
             "test.cr",

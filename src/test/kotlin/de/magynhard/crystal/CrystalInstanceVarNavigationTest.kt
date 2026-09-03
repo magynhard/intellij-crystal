@@ -1,9 +1,11 @@
 package de.magynhard.crystal
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.navigation.CrystalInstanceVarFinder
 import de.magynhard.crystal.psi.CrystalInstanceVarAccess
+import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.CrystalTypes
 
 /**
@@ -97,6 +99,22 @@ class CrystalInstanceVarNavigationTest : BasePlatformTestCase() {
 
         val usages = CrystalInstanceVarFinder.findAllUsages("@name", myFixture.file.findElementAt(myFixture.caretOffset)!!)
         assertTrue("Should find multiple usages of @name", usages.size >= 2)
+    }
+
+    fun testInstanceVarInParameterDefaultDoesNotResolveToParameter() {
+        val file = myFixture.configureByText("test.cr", """
+            class Person
+              def configure(argument = @name)
+                @name
+              end
+            end
+        """.trimIndent())
+        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalInstanceVarAccess::class.java)
+            .sortedBy { it.textOffset }
+
+        assertEquals(2, accesses.size)
+        assertFalse(accesses.last().reference?.resolve() is CrystalParameter)
+        assertSame(accesses.first(), accesses.last().reference?.resolve())
     }
 
     fun testInstanceVarNotFoundOutsideClass() {

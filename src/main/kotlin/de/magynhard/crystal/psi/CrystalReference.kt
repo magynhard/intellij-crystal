@@ -161,12 +161,29 @@ class CrystalReference(
         }
 
         val owner = parameter as? PsiNameIdentifierOwner ?: return null
-        return owner.nameIdentifier?.takeIf { owner.name == targetName }
+        val names = parameter.parameterNameInfo()
+        if (names.localName != targetName) return null
+        return if (names.storageName != null) parameter else owner.nameIdentifier
     }
 
     private fun isDestructuredParameter(element: PsiElement): Boolean {
         return element is CrystalParameter &&
             element.node.getChildren(null).any { it.elementType == CrystalTypes.LPAREN }
+    }
+
+    override fun isReferenceTo(target: PsiElement): Boolean {
+        val parameter = resolve() as? CrystalParameter
+        if (parameter != null && target is CrystalParameter) {
+            val storageName = parameter.parameterNameInfo().storageName
+            val sameType = CrystalPsiUtils.getEnclosingType(parameter) === CrystalPsiUtils.getEnclosingType(target)
+            if (storageName != null && sameType && storageName == target.parameterNameInfo().storageName) return true
+        }
+        val storageTarget = target as? CrystalInstanceVarAccess ?: target as? CrystalClassVarAccess
+        if (parameter != null && storageTarget != null) {
+            val sameType = CrystalPsiUtils.getEnclosingType(element) === CrystalPsiUtils.getEnclosingType(storageTarget)
+            if (sameType && parameter.parameterNameInfo().storageName == storageTarget.text) return true
+        }
+        return super.isReferenceTo(target)
     }
 
     /**

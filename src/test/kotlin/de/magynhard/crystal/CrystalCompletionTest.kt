@@ -186,6 +186,18 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain aprikose_param (without @)", names.contains("aprikose_param"))
     }
 
+    fun testExternalStorageParameterCompletesItsLocalName() {
+        myFixture.configureByText("main.cr", """
+            def foo(public_name @internal_name : String)
+              in<caret>
+            end
+        """.trimIndent())
+        val names = myFixture.complete(CompletionType.BASIC).map { it.lookupString }
+
+        assertTrue("Should complete the synthesized local binding", names.contains("internal_name"))
+        assertFalse("Should not expose the call-site label as a local", names.contains("public_name"))
+    }
+
     // ==================== Top-level (global) method completion ====================
 
     fun testCompletesTopLevelMethods() {

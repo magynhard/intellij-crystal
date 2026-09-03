@@ -188,6 +188,17 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testAnnotatedStorageSplatAcceptsAnyCount() {
+        myFixture.configureByText("test.cr", """
+            annotation Tagged
+            end
+            def foo(@[Tagged] *@values : Int32)
+            end
+            foo(1, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testSplatWithRequiredBefore() {
         myFixture.configureByText("test.cr", """
             def log(level : String, *messages)
@@ -1605,6 +1616,19 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             def foo(@x : Int32)
             end
             foo(1, <error descr="Too many arguments: expected at most 1, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testExternalStorageParameterUsesCallSiteNameForNamedArguments() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(public_name @internal_name : Int32)
+              end
+            end
+
+            Foo.new(public_name: 1)
+            Foo.new(<error descr="Unknown named argument 'internal_name'">internal_name: 1</error>)
         """.trimIndent())
         myFixture.checkHighlighting()
     }

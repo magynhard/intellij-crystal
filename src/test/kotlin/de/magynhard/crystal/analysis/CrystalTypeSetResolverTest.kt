@@ -61,6 +61,34 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testExternalStorageParameterLocalNameKeepsItsType() {
+        assertTypes(
+            "class Foo\nend\nclass Bar\nend\n" +
+                "def use(external @internal : Foo | Bar)\n  <caret>internal\nend",
+            "Foo",
+            "Bar",
+        )
+    }
+
+    fun testStorageParameterAccessKeepsItsType() {
+        assertTypes(
+            "class Foo\nend\nclass Bar\nend\n" +
+                "class Host\n  def use(@internal : Foo | Bar)\n    <caret>@internal\n  end\nend",
+            "Foo",
+            "Bar",
+        )
+        assertTypes(
+            "class Foo\nend\nclass Host\n  def use(@@internal : Foo)\n    <caret>@@internal\n  end\nend",
+            "Foo",
+        )
+    }
+
+    fun testBlockStorageParameterLocalAndStorageNamesKeepTheirType() {
+        val prefix = "class Handler\nend\nclass Host\n  def use(&@handler : Handler)\n"
+        assertTypes("${prefix}    <caret>handler\n  end\nend", "Handler")
+        assertTypes("${prefix}    <caret>@handler\n  end\nend", "Handler")
+    }
+
     fun testBlockParameterDoesNotLeakOutsideBlock() {
         assertUnknown("[1].each do |item|\n  item\nend\n<caret>item")
     }

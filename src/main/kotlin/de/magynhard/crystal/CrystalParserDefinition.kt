@@ -22,12 +22,9 @@ class CrystalParserDefinition : ParserDefinition {
     companion object {
         val FILE = object : IStubFileElementType<PsiFileStub<CrystalFile>>(CrystalLanguage) {
             override fun getExternalId(): String = "crystal.FILE"
-            // v10: int.cr/float.cr grammar fixes (bare macro array arguments,
-            // multi-assignment postfix modifiers, macro-interpolated method
-            // receivers/names/types, qualified def names) change what gets
-            // indexed for unchanged stdlib files — persisted indexes must
-            // rebuild or Int32/Float64 stay invisible to completion.
-            override fun getStubVersion(): Int = 10
+            // v11: storage-bound parameters make additional method declarations
+            // indexable in unchanged stdlib files, so persisted indexes must rebuild.
+            override fun getStubVersion(): Int = 11
         }
     }
 

@@ -523,6 +523,21 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testResolvesExternalStorageParameterByLocalName() {
+        assertResolved(
+            """
+                module Outer
+                  class Service
+                  end
+                end
+                def execute(external @value : Outer::Service)
+                  value.run
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Outer::Service")
+        )
+    }
+
     fun testResolvesExactBlockParameter() {
         assertResolved(
             """

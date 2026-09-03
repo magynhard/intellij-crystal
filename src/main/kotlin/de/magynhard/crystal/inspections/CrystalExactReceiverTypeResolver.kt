@@ -120,7 +120,7 @@ internal object CrystalExactReceiverTypeResolver {
         session: CrystalTypeResolutionSession,
     ): ResolutionEvidence {
         val parameter = parameters.firstOrNull {
-            (it as? PsiNameIdentifierOwner)?.name == name
+            name in it.localBindingNames()
         } ?: return ResolutionEvidence.NONE
         val type = parameter.typeReference?.let { resolveExactTypeReference(it, call, session) }
         return ResolutionEvidence(true, type)

@@ -343,7 +343,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         sb.append("\n")
 
         // Line 2: parameter name
-        val paramName = param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: "unknown"
+        val paramName = param.parameterNameInfo().sourceName ?: "unknown"
         sb.append(escapeHtml(paramName))
 
         return sb.toString()

@@ -225,7 +225,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             is CrystalVariableReference -> resolveVariableValue(element.text, element).result.let { variable ->
                 if (variable is CrystalTypeResolution.Unknown) resolveUnqualifiedCall(element.text, element) else variable
             }
-            is CrystalInstanceVarAccess -> resolveVariableValue(element.text, element).result
+            is CrystalInstanceVarAccess, is CrystalClassVarAccess -> resolveVariableValue(element.text, element).result
             is CrystalMethodCallExpression -> resolveUnqualifiedCall(methodName(element), element)
             is CrystalBareMethodCallExpression -> resolveUnqualifiedCall(methodName(element), element)
             is CrystalGroupedExpression -> {
@@ -401,7 +401,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun parameterResult(parameters: List<CrystalParameter>, name: String): CrystalTypeResolution? {
-        val parameter = parameters.firstOrNull { (it as? PsiNameIdentifierOwner)?.name == name } ?: return null
+        val parameter = parameters.firstOrNull {
+            name in it.localBindingNames() || it.parameterNameInfo().storageName == name
+        } ?: return null
         return parameter.typeReference?.text?.let(::parseTypeSet) ?: CrystalTypeResolution.Unknown
     }
 
@@ -1158,7 +1160,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }?.text
 
     private fun promote(element: PsiElement): PsiElement = when {
-        element.parent is CrystalVariableReference || element.parent is CrystalInstanceVarAccess -> element.parent
+        element.parent is CrystalVariableReference || element.parent is CrystalInstanceVarAccess ||
+            element.parent is CrystalClassVarAccess -> element.parent
         else -> element
     }
 

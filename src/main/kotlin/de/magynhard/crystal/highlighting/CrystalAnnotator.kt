@@ -222,9 +222,7 @@ class CrystalAnnotator : Annotator {
                 else -> null
             }
             if (paramList != null) {
-                val paramNames = paramList.parameterList.mapNotNull { param ->
-                    param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
-                }.toSet()
+                val paramNames = paramList.parameterList.flatMap { it.localBindingNames() }.toSet()
                 if (name in paramNames) return true
             }
         }
@@ -233,9 +231,7 @@ class CrystalAnnotator : Annotator {
         val block = PsiTreeUtil.getParentOfType(element, CrystalBlock::class.java)
         if (block != null) {
             val paramList = block.parameterList ?: return false
-            val paramNames = paramList.parameterList.mapNotNull { param ->
-                param.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
-            }.toSet()
+            val paramNames = paramList.parameterList.flatMap { it.localBindingNames() }.toSet()
             return name in paramNames
         }
 

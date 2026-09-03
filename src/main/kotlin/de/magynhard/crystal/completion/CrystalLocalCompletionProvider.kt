@@ -30,9 +30,10 @@ internal object CrystalLocalCompletionProvider {
             val paramList = currentBlock.parameterList
             if (paramList != null) {
                 for (param in paramList.parameterList) {
-                    val name = CrystalCompletionHelper.extractParameterName(param) ?: continue
-                    if (seen.add(name)) {
-                        result.addElement(prioritizedLookup(name, AllIcons.Nodes.Parameter, "parameter", 120.0))
+                    for (name in param.localBindingNames()) {
+                        if (seen.add(name)) {
+                            result.addElement(prioritizedLookup(name, AllIcons.Nodes.Parameter, "parameter", 120.0))
+                        }
                     }
                 }
             }
@@ -51,9 +52,10 @@ internal object CrystalLocalCompletionProvider {
         val method = PsiTreeUtil.getParentOfType(position, CrystalMethodDefinition::class.java)
         if (method != null) {
             for (param in method.parameterList?.parameterList ?: emptyList()) {
-                val name = CrystalCompletionHelper.extractParameterName(param) ?: continue
-                if (seen.add(name)) {
-                    result.addElement(prioritizedLookup(name, AllIcons.Nodes.Parameter, "parameter", 100.0))
+                for (name in param.localBindingNames()) {
+                    if (seen.add(name)) {
+                        result.addElement(prioritizedLookup(name, AllIcons.Nodes.Parameter, "parameter", 100.0))
+                    }
                 }
             }
         }

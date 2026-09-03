@@ -11,6 +11,9 @@ public interface CrystalParameter extends PsiElement {
   List<CrystalAnnotationUsage> getAnnotationUsageList();
 
   @Nullable
+  CrystalClassVarAccess getClassVarAccess();
+
+  @Nullable
   CrystalExpression getExpression();
 
   @Nullable

@@ -6,6 +6,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.CrystalTypes
+import de.magynhard.crystal.psi.parameterNameInfo
 
 /**
  * Mixin for CrystalParameter PSI elements (e.g. `loud : Bool` in `def tanzen(loud : Bool)`).
@@ -19,8 +20,7 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
     override fun getNameIdentifier(): PsiElement? {
         // Walk children to find the name token (internal parameter name).
         // Crystal convention: `external internal : Type` — the LAST IDENTIFIER is the name.
-        // For instance var parameters: `def initialize(@x : Int32)` — the instance_var_access
-        // child wraps the INSTANCE_VAR token, so check for it as a composite.
+        // Variable-assignment shorthand wraps the storage token in an access composite.
         var lastIdent: PsiElement? = null
         var child = node.firstChildNode
         while (child != null) {
@@ -29,9 +29,12 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
                     lastIdent = child.psi
                 }
                 CrystalTypes.INSTANCE_VAR_ACCESS -> {
-                    // instance_var_access wraps INSTANCE_VAR — find the leaf inside
                     val instanceVar = child.findChildByType(CrystalTypes.INSTANCE_VAR)
                     if (instanceVar != null) lastIdent = instanceVar.psi
+                }
+                CrystalTypes.CLASS_VAR_ACCESS -> {
+                    val classVar = child.findChildByType(CrystalTypes.CLASS_VAR)
+                    if (classVar != null) lastIdent = classVar.psi
                 }
             }
             child = child.treeNext
@@ -39,7 +42,7 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
         return lastIdent
     }
 
-    override fun getName(): String? = nameIdentifier?.text
+    override fun getName(): String? = parameterNameInfo().localName
 
     override fun setName(name: String): PsiElement {
         val ident = nameIdentifier ?: return this

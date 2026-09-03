@@ -114,6 +114,26 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
         )
     }
 
+    fun testExternalStorageParameterHighlightsOnlyItsLocalUsage() {
+        myFixture.configureByText("test.cr", """
+            def greet(public_name @internal_name)
+              puts internal_name
+              puts public_name
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        val bodyStart = myFixture.file.text.indexOf("puts internal_name")
+
+        assertTrue(highlights.any {
+            it.text == "internal_name" && it.startOffset >= bodyStart &&
+                it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        })
+        assertFalse(highlights.any {
+            it.text == "public_name" && it.startOffset >= bodyStart &&
+                it.forcedTextAttributesKey == CrystalSyntaxHighlighter.PARAMETER
+        })
+    }
+
     fun testNonParameterIdentifierNotHighlightedAsParameter() {
         myFixture.configureByText("test.cr", """
             def greet(name)

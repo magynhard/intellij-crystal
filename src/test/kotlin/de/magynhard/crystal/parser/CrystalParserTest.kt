@@ -35,6 +35,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testExternalStorageParameters() {
+        doTest(true)
+    }
+
     fun testDotCompoundAssignment() {
         doTest(true)
     }

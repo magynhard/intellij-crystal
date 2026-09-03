@@ -281,6 +281,14 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testPreservesExternalStorageParameterUnion() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("Foo", "Bar")),
+            "class Foo\nend\nclass Bar\nend\n" +
+                "def use(external @internal : Foo | Bar)\n  internal.<caret>\nend"
+        )
+    }
+
     fun testPreservesExplicitMethodReturnUnionOrder() {
         assertReceiver(
             CompletionReceiver.ValueTypes(listOf("Foo", "Bar")),

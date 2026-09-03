@@ -259,6 +259,17 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testAnnotatedStorageSplatIsMatchedAsSplat() {
+        myFixture.configureByText("test.cr", """
+            annotation Tagged
+            end
+            def foo(@[Tagged] *@values : Int32)
+            end
+            foo("two")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Default Values ====================
 
     fun testFewerArgsThanParamsWithDefaults() {
@@ -278,6 +289,30 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
             end
 
             Boo.new age: <error descr="Type mismatch: expected 'Int32', got 'String'">"some string"</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testConstructorNamedArgumentMatchesExternalStorageParameter() {
+        myFixture.configureByText("test.cr", """
+            class Boo
+              def initialize(public_age @age : Int32)
+              end
+            end
+
+            Boo.new public_age: <error descr="Type mismatch: expected 'Int32', got 'String'">"some string"</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testExternalStorageLocalIsNotMistakenForBareCall() {
+        myFixture.configureByText("test.cr", """
+            def count(value : String)
+            end
+
+            def calculate(label @count : Int32)
+              count + 87
+            end
         """.trimIndent())
         myFixture.checkHighlighting()
     }

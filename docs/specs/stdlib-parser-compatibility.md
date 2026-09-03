@@ -73,6 +73,14 @@ the next independent macro-interpolated method-signature gap at line 717.
 These numbers are diagnostic progress, not an allowlist or an accepted
 threshold: the gate remains zero errors.
 
+The external-storage-parameter repair reduced the indexed corpus to 163 errors
+in 118 files and the complete distribution to 2,649 errors in 746 files.
+Constructs such as `calculation @calculation_time`, `at_end @string`, and
+`verify @expected_crc32` no longer terminate their parameter lists. Prefixed
+storage shorthand such as `&@handler`, `*@values`, and `**@@options` is accepted
+as well; affected files either parse cleanly or advance to a later independent
+syntax gap.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains
@@ -97,6 +105,18 @@ remains an ordinary keyword-named argument. Class variables, globals,
 constants, literals, and member accesses are not valid out targets. Out values
 are valid only for `lib fun` calls; call resolution and diagnostics for FFI
 functions remain tracked in `TODO.md`.
+
+Parameters with assignment shorthand carry three distinct names. In
+`public_name @internal_name`, `public_name` is the call-site label,
+`internal_name` is the local binding available in the method body, and
+`@internal_name` is the storage target assigned on entry. The same model applies
+to direct `@name`, class-variable `@@name`, explicit `external @@storage`, and
+ordinary `external internal` parameters. Call argument matching uses the
+call-site name; local resolution, completion, highlighting, and type inference
+use the local name. Structural signatures retain the call-site name but ignore
+internal local/storage differences that do not change the callable contract.
+Rename treats local and storage uses as one symbol within a type, including
+multiple shorthand parameters that assign the same instance/class variable.
 
 ## Release Gates
 

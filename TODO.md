@@ -75,6 +75,7 @@
 - [ ] **Suppress diagnostics for unresolved macro-generated constructors** — the headless kemal audit checks the ten-argument `new(...)` call inside `Kemal::ExceptionPage.new(context, exception)` against the visible two-argument overload even though the ExceptionPage shard generates the real constructor through a macro. Model constructor uncertainty from relevant macro expansions, or suppress only when the written overload set can be proven incomplete; add a regression shaped like `src/kemal/helpers/exception_page.cr`.
 - [ ] **Investigate chained `status(...).json(...)` argument binding** — the headless kemal audit reports missing `status_code` for valid `env.status(:not_found).json(...)` calls. Capture the parsed call arguments and exact resolution result to distinguish a parser-binding defect from wrong-overload selection, then cover both the chained and standalone forms.
 - [ ] **Prevent regular calls from inheriting unrelated `lib fun` signatures** — the headless kemal audit reports missing `pointer` and `closure_data` in `spec/static_file_handler_spec.cr`. Identify the exact call and ensure FFI declarations cannot enter a regular method overload pool through name-only or incomplete-receiver fallback.
+- [ ] **Preserve generic owner arguments for nested receiver types** — the headless kemal audit reports `Node(K, V)` versus `Kemal::LRUCache::Node` at `src/kemal/route_handler.cr:56`. Trace the local assignment and nested generic receiver through exact DOT resolution so the qualified type does not lose its owner arguments before compatibility checking.
 
 ## IDE / Incremental Lexing Follow-up
 
@@ -94,7 +95,7 @@
 ## Parser Follow-up
 
 - [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
-  `stdlibParseAudit` corpus from the current 175 errors in 123 of 461 files to zero,
+  `stdlibParseAudit` corpus from the current 163 errors in 118 of 461 files to zero,
   then parse all 1,625 distribution sources without errors. Once both are green, add
   mandatory CI jobs that download the pinned official archive, verify SHA-256
   `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both
@@ -104,6 +105,11 @@
   Crystal rejects later positional, splat, and positional `out` arguments. The current generic
   `argument_list` also accepts this pre-existing invalid ordering for ordinary named arguments;
   model the positional-to-named transition without breaking macro trivia or heredoc markers.
+- [ ] **Parse string-literal external parameter names** — Crystal accepts non-interpolated
+  strings such as `def fetch("http-header" internal)`, but the parameter grammar currently
+  supports identifier external names only. Add a delimiter-safe non-interpolating string-name
+  rule, reject empty/interpolated names, and preserve the decoded call-site label separately
+  from the internal binding.
 - [ ] **Parse comma-separated assignments inside parenthesized calls (`compute(x = 5, y = 6)`)** — valid Crystal
   (verified: compiles and evaluates both assignments in order), but neither the bare-argument path (grouped
   expressions hold at most one assignment) nor `argument_list` (`argument` cannot consume `id = expr`) accepts it.

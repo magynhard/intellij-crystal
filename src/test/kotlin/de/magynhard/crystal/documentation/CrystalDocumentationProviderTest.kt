@@ -468,6 +468,17 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertTrue("Should contain parameter name 'bonbon'", doc.contains("bonbon"))
     }
 
+    fun testExternalStorageParameterPopupShowsBothSourceNames() {
+        val doc = hoverDoc("""
+            def configure(public_name @internal_name : String)
+              internal_<caret>name
+            end
+        """.trimIndent())
+
+        assertNotNull(doc)
+        assertTrue(doc!!.contains("public_name @internal_name"))
+    }
+
     fun testParameterPopupShowsType() {
         val doc = hoverDoc("""
             def butter(bonbon : String)

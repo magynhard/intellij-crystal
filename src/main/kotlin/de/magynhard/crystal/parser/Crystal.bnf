@@ -411,10 +411,11 @@ private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 
 private param_prefix ::= annotation_usage
                        | macro_control
-parameter ::= param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER IDENTIFIER [COLON type_reference] [ASSIGN expression]
+// Explicit call-site name plus internal binding/storage target. This longer
+// IDENTIFIER-prefixed form must precede the single-name alternative (PEG).
+parameter ::= param_prefix* IDENTIFIER (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND IDENTIFIER COLON type_union COMMA type_union (COMMA type_union)* ARROW [type_reference]
-            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] IDENTIFIER [COLON type_reference] [ASSIGN expression]
-            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] instance_var_access [COLON type_reference] [ASSIGN expression]
+            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | param_prefix* AMPERSAND [COLON type_reference]
             | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN {

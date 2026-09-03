@@ -139,7 +139,7 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         val nameIdent = xParam!!.nameIdentifier
         assertNotNull("Should have name identifier", nameIdent)
         assertEquals("@x", nameIdent!!.text)
-        assertEquals("@x", xParam.name)
+        assertEquals("x", xParam.name)
     }
 
     // ==================== CrystalAssignment — PsiNameIdentifierOwner ====================
@@ -373,7 +373,6 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         """.trimIndent())
         val element = file.findElementAt(file.text.indexOf("@testfein")) ?: error("No element")
         val param = element.parent as? com.intellij.psi.PsiNameIdentifierOwner ?: error("Not a named element")
-        // getName() should return the full name including @ prefix
         assertEquals("@testfein", param.name)
     }
 
@@ -390,6 +389,142 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
             class Senf
               def initialize(@testfein2 : Int32)
                 @sahne = @testfein2 + 4
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameExternalStorageParameterFromLocalUsage() {
+        myFixture.configureByText("test.cr", """
+            class Senf
+              def initialize(label @value : Int32)
+                puts <caret>value
+                puts @value
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("renamed")
+        myFixture.checkResult("""
+            class Senf
+              def initialize(label @renamed : Int32)
+                puts renamed
+                puts @renamed
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameExternalStorageParameterFromStorageUsage() {
+        myFixture.configureByText("test.cr", """
+            class Senf
+              def initialize(label @value : Int32)
+                puts value
+                puts <caret>@value
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("renamed")
+        myFixture.checkResult("""
+            class Senf
+              def initialize(label @renamed : Int32)
+                puts renamed
+                puts @renamed
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameSharedStorageParameterUpdatesEverySynthesizedLocal() {
+        myFixture.configureByText("test.cr", """
+            class Senf
+              def first(first_label @value : Int32)
+                puts value
+              end
+
+              def second(second_label @value : Int32)
+                puts <caret>value
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("renamed")
+        myFixture.checkResult("""
+            class Senf
+              def first(first_label @renamed : Int32)
+                puts renamed
+              end
+
+              def second(second_label @renamed : Int32)
+                puts renamed
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameExternalClassStorageParameterPreservesSigil() {
+        myFixture.configureByText("test.cr", """
+            class Senf
+              def configure(label @@value : Int32)
+                puts <caret>value
+                puts @@value
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("renamed")
+        myFixture.checkResult("""
+            class Senf
+              def configure(label @@renamed : Int32)
+                puts renamed
+                puts @@renamed
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameBlockStorageParameterPreservesPrefix() {
+        myFixture.configureByText("test.cr", """
+            class Senf
+              def configure(&@handler : String ->)
+                puts <caret>handler
+                puts @handler
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("renamed")
+        myFixture.checkResult("""
+            class Senf
+              def configure(&@renamed : String ->)
+                puts renamed
+                puts @renamed
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testRenameStorageParameterDoesNotCrossTypeBoundary() {
+        myFixture.configureByText("test.cr", """
+            class First
+              def configure(label @value : Int32)
+                puts <caret>value
+              end
+            end
+
+            class Second
+              def configure(label @value : Int32)
+                puts value
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("renamed")
+        myFixture.checkResult("""
+            class First
+              def configure(label @renamed : Int32)
+                puts renamed
+              end
+            end
+
+            class Second
+              def configure(label @value : Int32)
+                puts value
               end
             end
         """.trimIndent())

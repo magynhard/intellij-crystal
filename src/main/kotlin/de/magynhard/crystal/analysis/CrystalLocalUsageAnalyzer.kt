@@ -184,11 +184,18 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
             else -> emptyList()
         }
         for (parameter in parameters) {
-            val identifier = (parameter as? PsiNameIdentifierOwner)?.nameIdentifier ?: continue
-            val name = (parameter as? PsiNameIdentifierOwner)?.name ?: identifier.text
-            val symbol = createSymbol(frame, name, Int.MIN_VALUE)
-            parameterSymbols[parameter] = symbol
-            parameterSymbols[identifier] = symbol
+            val names = parameter.localBindingNames()
+            val identifiers = parameter.node.getChildren(null)
+                .filter { it.elementType == CrystalTypes.IDENTIFIER }
+                .associateBy { it.text }
+            for (name in names) {
+                val identifier = identifiers[name]?.psi
+                    ?: (parameter as? PsiNameIdentifierOwner)?.nameIdentifier
+                    ?: continue
+                val symbol = createSymbol(frame, name, Int.MIN_VALUE)
+                parameterSymbols[identifier] = symbol
+                if (names.size == 1) parameterSymbols[parameter] = symbol
+            }
         }
         if (owner is CrystalRescueClause) {
             val identifier = owner.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi ?: return

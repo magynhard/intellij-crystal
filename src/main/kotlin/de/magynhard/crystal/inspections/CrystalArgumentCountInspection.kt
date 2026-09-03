@@ -316,13 +316,12 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         var hasDoubleSplat = false
 
         for (param in params) {
-            val prefix = param.node.getChildren(null).firstOrNull()?.elementType
-            when (prefix) {
-                CrystalTypes.AMPERSAND -> continue // &block — skip
-                CrystalTypes.STAR -> { hasSplat = true; continue }
-                CrystalTypes.DOUBLE_STAR -> { hasDoubleSplat = true; continue }
+            when {
+                param.node.findChildByType(CrystalTypes.AMPERSAND) != null -> continue
+                param.node.findChildByType(CrystalTypes.STAR) != null -> { hasSplat = true; continue }
+                param.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null -> { hasDoubleSplat = true; continue }
             }
-            val name = de.magynhard.crystal.completion.CrystalCompletionHelper.extractParameterName(param) ?: continue
+            val name = param.parameterNameInfo().callSiteName ?: continue
             val hasDefault = param.expression != null
             regularParams.add(ParamInfo(name, hasDefault))
         }

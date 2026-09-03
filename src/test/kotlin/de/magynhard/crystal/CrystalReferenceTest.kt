@@ -85,6 +85,20 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         assertEquals("greet", (resolved as CrystalMethodDefinition).name)
     }
 
+    fun testExternalStorageParameterLocalNameResolvesToParameter() {
+        val file = myFixture.configureByText("test.cr", """
+            def use(public_name @internal_name : String)
+              internal_name
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "internal_name" }
+
+        val resolved = findReference(usage)?.resolve()
+        assertTrue(resolved is CrystalParameter)
+        assertEquals("public_name @internal_name : String", resolved!!.text)
+    }
+
     fun testMethodCallResolvesToMethod() {
         // "greet(x)" with args is parsed as method_call_expression
         val file = myFixture.configureByText("test.cr", """
