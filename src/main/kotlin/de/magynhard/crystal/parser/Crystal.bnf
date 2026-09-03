@@ -834,7 +834,7 @@ private macro_only_argument_list ::= NEWLINE* macro_control (NEWLINE | macro_con
 argument ::= STAR expression
            | DOUBLE_STAR expression
            | AMPERSAND expression
-           | OUT IDENTIFIER
+           | out_argument
            | named_argument
            | starred_type_expression
            | expression
@@ -850,7 +850,12 @@ private starred_type_expression ::= type_path (STAR | DOUBLE_STAR)+
 // Without pin=2, the optional [IDENTIFIER COLON] prefix would greedily consume
 // IDENTIFIER even when COLON doesn't follow, causing binary expressions like
 // x * 2 to be misparsed (x consumed, * 2 treated as unary star expression).
-private named_argument ::= (IDENTIFIER | keyword_identifier) COLON expression {pin=2}
+private named_argument ::= (IDENTIFIER | keyword_identifier) COLON NLS (out_argument | expression) {pin=2}
+
+// Crystal `out` accepts a local (including `_`) or an instance variable and
+// allows a newline after the keyword. Keep this rule unpinned so `out: value`
+// can fall through to the keyword-named argument alternative above.
+private out_argument ::= OUT NLS (IDENTIFIER | INSTANCE_VAR)
 
 // Bare (parenthesis-free) arguments — used for calls like: describe App5 do ... end
 // Trivia only AROUND commas (never leading/trailing): multi-line bare calls like
@@ -865,7 +870,7 @@ bare_argument ::= named_bare_argument
                 | DOUBLE_STAR bare_expression
                 | AMPERSAND bare_expression
                 | bare_expression
-                | OUT IDENTIFIER
+                | out_argument
 
 // Named bare argument: the IDENTIFIER COLON prefix is REQUIRED, so a missing
 // colon simply fails the rule and the argument falls back to bare_expression
@@ -873,7 +878,7 @@ bare_argument ::= named_bare_argument
 // commits after IDENTIFIER COLON (result_ || pinned_) and a failing tail —
 // proc-type macro arguments like `upgrade_handler : (IO ->)?` — could never
 // fall through to named_type_bare_argument below.
-private named_bare_argument ::= (IDENTIFIER | keyword_identifier) COLON bare_expression [ASSIGN bare_expression]
+private named_bare_argument ::= (IDENTIFIER | keyword_identifier) COLON NLS (out_argument | bare_expression [ASSIGN bare_expression])
 
 // TYPE-shaped macro argument, reached only when named_bare_argument fails (PEG
 // order): proc types in property/getter macro calls like

@@ -64,9 +64,14 @@ errors without exceptions.
 The initial indexed-corpus baseline contained 178 errors in 127 files. The
 keyword-label repair reduced it to 177 errors in 125 files; `fiber.cr` and
 `fiber/execution_context.cr` now advance past their former `property next`
-failures, while `concurrent.cr` and `http/server/handler.cr` parse cleanly. This
-number is diagnostic progress, not an allowlist or an accepted threshold: the
-gate remains zero errors.
+failures, while `concurrent.cr` and `http/server/handler.cr` parse cleanly. The
+out-argument repair reduced the indexed corpus further to 175 errors in 123
+files and the complete distribution from 2,671 errors in 758 files to 2,666
+errors in 753 files. `big/big_float.cr` and `big/big_rational.cr` now parse
+cleanly, while `big/big_int.cr` advances from its constructor's `out @mpz` to
+the next independent macro-interpolated method-signature gap at line 717.
+These numbers are diagnostic progress, not an allowlist or an accepted
+threshold: the gate remains zero errors.
 
 ## Fix Requirements
 
@@ -84,6 +89,14 @@ not become accepted through a permissive fallback.
 Word keywords are valid named argument labels in parenthesized and bare calls
 (`trace(for: time)`, `trace for: time`) and in declaration-macro arguments
 (`property next : Fiber?`). Operator method names remain excluded from labels.
+
+Out arguments accept a local variable (including `_`) or an instance variable,
+with optional newlines after `out`, in both parenthesized and bare calls. Named
+arguments may use an out value (`read(target: out @value)`) while `out: value`
+remains an ordinary keyword-named argument. Class variables, globals,
+constants, literals, and member accesses are not valid out targets. Out values
+are valid only for `lib fun` calls; call resolution and diagnostics for FFI
+functions remain tracked in `TODO.md`.
 
 ## Release Gates
 
