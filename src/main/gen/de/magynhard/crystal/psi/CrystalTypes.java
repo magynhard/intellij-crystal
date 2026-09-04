@@ -10,6 +10,7 @@ import de.magynhard.crystal.psi.impl.*;
 
 public interface CrystalTypes {
 
+  IElementType ABRUPT_ASSIGNMENT = new CrystalElementType("ABRUPT_ASSIGNMENT");
   IElementType ALIAS_DEFINITION = CrystalStubElementTypeFactory.create("ALIAS_DEFINITION");
   IElementType ANNOTATION_DEFINITION = CrystalStubElementTypeFactory.create("ANNOTATION_DEFINITION");
   IElementType ANNOTATION_USAGE = new CrystalElementType("ANNOTATION_USAGE");
@@ -288,7 +289,10 @@ public interface CrystalTypes {
   class Factory {
     public static PsiElement createElement(ASTNode node) {
       IElementType type = node.getElementType();
-      if (type == ALIAS_DEFINITION) {
+      if (type == ABRUPT_ASSIGNMENT) {
+        return new CrystalAbruptAssignmentImpl(node);
+      }
+      else if (type == ALIAS_DEFINITION) {
         return new CrystalAliasDefinitionImpl(node);
       }
       else if (type == ANNOTATION_DEFINITION) {

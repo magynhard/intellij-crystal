@@ -46,8 +46,10 @@ structure. A read marks every reaching definition as used.
   the path where no branch executes when there is no exhaustive fallback.
 - `while`, `until`, `for`, and call blocks iterate to a fixed point, so a write
   from one iteration can reach a read in the next iteration.
-- `return`, `break`, and `next`, including postfix forms and assignment-valued
-  forms, terminate the corresponding path after evaluating their value.
+- `return`, `break`, and `next`, including postfix and ordered multi-value forms,
+  terminate the corresponding path after evaluating their values. A heredoc body
+  is evaluated at its header position, even when the header is nested in an
+  assignment RHS, rather than after later values.
 - Rescue handlers conservatively receive every definition that could have been
   written before an exception in the protected body.
 - `else` on a protected block runs only after normal body completion.

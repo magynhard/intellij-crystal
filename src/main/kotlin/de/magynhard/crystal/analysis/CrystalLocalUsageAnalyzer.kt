@@ -86,6 +86,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
     )
 
     private val frames = IdentityHashMap<PsiElement, Frame>()
+    private val activeHeredocBodies = IdentityHashMap<PsiElement, CrystalHeredocLiteral>()
     private val assignmentSymbols = IdentityHashMap<CrystalAssignment, Symbol>()
     private val parameterSymbols = IdentityHashMap<PsiElement, Symbol>()
     private val definitions = mutableListOf<Definition>()
@@ -258,6 +259,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
 
     private fun flowElement(element: PsiElement, frame: Frame, incoming: State): Flow {
         if (element !== root && isHardBoundary(element)) return Flow(incoming)
+        activeHeredocBodies[element]?.let { return flowElement(it, frame, incoming) }
         return when (element) {
             is CrystalAssignment -> flowAssignment(element, frame, incoming)
             is CrystalGroupedExpression -> flowGroupedAssignment(element, frame, incoming)
@@ -278,20 +280,26 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
             is CrystalSelectStatement -> flowSelect(element, frame, incoming)
             is CrystalBeginStatement -> flowBegin(element, frame, incoming)
             is CrystalBlock -> flowBlock(element, incoming)
-            is CrystalReturnStatement -> flowReturn(element, frame, incoming)
-            is CrystalBreakStatement -> flowAbrupt(
-                element.assignment ?: element.expression,
+            is CrystalReturnStatement -> flowAbrupt(
+                element,
                 element.postfixModifier,
                 frame,
                 incoming,
-                isBreak = true
+                AbruptKind.RETURN
+            )
+            is CrystalBreakStatement -> flowAbrupt(
+                element,
+                element.postfixModifier,
+                frame,
+                incoming,
+                AbruptKind.BREAK
             )
             is CrystalNextStatement -> flowAbrupt(
-                element.assignment ?: element.expression,
+                element,
                 element.postfixModifier,
                 frame,
                 incoming,
-                isBreak = false
+                AbruptKind.NEXT
             )
             is CrystalExpression -> flowExpression(element, frame, incoming)
             else -> flowRegularElement(element, frame, incoming)
@@ -387,8 +395,9 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
             else -> null
         }
         if (kind != null) {
-            val value = significant.drop(1).singleOrNull()
-            return flowAbruptValue(value, null, frame, incoming, kind)
+            val values = significant.drop(1).filter { it is CrystalAssignment || it is CrystalExpression }
+            val postfix = significant.filterIsInstance<CrystalPostfixModifier>().singleOrNull()
+            return flowAbruptValues(values, postfix, frame, incoming, kind)
         }
         return flowElements(elements, frame, incoming)
     }
@@ -723,49 +732,32 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         return Flow(entry, returns = bodyFlow.returns)
     }
 
-    private fun flowReturn(statement: CrystalReturnStatement, frame: Frame, incoming: State): Flow {
-        return flowAbruptValue(
-            statement.assignment ?: statement.expression,
-            statement.postfixModifier,
-            frame,
-            incoming,
-            AbruptKind.RETURN
-        )
-    }
-
     private fun flowAbrupt(
-        expression: PsiElement?,
+        statement: CrystalAbruptStatement,
         postfix: CrystalPostfixModifier?,
-        frame: Frame,
-        incoming: State,
-        isBreak: Boolean
-    ): Flow = flowAbruptValue(
-        expression,
-        postfix,
-        frame,
-        incoming,
-        if (isBreak) AbruptKind.BREAK else AbruptKind.NEXT
-    )
-
-    private enum class AbruptKind { RETURN, BREAK, NEXT }
-
-    private fun flowAbruptValue(
-        expression: PsiElement?,
-        outerPostfix: CrystalPostfixModifier?,
         frame: Frame,
         incoming: State,
         kind: AbruptKind
     ): Flow {
-        val nestedAssignment = expression as? CrystalAssignment
-        val postfix = outerPostfix ?: nestedAssignment?.postfixModifier
-        val condition = postfix?.let { flowElement(it.expression, frame, incoming) }
-        val base = condition?.normal ?: incoming
-        val value = when {
-            nestedAssignment != null && postfix === nestedAssignment.postfixModifier ->
-                flowAssignmentCore(nestedAssignment, frame, base)
-            expression != null -> flowElement(expression, frame, base)
-            else -> Flow(base)
+        val bindings = statement.heredocBodyBindings()
+        bindings.forEach { (header, body) -> activeHeredocBodies[header] = body }
+        return try {
+            flowAbruptValues(statement.valueElements(), postfix, frame, incoming, kind)
+        } finally {
+            bindings.forEach { (header) -> activeHeredocBodies.remove(header) }
         }
+    }
+
+    private fun flowAbruptValues(
+        values: List<PsiElement>,
+        postfix: CrystalPostfixModifier?,
+        frame: Frame,
+        incoming: State,
+        kind: AbruptKind,
+    ): Flow {
+        val condition = postfix?.let { flowElement(it.expression, frame, incoming) }
+        val base = if (condition == null) incoming else condition.normal ?: return condition
+        val value = flowSequence(values, frame, base)
         val abruptStates = listOfNotNull(value.normal)
         return Flow(
             normal = if (postfix == null) null else base,
@@ -777,6 +769,8 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
                 if (kind == AbruptKind.RETURN) abruptStates else emptyList()
         )
     }
+
+    private enum class AbruptKind { RETURN, BREAK, NEXT }
 
     private fun flowStatementList(list: CrystalStatementList?, frame: Frame, incoming: State): Flow =
         list?.let { flowChildren(it, frame, incoming) } ?: Flow(incoming)

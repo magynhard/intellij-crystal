@@ -539,16 +539,29 @@ private rescue_spec ::= IDENTIFIER COLON type_reference
 ensure_clause ::= ENSURE statement_list
 
 return_statement ::= RETURN postfix_modifier
-                   | RETURN (assignment | expression) [postfix_modifier]
-                   | RETURN {pin=1}
+                   | RETURN abrupt_value_list [postfix_modifier] [heredoc_bodies]
+                   | RETURN {pin=1
+  implements="de.magynhard.crystal.psi.CrystalAbruptStatement"
+}
 
 break_statement ::= BREAK postfix_modifier
-                  | BREAK (assignment | expression) [postfix_modifier]
-                  | BREAK {pin=1}
+                  | BREAK abrupt_value_list [postfix_modifier] [heredoc_bodies]
+                  | BREAK {pin=1
+  implements="de.magynhard.crystal.psi.CrystalAbruptStatement"
+}
 
 next_statement ::= NEXT postfix_modifier
-                 | NEXT (assignment | expression) [postfix_modifier]
-                 | NEXT {pin=1}
+                 | NEXT abrupt_value_list [postfix_modifier] [heredoc_bodies]
+                 | NEXT {pin=1
+  implements="de.magynhard.crystal.psi.CrystalAbruptStatement"
+}
+
+private abrupt_value_list ::= abrupt_value (COMMA NLS abrupt_value)*
+private abrupt_value ::= abrupt_assignment | expression
+abrupt_assignment ::= variable assign_op NLS (abrupt_assignment | expression) {pin=2
+  mixin="de.magynhard.crystal.psi.impl.CrystalAbruptAssignmentMixin"
+  implements="de.magynhard.crystal.psi.CrystalAssignment"
+}
 
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
 // Yield in expression position may pass multiple values (`memo = found ? (yield memo, elem) : elem`).
@@ -729,9 +742,9 @@ private keyword_identifier ::= ABSTRACT | ALIAS | ANNOTATION | AS | AS_QUESTION 
 // expression is expected (`self[x || return nil]?`, `cond && break`). Statement
 // positions keep their dedicated return/break/next statements — this alternative
 // only engages when RETURN/BREAK/NEXT appears mid-expression.
-private control_flow_expression ::= RETURN [assignment | expression]
-                                   | BREAK [assignment | expression]
-                                   | NEXT [assignment | expression]
+private control_flow_expression ::= RETURN [abrupt_value_list]
+                                   | BREAK [abrupt_value_list]
+                                   | NEXT [abrupt_value_list]
 
 private primary_expression ::= grouped_expression
                              | control_flow_expression

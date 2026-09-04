@@ -3,6 +3,7 @@ package de.magynhard.crystal.analysis
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.CrystalBareArgument
+import de.magynhard.crystal.psi.CrystalReturnStatement
 
 class CrystalTypeSetResolverTest : BasePlatformTestCase() {
 
@@ -33,6 +34,62 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
     fun testNestedAssignmentUsesInnermostRightHandSide() {
         assertTypes("a = b = 1\n<caret>a", "Int32")
         assertTypes("a = b = 1\n<caret>b", "Int32")
+    }
+
+    fun testMultiValueReturnResolvesAsTuple() {
+        val file = myFixture.configureByText("test.cr", "def values\n  return 1, \"two\"\nend")
+        val statement = PsiTreeUtil.findChildOfType(file, CrystalReturnStatement::class.java)!!
+        val result = CrystalTypeSetResolver.resolve(statement)
+        assertEquals(
+            CrystalTypeResolution.Known(listOf(CrystalResolvedType("Tuple(Int32, String)"))),
+            result,
+        )
+    }
+
+    fun testMethodCallInfersMultiValueReturnTuple() {
+        assertTypes(
+            "def values\n  return 1, \"two\"\nend\nresult = values\n<caret>result",
+            "Tuple(Int32, String)",
+        )
+    }
+
+    fun testMultiValueReturnWithFinalAssignmentPreservesPostfixFallthrough() {
+        assertTypes(
+            "def values(flag)\n  return 1, value = 2 if flag\n  \"fallback\"\nend\n" +
+                "result = values(true)\n<caret>result",
+            "Tuple(Int32, Int32)",
+            "String",
+        )
+    }
+
+    fun testPostfixMultiValueReturnAssignmentDoesNotLeakIntoFallthroughState() {
+        assertTypes(
+            "x = \"old\"\nreturn 1, x = 2 if flag\n<caret>x",
+            "String",
+        )
+    }
+
+    fun testLaterMultiValueReturnFailureSeesEarlierAssignmentInRescue() {
+        assertTypes(
+            "x = \"old\"\nbegin\n  return x = 1, danger\nrescue\n  <caret>x\nend",
+            "Int32",
+        )
+    }
+
+    fun testEarlierMultiValueReturnFailureDoesNotApplyLaterAssignmentInRescue() {
+        assertTypes(
+            "x = \"old\"\nbegin\n  return danger, x = 1\nrescue\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testChainedAssignmentInMultiValueReturnResolvesInOrder() {
+        val file = myFixture.configureByText("test.cr", "def values\n  return first = second = 1, \"two\"\nend")
+        val statement = PsiTreeUtil.findChildOfType(file, CrystalReturnStatement::class.java)!!
+        assertEquals(
+            CrystalTypeResolution.Known(listOf(CrystalResolvedType("Tuple(Int32, String)"))),
+            CrystalTypeSetResolver.resolve(statement),
+        )
     }
 
     fun testLaterAssignmentIsIgnored() {

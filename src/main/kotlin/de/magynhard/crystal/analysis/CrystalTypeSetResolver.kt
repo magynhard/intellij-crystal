@@ -30,6 +30,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private val effectiveSources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
     private val memo = IdentityHashMap<PsiElement, CrystalTypeResolution>()
+    private val activeHeredocBodies = IdentityHashMap<PsiElement, CrystalHeredocLiteral>()
     private val resolving = java.util.Collections.newSetFromMap(IdentityHashMap<PsiElement, Boolean>())
     private val resolvingMethods = java.util.Collections.newSetFromMap(IdentityHashMap<CrystalMethodDefinition, Boolean>())
     private val methodReturnMemo = IdentityHashMap<CrystalMethodDefinition, CrystalTypeResolution>()
@@ -194,7 +195,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         }
         if (element is CrystalAssignment) return resolve(element.assignment ?: element.expression
             ?: return CrystalTypeResolution.Unknown)
-        if (element is CrystalReturnStatement) return element.expression?.let(::resolve) ?: knownType("Nil")
+        if (element is CrystalReturnStatement) return resolveAbruptValues(element.valueElements())
 
         when (element.node?.elementType) {
             CrystalTypes.INTEGER_LITERAL -> return resolveInteger(element.text)
@@ -447,10 +448,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun flowElement(element: PsiElement, name: String, incoming: VariableState): VariableFlow {
         if (isScopeBoundary(element)) return VariableFlow.falling(incoming)
+        activeHeredocBodies[element]?.let { return flowElement(it, name, incoming) }
         val returnStatement = (element as? CrystalStatement)?.returnStatement ?: element as? CrystalReturnStatement
-        if (returnStatement != null && returnStatement.postfixModifier == null) {
-            val exceptions = returnStatement.expression?.takeIf(::mayRaise)?.let { listOf(incoming) }.orEmpty()
-            return VariableFlow(incoming, fallsThrough = false, exceptionalStates = exceptions)
+        if (returnStatement != null) {
+            val condition = returnStatement.postfixModifier?.let { flowElement(it.expression, name, incoming) }
+            val base = condition?.state ?: incoming
+            if (condition != null && !condition.fallsThrough) return condition
+            val abrupt = flowAbruptValues(returnStatement, name, base)
+            if (condition == null) return abrupt
+            return VariableFlow(
+                base,
+                fallsThrough = true,
+                exceptionalStates = condition.exceptionalStates + abrupt.exceptionalStates,
+            )
         }
         val property = (element as? CrystalStatement)?.propertyDeclaration
             ?: element as? CrystalPropertyDeclaration
@@ -471,13 +481,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 if (assignmentName(currentAssignment) == name) {
                     val rhs = currentAssignment.assignment ?: currentAssignment.expression
                         ?: return VariableFlow.falling(VariableState.Unknown)
-                    val rhsResult = resolve(rhs)
-                    val assigned = VariableState.Bound(rhsResult, CrystalVariableProvenance.ASSIGNMENT)
-                    val exceptional = if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                    val rhsFlow = flowElement(rhs, name, incoming)
+                    val assigned = VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT)
+                    val exceptional = rhsFlow.exceptionalStates +
+                        if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                    if (!rhsFlow.fallsThrough) return rhsFlow
                     if (currentAssignment.postfixModifier == null) {
                         return VariableFlow(assigned, true, exceptional)
                     }
-                    return VariableFlow(mergeStates(listOf(incoming, assigned)), true, exceptional)
+                    return VariableFlow(
+                        mergeStates(listOf(incoming, assigned)),
+                        true,
+                        exceptional,
+                    )
                 }
                 currentAssignment = currentAssignment.assignment
             }
@@ -558,6 +574,28 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return VariableFlow(incoming, true, if (mayRaise(element)) listOf(incoming) else emptyList())
     }
 
+    private fun flowAbruptValues(
+        statement: CrystalAbruptStatement,
+        name: String,
+        incoming: VariableState,
+    ): VariableFlow {
+        val bindings = statement.heredocBodyBindings()
+        bindings.forEach { (header, body) -> activeHeredocBodies[header] = body }
+        try {
+            var state = incoming
+            val exceptions = mutableListOf<VariableState>()
+            for (value in statement.valueElements()) {
+                val flow = flowElement(value, name, state)
+                exceptions.addAll(flow.exceptionalStates)
+                state = flow.state
+                if (!flow.fallsThrough) return VariableFlow(state, false, exceptions)
+            }
+            return VariableFlow(state, fallsThrough = false, exceptionalStates = exceptions)
+        } finally {
+            bindings.forEach { (header) -> activeHeredocBodies.remove(header) }
+        }
+    }
+
     private fun flowStatementList(
         statementList: CrystalStatementList?,
         name: String,
@@ -626,10 +664,14 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val assignedName = children.take(assignIndex).lastOrNull()?.text
             if (assignedName == name) {
                 val rhs = children[assignIndex + 1]
+                val rhsFlow = flowElement(rhs, name, incoming)
+                if (!rhsFlow.fallsThrough) return rhsFlow
+                val exceptional = rhsFlow.exceptionalStates +
+                    if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
                 return VariableFlow(
                     VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT),
                     true,
-                    if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                    exceptional,
                 )
             }
         }
@@ -637,10 +679,14 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val expressions = element.expressionList
             if (expressions.size >= 2 && expressions.first().text == name) {
                 val rhs = expressions.last()
+                val rhsFlow = flowElement(rhs, name, incoming)
+                if (!rhsFlow.fallsThrough) return rhsFlow
+                val exceptional = rhsFlow.exceptionalStates +
+                    if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
                 return VariableFlow(
                     VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT),
                     true,
-                    if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                    exceptional,
                 )
             }
         }
@@ -679,7 +725,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val exceptional = mutableListOf<VariableState>()
         var sawAssignment = false
         for (child in children) {
-            if (child is CrystalExpression || child is CrystalGroupedExpression || containsAssignment(child, name)) {
+            if (child is CrystalExpression || child is CrystalGroupedExpression ||
+                containsAssignment(child, name) || containsActiveHeredoc(child)
+            ) {
                 val next = flowElement(child, name, state)
                 exceptional.addAll(next.exceptionalStates)
                 if (!next.fallsThrough) return VariableFlow(next.state, false, exceptional)
@@ -706,7 +754,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         var state = incoming
         val exceptional = mutableListOf<VariableState>()
         for (child in significantChildren(element)) {
-            if (!containsAssignment(child, name)) continue
+            if (!containsAssignment(child, name) && !containsActiveHeredoc(child)) continue
             val next = if (child is CrystalAssignment) {
                 flowElement(child, name, state)
             } else {
@@ -719,6 +767,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (isPotentiallyRaisingOperation(element)) exceptional.add(state)
         return VariableFlow(state, true, exceptional)
     }
+
+    private fun containsActiveHeredoc(element: PsiElement): Boolean =
+        activeHeredocBodies.keys.any { marker -> element === marker || PsiTreeUtil.isAncestor(element, marker, true) }
 
     private fun mergeStates(states: List<VariableState>): VariableState {
         if (states.all { it is VariableState.Unbound }) return VariableState.Unbound
@@ -855,7 +906,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun analyzeStatement(statement: CrystalStatement): ExecutionResult {
         statement.returnStatement?.let { returnStatement ->
-            val result = returnStatement.expression?.let(::resolve) ?: knownType("Nil")
+            val result = resolveAbruptValues(returnStatement.valueElements())
             return if (returnStatement.postfixModifier == null) {
                 ExecutionResult(listOf(result), null, false)
             } else {
@@ -1036,8 +1087,17 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun resolveTuple(tuple: CrystalTupleLiteral): CrystalTypeResolution {
-        val expressions = tuple.expressionList?.expressionList.orEmpty()
-        val results = expressions.map(::resolve)
+        return resolveTupleValues(tuple.expressionList?.expressionList.orEmpty())
+    }
+
+    private fun resolveAbruptValues(values: List<PsiElement>): CrystalTypeResolution = when (values.size) {
+        0 -> knownType("Nil")
+        1 -> resolve(values.single())
+        else -> resolveTupleValues(values)
+    }
+
+    private fun resolveTupleValues(values: List<PsiElement>): CrystalTypeResolution {
+        val results = values.map(::resolve)
         if (results.any { it is CrystalTypeResolution.Unknown }) return CrystalTypeResolution.Unknown
         val names = results.map { (it as CrystalTypeResolution.Known).types.joinToString(" | ") { type -> type.name } }
         return knownType("Tuple(${names.joinToString(", ")})")

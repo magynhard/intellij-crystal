@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalExpression extends PsiElement {
 
   @NotNull
+  List<CrystalAbruptAssignment> getAbruptAssignmentList();
+
+  @NotNull
   List<CrystalArgumentList> getArgumentListList();
 
   @NotNull
@@ -15,9 +18,6 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalAsmExpression> getAsmExpressionList();
-
-  @NotNull
-  List<CrystalAssignment> getAssignmentList();
 
   @NotNull
   List<CrystalBareArgumentList> getBareArgumentListList();

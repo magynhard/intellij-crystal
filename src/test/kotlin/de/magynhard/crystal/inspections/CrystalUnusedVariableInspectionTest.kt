@@ -743,6 +743,79 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testEveryMultiValueReturnExpressionIsRead() {
+        myFixture.configureByText("test.cr", """
+            def values
+              first = 1
+              second = 2
+              return first, second
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testEveryMultiValueBreakAndNextExpressionIsRead() {
+        myFixture.configureByText("test.cr", """
+            def values
+              break_first = 1
+              break_second = 2
+              loop do
+                break break_first, break_second
+              end
+              next_first = 3
+              next_second = 4
+              1.times do
+                next next_first, next_second
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testReturnedHeredocInterpolationReadsLocal() {
+        myFixture.configureByText("test.cr", """
+            def message
+              name = "Crystal"
+              return <<-MSG
+                Hello #{name}
+                MSG
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMultiValueReturnEvaluatesHeredocBeforeFollowingAssignment() {
+        myFixture.configureByText("test.cr", """
+            def message
+              name = "old"
+              return @message = <<-MSG, <weak_warning descr="Value assigned to 'name' is never used">name</weak_warning> = "new"
+                #{name}
+                MSG
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBreakAndNextHeredocInterpolationsReadDistinctLocals() {
+        myFixture.configureByText("test.cr", """
+            def messages
+              break_name = "break"
+              loop do
+                break <<-MSG
+                  #{break_name}
+                  MSG
+              end
+              next_name = "next"
+              1.times do
+                next <<-MSG
+                  #{next_name}
+                  MSG
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testParenthesizedReturnMakesFollowingAssignmentUnreachable() {
         myFixture.configureByText("test.cr", """
             def process

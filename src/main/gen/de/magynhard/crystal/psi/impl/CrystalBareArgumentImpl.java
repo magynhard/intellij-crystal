@@ -29,6 +29,12 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
 
   @Override
   @NotNull
+  public List<CrystalAbruptAssignment> getAbruptAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAbruptAssignment.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalArgumentList> getArgumentListList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalArgumentList.class);
   }
@@ -43,12 +49,6 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
   @NotNull
   public List<CrystalAsmExpression> getAsmExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAsmExpression.class);
-  }
-
-  @Override
-  @NotNull
-  public List<CrystalAssignment> getAssignmentList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAssignment.class);
   }
 
   @Override

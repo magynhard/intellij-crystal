@@ -81,6 +81,19 @@ storage shorthand such as `&@handler`, `*@values`, and `**@@options` is accepted
 as well; affected files either parse cleanly or advance to a later independent
 syntax gap.
 
+The multi-value abrupt-statement repair reduced the indexed corpus to 157 errors
+in 110 files and the complete distribution to 2,638 errors in 733 files.
+`return`, `break`, and `next` accept ordered comma-separated assignment/expression
+values, including newline continuations. Multi-value returns infer a tuple type, every value
+participates in local-use analysis, and heredoc bodies remain attached to the
+abrupt statement. Heredoc interpolation runs at its header's value position,
+including headers nested in an assignment RHS; later values cannot affect it.
+Postfix conditions retain only the condition-false state on the fallthrough path,
+so assignments in the abrupt values do not leak past the statement. Files such as
+`channel/select.cr`, `io/stapled.cr`, and
+`mime/media_type.cr` now parse cleanly; `hash.cr` advances to later independent
+syntax gaps.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

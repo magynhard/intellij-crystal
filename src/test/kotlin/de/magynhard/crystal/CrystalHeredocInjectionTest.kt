@@ -160,4 +160,24 @@ class CrystalHeredocInjectionTest : BasePlatformTestCase() {
         assertTrue(CrystalHeredocInjection.willInject(literals[0]))
         assertTrue(!CrystalHeredocInjection.willInject(literals[1]))
     }
+
+    fun testMultiValueReturnPairsBodiesWithNestedAssignmentHeaders() {
+        myFixture.configureByText("main.cr", """
+            def payload
+              return <<-SQL, script = <<-JAVASCRIPT
+                SELECT 1
+                SQL
+                let value = 1
+                JAVASCRIPT
+            end
+        """.trimIndent())
+        val literals = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalHeredocLiteral::class.java).toList()
+
+        assertEquals(2, literals.size)
+        assertEquals(listOf("SQL", "JavaScript"), literals.map { literal ->
+            val registrar = FakeInjectionRegistrar()
+            CrystalHeredocInjector().getLanguagesToInject(registrar, literal)
+            registrar.language.id
+        })
+    }
 }

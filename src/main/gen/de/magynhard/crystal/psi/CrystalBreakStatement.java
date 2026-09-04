@@ -5,13 +5,16 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalBreakStatement extends PsiElement {
+public interface CrystalBreakStatement extends CrystalAbruptStatement {
+
+  @NotNull
+  List<CrystalAbruptAssignment> getAbruptAssignmentList();
+
+  @NotNull
+  List<CrystalExpression> getExpressionList();
 
   @Nullable
-  CrystalAssignment getAssignment();
-
-  @Nullable
-  CrystalExpression getExpression();
+  CrystalHeredocBodies getHeredocBodies();
 
   @Nullable
   CrystalPostfixModifier getPostfixModifier();

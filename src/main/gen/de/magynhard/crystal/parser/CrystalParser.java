@@ -48,6 +48,75 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // variable assign_op NLS (abrupt_assignment | expression)
+  public static boolean abrupt_assignment(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "abrupt_assignment")) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _COLLAPSE_, ABRUPT_ASSIGNMENT, "<abrupt assignment>");
+    result_ = variable(builder_, level_ + 1);
+    result_ = result_ && assign_op(builder_, level_ + 1);
+    pinned_ = result_; // pin = 2
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && abrupt_assignment_3(builder_, level_ + 1) && result_;
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
+  }
+
+  // abrupt_assignment | expression
+  private static boolean abrupt_assignment_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "abrupt_assignment_3")) return false;
+    boolean result_;
+    result_ = abrupt_assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // abrupt_assignment | expression
+  static boolean abrupt_value(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "abrupt_value")) return false;
+    boolean result_;
+    result_ = abrupt_assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // abrupt_value (COMMA NLS abrupt_value)*
+  static boolean abrupt_value_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "abrupt_value_list")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = abrupt_value(builder_, level_ + 1);
+    result_ = result_ && abrupt_value_list_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (COMMA NLS abrupt_value)*
+  private static boolean abrupt_value_list_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "abrupt_value_list_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!abrupt_value_list_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "abrupt_value_list_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // COMMA NLS abrupt_value
+  private static boolean abrupt_value_list_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "abrupt_value_list_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && abrupt_value(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // multiplicative_expression ((PLUS | MINUS | WRAP_PLUS | WRAP_MINUS) NLS multiplicative_expression)*
   static boolean additive_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "additive_expression")) return false;
@@ -2167,7 +2236,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // BREAK postfix_modifier
-  //                   | BREAK (assignment | expression) [postfix_modifier]
+  //                   | BREAK abrupt_value_list [postfix_modifier] [heredoc_bodies]
   //                   | BREAK
   public static boolean break_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "break_statement")) return false;
@@ -2192,24 +2261,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // BREAK (assignment | expression) [postfix_modifier]
+  // BREAK abrupt_value_list [postfix_modifier] [heredoc_bodies]
   private static boolean break_statement_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "break_statement_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, BREAK);
-    result_ = result_ && break_statement_1_1(builder_, level_ + 1);
+    result_ = result_ && abrupt_value_list(builder_, level_ + 1);
     result_ = result_ && break_statement_1_2(builder_, level_ + 1);
+    result_ = result_ && break_statement_1_3(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
-  // assignment | expression
-  private static boolean break_statement_1_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "break_statement_1_1")) return false;
-    boolean result_;
-    result_ = assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
   }
 
@@ -2217,6 +2278,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean break_statement_1_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "break_statement_1_2")) return false;
     postfix_modifier(builder_, level_ + 1);
+    return true;
+  }
+
+  // [heredoc_bodies]
+  private static boolean break_statement_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "break_statement_1_3")) return false;
+    heredoc_bodies(builder_, level_ + 1);
     return true;
   }
 
@@ -2618,9 +2686,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // RETURN [assignment | expression]
-  //                                    | BREAK [assignment | expression]
-  //                                    | NEXT [assignment | expression]
+  // RETURN [abrupt_value_list]
+  //                                    | BREAK [abrupt_value_list]
+  //                                    | NEXT [abrupt_value_list]
   static boolean control_flow_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "control_flow_expression")) return false;
     boolean result_;
@@ -2632,7 +2700,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // RETURN [assignment | expression]
+  // RETURN [abrupt_value_list]
   private static boolean control_flow_expression_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "control_flow_expression_0")) return false;
     boolean result_;
@@ -2643,23 +2711,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [assignment | expression]
+  // [abrupt_value_list]
   private static boolean control_flow_expression_0_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "control_flow_expression_0_1")) return false;
-    control_flow_expression_0_1_0(builder_, level_ + 1);
+    abrupt_value_list(builder_, level_ + 1);
     return true;
   }
 
-  // assignment | expression
-  private static boolean control_flow_expression_0_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "control_flow_expression_0_1_0")) return false;
-    boolean result_;
-    result_ = assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
-    return result_;
-  }
-
-  // BREAK [assignment | expression]
+  // BREAK [abrupt_value_list]
   private static boolean control_flow_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "control_flow_expression_1")) return false;
     boolean result_;
@@ -2670,23 +2729,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [assignment | expression]
+  // [abrupt_value_list]
   private static boolean control_flow_expression_1_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "control_flow_expression_1_1")) return false;
-    control_flow_expression_1_1_0(builder_, level_ + 1);
+    abrupt_value_list(builder_, level_ + 1);
     return true;
   }
 
-  // assignment | expression
-  private static boolean control_flow_expression_1_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "control_flow_expression_1_1_0")) return false;
-    boolean result_;
-    result_ = assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
-    return result_;
-  }
-
-  // NEXT [assignment | expression]
+  // NEXT [abrupt_value_list]
   private static boolean control_flow_expression_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "control_flow_expression_2")) return false;
     boolean result_;
@@ -2697,20 +2747,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [assignment | expression]
+  // [abrupt_value_list]
   private static boolean control_flow_expression_2_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "control_flow_expression_2_1")) return false;
-    control_flow_expression_2_1_0(builder_, level_ + 1);
+    abrupt_value_list(builder_, level_ + 1);
     return true;
-  }
-
-  // assignment | expression
-  private static boolean control_flow_expression_2_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "control_flow_expression_2_1_0")) return false;
-    boolean result_;
-    result_ = assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
-    return result_;
   }
 
   /* ********************************************************** */
@@ -5375,7 +5416,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // NEXT postfix_modifier
-  //                  | NEXT (assignment | expression) [postfix_modifier]
+  //                  | NEXT abrupt_value_list [postfix_modifier] [heredoc_bodies]
   //                  | NEXT
   public static boolean next_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "next_statement")) return false;
@@ -5400,24 +5441,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // NEXT (assignment | expression) [postfix_modifier]
+  // NEXT abrupt_value_list [postfix_modifier] [heredoc_bodies]
   private static boolean next_statement_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "next_statement_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, NEXT);
-    result_ = result_ && next_statement_1_1(builder_, level_ + 1);
+    result_ = result_ && abrupt_value_list(builder_, level_ + 1);
     result_ = result_ && next_statement_1_2(builder_, level_ + 1);
+    result_ = result_ && next_statement_1_3(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
-  // assignment | expression
-  private static boolean next_statement_1_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "next_statement_1_1")) return false;
-    boolean result_;
-    result_ = assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
   }
 
@@ -5425,6 +5458,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean next_statement_1_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "next_statement_1_2")) return false;
     postfix_modifier(builder_, level_ + 1);
+    return true;
+  }
+
+  // [heredoc_bodies]
+  private static boolean next_statement_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "next_statement_1_3")) return false;
+    heredoc_bodies(builder_, level_ + 1);
     return true;
   }
 
@@ -6833,7 +6873,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // RETURN postfix_modifier
-  //                    | RETURN (assignment | expression) [postfix_modifier]
+  //                    | RETURN abrupt_value_list [postfix_modifier] [heredoc_bodies]
   //                    | RETURN
   public static boolean return_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "return_statement")) return false;
@@ -6858,24 +6898,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // RETURN (assignment | expression) [postfix_modifier]
+  // RETURN abrupt_value_list [postfix_modifier] [heredoc_bodies]
   private static boolean return_statement_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "return_statement_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, RETURN);
-    result_ = result_ && return_statement_1_1(builder_, level_ + 1);
+    result_ = result_ && abrupt_value_list(builder_, level_ + 1);
     result_ = result_ && return_statement_1_2(builder_, level_ + 1);
+    result_ = result_ && return_statement_1_3(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
-  // assignment | expression
-  private static boolean return_statement_1_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "return_statement_1_1")) return false;
-    boolean result_;
-    result_ = assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
   }
 
@@ -6883,6 +6915,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean return_statement_1_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "return_statement_1_2")) return false;
     postfix_modifier(builder_, level_ + 1);
+    return true;
+  }
+
+  // [heredoc_bodies]
+  private static boolean return_statement_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "return_statement_1_3")) return false;
+    heredoc_bodies(builder_, level_ + 1);
     return true;
   }
 

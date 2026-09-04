@@ -78,6 +78,9 @@ fall-through paths. If every branch of an `if`, `case`, or protected body termin
 and implicit tails are unreachable and excluded.
 
 Unannotated method results merge every reachable explicit return with the reachable implicit tail.
+Comma-separated return values resolve as `Tuple(...)` in source order. For a postfix return,
+assignments in those values belong only to the returning branch; the guard-false fallthrough
+state includes effects from evaluating the guard but not from unevaluated return values.
 Method-level rescue, else, and ensure use the same protected-body semantics as `begin`. Ensure
 affects termination; its ordinary expression value does not replace the protected value. Direct and
 mutual recursion terminate as `Unknown`, and completed method results are memoized per session.

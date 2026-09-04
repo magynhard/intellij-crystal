@@ -95,7 +95,7 @@
 ## Parser Follow-up
 
 - [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
-  `stdlibParseAudit` corpus from the current 163 errors in 118 of 461 files to zero,
+  `stdlibParseAudit` corpus from the current 157 errors in 110 of 461 files to zero,
   then parse all 1,625 distribution sources without errors. Once both are green, add
   mandatory CI jobs that download the pinned official archive, verify SHA-256
   `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both
@@ -121,7 +121,6 @@
   trailing `[block]`, so the unparenthesized proc-plus-block form (`select &.even? { }`) fails to parse.
   Parenthesized usage (`select(&.even?)`) is unaffected. Rare in real code; extend the rule with a
   `[block]` tail (and cover it in a parser test) when a real-world case appears.
-- [ ] **Parse multi-value return expressions** — real stdlib `hash.cr` uses `return entry, entry_index`, but `return_statement` currently accepts only one expression and reports an unexpected comma. Add tuple-style multi-value support without losing the existing `CrystalReturnStatement.expression` PSI contract, or deliberately migrate consumers such as `CrystalTypeSetResolver` to a list-valued return shape. Cover `return a, b`, postfix modifiers, and analogous `break`/`next` forms if Crystal permits them.
 - [ ] **Handle `Foo::bar` with lowercase identifiers as method calls** — `namespace_access` only matches
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
   call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);
