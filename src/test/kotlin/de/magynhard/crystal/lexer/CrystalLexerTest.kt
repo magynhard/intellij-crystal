@@ -86,6 +86,22 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testBangTildeIsOneTokenInExpressionLexerStates() {
+        val inputs = listOf(
+            "left !~ right",
+            "\"#{left !~ right}\"",
+            "{{ left !~ right }}",
+            "{% if left !~ right %}",
+        )
+
+        for (input in inputs) {
+            val tokens = nonWhitespaceTokens(input).filter { it.second == "!~" }
+            assertEquals("Should emit one !~ token in '$input'", 1, tokens.size)
+            assertEquals("!~ token in '$input'", CrystalTypes.BANG_TILDE, tokens.single().first)
+        }
+    }
+
+    @Test
     fun testBareRegexArgumentAfterDotCall() {
         val tokens = nonWhitespaceTokens("range.match /(\\d{1,})-(\\d{0,})/")
         assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })

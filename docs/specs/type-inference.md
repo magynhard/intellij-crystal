@@ -67,8 +67,12 @@ Logical operators return values, not a fixed `Bool`:
 - Mixed `Bool`/`Nil` unions retain only reachable short-circuit left alternatives and include the
   right result only when the right operand can execute.
 
-Comparisons resolve to `Bool`. Arithmetic is supported only when both operand sets are the same
-known type; unsupported promotion or overload cases remain unknown.
+Equality and relational comparisons resolve to `Bool`. Spaceship `<=>`, regex
+match `=~`, and not-match `!~` remain unknown without exact overload resolution:
+their standard implementations can return ordering values or `Int32 | Nil`, and
+Crystal permits custom implementations with arbitrary return types. Arithmetic
+is supported only when both operand sets are the same known type; unsupported
+promotion or overload cases remain unknown.
 
 ## Reachability And Returns
 

@@ -134,6 +134,7 @@ public interface CrystalTypes {
   IElementType AT = new CrystalTokenType("AT");
   IElementType BACKTICK = new CrystalTokenType("BACKTICK");
   IElementType BANG = new CrystalTokenType("BANG");
+  IElementType BANG_TILDE = new CrystalTokenType("BANG_TILDE");
   IElementType BEGIN = new CrystalTokenType("BEGIN");
   IElementType BREAK = new CrystalTokenType("BREAK");
   IElementType CARET = new CrystalTokenType("CARET");

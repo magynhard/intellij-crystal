@@ -1239,7 +1239,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
+  // bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression)*
   static boolean bare_comparison_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_comparison_expression")) return false;
     boolean result_;
@@ -1250,7 +1250,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
+  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression)*
   private static boolean bare_comparison_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_comparison_expression_1")) return false;
     while (true) {
@@ -1261,7 +1261,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression
+  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression
   private static boolean bare_comparison_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_comparison_expression_1_0")) return false;
     boolean result_;
@@ -1273,7 +1273,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP
+  // EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE
   private static boolean bare_comparison_expression_1_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_comparison_expression_1_0_0")) return false;
     boolean result_;
@@ -1286,6 +1286,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, SPACESHIP);
     if (!result_) result_ = consumeToken(builder_, CASE_EQ);
     if (!result_) result_ = consumeToken(builder_, MATCH_OP);
+    if (!result_) result_ = consumeToken(builder_, BANG_TILDE);
     return result_;
   }
 
@@ -2546,7 +2547,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
+  // range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression)*
   static boolean comparison_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "comparison_expression")) return false;
     boolean result_;
@@ -2557,7 +2558,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
+  // ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression)*
   private static boolean comparison_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "comparison_expression_1")) return false;
     while (true) {
@@ -2568,7 +2569,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression
+  // (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression
   private static boolean comparison_expression_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "comparison_expression_1_0")) return false;
     boolean result_;
@@ -2580,7 +2581,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP
+  // EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE
   private static boolean comparison_expression_1_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "comparison_expression_1_0_0")) return false;
     boolean result_;
@@ -2593,6 +2594,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, SPACESHIP);
     if (!result_) result_ = consumeToken(builder_, CASE_EQ);
     if (!result_) result_ = consumeToken(builder_, MATCH_OP);
+    if (!result_) result_ = consumeToken(builder_, BANG_TILDE);
     return result_;
   }
 
@@ -3773,8 +3775,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // keyword_identifier
-  //                             | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
-  //                             | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP
+  //                              | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
+  //                              | EQ | NEQ | BANG_TILDE | LT | GT | LTE | GTE | SPACESHIP
   //                             | LSHIFT | RSHIFT | AMPERSAND | PIPE | CARET | TILDE
   //                             | DOUBLE_SLASH
   static boolean keyword_as_method(PsiBuilder builder_, int level_) {
@@ -3789,6 +3791,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
     if (!result_) result_ = consumeToken(builder_, EQ);
     if (!result_) result_ = consumeToken(builder_, NEQ);
+    if (!result_) result_ = consumeToken(builder_, BANG_TILDE);
     if (!result_) result_ = consumeToken(builder_, LT);
     if (!result_) result_ = consumeToken(builder_, GT);
     if (!result_) result_ = consumeToken(builder_, LTE);
@@ -4148,7 +4151,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //     | TRUE | FALSE | NIL
   //     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM
   //     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
-  //     | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
+  //     | EQ | NEQ | LT | GT | LTE | GTE | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND
   //     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
   //     | DOUBLE_COLON | PERCENT
   //     | NEWLINE | SEMICOLON | HASH | AT | ARROW | DOUBLE_ARROW | ANNOTATION
@@ -4200,6 +4203,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, GT);
     if (!result_) result_ = consumeToken(builder_, LTE);
     if (!result_) result_ = consumeToken(builder_, GTE);
+    if (!result_) result_ = consumeToken(builder_, MATCH_OP);
+    if (!result_) result_ = consumeToken(builder_, BANG_TILDE);
     if (!result_) result_ = consumeToken(builder_, OR_OR);
     if (!result_) result_ = consumeToken(builder_, AND_AND);
     if (!result_) result_ = consumeToken(builder_, PIPE);
@@ -5515,7 +5520,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
   //                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
   //                                 | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
-  //                                 | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET QUESTION | LBRACKET RBRACKET
+  //                                 | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE
+  //                                 | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET QUESTION | LBRACKET RBRACKET
   static boolean operator_method_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "operator_method_name")) return false;
     boolean result_;
@@ -5545,6 +5551,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, SPACESHIP);
     if (!result_) result_ = consumeToken(builder_, CASE_EQ);
     if (!result_) result_ = consumeToken(builder_, MATCH_OP);
+    if (!result_) result_ = consumeToken(builder_, BANG_TILDE);
     if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET, ASSIGN);
     if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET, QUESTION);
     if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET);

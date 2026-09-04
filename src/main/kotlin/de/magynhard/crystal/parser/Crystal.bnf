@@ -143,6 +143,7 @@
     SPACESHIP="SPACESHIP"
     CASE_EQ="CASE_EQ"
     MATCH_OP="MATCH_OP"
+    BANG_TILDE="BANG_TILDE"
     BANG="BANG"
     AND_AND="AND_AND"
     OR_OR="OR_OR"
@@ -357,7 +358,8 @@ private method_name ::= BACKTICK
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
                                 | DOUBLE_STAR | LSHIFT | RSHIFT | EQ | NEQ | LT | GT | LTE | GTE
-                                | SPACESHIP | CASE_EQ | MATCH_OP | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET QUESTION | LBRACKET RBRACKET
+                                | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE
+                                | LBRACKET RBRACKET ASSIGN | LBRACKET RBRACKET QUESTION | LBRACKET RBRACKET
 
 method_body ::= statement_list rescue_clause* [else_clause] [ensure_clause]
 
@@ -392,7 +394,7 @@ private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | TRUE | FALSE | NIL
     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM
     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
-    | EQ | NEQ | LT | GT | LTE | GTE | OR_OR | AND_AND | PIPE | AMPERSAND
+    | EQ | NEQ | LT | GT | LTE | GTE | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND
     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
     | DOUBLE_COLON | PERCENT
     | NEWLINE | SEMICOLON | HASH | AT | ARROW | DOUBLE_ARROW | ANNOTATION
@@ -634,7 +636,7 @@ private and_expression ::= not_expression (AND_AND NLS not_expression)*
 
 private not_expression ::= BANG not_expression | comparison_expression
 
-private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS range_expression)*
+private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression)*
 
 private range_expression ::= (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
                            | or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]]
@@ -708,8 +710,8 @@ namespace_access ::= DOUBLE_COLON CONSTANT {
 
 // Keywords that Crystal allows as method names after DOT
 private keyword_as_method ::= keyword_identifier
-                            | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
-                            | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP
+                             | PLUS | MINUS | STAR | SLASH | PERCENT | DOUBLE_STAR
+                             | EQ | NEQ | BANG_TILDE | LT | GT | LTE | GTE | SPACESHIP
                             | LSHIFT | RSHIFT | AMPERSAND | PIPE | CARET | TILDE
                             | DOUBLE_SLASH
 
@@ -922,7 +924,7 @@ private bare_and_expression ::= bare_not_expression (AND_AND NLS bare_not_expres
 
 private bare_not_expression ::= BANG bare_not_expression | bare_comparison_expression
 
-private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP) NLS bare_range_expression)*
+private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression)*
 
 private bare_range_expression ::= (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
                                | bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]]

@@ -94,6 +94,15 @@ so assignments in the abrupt values do not leak past the statement. Files such a
 `mime/media_type.cr` now parse cleanly; `hash.cr` advances to later independent
 syntax gaps.
 
+The `!~` operator repair reduced the indexed corpus to 156 errors in 109 files
+and the complete distribution to 2,637 errors in 732 files. `!~` is one token in
+regular, interpolated, and macro expressions, has comparison precedence, is a
+valid operator method name, and can be called explicitly after a DOT. Type
+inference remains unknown without exact overload resolution because Crystal
+allows `!~` methods to return arbitrary types. This removes the sole parser error
+from `object.cr`, preserving every declaration after `Object#!~` for PSI and stub
+indexing.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

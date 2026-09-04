@@ -440,6 +440,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   ">>"                 { return CrystalTypes.RSHIFT; }
   "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
+  "!~"                 { return CrystalTypes.BANG_TILDE; }
   "<="                 { return CrystalTypes.LTE; }
   ">="                 { return CrystalTypes.GTE; }
   "&&"                 { return CrystalTypes.AND_AND; }
@@ -580,6 +581,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   ":"                  { return CrystalTypes.COLON; }
   "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
+  "!~"                 { return CrystalTypes.BANG_TILDE; }
   "<="                 { return CrystalTypes.LTE; }
   ">="                 { return CrystalTypes.GTE; }
   "&&"                 { return CrystalTypes.AND_AND; }
@@ -756,6 +758,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
    ":"                  { return CrystalTypes.COLON; }
    "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
+  "!~"                 { return CrystalTypes.BANG_TILDE; }
   "<"                  { return CrystalTypes.LT; }
   ">"                  { return CrystalTypes.GT; }
   "||"                 { return CrystalTypes.OR_OR; }
@@ -816,6 +819,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "#"                  { return CrystalTypes.HASH; }
   "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
+  "!~"                 { return CrystalTypes.BANG_TILDE; }
   "<="                 { return CrystalTypes.LTE; }
   ">="                 { return CrystalTypes.GTE; }
   "<"                  { return CrystalTypes.LT; }

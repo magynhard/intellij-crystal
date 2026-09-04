@@ -445,6 +445,21 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         assertUnknown("value = missing || \"text\"\n<caret>value")
     }
 
+    fun testBangTildeComparisonWithUnknownOverloadReturnRemainsUnknown() {
+        assertUnknown(
+            "class Matcher\n  def !~(other)\n    123\n  end\nend\n" +
+                "value = Matcher.new !~ 1\n<caret>value"
+        )
+    }
+
+    fun testRegexMatchWithOverloadDependentReturnRemainsUnknown() {
+        assertUnknown("value = \"crystal\" =~ /ystal/\n<caret>value")
+    }
+
+    fun testSpaceshipWithOverloadDependentReturnRemainsUnknown() {
+        assertUnknown("value = \"a\" <=> \"b\"\n<caret>value")
+    }
+
     fun testMultipleExactOverloadsAreUnknown() {
         assertUnknown(
             "class Service\n" +

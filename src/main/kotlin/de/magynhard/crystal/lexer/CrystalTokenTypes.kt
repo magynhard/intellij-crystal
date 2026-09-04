@@ -64,7 +64,7 @@ object CrystalTokenTypes {
         CrystalTypes.LSHIFT, CrystalTypes.RSHIFT,
         CrystalTypes.EQ, CrystalTypes.NEQ, CrystalTypes.LT, CrystalTypes.GT,
         CrystalTypes.LTE, CrystalTypes.GTE, CrystalTypes.SPACESHIP,
-        CrystalTypes.CASE_EQ, CrystalTypes.MATCH_OP, CrystalTypes.BANG,
+        CrystalTypes.CASE_EQ, CrystalTypes.MATCH_OP, CrystalTypes.BANG_TILDE, CrystalTypes.BANG,
         CrystalTypes.AND_AND, CrystalTypes.OR_OR, CrystalTypes.ASSIGN,
         CrystalTypes.PLUS_ASSIGN, CrystalTypes.MINUS_ASSIGN,
         CrystalTypes.STAR_ASSIGN, CrystalTypes.SLASH_ASSIGN,

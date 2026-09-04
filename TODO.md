@@ -95,7 +95,7 @@
 ## Parser Follow-up
 
 - [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
-  `stdlibParseAudit` corpus from the current 157 errors in 110 of 461 files to zero,
+  `stdlibParseAudit` corpus from the current 156 errors in 109 of 461 files to zero,
   then parse all 1,625 distribution sources without errors. Once both are green, add
   mandatory CI jobs that download the pinned official archive, verify SHA-256
   `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both
@@ -138,6 +138,14 @@
   `captureGeneration`, but there is an early window after project open where resolution silently fails.
   Consider triggering discovery from the graph (without blocking read actions on `crystal env`) or
   publishing the root earlier during project startup.
+
+## Type Inference Follow-up
+
+- [ ] **Resolve operator overload return types** — replace the conservative `Unknown`
+  result for `<=>`, `=~`, and `!~` with exact receiver-aware overload resolution.
+  Standard implementations are not uniformly boolean (`String#=~` returns
+  `Int32 | Nil`), and Crystal permits custom methods with arbitrary return types,
+  so token-based result heuristics are unsafe.
 
 ## Completion Follow-up
 

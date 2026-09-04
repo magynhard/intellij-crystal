@@ -1123,8 +1123,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (children.size < 3) return null
         return when (children[1].node.elementType) {
             CrystalTypes.EQ, CrystalTypes.NEQ, CrystalTypes.LT, CrystalTypes.LTE,
-            CrystalTypes.GT, CrystalTypes.GTE, CrystalTypes.SPACESHIP, CrystalTypes.CASE_EQ,
-            CrystalTypes.MATCH_OP -> knownType("Bool")
+            CrystalTypes.GT, CrystalTypes.GTE, CrystalTypes.CASE_EQ -> knownType("Bool")
+            CrystalTypes.SPACESHIP, CrystalTypes.MATCH_OP,
+            CrystalTypes.BANG_TILDE -> CrystalTypeResolution.Unknown
             CrystalTypes.AND_AND -> resolveLogical(children[0], children[2], andOperator = true)
             CrystalTypes.OR_OR -> resolveLogical(children[0], children[2], andOperator = false)
             CrystalTypes.PLUS, CrystalTypes.MINUS, CrystalTypes.STAR, CrystalTypes.SLASH,
