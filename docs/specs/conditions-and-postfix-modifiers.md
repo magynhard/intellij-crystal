@@ -34,26 +34,41 @@ value = strict_parse rescue fallback = DEFAULTS[:fallback]
 ```
 
 ```bnf
-postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) condition_with_assignment
+postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) postfix_condition_with_assignment
 
-private condition_with_assignment ::= condition_assignment | expression
+private postfix_condition_with_assignment ::= postfix_condition_assignment | expression
+postfix_condition_assignment ::= variable ASSIGN NLS expression
 ```
 
-This applies wherever `[postfix_modifier]` is referenced: `expression_statement`,
-`assignment`, `constant_assignment`, `return_statement`, `break_statement`,
-`next_statement`, `yield_statement`, `macro_interpolation`, and
-`interpolation_expression`.
+This applies wherever `[postfix_modifier]` is referenced, including
+`expression_statement`, ordinary and indexed assignments, constant assignments,
+`return_statement`, `break_statement`, `next_statement`, `yield_statement`,
+`macro_interpolation`, and `interpolation_expression`.
 
-**PSI shape:** Both helper rules are private, so no extra composite element is created.
-An assigned postfix condition yields flat children under `POSTFIX_MODIFIER`
-(`variable` token(s), `ASSIGN`, `EXPRESSION`) — mirroring how block-level
-`condition_assignment` flattens into the tree. Existing trees without assignments are
-unchanged byte-for-byte.
+**PSI shape:** `condition_with_assignment` remains private, but an assigned guard creates a
+`CrystalPostfixConditionAssignment` composite implementing `CrystalAssignment`. Analyses can
+therefore process its write exactly like another assignment without reconstructing it from
+flat siblings. Plain expression guards retain their existing PSI shape.
+
+Indexed assignments own their trailing modifier:
+
+```bnf
+indexed_assignment ::= assignment_target (LBRACKET argument_list RBRACKET)+
+                       assign_op NLS (nested_assignment | expression)
+                       [postfix_modifier]
+```
+
+`nested_assignment` permits a nested RHS assignment without letting it consume the outer
+modifier. This keeps `values[index] = nested = replacement if enabled` as one conditional
+indexed assignment rather than an unconditional indexed write whose nested value is
+conditional. Compound indexed writes evaluate receiver/index expressions, the implicit
+getter, the RHS, the operator, and the setter in source order. `||=` and `&&=` retain the
+path that skips the RHS; `rescue` starts from failures at any evaluated phase.
 
 ### In-clause guards (`in_clause`)
 
 ```bnf
-in_clause ::= IN expression_list [IF condition_with_assignment] then_clause statement_list
+in_clause ::= IN expression_list [IF condition] then_clause statement_list
 ```
 
 Guards were introduced speculatively with pin operators (`in ^x if cond`). As of Crystal
@@ -61,6 +76,10 @@ Guards were introduced speculatively with pin operators (`in ^x if cond`). As of
 is intentionally more tolerant than the language: the plugin parses guards (plain and
 assignment forms) so that macro-generated or future-compatible code does not produce false
 errors. Do not rely on guards appearing in valid Crystal 1.x sources.
+
+Crystal 1.21 also rejects trailing `while` and `until` on indexed assignments. The plugin's
+historical generic modifier rule still accepts them; narrowing that rule without regressing
+other assignment forms is tracked separately in `TODO.md`.
 
 ## Verified Against the Compiler
 
@@ -81,3 +100,7 @@ p f({"k" => 3})'
 - Assignment in postfix `if` / `while` / `until` / `rescue`
 - Block-level `if` / `unless` assignment conditions (regression guard)
 - Assignment in an in-clause guard
+- Indexed simple/compound writes with `if`, `unless`, and `rescue`, nested RHS assignments,
+  repeated indexes, and `||=`/`&&=` short-circuit operators
+- Missing conditions and chained modifiers as invalid boundaries that preserve a following
+  declaration

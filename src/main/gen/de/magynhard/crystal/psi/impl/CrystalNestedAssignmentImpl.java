@@ -10,26 +10,20 @@ import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalAbruptAssignmentImpl extends CrystalAbruptAssignmentMixin implements CrystalAbruptAssignment {
+public class CrystalNestedAssignmentImpl extends CrystalNestedAssignmentMixin implements CrystalNestedAssignment {
 
-  public CrystalAbruptAssignmentImpl(ASTNode node) {
+  public CrystalNestedAssignmentImpl(ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitAbruptAssignment(this);
+    visitor.visitNestedAssignment(this);
   }
 
   @Override
   public void accept(@NotNull PsiElementVisitor visitor) {
     if (visitor instanceof CrystalVisitor) accept((CrystalVisitor)visitor);
     else super.accept(visitor);
-  }
-
-  @Override
-  @Nullable
-  public CrystalAbruptAssignment getAbruptAssignment() {
-    return PsiTreeUtil.getChildOfType(this, CrystalAbruptAssignment.class);
   }
 
   @Override
@@ -48,6 +42,12 @@ public class CrystalAbruptAssignmentImpl extends CrystalAbruptAssignmentMixin im
   @Nullable
   public CrystalInstanceVarAccess getInstanceVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalNestedAssignment getNestedAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalNestedAssignment.class);
   }
 
 }

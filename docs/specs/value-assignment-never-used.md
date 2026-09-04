@@ -52,6 +52,12 @@ structure. A read marks every reaching definition as used.
   assignment RHS, rather than after later values.
 - Rescue handlers conservatively receive every definition that could have been
   written before an exception in the protected body.
+- Indexed assignments evaluate receiver/index components before their RHS. Conditional modifiers
+  preserve the skipped-write path, `||=` and `&&=` preserve the skipped-RHS path, and postfix
+  rescue can read definitions reached before failures in the target, RHS, or setter operation.
+- Assignment-valued postfix conditions execute before `if`/`unless` bodies. Assignment-valued
+  postfix rescue handlers execute only on the handled path. A handled postfix rescue on `return`,
+  `break`, or `next` retains the original abrupt continuation rather than falling through.
 - `else` on a protected block runs only after normal body completion.
 - `ensure` runs for normal, returning, breaking, and continuing paths; abrupt
   control flow originating in the ensure body supersedes the protected path.

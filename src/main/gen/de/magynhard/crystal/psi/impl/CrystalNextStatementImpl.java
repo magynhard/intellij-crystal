@@ -29,12 +29,6 @@ public class CrystalNextStatementImpl extends ASTWrapperPsiElement implements Cr
 
   @Override
   @NotNull
-  public List<CrystalAbruptAssignment> getAbruptAssignmentList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAbruptAssignment.class);
-  }
-
-  @Override
-  @NotNull
   public List<CrystalExpression> getExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }
@@ -43,6 +37,12 @@ public class CrystalNextStatementImpl extends ASTWrapperPsiElement implements Cr
   @Nullable
   public CrystalHeredocBodies getHeredocBodies() {
     return PsiTreeUtil.getChildOfType(this, CrystalHeredocBodies.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalNestedAssignment> getNestedAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalNestedAssignment.class);
   }
 
   @Override

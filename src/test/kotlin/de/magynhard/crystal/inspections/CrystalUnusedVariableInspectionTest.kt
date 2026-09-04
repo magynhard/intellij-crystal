@@ -796,6 +796,111 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testPostfixIndexedAssignmentKeepsSkippedRhsDefinitionReachable() {
+        myFixture.configureByText("test.cr", """
+            def update(values, flag)
+              x = "old"
+              values[0] = x = 1 if flag
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testShortCircuitIndexedAssignmentKeepsSkippedRhsDefinitionReachable() {
+        myFixture.configureByText("test.cr", """
+            def update(values)
+              x = "old"
+              values[0] ||= x = 1
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testAndShortCircuitIndexedAssignmentKeepsSkippedRhsDefinitionReachable() {
+        myFixture.configureByText("test.cr", """
+            def update(values)
+              x = "old"
+              values[0] &&= x = 1
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPostfixAssignmentConditionDefinitionReachesLaterRead() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Value assigned to 'condition' is never used">condition</weak_warning> = "old"
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = 1 if condition = true
+              puts condition
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPostfixAssignmentRescueKeepsBothDefinitionsReachable() {
+        myFixture.configureByText("test.cr", """
+            def update
+              fallback = "old"
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = danger rescue fallback = 2
+              puts fallback
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPostfixRescueReturnKeepsSuccessfulAndHandledDefinitionsReachable() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = "old"
+              begin
+                return danger rescue x = 1
+              ensure
+                puts x
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPostfixRescueBreakKeepsSuccessfulAndHandledDefinitionsReachable() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = "old"
+              loop do
+                break danger rescue x = 1
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPostfixRescueNextKeepsSuccessfulAndHandledDefinitionsReachable() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = "old"
+              1.times do
+                next danger rescue x = 1
+              end
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testIndexedAssignmentRescueSeesDefinitionsReachedBeforeFailure() {
+        myFixture.configureByText("test.cr", """
+            def update(values)
+              x = "old"
+              values[consume(x = 1)] = danger rescue puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testBreakAndNextHeredocInterpolationsReadDistinctLocals() {
         myFixture.configureByText("test.cr", """
             def messages

@@ -5,10 +5,7 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalAbruptAssignment extends CrystalAssignment {
-
-  @Nullable
-  CrystalAbruptAssignment getAbruptAssignment();
+public interface CrystalPostfixConditionAssignment extends CrystalAssignment {
 
   @Nullable
   CrystalClassVarAccess getClassVarAccess();

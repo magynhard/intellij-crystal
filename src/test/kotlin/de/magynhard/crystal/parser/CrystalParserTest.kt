@@ -47,6 +47,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPostfixIndexedAssignments() {
+        doTest(true)
+    }
+
     fun testDotCompoundAssignment() {
         doTest(true)
     }

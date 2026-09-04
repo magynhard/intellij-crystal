@@ -69,6 +69,112 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testPostfixIndexedAssignmentMergesRhsAssignmentWithSkippedPath() {
+        assertTypes(
+            "x = \"old\"\nvalues = [0]\nvalues[0] = x = 1 if flag\n<caret>x",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testPostfixIndexedAssignmentConditionAssignmentAlwaysRuns() {
+        assertTypes(
+            "condition = \"old\"\nvalues = [0]\nvalues[0] = 1 if condition = true\n<caret>condition",
+            "Bool",
+        )
+    }
+
+    fun testPostfixAssignmentConditionAssignmentAlwaysRuns() {
+        assertTypes(
+            "condition = \"old\"\nvalue = 1 if condition = true\n<caret>condition",
+            "Bool",
+        )
+    }
+
+    fun testShortCircuitIndexedAssignmentKeepsSkippedRhsState() {
+        assertTypes(
+            "x = \"old\"\nvalues = [1] of Int32?\nvalues[0] ||= x = 1\n<caret>x",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testAndShortCircuitIndexedAssignmentKeepsSkippedRhsState() {
+        assertTypes(
+            "x = \"old\"\nvalues = [1] of Int32?\nvalues[0] &&= x = 1\n<caret>x",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testPostfixIndexedAssignmentWithAbruptRhsKeepsOnlySkippedState() {
+        assertTypes(
+            "def update(values, flag)\n  x = \"old\"\n  values[0] = begin return x = 1 end if flag\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testShortCircuitIndexedAssignmentWithAbruptRhsKeepsOnlySkippedState() {
+        assertTypes(
+            "def update(values)\n  x = \"old\"\n  values[0] ||= begin return x = 1 end\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testIndexedAssignmentRescueMergesFailuresBeforeAndAfterRhsAssignment() {
+        assertTypes(
+            "x = \"old\"\nvalues = [0]\nvalues[danger] = x = 1 rescue nil\n<caret>x",
+            "Int32",
+            "String",
+        )
+    }
+
+    fun testCompoundIndexedAssignmentRescueIncludesGetterFailure() {
+        assertTypes(
+            "x = \"old\"\nvalues = [0]\nvalues[0] += x = 1 rescue nil\n<caret>x",
+            "Int32",
+            "String",
+        )
+    }
+
+    fun testIndexedAssignmentRescueAssignmentMergesWithSuccessfulPath() {
+        assertTypes(
+            "fallback = \"old\"\nvalues = [0]\nvalues[0] = 1 rescue fallback = 2\n<caret>fallback",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testPostfixAssignmentRescueAssignmentMergesWithSuccessfulPath() {
+        assertTypes(
+            "fallback = \"old\"\nvalue = danger rescue fallback = 2\n<caret>fallback",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testPostfixAssignmentRescueIsSkippedForNonRaisingBody() {
+        assertTypes(
+            "fallback = \"old\"\nvalue = 1 rescue fallback = 2\n<caret>fallback",
+            "String",
+        )
+    }
+
+    fun testPostfixRescueReturnDoesNotFallThrough() {
+        assertTypes(
+            "def strict_parse : String\n  \"parsed\"\nend\ndef value\n  return strict_parse rescue 1\n  \"fallback\"\nend\nresult = value\n<caret>result",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testPostfixRescueReturnSkipsUnreachableHandlerType() {
+        assertTypes(
+            "def value\n  return 1 rescue \"fallback\"\nend\nresult = value\n<caret>result",
+            "Int32",
+        )
+    }
+
     fun testLaterMultiValueReturnFailureSeesEarlierAssignmentInRescue() {
         assertTypes(
             "x = \"old\"\nbegin\n  return x = 1, danger\nrescue\n  <caret>x\nend",

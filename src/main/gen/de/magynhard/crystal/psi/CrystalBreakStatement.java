@@ -8,13 +8,13 @@ import com.intellij.psi.PsiElement;
 public interface CrystalBreakStatement extends CrystalAbruptStatement {
 
   @NotNull
-  List<CrystalAbruptAssignment> getAbruptAssignmentList();
-
-  @NotNull
   List<CrystalExpression> getExpressionList();
 
   @Nullable
   CrystalHeredocBodies getHeredocBodies();
+
+  @NotNull
+  List<CrystalNestedAssignment> getNestedAssignmentList();
 
   @Nullable
   CrystalPostfixModifier getPostfixModifier();

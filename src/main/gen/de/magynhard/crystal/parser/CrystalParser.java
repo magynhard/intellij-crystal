@@ -48,35 +48,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // variable assign_op NLS (abrupt_assignment | expression)
-  public static boolean abrupt_assignment(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "abrupt_assignment")) return false;
-    boolean result_, pinned_;
-    Marker marker_ = enter_section_(builder_, level_, _COLLAPSE_, ABRUPT_ASSIGNMENT, "<abrupt assignment>");
-    result_ = variable(builder_, level_ + 1);
-    result_ = result_ && assign_op(builder_, level_ + 1);
-    pinned_ = result_; // pin = 2
-    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
-    result_ = pinned_ && abrupt_assignment_3(builder_, level_ + 1) && result_;
-    exit_section_(builder_, level_, marker_, result_, pinned_, null);
-    return result_ || pinned_;
-  }
-
-  // abrupt_assignment | expression
-  private static boolean abrupt_assignment_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "abrupt_assignment_3")) return false;
-    boolean result_;
-    result_ = abrupt_assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
-    return result_;
-  }
-
-  /* ********************************************************** */
-  // abrupt_assignment | expression
+  // nested_assignment | expression
   static boolean abrupt_value(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "abrupt_value")) return false;
     boolean result_;
-    result_ = abrupt_assignment(builder_, level_ + 1);
+    result_ = nested_assignment(builder_, level_ + 1);
     if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
   }
@@ -2655,16 +2631,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // condition_assignment | expression
-  static boolean condition_with_assignment(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "condition_with_assignment")) return false;
-    boolean result_;
-    result_ = condition_assignment(builder_, level_ + 1);
-    if (!result_) result_ = expression(builder_, level_ + 1);
-    return result_;
-  }
-
-  /* ********************************************************** */
   // CONSTANT ASSIGN NLS expression [postfix_modifier]
   public static boolean constant_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "constant_assignment")) return false;
@@ -3624,7 +3590,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // IN expression_list [IF condition_with_assignment] then_clause statement_list
+  // IN expression_list [IF condition] then_clause statement_list
   public static boolean in_clause(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "in_clause")) return false;
     if (!nextTokenIs(builder_, IN)) return false;
@@ -3639,20 +3605,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [IF condition_with_assignment]
+  // [IF condition]
   private static boolean in_clause_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "in_clause_2")) return false;
     in_clause_2_0(builder_, level_ + 1);
     return true;
   }
 
-  // IF condition_with_assignment
+  // IF condition
   private static boolean in_clause_2_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "in_clause_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, IF);
-    result_ = result_ && condition_with_assignment(builder_, level_ + 1);
+    result_ = result_ && condition(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -3672,7 +3638,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (assignment | expression)
+  // assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression) [postfix_modifier]
   public static boolean indexed_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "indexed_assignment")) return false;
     boolean result_;
@@ -3682,6 +3648,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && assign_op(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && indexed_assignment_4(builder_, level_ + 1);
+    result_ = result_ && indexed_assignment_5(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
@@ -3713,13 +3680,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // assignment | expression
+  // nested_assignment | expression
   private static boolean indexed_assignment_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "indexed_assignment_4")) return false;
     boolean result_;
-    result_ = assignment(builder_, level_ + 1);
+    result_ = nested_assignment(builder_, level_ + 1);
     if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
+  }
+
+  // [postfix_modifier]
+  private static boolean indexed_assignment_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "indexed_assignment_5")) return false;
+    postfix_modifier(builder_, level_ + 1);
+    return true;
   }
 
   /* ********************************************************** */
@@ -5399,6 +5373,30 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // variable assign_op NLS (nested_assignment | expression)
+  public static boolean nested_assignment(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "nested_assignment")) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _COLLAPSE_, NESTED_ASSIGNMENT, "<nested assignment>");
+    result_ = variable(builder_, level_ + 1);
+    result_ = result_ && assign_op(builder_, level_ + 1);
+    pinned_ = result_; // pin = 2
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && nested_assignment_3(builder_, level_ + 1) && result_;
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
+  }
+
+  // nested_assignment | expression
+  private static boolean nested_assignment_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "nested_assignment_3")) return false;
+    boolean result_;
+    result_ = nested_assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // binary_op_lookahead | (DOTDOT | DOTDOTDOT)
   static boolean nested_call_lookahead(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "nested_call_lookahead")) return false;
@@ -6243,6 +6241,31 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // variable ASSIGN NLS expression
+  public static boolean postfix_condition_assignment(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_condition_assignment")) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, POSTFIX_CONDITION_ASSIGNMENT, "<postfix condition assignment>");
+    result_ = variable(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, ASSIGN);
+    pinned_ = result_; // pin = 2
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && expression(builder_, level_ + 1) && result_;
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
+  }
+
+  /* ********************************************************** */
+  // postfix_condition_assignment | expression
+  static boolean postfix_condition_with_assignment(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_condition_with_assignment")) return false;
+    boolean result_;
+    result_ = postfix_condition_assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // primary_expression postfix_op*
   static boolean postfix_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_expression")) return false;
@@ -6266,13 +6289,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IF | UNLESS | WHILE | UNTIL | RESCUE) condition_with_assignment
+  // (IF | UNLESS | WHILE | UNTIL | RESCUE) postfix_condition_with_assignment
   public static boolean postfix_modifier(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_modifier")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, POSTFIX_MODIFIER, "<postfix modifier>");
     result_ = postfix_modifier_0(builder_, level_ + 1);
-    result_ = result_ && condition_with_assignment(builder_, level_ + 1);
+    result_ = result_ && postfix_condition_with_assignment(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }

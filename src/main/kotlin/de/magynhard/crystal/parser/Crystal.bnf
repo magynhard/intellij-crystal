@@ -470,12 +470,17 @@ expression_statement ::= expression [expression_assign_suffix [postfix_modifier]
 
 private expression_assign_suffix ::= assign_op NLS expression
 
-// Postfix modifiers and in-clause guards accept assignments as their condition
+// Postfix modifiers accept assignments as their condition
 // (`return [] of T unless t = h[k]?`, `puts x if v = f`), mirroring block-level
-// `condition`. Both rules stay private/flat so no extra PSI composite is created.
-postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) condition_with_assignment
+// `condition`. The assignment has a dedicated composite so analyses can process
+// its write without relying on the surrounding construct's PSI shape.
+postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) postfix_condition_with_assignment
 
-private condition_with_assignment ::= condition_assignment | expression
+private postfix_condition_with_assignment ::= postfix_condition_assignment | expression
+postfix_condition_assignment ::= variable ASSIGN NLS expression {pin=2
+  mixin="de.magynhard.crystal.psi.impl.CrystalConditionAssignmentMixin"
+  implements="de.magynhard.crystal.psi.CrystalAssignment"
+}
 
 // ==================== Control Flow ====================
 
@@ -527,7 +532,7 @@ private when_entry_list ::= implicit_when_comparison (macro_argument_trivia COMM
 
 private implicit_when_comparison ::= DOT operator_method_name NLS expression
 
-in_clause ::= IN expression_list [IF condition_with_assignment] then_clause statement_list
+in_clause ::= IN expression_list [IF condition] then_clause statement_list
 
 rescue_clause ::= RESCUE [rescue_spec] then_clause statement_list
 
@@ -559,9 +564,9 @@ next_statement ::= NEXT postfix_modifier
 }
 
 private abrupt_value_list ::= abrupt_value (COMMA NLS abrupt_value)*
-private abrupt_value ::= abrupt_assignment | expression
-abrupt_assignment ::= variable assign_op NLS (abrupt_assignment | expression) {pin=2
-  mixin="de.magynhard.crystal.psi.impl.CrystalAbruptAssignmentMixin"
+private abrupt_value ::= nested_assignment | expression
+nested_assignment ::= variable assign_op NLS (nested_assignment | expression) {pin=2
+  mixin="de.magynhard.crystal.psi.impl.CrystalNestedAssignmentMixin"
   implements="de.magynhard.crystal.psi.CrystalAssignment"
 }
 
@@ -592,7 +597,7 @@ assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifie
 // assignment suffixes are unaffected.
 // NOTE: no pin here — `match[group]?` must be able to fall through to a plain
 // expression when no assignment operator follows the brackets.
-indexed_assignment ::= assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (assignment | expression)
+indexed_assignment ::= assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression) [postfix_modifier]
 
 private assignment_target ::= variable | instance_var_access | class_var_access
 

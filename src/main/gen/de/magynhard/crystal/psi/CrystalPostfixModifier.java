@@ -8,12 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalPostfixModifier extends PsiElement {
 
   @Nullable
-  CrystalClassVarAccess getClassVarAccess();
-
-  @NotNull
   CrystalExpression getExpression();
 
   @Nullable
-  CrystalInstanceVarAccess getInstanceVarAccess();
+  CrystalPostfixConditionAssignment getPostfixConditionAssignment();
 
 }

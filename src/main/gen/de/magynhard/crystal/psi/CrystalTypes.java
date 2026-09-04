@@ -10,7 +10,6 @@ import de.magynhard.crystal.psi.impl.*;
 
 public interface CrystalTypes {
 
-  IElementType ABRUPT_ASSIGNMENT = new CrystalElementType("ABRUPT_ASSIGNMENT");
   IElementType ALIAS_DEFINITION = CrystalStubElementTypeFactory.create("ALIAS_DEFINITION");
   IElementType ANNOTATION_DEFINITION = CrystalStubElementTypeFactory.create("ANNOTATION_DEFINITION");
   IElementType ANNOTATION_USAGE = new CrystalElementType("ANNOTATION_USAGE");
@@ -78,12 +77,14 @@ public interface CrystalTypes {
   IElementType MULTI_ASSIGNMENT = new CrystalElementType("MULTI_ASSIGNMENT");
   IElementType MULTI_ASSIGN_TARGET = new CrystalElementType("MULTI_ASSIGN_TARGET");
   IElementType NAMESPACE_ACCESS = new CrystalElementType("NAMESPACE_ACCESS");
+  IElementType NESTED_ASSIGNMENT = new CrystalElementType("NESTED_ASSIGNMENT");
   IElementType NEXT_STATEMENT = new CrystalElementType("NEXT_STATEMENT");
   IElementType OFFSETOF_EXPRESSION = new CrystalElementType("OFFSETOF_EXPRESSION");
   IElementType PARAMETER = new CrystalElementType("PARAMETER");
   IElementType PARAMETER_LIST = new CrystalElementType("PARAMETER_LIST");
   IElementType PERCENT_LITERAL = new CrystalElementType("PERCENT_LITERAL");
   IElementType POINTEROF_EXPRESSION = new CrystalElementType("POINTEROF_EXPRESSION");
+  IElementType POSTFIX_CONDITION_ASSIGNMENT = new CrystalElementType("POSTFIX_CONDITION_ASSIGNMENT");
   IElementType POSTFIX_MODIFIER = new CrystalElementType("POSTFIX_MODIFIER");
   IElementType PROC_LITERAL = new CrystalElementType("PROC_LITERAL");
   IElementType PROPERTY_DECLARATION = new CrystalElementType("PROPERTY_DECLARATION");
@@ -290,10 +291,7 @@ public interface CrystalTypes {
   class Factory {
     public static PsiElement createElement(ASTNode node) {
       IElementType type = node.getElementType();
-      if (type == ABRUPT_ASSIGNMENT) {
-        return new CrystalAbruptAssignmentImpl(node);
-      }
-      else if (type == ALIAS_DEFINITION) {
+      if (type == ALIAS_DEFINITION) {
         return new CrystalAliasDefinitionImpl(node);
       }
       else if (type == ANNOTATION_DEFINITION) {
@@ -494,6 +492,9 @@ public interface CrystalTypes {
       else if (type == NAMESPACE_ACCESS) {
         return new CrystalNamespaceAccessImpl(node);
       }
+      else if (type == NESTED_ASSIGNMENT) {
+        return new CrystalNestedAssignmentImpl(node);
+      }
       else if (type == NEXT_STATEMENT) {
         return new CrystalNextStatementImpl(node);
       }
@@ -511,6 +512,9 @@ public interface CrystalTypes {
       }
       else if (type == POINTEROF_EXPRESSION) {
         return new CrystalPointerofExpressionImpl(node);
+      }
+      else if (type == POSTFIX_CONDITION_ASSIGNMENT) {
+        return new CrystalPostfixConditionAssignmentImpl(node);
       }
       else if (type == POSTFIX_MODIFIER) {
         return new CrystalPostfixModifierImpl(node);

@@ -35,12 +35,6 @@ public class CrystalIndexedAssignmentImpl extends ASTWrapperPsiElement implement
 
   @Override
   @Nullable
-  public CrystalAssignment getAssignment() {
-    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
-  }
-
-  @Override
-  @Nullable
   public CrystalClassVarAccess getClassVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
   }
@@ -55,6 +49,18 @@ public class CrystalIndexedAssignmentImpl extends ASTWrapperPsiElement implement
   @Nullable
   public CrystalInstanceVarAccess getInstanceVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalNestedAssignment getNestedAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalNestedAssignment.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalPostfixModifier getPostfixModifier() {
+    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
   }
 
 }

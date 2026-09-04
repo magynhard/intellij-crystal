@@ -451,7 +451,18 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         activeHeredocBodies[element]?.let { return flowElement(it, name, incoming) }
         val returnStatement = (element as? CrystalStatement)?.returnStatement ?: element as? CrystalReturnStatement
         if (returnStatement != null) {
-            val condition = returnStatement.postfixModifier?.let { flowElement(it.expression, name, incoming) }
+            val postfix = returnStatement.postfixModifier
+            if (postfix?.node?.findChildByType(CrystalTypes.RESCUE) != null) {
+                val abrupt = flowAbruptValues(returnStatement, name, incoming)
+                if (abrupt.exceptionalStates.isEmpty()) return abrupt
+                val rescue = flowElement(postfix.conditionElement(), name, exceptionalIncoming(abrupt, incoming))
+                return VariableFlow(
+                    mergeStates(listOf(abrupt.state, rescue.state)),
+                    fallsThrough = false,
+                    exceptionalStates = rescue.exceptionalStates,
+                )
+            }
+            val condition = postfix?.let { flowElement(it.conditionElement(), name, incoming) }
             val base = condition?.state ?: incoming
             if (condition != null && !condition.fallsThrough) return condition
             val abrupt = flowAbruptValues(returnStatement, name, base)
@@ -461,6 +472,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 fallsThrough = true,
                 exceptionalStates = condition.exceptionalStates + abrupt.exceptionalStates,
             )
+        }
+        val indexedAssignment = (element as? CrystalStatement)?.indexedAssignment
+            ?: element as? CrystalIndexedAssignment
+        if (indexedAssignment != null) {
+            return flowIndexedAssignment(indexedAssignment, name, incoming)
         }
         val property = (element as? CrystalStatement)?.propertyDeclaration
             ?: element as? CrystalPropertyDeclaration
@@ -476,31 +492,42 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             else -> null
         }
         if (assignment != null) {
-            var currentAssignment: CrystalAssignment? = assignment
-            while (currentAssignment != null) {
-                if (assignmentName(currentAssignment) == name) {
-                    val rhs = currentAssignment.assignment ?: currentAssignment.expression
-                        ?: return VariableFlow.falling(VariableState.Unknown)
-                    val rhsFlow = flowElement(rhs, name, incoming)
-                    val assigned = VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT)
-                    val exceptional = rhsFlow.exceptionalStates +
-                        if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
-                    if (!rhsFlow.fallsThrough) return rhsFlow
-                    if (currentAssignment.postfixModifier == null) {
+            val postfix = assignment.postfixModifier
+            fun flowAssignmentBody(base: VariableState): VariableFlow {
+                var currentAssignment: CrystalAssignment? = assignment
+                while (currentAssignment != null) {
+                    if (assignmentName(currentAssignment) == name) {
+                        val rhs = currentAssignment.assignment ?: currentAssignment.expression
+                            ?: return VariableFlow.falling(VariableState.Unknown)
+                        val rhsFlow = flowElement(rhs, name, base)
+                        val assigned = VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT)
+                        val exceptional = rhsFlow.exceptionalStates +
+                            if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
+                        if (!rhsFlow.fallsThrough) return rhsFlow
                         return VariableFlow(assigned, true, exceptional)
                     }
-                    return VariableFlow(
-                        mergeStates(listOf(incoming, assigned)),
-                        true,
-                        exceptional,
-                    )
+                    currentAssignment = currentAssignment.assignment
                 }
-                currentAssignment = currentAssignment.assignment
+                return flowElement(
+                    assignment.assignment ?: assignment.expression ?: return VariableFlow.falling(base),
+                    name,
+                    base,
+                )
             }
-            return flowElement(
-                assignment.assignment ?: assignment.expression ?: return VariableFlow.falling(incoming),
-                name,
-                incoming
+            if (postfix == null) return flowAssignmentBody(incoming)
+            if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null) {
+                val body = flowAssignmentBody(incoming)
+                if (body.exceptionalStates.isEmpty()) return body
+                val rescue = flowElement(postfix.conditionElement(), name, exceptionalIncoming(body, incoming))
+                return mergeFlows(listOf(body.copy(exceptionalStates = emptyList()), rescue))
+            }
+            val condition = flowElement(postfix.conditionElement(), name, incoming)
+            if (!condition.fallsThrough) return condition
+            val body = flowAssignmentBody(condition.state)
+            return VariableFlow(
+                if (body.fallsThrough) mergeStates(listOf(condition.state, body.state)) else condition.state,
+                fallsThrough = true,
+                exceptionalStates = condition.exceptionalStates + body.exceptionalStates,
             )
         }
         val ifStatement = (element as? CrystalStatement)?.ifStatement ?: element as? CrystalIfStatement
@@ -594,6 +621,60 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         } finally {
             bindings.forEach { (header) -> activeHeredocBodies.remove(header) }
         }
+    }
+
+    private fun flowIndexedAssignment(
+        assignment: CrystalIndexedAssignment,
+        name: String,
+        incoming: VariableState,
+    ): VariableFlow {
+        val postfix = assignment.postfixModifier
+        val evaluation = assignment.evaluationComponents()
+        fun flowAssignment(base: VariableState): VariableFlow {
+            val rhs = evaluation.rhs
+            var target = VariableFlow.falling(base)
+            for (child in evaluation.targetElements) {
+                if (!target.fallsThrough) break
+                val next = flowElement(child, name, target.state)
+                target = VariableFlow(
+                    next.state,
+                    next.fallsThrough,
+                    target.exceptionalStates + next.exceptionalStates,
+                )
+            }
+            if (!target.fallsThrough) return target
+            val getterExceptions = target.exceptionalStates +
+                if (evaluation.compound) listOf(target.state) else emptyList()
+            if (rhs == null) return target.copy(exceptionalStates = getterExceptions)
+            val value = flowElement(rhs, name, target.state)
+            val normal = if (evaluation.shortCircuit) {
+                if (value.fallsThrough) mergeStates(listOf(target.state, value.state)) else target.state
+            } else {
+                value.state
+            }
+            val setterExceptions = if (value.fallsThrough) listOf(value.state) else emptyList()
+            return VariableFlow(
+                normal,
+                value.fallsThrough || evaluation.shortCircuit,
+                getterExceptions + value.exceptionalStates + setterExceptions,
+            )
+        }
+        if (postfix?.node?.findChildByType(CrystalTypes.RESCUE) != null) {
+            val body = flowAssignment(incoming)
+            if (body.exceptionalStates.isEmpty()) return body
+            val rescue = flowElement(postfix.conditionElement(), name, exceptionalIncoming(body, incoming))
+            return mergeFlows(listOf(body.copy(exceptionalStates = emptyList()), rescue))
+        }
+        val condition = postfix?.let { flowElement(it.conditionElement(), name, incoming) }
+        val base = condition?.state ?: incoming
+        if (condition != null && !condition.fallsThrough) return condition
+        val flow = flowAssignment(base)
+        if (postfix == null) return flow
+        return VariableFlow(
+            if (flow.fallsThrough) mergeStates(listOf(base, flow.state)) else base,
+            fallsThrough = true,
+            exceptionalStates = condition?.exceptionalStates.orEmpty() + flow.exceptionalStates,
+        )
     }
 
     private fun flowStatementList(
@@ -907,7 +988,14 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun analyzeStatement(statement: CrystalStatement): ExecutionResult {
         statement.returnStatement?.let { returnStatement ->
             val result = resolveAbruptValues(returnStatement.valueElements())
-            return if (returnStatement.postfixModifier == null) {
+            val postfix = returnStatement.postfixModifier
+            return if (postfix == null) {
+                ExecutionResult(listOf(result), null, false)
+            } else if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null &&
+                returnStatement.valueElements().any(::mayRaise)
+            ) {
+                ExecutionResult(listOf(result, resolve(postfix.conditionElement())), null, false)
+            } else if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null) {
                 ExecutionResult(listOf(result), null, false)
             } else {
                 ExecutionResult(listOf(result), knownType("Nil"), true)

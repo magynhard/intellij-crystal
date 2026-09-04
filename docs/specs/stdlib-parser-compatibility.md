@@ -103,6 +103,14 @@ allows `!~` methods to return arbitrary types. This removes the sole parser erro
 from `object.cr`, preserving every declaration after `Object#!~` for PSI and stub
 indexing.
 
+The postfix indexed-assignment repair reduced the indexed corpus to 145 errors
+in 104 files and the complete distribution to 2,623 errors in 725 files. Indexed
+writes own trailing `if`, `unless`, and `rescue` modifiers while nested RHS
+assignments remain modifier-free. Type and local-use flow preserve conditional
+and short-circuit skip paths and source-ordered failures from indexed targets,
+compound getters, RHS expressions, and setters. The external kemal inspection
+audit remains stable at 19 known findings.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

@@ -32,6 +32,11 @@ result `Unknown`; the resolver never picks the first reverse descendant assignme
 
 - Direct assignments replace the incoming binding.
 - `if`, `unless`, `case`, ternary, postfix modifiers, `&&`, and `||` preserve every reachable path.
+- Indexed assignments evaluate receiver/index components before the RHS. Compound forms add a
+  potentially raising getter phase, every falling RHS path can reach a potentially raising setter,
+  and `||=`/`&&=` also retain the path that skips the RHS. A postfix rescue handler receives the
+  merged states from every reachable failure phase; a non-raising ordinary assignment does not
+  make its rescue handler reachable.
 - Loops include the zero-iteration incoming binding and every observed intermediate body binding.
 - A protected `begin` records binding states at potential throw points. Rescue starts from the
   proven exceptional state, so a pure `value = "ready"` before a potentially raising call is visible
@@ -85,6 +90,8 @@ Unannotated method results merge every reachable explicit return with the reacha
 Comma-separated return values resolve as `Tuple(...)` in source order. For a postfix return,
 assignments in those values belong only to the returning branch; the guard-false fallthrough
 state includes effects from evaluating the guard but not from unevaluated return values.
+Postfix rescue evaluates abrupt values before its handler and remains abrupt after a successful
+handler; it never exposes a false fall-through path to a method's implicit tail.
 Method-level rescue, else, and ensure use the same protected-body semantics as `begin`. Ensure
 affects termination; its ordinary expression value does not replace the protected value. Direct and
 mutual recursion terminate as `Unknown`, and completed method results are memoized per session.

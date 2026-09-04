@@ -262,6 +262,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         activeHeredocBodies[element]?.let { return flowElement(it, frame, incoming) }
         return when (element) {
             is CrystalAssignment -> flowAssignment(element, frame, incoming)
+            is CrystalIndexedAssignment -> flowIndexedAssignment(element, frame, incoming)
             is CrystalGroupedExpression -> flowGroupedAssignment(element, frame, incoming)
             is CrystalMethodBody -> flowProtected(
                 element.statementList,
@@ -438,19 +439,65 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
 
     private fun flowAssignment(assignment: CrystalAssignment, frame: Frame, incoming: State): Flow {
         val postfix = assignment.postfixModifier
-        val conditionFlow = postfix?.let { flowElement(it.expression, frame, incoming) }
-        val base = conditionFlow?.normal ?: incoming
-        val assignmentFlow = flowAssignmentCore(assignment, frame, base)
-        val resultNormal = if (postfix != null) {
-            State.merge(listOfNotNull(base, assignmentFlow.normal))
-        } else {
-            assignmentFlow.normal
+        if (postfix == null) return flowAssignmentCore(assignment, frame, incoming)
+        if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null) {
+            val body = flowAssignmentCore(assignment, frame, incoming)
+            return mergeFlows(
+                listOf(
+                    body,
+                    flowElement(postfix.conditionElement(), frame, exceptionalEntry(assignment, incoming)),
+                )
+            )
         }
+        val conditionFlow = flowElement(postfix.conditionElement(), frame, incoming)
+        val base = conditionFlow.normal ?: return conditionFlow
+        val assignmentFlow = flowAssignmentCore(assignment, frame, base)
+        val resultNormal = State.merge(listOfNotNull(base, assignmentFlow.normal))
         return Flow(
             resultNormal,
+            conditionFlow.breaks + assignmentFlow.breaks,
+            conditionFlow.continues + assignmentFlow.continues,
+            conditionFlow.returns + assignmentFlow.returns
+        )
+    }
+
+    private fun flowIndexedAssignment(
+        assignment: CrystalIndexedAssignment,
+        frame: Frame,
+        incoming: State,
+    ): Flow {
+        val postfix = assignment.postfixModifier
+        val evaluation = assignment.evaluationComponents()
+        val rhs = evaluation.rhs
+        fun flowAssignment(base: State): Flow {
+            val target = flowElements(evaluation.targetElements, frame, base)
+            val targetState = target.normal ?: return target
+            val value = rhs?.let { flowElement(it, frame, targetState) } ?: Flow(targetState)
+            return if (evaluation.shortCircuit) {
+                mergeFlows(listOf(Flow(targetState), value), target.copy(normal = null))
+            } else {
+                mergeFlows(listOf(value), target.copy(normal = null))
+            }
+        }
+        if (postfix?.node?.findChildByType(CrystalTypes.RESCUE) != null) {
+            val body = flowAssignment(incoming)
+            return mergeFlows(
+                listOf(
+                    body,
+                    flowElement(postfix.conditionElement(), frame, exceptionalEntry(assignment, incoming)),
+                )
+            )
+        }
+        val conditionFlow = postfix?.let { flowElement(it.conditionElement(), frame, incoming) }
+        val base = if (conditionFlow == null) incoming else conditionFlow.normal ?: return conditionFlow
+        val assignmentFlow = flowAssignment(base)
+        return Flow(
+            if (postfix == null) assignmentFlow.normal else {
+                State.merge(listOfNotNull(base, assignmentFlow.normal))
+            },
             conditionFlow?.breaks.orEmpty() + assignmentFlow.breaks,
             conditionFlow?.continues.orEmpty() + assignmentFlow.continues,
-            conditionFlow?.returns.orEmpty() + assignmentFlow.returns
+            conditionFlow?.returns.orEmpty() + assignmentFlow.returns,
         )
     }
 
@@ -622,11 +669,18 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         return ensureClause?.statementList?.let { applyEnsure(protected, it, frame) } ?: protected
     }
 
-    private fun exceptionalEntry(body: CrystalStatementList?, incoming: State): State {
-        if (body == null) return incoming
+    private fun exceptionalEntry(body: PsiElement?, incoming: State): State {
+        return exceptionalEntry(listOfNotNull(body), incoming)
+    }
+
+    private fun exceptionalEntry(bodyElements: Collection<PsiElement>, incoming: State): State {
+        if (bodyElements.isEmpty()) return incoming
         val reaching = incoming.reaching.mapValuesTo(mutableMapOf()) { it.value.toMutableSet() }
         definitions.asSequence()
-            .filter { it.id in reachedDefinitions && PsiTreeUtil.isAncestor(body, it.identifier, false) }
+            .filter { definition ->
+                definition.id in reachedDefinitions &&
+                    bodyElements.any { PsiTreeUtil.isAncestor(it, definition.identifier, false) }
+            }
             .forEach { reaching.getOrPut(it.symbol.id) { linkedSetOf() }.add(it.id) }
         return State(reaching.mapValues { it.value.toSet() })
     }
@@ -755,7 +809,21 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         incoming: State,
         kind: AbruptKind,
     ): Flow {
-        val condition = postfix?.let { flowElement(it.expression, frame, incoming) }
+        if (postfix?.node?.findChildByType(CrystalTypes.RESCUE) != null) {
+            val value = flowSequence(values, frame, incoming)
+            val rescue = flowElement(postfix.conditionElement(), frame, exceptionalEntry(values, incoming))
+            val abruptStates = listOfNotNull(value.normal, rescue.normal)
+            return Flow(
+                normal = null,
+                breaks = value.breaks + rescue.breaks +
+                    if (kind == AbruptKind.BREAK) abruptStates else emptyList(),
+                continues = value.continues + rescue.continues +
+                    if (kind == AbruptKind.NEXT) abruptStates else emptyList(),
+                returns = value.returns + rescue.returns +
+                    if (kind == AbruptKind.RETURN) abruptStates else emptyList(),
+            )
+        }
+        val condition = postfix?.let { flowElement(it.conditionElement(), frame, incoming) }
         val base = if (condition == null) incoming else condition.normal ?: return condition
         val value = flowSequence(values, frame, base)
         val abruptStates = listOfNotNull(value.normal)

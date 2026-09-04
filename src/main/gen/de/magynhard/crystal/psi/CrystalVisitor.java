@@ -8,10 +8,6 @@ import com.intellij.psi.PsiLanguageInjectionHost;
 
 public class CrystalVisitor extends PsiElementVisitor {
 
-  public void visitAbruptAssignment(@NotNull CrystalAbruptAssignment o) {
-    visitAssignment(o);
-  }
-
   public void visitAliasDefinition(@NotNull CrystalAliasDefinition o) {
     visitNamedElement(o);
   }
@@ -280,6 +276,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitNestedAssignment(@NotNull CrystalNestedAssignment o) {
+    visitAssignment(o);
+  }
+
   public void visitNextStatement(@NotNull CrystalNextStatement o) {
     visitAbruptStatement(o);
   }
@@ -302,6 +302,10 @@ public class CrystalVisitor extends PsiElementVisitor {
 
   public void visitPointerofExpression(@NotNull CrystalPointerofExpression o) {
     visitPsiElement(o);
+  }
+
+  public void visitPostfixConditionAssignment(@NotNull CrystalPostfixConditionAssignment o) {
+    visitAssignment(o);
   }
 
   public void visitPostfixModifier(@NotNull CrystalPostfixModifier o) {

@@ -8,17 +8,16 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalPostfixModifierImpl extends ASTWrapperPsiElement implements CrystalPostfixModifier {
+public class CrystalPostfixConditionAssignmentImpl extends CrystalConditionAssignmentMixin implements CrystalPostfixConditionAssignment {
 
-  public CrystalPostfixModifierImpl(@NotNull ASTNode node) {
+  public CrystalPostfixConditionAssignmentImpl(ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitPostfixModifier(this);
+    visitor.visitPostfixConditionAssignment(this);
   }
 
   @Override
@@ -29,14 +28,20 @@ public class CrystalPostfixModifierImpl extends ASTWrapperPsiElement implements 
 
   @Override
   @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override
   @Nullable
-  public CrystalPostfixConditionAssignment getPostfixConditionAssignment() {
-    return PsiTreeUtil.getChildOfType(this, CrystalPostfixConditionAssignment.class);
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
 }

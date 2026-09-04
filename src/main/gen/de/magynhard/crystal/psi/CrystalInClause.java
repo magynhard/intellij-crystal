@@ -8,16 +8,10 @@ import com.intellij.psi.PsiElement;
 public interface CrystalInClause extends PsiElement {
 
   @Nullable
-  CrystalClassVarAccess getClassVarAccess();
-
-  @Nullable
-  CrystalExpression getExpression();
+  CrystalCondition getCondition();
 
   @NotNull
   CrystalExpressionList getExpressionList();
-
-  @Nullable
-  CrystalInstanceVarAccess getInstanceVarAccess();
 
   @NotNull
   CrystalStatementList getStatementList();
