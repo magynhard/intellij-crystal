@@ -6,11 +6,6 @@ end
 # Assignment in postfix if
 puts "found" if v = cache[key]?
 
-# Assignment in postfix while / until
-i = 0
-puts i while n = (i += 1) < 3 ? i : nil
-sleep 1 until done = finished?
-
 # Assignment in postfix rescue
 value = strict_parse rescue fallback = DEFAULTS[:fallback]
 

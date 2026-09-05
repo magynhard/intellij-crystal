@@ -116,7 +116,13 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalUnlessStatement> getUnlessStatementList();
 
   @NotNull
+  List<CrystalUntilStatement> getUntilStatementList();
+
+  @NotNull
   List<CrystalVariableReference> getVariableReferenceList();
+
+  @NotNull
+  List<CrystalWhileStatement> getWhileStatementList();
 
   @NotNull
   List<CrystalYieldExpression> getYieldExpressionList();

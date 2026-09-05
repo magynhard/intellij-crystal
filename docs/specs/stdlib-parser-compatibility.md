@@ -129,6 +129,12 @@ then expose independent later gaps in some of those same files. No previously
 clean file regressed, verified by a before/after file-set comparison. The
 external kemal inspection audit improves from 19 to 18 known findings.
 
+Rejecting unsupported trailing `while`/`until` modifiers while preserving block
+loop expressions leaves both Crystal 1.21 corpora unchanged: 133 errors in 97
+indexed files and 2,625 errors in 714 distribution files. This confirms that no
+valid corpus construct depended on the historical trailing-modifier acceptance.
+The external kemal inspection audit remains stable at 18 known findings.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

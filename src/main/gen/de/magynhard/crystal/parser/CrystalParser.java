@@ -6410,7 +6410,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IF | UNLESS | WHILE | UNTIL | RESCUE) postfix_condition_with_assignment
+  // (IF | UNLESS | RESCUE) postfix_condition_with_assignment
   public static boolean postfix_modifier(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_modifier")) return false;
     boolean result_;
@@ -6421,14 +6421,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // IF | UNLESS | WHILE | UNTIL | RESCUE
+  // IF | UNLESS | RESCUE
   private static boolean postfix_modifier_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_modifier_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IF);
     if (!result_) result_ = consumeToken(builder_, UNLESS);
-    if (!result_) result_ = consumeToken(builder_, WHILE);
-    if (!result_) result_ = consumeToken(builder_, UNTIL);
     if (!result_) result_ = consumeToken(builder_, RESCUE);
     return result_;
   }
@@ -6621,7 +6619,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                               | yield_expression
   //                               | if_statement
   //                               | unless_statement
-  //                              | case_statement
+  //                               | while_statement
+  //                               | until_statement
+  //                               | case_statement
   //                              | begin_statement
   //                              | SELF
   static boolean primary_expression(PsiBuilder builder_, int level_) {
@@ -6652,6 +6652,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = yield_expression(builder_, level_ + 1);
     if (!result_) result_ = if_statement(builder_, level_ + 1);
     if (!result_) result_ = unless_statement(builder_, level_ + 1);
+    if (!result_) result_ = while_statement(builder_, level_ + 1);
+    if (!result_) result_ = until_statement(builder_, level_ + 1);
     if (!result_) result_ = case_statement(builder_, level_ + 1);
     if (!result_) result_ = begin_statement(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, SELF);

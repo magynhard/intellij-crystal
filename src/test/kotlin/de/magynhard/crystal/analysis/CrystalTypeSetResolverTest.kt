@@ -156,6 +156,104 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testExpressionPositionedReturnInIndexedAssignmentKeepsOnlySkippedState() {
+        assertTypes(
+            "def update(values)\n  x = \"old\"\n  values[0] ||= return x = 1\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testExpressionPositionedReturnInLogicalOperandKeepsOnlySkippedState() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  flag || return x = 1\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testExpressionPositionedBreakInLogicalOperandKeepsOnlySkippedState() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  loop do\n    flag && break x = 1\n    <caret>x\n  end\nend",
+            "String",
+        )
+    }
+
+    fun testExpressionPositionedNextInLogicalOperandKeepsOnlySkippedState() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  loop do\n    flag && next x = 1\n    <caret>x\n  end\nend",
+            "String",
+        )
+    }
+
+    fun testChainedLogicalExpressionPreservesAccumulatedShortCircuitState() {
+        assertTypes(
+            "def update\n  x = \"old\"\n  true || false || return x = 1\n  <caret>x\nend",
+            "String",
+        )
+        assertTypes(
+            "def update\n  x = \"old\"\n  false && true && return x = 1\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testMixedLogicalExpressionRespectsAndPrecedence() {
+        assertTypes(
+            "def update\n  x = \"old\"\n  true || false && return x = 1\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testLogicalTernaryConditionPreservesShortCircuitState() {
+        assertTypes(
+            "def update\n  x = \"old\"\n  true || (x = 1) ? nil : nil\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testNestedExpressionPositionedReturnStopsEnclosingCall() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  consume(flag || return x = 1)\n  <caret>x\nend",
+            "String",
+        )
+    }
+
+    fun testRaisingArgumentBeforeExpressionPositionedReturnReachesRescue() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  begin\n    consume((x = 1), danger, flag || return)\n  rescue\n    <caret>x\n  end\nend",
+            "Int32",
+        )
+    }
+
+    fun testExpressionPositionedBreakStateReachesLoopExit() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  while flag\n    false || break x = 1\n  end\n  <caret>x\nend",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testExpressionPositionedNextStateReachesNextLoopIteration() {
+        assertTypes(
+            "def update\n  x = \"old\"\n  i = 0\n  while i < 1\n    i += 1\n    false || next x = 1\n  end\n  <caret>x\nend",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testEnsureTransformsExpressionPositionedBreakState() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  while flag\n    begin\n      false || break x = 1\n    ensure\n      x = true\n    end\n  end\n  <caret>x\nend",
+            "String",
+            "Bool",
+        )
+    }
+
+    fun testExpressionPositionedReturnInTernaryBranchDoesNotFallThrough() {
+        assertTypes(
+            "def update(flag)\n  x = \"old\"\n  flag ? (x = 1) : (return x = true)\n  <caret>x\nend",
+            "Int32",
+        )
+    }
+
     fun testIndexedAssignmentRescueMergesFailuresBeforeAndAfterRhsAssignment() {
         assertTypes(
             "x = \"old\"\nvalues = [0]\nvalues[danger] = x = 1 rescue nil\n<caret>x",

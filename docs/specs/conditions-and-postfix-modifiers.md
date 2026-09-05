@@ -23,18 +23,16 @@ follows the variable, so plain conditions are unaffected.
 
 ### Postfix modifiers (`postfix_modifier`)
 
-Postfix `if` / `unless` / `while` / `until` / `rescue` accept assignments exactly like
-block-level conditions:
+Postfix `if` / `unless` / `rescue` accept assignments exactly like block-level conditions:
 
 ```crystal
 return [] of Result unless target = PAIRS[node.name]?
 puts "found" if v = cache[key]?
-sleep 1 until done = finished?
 value = strict_parse rescue fallback = DEFAULTS[:fallback]
 ```
 
 ```bnf
-postfix_modifier ::= (IF | UNLESS | WHILE | UNTIL | RESCUE) postfix_condition_with_assignment
+postfix_modifier ::= (IF | UNLESS | RESCUE) postfix_condition_with_assignment
 
 private postfix_condition_with_assignment ::= postfix_condition_assignment | expression
 postfix_condition_assignment ::= variable ASSIGN NLS expression
@@ -80,9 +78,13 @@ is intentionally more tolerant than the language: the plugin parses guards (plai
 assignment forms) so that macro-generated or future-compatible code does not produce false
 errors. Do not rely on guards appearing in valid Crystal 1.x sources.
 
-Crystal 1.21 also rejects trailing `while` and `until` on indexed assignments. The plugin's
-historical generic modifier rule still accepts them; narrowing that rule without regressing
-other assignment forms is tracked separately in `TODO.md`.
+Crystal 1.21 rejects trailing `while` and `until` modifiers on every statement form, including
+ordinary calls, abrupt statements, and indexed assignments. The parser rejects those forms while
+retaining assignment-valued conditions in block `while` and `until` statements.
+
+Block `while ... end` and `until ... end` constructs are expressions. They remain valid as
+assignment values, grouped expressions, and call arguments; removing their unsupported trailing
+modifier forms must not remove these primary-expression positions.
 
 ## Verified Against the Compiler
 
@@ -97,13 +99,18 @@ p f({"k" => 3})'
 
 ## Test Coverage
 
-`src/test/testData/parser/PostfixModifierAssignment.cr` (golden-file parser test) covers:
+`src/test/testData/parser/PostfixModifierAssignment.cr` and
+`src/test/testData/parser/LoopExpressions.cr` (golden-file parser tests) cover:
 
 - Assignment in postfix `unless` on a typed return (`return [] of T unless t = …`)
-- Assignment in postfix `if` / `while` / `until` / `rescue`
+- Assignment in postfix `if` / `rescue`
 - Block-level `if` / `unless` assignment conditions (regression guard)
+- Block-level `while` / `until` expressions, including assignment-valued conditions
 - Assignment in an in-clause guard
 - Indexed simple/compound writes with `if`, `unless`, and `rescue`, nested RHS assignments,
   repeated indexes, and `||=`/`&&=` short-circuit operators
 - Missing conditions and chained modifiers as invalid boundaries that preserve a following
   declaration
+
+`CrystalInvalidPostfixModifierTest` covers trailing `while` and `until` on ordinary calls,
+assignments, indexed assignments, and abrupt statements as invalid syntax.

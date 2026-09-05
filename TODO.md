@@ -104,12 +104,6 @@
 
 ## Parser Follow-up
 
-- [ ] **Reject unsupported trailing `while` and `until` modifiers** — Crystal 1.21
-  rejects forms such as `puts value while condition` and `target[index] = value
-  until condition`, but the historical `postfix_modifier` rule and parser goldens
-  still accept them. Restrict the rule to compiler-supported modifiers and migrate
-  the old positive fixtures to invalid-syntax tests without weakening valid block
-  `while`/`until` parsing.
 - [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
   `stdlibParseAudit` corpus from the current 133 errors in 97 of 461 files to zero,
   then parse all 1,625 distribution sources without errors. Once both are green, add
@@ -157,11 +151,6 @@
 
 ## Type Inference Follow-up
 
-- [ ] **Model expression-position `return`/`break`/`next` as abrupt in variable flow** — an
-  expression-position exit such as the RHS of `values[0] ||= return x = 1` currently flows its
-  value assignment as fall-through, so the write leaks past the exit in type resolution. Flow
-  `control_flow_expression` values first and preserve the abrupt continuation instead of
-  merging the exited write into the fall-through state.
 - [ ] **Resolve operator overload return types** — replace the conservative `Unknown`
   result for `<=>`, `=~`, and `!~` with exact receiver-aware overload resolution.
   Standard implementations are not uniformly boolean (`String#=~` returns

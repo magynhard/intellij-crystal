@@ -32,6 +32,13 @@ result `Unknown`; the resolver never picks the first reverse descendant assignme
 
 - Direct assignments replace the incoming binding.
 - `if`, `unless`, `case`, ternary, postfix modifiers, `&&`, and `||` preserve every reachable path.
+- Expression-position `return`, `break`, and `next` evaluate their ordered values and then terminate
+  their path. Assignments in those values can reach rescue or other abrupt continuations but never
+  leak into a later fall-through variable state, including logical, ternary, grouped, call-argument,
+  and indexed-assignment RHS positions. Logical chains retain cumulative truthiness with `&&`
+  precedence over `||`. Return exits propagate outward; break exits join the enclosing loop's outgoing
+  state; next exits feed its subsequent iterations. A protected `begin`'s ensure body transforms its
+  normal, exceptional, and abrupt continuations before they reach their destinations.
 - Indexed assignments evaluate receiver/index components before the RHS. Compound forms add a
   potentially raising getter phase, every falling RHS path can reach a potentially raising setter,
   and `||=`/`&&=` also retain the path that skips the RHS. A postfix rescue handler receives the

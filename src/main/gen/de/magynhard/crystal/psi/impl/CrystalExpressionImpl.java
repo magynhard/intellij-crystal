@@ -245,8 +245,20 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalUntilStatement> getUntilStatementList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalUntilStatement.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalVariableReference> getVariableReferenceList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalVariableReference.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalWhileStatement> getWhileStatementList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalWhileStatement.class);
   }
 
   @Override
