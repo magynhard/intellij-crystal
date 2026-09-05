@@ -45,7 +45,7 @@ This applies wherever `[postfix_modifier]` is referenced, including
 `return_statement`, `break_statement`, `next_statement`, `yield_statement`,
 `macro_interpolation`, and `interpolation_expression`.
 
-**PSI shape:** `condition_with_assignment` remains private, but an assigned guard creates a
+**PSI shape:** `postfix_condition_with_assignment` remains private, but an assigned guard creates a
 `CrystalPostfixConditionAssignment` composite implementing `CrystalAssignment`. Analyses can
 therefore process its write exactly like another assignment without reconstructing it from
 flat siblings. Plain expression guards retain their existing PSI shape.
@@ -64,6 +64,9 @@ indexed assignment rather than an unconditional indexed write whose nested value
 conditional. Compound indexed writes evaluate receiver/index expressions, the implicit
 getter, the RHS, the operator, and the setter in source order. `||=` and `&&=` retain the
 path that skips the RHS; `rescue` starts from failures at any evaluated phase.
+Simple indexed assignments evaluate to their RHS value. A conditional postfix modifier adds
+the skipped `Nil` value, while postfix `rescue` adds the handler value. Compound indexed
+assignment values remain unknown until exact operator/getter resolution is available.
 
 ### In-clause guards (`in_clause`)
 

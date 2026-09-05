@@ -131,4 +131,23 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val processor = findStdlibFile("http/server/request_processor.cr") ?: return
         assertParsesCleanly(processor)
     }
+
+    fun testFiberContextCrParsesWithoutErrors() {
+        // fiber/context.cr carries `property stack_top : Void*` (line ~9): a
+        // pointer-typed declaration-macro argument whose dangling `*` used to
+        // abort parsing and drop every later member of the file from stub
+        // indexing.
+        val context = findStdlibFile("fiber/context.cr") ?: return
+        assertParsesCleanly(context)
+    }
+
+    fun testFastFloatAsciiNumberCrParsesWithoutErrors() {
+        val asciiNumber = findStdlibFile("float/fast_float/ascii_number.cr") ?: return
+        assertParsesCleanly(asciiNumber)
+    }
+
+    fun testRegexPcre2CrParsesWithoutErrors() {
+        val pcre2 = findStdlibFile("regex/pcre2.cr") ?: return
+        assertParsesCleanly(pcre2)
+    }
 }

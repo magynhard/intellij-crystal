@@ -23,6 +23,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 ### Editing
 
 - Syntax and semantic highlighting for Crystal code, including macros, annotations, heredocs, regex, percent literals, and interpolation
+- Declaration-macro syntax with whitespace-sensitive type arguments, including pointer, proc, nilable, static-array, and metaclass suffix combinations
 - Keyword block highlighting for structures such as `if`/`elsif`/`else`/`end`, methods, types, and exception handling
 - Code folding, brace matching, line comments, automatic indentation, and automatic `end` insertion
 - Formatting through Crystal's canonical `crystal tool format`
@@ -48,7 +49,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Diagnostics for invalid empty collections, `lib fun` parameters without types, invalid single-quoted strings, and colon spacing
 - Crystal-specific diagnostics for invalid dynamic `require` contexts and malformed multiline union types
 
-The plugin's type inference supports many common literals, collections, variables, control-flow expressions, constructors, and call chains. It is intended to provide useful editor feedback, not to replace the Crystal compiler's complete type system.
+The plugin's type inference supports many common literals, collections, variables, assignments, control-flow expressions, constructors, and call chains. Simple indexed writes retain their RHS value, including conditional and rescued paths. It is intended to provide useful editor feedback, not to replace the Crystal compiler's complete type system.
 
 ### Run, Test, and Debug
 

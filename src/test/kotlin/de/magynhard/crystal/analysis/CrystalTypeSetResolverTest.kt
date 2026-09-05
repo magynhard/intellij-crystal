@@ -77,6 +77,41 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testIndexedAssignmentProvidesStatementValue() {
+        assertTypes(
+            "def update(values)\n  values[0] = \"updated\"\nend\nresult = update([\"old\"])\n<caret>result",
+            "String",
+        )
+    }
+
+    fun testPostfixIndexedAssignmentProvidesRhsAndSkippedValues() {
+        assertTypes(
+            "def update(values, flag)\n  values[0] = \"updated\" if flag\nend\n" +
+                "result = update([\"old\"], true)\n<caret>result",
+            "String",
+            "Nil",
+        )
+    }
+
+    fun testRescuedIndexedAssignmentProvidesRhsAndHandlerValues() {
+        assertTypes(
+            "def update(values)\n  values[0] = \"updated\" rescue 1\nend\n" +
+                "result = update([\"old\"])\n<caret>result",
+            "String",
+            "Int32",
+        )
+    }
+
+    fun testCompoundIndexedAssignmentStatementValueRemainsUnknown() {
+        assertEquals(
+            CrystalTypeResolution.Unknown,
+            resolve(
+                "def update(values)\n  values[0] += 1\nend\n" +
+                    "result = update([0])\n<caret>result"
+            ),
+        )
+    }
+
     fun testPostfixIndexedAssignmentConditionAssignmentAlwaysRuns() {
         assertTypes(
             "condition = \"old\"\nvalues = [0]\nvalues[0] = 1 if condition = true\n<caret>condition",

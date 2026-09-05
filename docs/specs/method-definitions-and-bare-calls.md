@@ -85,21 +85,57 @@ fallback: `HTTP::Server::Response.new(io)` (kemal spec/event_stream_spec.cr:72)
 reported "Too many arguments: expected at most 0, got 1" highlighted on `io`, while
 `HTTP::Request.new` on the same page resolved fine.
 
-Resolution: a dedicated `named_type_bare_argument` alternative
-(`IDENTIFIER COLON type_reference [named_bare_type_default]`) sits in `bare_argument`
-AFTER `named_bare_argument` (PEG order — expression-shaped values keep parsing as
-expressions). Two GrammarKit traps are documented in the BNF comments: a second
-alternative on the `private named_bare_argument` rule gets common-prefix-factored
-away (and flips GrammarKit's global error pinning, breaking deque.cr/to_json.cr),
-and `pin=2` commits the rule after `IDENTIFIER COLON` (`result_ || pinned_`) so a
-failing tail could never fall through — `named_bare_argument` therefore carries no
-pin; the required prefix makes the pin unnecessary for correct parsing.
+Resolution: the dedicated `named_type_bare_argument` alternative
+(`IDENTIFIER spaced_colon type_reference [named_bare_type_default]`) precedes
+`named_bare_argument` in `bare_argument`. The whitespace-sensitive colon rules
+described below make the alternatives disjoint before PEG commits, so the type
+branch can safely consume complete proc, nilable, generic, pointer, static-array,
+metaclass, and defaulted types without shadowing compact `name: value`
+expressions. Defaults accept nested assignments. Both forms pin after their
+distinct colon prefix; neither relies on fallthrough after a partially parsed
+value.
 
-Known limits (TODO.md): shapes where `bare_expression` half-matches still mis-shape
-(`property level : Severity? = nil` — the `?` becomes a stray ternary QUESTION,
-`= nil` an assignment tail; `property select_context : SelectContext(Nil)?` — the
-generic type parses as a bare method call), and trailing `{ ... }` default-value
-blocks (spec/context.cr) are not consumed yet.
+## Pointer-suffixed type arguments (`property stack_top : Void*`)
+
+The same half-match trap hid C pointer types in declaration-macro calls:
+
+```crystal
+property stack_top : Void*                  # fiber/context.cr
+getter ip : Void*, count : Int32            # exception/call_stack/stackwalk.cr
+property lastmatch : UC* = Pointer(UC).null # float/fast_float/ascii_number.cr
+class_getter match_context : T* do ... end  # regex/pcre2.cr
+```
+
+`bare_expression` parses the `Void` prefix fine and leaves the `*` dangling,
+so the whole call — and every declaration after it in the file — failed. The
+fix mirrors the compiler, verified empirically: `name : Type` with a space
+before the colon is a *type* position (`probe x : Int32*` yields
+`Pointer(Int32)`; `probe x : Int32 * String` is rejected at `String`), while
+`name:` without the space is an expression (`probe x: 2 * 3` multiplies,
+`probe x: Int32` is a named-argument path).
+
+Resolution preserves the compiler's whitespace distinction before parsing the
+argument value. Because ordinary whitespace tokens are skipped by `PsiBuilder`,
+`compact_colon` and `spaced_colon` use a non-consuming external predicate that
+scans the skipped source range before `:` for horizontal whitespace or an
+escaped newline. This recognizes spaces, tabs, form feeds, and a bare line
+continuation while keeping a genuinely unspaced colon compact. The alternatives
+are therefore disjoint before PEG commits:
+
+- `name: value` selects `named_argument` / `named_bare_argument` and keeps
+  expressions such as `CONST *\n 3` intact. Absolute namespace values such as
+  `level: ::Socket::Protocol::TCP` use a bounded normal-expression path because
+  globally adding `DOUBLE_COLON` to the bare-postfix grammar changes unrelated
+  namespace-call PSI and resolution.
+- `name : Type` selects `named_type_argument` / `named_type_bare_argument` and
+  consumes the complete `Void*`, `UInt8***? | Nil`, `UInt8*[4]`,
+  `UInt8[BUFFER_SIZE]*`, `Int32*.class`, or `UInt8* -> Nil` type reference.
+
+The type-shaped alternatives run first but cannot shadow a compact named
+argument. They do not consume a trailing newline, so statement separators stay
+outside `CrystalArgument` / `CrystalBareArgument`. Parenthesized multiline
+forms, defaults, and trailing `do` blocks use the same rules without a
+pointer-specific follower list or CONSTANT-vs-identifier heuristic.
 
 ## Nested bare calls in argument lists
 

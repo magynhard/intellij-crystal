@@ -52,6 +52,17 @@
 - [ ] **Add constant declaration stubs and indexes** (`CrystalConstantIndex` and `CrystalConstantByClassIndex`) only after the grammar separates constant definitions from ordinary statement assignment contexts.
 - [ ] **Design instance/class-variable declaration indexing** only if a valid stubbed declaration model can represent declarations without indexing arbitrary usages or assignments.
 
+## Parser Recovery Follow-up
+
+- [ ] **Preserve declarations after incomplete binary operators** — malformed prefix/postfix forms such as
+  `value = !~ other` and `value = other !~` produce a `PsiErrorElement` but can consume a following
+  declaration during pinned assignment recovery. Add boundary-aware recovery without `recoverWhile` or
+  weakening valid consecutive-statement parsing, then assert the trailing declaration remains structured.
+- [ ] **Keep postfix-rescue bare calls from consuming heredoc body openers** — valid code such as
+  `value = <<-TEXT rescue puts fallback` currently treats the newline `HEREDOC_START` body opener as another
+  bare argument of `puts`, leaving the body content detached. Preserve the marker/body pairing while keeping
+  ordinary closeless heredoc-call arguments valid.
+
 ## Call Argument Inspection Follow-up
 
 - [ ] **Validate `lib fun` calls** — add indexed FFI function declaration resolution, then apply argument-count and argument-type diagnostics to calls such as `LibC.exit`, `LibC.exit()`, and `LibC.exit(value)`.
@@ -74,7 +85,6 @@
 - [ ] **Investigate operator-call arity on inferred stdlib values** — the headless kemal audit reports "Too many arguments: expected at most 0, got 1" for `(Time.monotonic - start).total_milliseconds` in `spec/run_spec.cr`. Reproduce the exact highlighted PSI and determine why `Time::Span#-(Time::Span)` is replaced by an implicit zero-argument constructor before changing resolver fallback semantics.
 - [ ] **Suppress diagnostics for unresolved macro-generated constructors** — the headless kemal audit checks the ten-argument `new(...)` call inside `Kemal::ExceptionPage.new(context, exception)` against the visible two-argument overload even though the ExceptionPage shard generates the real constructor through a macro. Model constructor uncertainty from relevant macro expansions, or suppress only when the written overload set can be proven incomplete; add a regression shaped like `src/kemal/helpers/exception_page.cr`.
 - [ ] **Investigate chained `status(...).json(...)` argument binding** — the headless kemal audit reports missing `status_code` for valid `env.status(:not_found).json(...)` calls. Capture the parsed call arguments and exact resolution result to distinguish a parser-binding defect from wrong-overload selection, then cover both the chained and standalone forms.
-- [ ] **Prevent regular calls from inheriting unrelated `lib fun` signatures** — the headless kemal audit reports missing `pointer` and `closure_data` in `spec/static_file_handler_spec.cr`. Identify the exact call and ensure FFI declarations cannot enter a regular method overload pool through name-only or incomplete-receiver fallback.
 - [ ] **Preserve generic owner arguments for nested receiver types** — the headless kemal audit reports `Node(K, V)` versus `Kemal::LRUCache::Node` at `src/kemal/route_handler.cr:56`. Trace the local assignment and nested generic receiver through exact DOT resolution so the qualified type does not lose its owner arguments before compatibility checking.
 
 ## IDE / Incremental Lexing Follow-up
@@ -101,7 +111,7 @@
   the old positive fixtures to invalid-syntax tests without weakening valid block
   `while`/`until` parsing.
 - [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
-  `stdlibParseAudit` corpus from the current 145 errors in 104 of 461 files to zero,
+  `stdlibParseAudit` corpus from the current 133 errors in 97 of 461 files to zero,
   then parse all 1,625 distribution sources without errors. Once both are green, add
   mandatory CI jobs that download the pinned official archive, verify SHA-256
   `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both

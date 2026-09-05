@@ -73,3 +73,8 @@ scripts/crystal-inspect-audit.sh /path/to/project
      `status`, or the wrong overload wins.
   4. `spec/static_file_handler_spec.cr:143` — a regular call resolved against
      lib-fun parameters (`'pointer', 'closure_data'`).
+
+The 2026-09-05 audit after the pointer-shaped macro-argument and indexed-value
+flow repairs reports 18 Crystal findings: 17 argument-count findings and one
+type mismatch. The former `static_file_handler_spec.cr` lib-fun false positive
+no longer reproduces; the other three classes above remain.

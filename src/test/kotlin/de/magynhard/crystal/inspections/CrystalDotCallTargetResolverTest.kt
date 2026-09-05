@@ -43,6 +43,27 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertEquals("run", resolution.methods.single().name)
     }
 
+    fun testResolvesMethodDeclaredAfterPointerTypeProperty() {
+        // A pointer-typed property (`property stack_top : Void*`,
+        // fiber/context.cr) must not terminate parsing: the method declared
+        // after it has to stay indexed and resolvable.
+        val resolution = resolveCall(
+            """
+                class Service
+                  property handle : Void*
+                  def self.run
+                  end
+                end
+
+                Service.run
+            """.trimIndent(),
+            "run", "Service"
+        ).resolution as DotCallResolution.Methods
+
+        assertEquals("Service", resolution.receiverType.qualifiedName)
+        assertEquals("run", resolution.methods.single().name)
+    }
+
     fun testResolvesDirectQualifiedAbsoluteAndLexicalConstantIdentities() {
         val source = """
             class DirectService

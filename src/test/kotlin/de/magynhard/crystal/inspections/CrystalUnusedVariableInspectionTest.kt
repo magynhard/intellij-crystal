@@ -259,10 +259,10 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testInitialAssignWithConditionalReassignInBeginRescue() {
+    fun testNonRaisingReassignBeforeRescueSupersedesInitialValue() {
         myFixture.configureByText("test.cr", """
             def foo
-              x = ""
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = ""
               begin
                 x = "override"
               rescue
@@ -851,6 +851,218 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testPostfixAssignmentRescueReadsOnlyDefinitionBeforeFailedAssignment() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = 0
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = danger rescue puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNonRaisingPostfixAssignmentDoesNotReachRescueDefinition() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = 1 rescue fallback = 2
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testGroupedLiteralDoesNotReachPostfixRescueDefinition() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = (1) rescue fallback = 2
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testScalarAndPlainStringLiteralsDoNotReachPostfixRescueDefinitions() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Variable 'float_value' is never used">float_value</weak_warning> = 1.5 rescue float_fallback = 1
+              <weak_warning descr="Variable 'char_value' is never used">char_value</weak_warning> = 'x' rescue char_fallback = 1
+              <weak_warning descr="Variable 'symbol_value' is never used">symbol_value</weak_warning> = :safe rescue symbol_fallback = 1
+              <weak_warning descr="Variable 'true_value' is never used">true_value</weak_warning> = true rescue true_fallback = 1
+              <weak_warning descr="Variable 'false_value' is never used">false_value</weak_warning> = false rescue false_fallback = 1
+              <weak_warning descr="Variable 'nil_value' is never used">nil_value</weak_warning> = nil rescue nil_fallback = 1
+              <weak_warning descr="Variable 'string_value' is never used">string_value</weak_warning> = "safe" rescue string_fallback = 1
+              <weak_warning descr="Variable 'symbol_string_value' is never used">symbol_string_value</weak_warning> = :"safe" rescue symbol_string_fallback = 1
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPlainHeredocDoesNotReachPostfixRescueDefinition() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = <<-TEXT rescue (fallback = 2)
+                safe
+                TEXT
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testFailedNestedAssignmentDoesNotReachPostfixRescue() {
+        myFixture.configureByText("test.cr", """
+            def update
+              y = 0
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = (<weak_warning descr="Value assigned to 'y' is never used">y</weak_warning> = danger) rescue puts y
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCompletedNestedAssignmentReachesLaterPostfixRescueFailure() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = 0
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = (x = 1) && danger rescue puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testProtectedBodyNewlinesDoNotPreserveSupersededDefinition() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = 0
+              begin
+                x = 1
+                danger
+              rescue
+                puts x
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLocalReadDoesNotMakeRescueReachable() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Variable 'z' is never used">z</weak_warning> = 0
+              x = 1
+              begin
+                <weak_warning descr="Variable 'y' is never used">y</weak_warning> = x
+              rescue
+                puts z
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testOverwrittenDefinitionDoesNotReachLaterRescueFailure() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = 0
+              begin
+                <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = danger1
+                x = 2
+                danger2
+              rescue
+                puts x
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDotCallKeepsRescueReachable() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = 0
+              begin
+                self.danger
+              rescue
+                puts x
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testConditionalDefinitionDominatesFailureInSameBranch() {
+        myFixture.configureByText("test.cr", """
+            def update(flag)
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = 0
+              begin
+                if flag
+                  x = 1
+                  danger
+                end
+              rescue
+                puts x
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCompoundAssignmentFailureSeesCompletedRhsDefinition() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = 1
+              <weak_warning descr="Value assigned to 'y' is never used">y</weak_warning> = 0
+              begin
+                x += (y = 1)
+              rescue
+                puts y
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testHeredocDefinitionReachesLaterInterpolationFailure() {
+        myFixture.configureByText("test.cr", """
+            def update
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = 0
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = <<-TEXT rescue (puts x)
+                #{(x = 1)}
+                #{danger}
+                TEXT
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInterpolatedSymbolCanReachPostfixRescue() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = 0
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = :"#{danger}" rescue puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInterpolatedStringCanReachPostfixRescue() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = 0
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = "#{danger}" rescue puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInterpolatedHeredocCanReachPostfixRescue() {
+        myFixture.configureByText("test.cr", """
+            def update
+              x = 0
+              <weak_warning descr="Variable 'value' is never used">value</weak_warning> = <<-TEXT rescue (x)
+                #{danger}
+                TEXT
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testPostfixRescueReturnKeepsSuccessfulAndHandledDefinitionsReachable() {
         myFixture.configureByText("test.cr", """
             def update
@@ -894,7 +1106,7 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
     fun testIndexedAssignmentRescueSeesDefinitionsReachedBeforeFailure() {
         myFixture.configureByText("test.cr", """
             def update(values)
-              x = "old"
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = "old"
               values[consume(x = 1)] = danger rescue puts x
             end
         """.trimIndent())

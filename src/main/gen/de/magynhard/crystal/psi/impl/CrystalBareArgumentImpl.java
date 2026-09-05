@@ -46,6 +46,12 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
   }
 
   @Override
+  @Nullable
+  public CrystalAssignment getAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
+  }
+
+  @Override
   @NotNull
   public List<CrystalBareArgumentList> getBareArgumentListList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBareArgumentList.class);
@@ -88,9 +94,9 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
   }
 
   @Override
-  @NotNull
-  public List<CrystalExpression> getExpressionList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
+  @Nullable
+  public CrystalExpression getExpression() {
+    return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
   @Override
@@ -202,9 +208,9 @@ public class CrystalBareArgumentImpl extends ASTWrapperPsiElement implements Cry
   }
 
   @Override
-  @NotNull
-  public List<CrystalTypeReference> getTypeReferenceList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeReference.class);
+  @Nullable
+  public CrystalTypeReference getTypeReference() {
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
   @Override

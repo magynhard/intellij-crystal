@@ -111,6 +111,24 @@ and short-circuit skip paths and source-ordered failures from indexed targets,
 compound getters, RHS expressions, and setters. The external kemal inspection
 audit remains stable at 19 known findings.
 
+The pointer-suffixed type-argument repair reduced the indexed corpus to 133
+errors in 97 files (`fiber/context.cr`, `float/fast_float/ascii_number.cr`,
+`regex/pcre2.cr`, and macro-metaclass signatures in `io/byte_format.cr`,
+`json/pull_parser.cr`, `random.cr`, and `random/secure.cr` parse cleanly;
+`stackwalk.cr` and `float_common.cr` advance to later independent gaps). A
+non-consuming source-text predicate
+separates spaced `name : Type` declaration-macro arguments from compact
+`name: value` expressions before PEG alternative selection, so complete pointer
+types are consumed without stealing multiline multiplications or their
+statement-separating newline. Compact named values retain absolute namespace
+expressions such as `level: ::Socket::Protocol::TCP`, including binary and
+ternary continuations. The complete distribution reaches 2,625 errors in 714
+files. The raw count reflects newly visible downstream gaps in files that now
+parse further: complete proc and static-array suffixes remove earlier errors and
+then expose independent later gaps in some of those same files. No previously
+clean file regressed, verified by a before/after file-set comparison. The
+external kemal inspection audit improves from 19 to 18 known findings.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

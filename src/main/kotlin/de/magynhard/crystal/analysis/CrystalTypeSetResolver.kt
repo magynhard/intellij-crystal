@@ -195,6 +195,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         }
         if (element is CrystalAssignment) return resolve(element.assignment ?: element.expression
             ?: return CrystalTypeResolution.Unknown)
+        if (element is CrystalIndexedAssignment) return resolveIndexedAssignmentValue(element)
         if (element is CrystalReturnStatement) return resolveAbruptValues(element.valueElements())
 
         when (element.node?.elementType) {
@@ -243,12 +244,25 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun resolveStatement(statement: CrystalStatement): CrystalTypeResolution = when {
         statement.assignment != null -> resolve(statement.assignment!!)
+        statement.indexedAssignment != null -> resolveIndexedAssignmentValue(statement.indexedAssignment!!)
         statement.expressionStatement != null -> resolve(statement.expressionStatement!!)
         statement.ifStatement != null -> resolve(statement.ifStatement!!)
         statement.unlessStatement != null -> resolve(statement.unlessStatement!!)
         statement.beginStatement != null -> resolveBegin(statement.beginStatement!!)
         statement.returnStatement != null -> resolve(statement.returnStatement!!)
         else -> knownType("Nil")
+    }
+
+    private fun resolveIndexedAssignmentValue(assignment: CrystalIndexedAssignment): CrystalTypeResolution {
+        val evaluation = assignment.evaluationComponents()
+        if (evaluation.compound) return CrystalTypeResolution.Unknown
+        val value = evaluation.rhs?.let(::resolve) ?: return CrystalTypeResolution.Unknown
+        val postfix = assignment.postfixModifier ?: return value
+        return if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null) {
+            mergeKnown(listOf(value, resolve(postfix.conditionElement())))
+        } else {
+            mergeKnown(listOf(value, knownType("Nil")))
+        }
     }
 
     private fun resolveExpression(expression: CrystalExpression): CrystalTypeResolution {

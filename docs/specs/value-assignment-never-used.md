@@ -56,8 +56,12 @@ structure. A read marks every reaching definition as used.
   preserve the skipped-write path, `||=` and `&&=` preserve the skipped-RHS path, and postfix
   rescue can read definitions reached before failures in the target, RHS, or setter operation.
 - Assignment-valued postfix conditions execute before `if`/`unless` bodies. Assignment-valued
-  postfix rescue handlers execute only on the handled path. A handled postfix rescue on `return`,
+  postfix rescue handlers execute only on a reachable handled path and see definitions completed
+  before the failure, never the outer assignment whose RHS failed. A handled postfix rescue on `return`,
   `break`, or `next` retains the original abrupt continuation rather than falling through.
+- Scalar, plain string/symbol-string, grouped literal, and non-interpolated heredoc RHS values do not
+  activate a postfix rescue handler. Interpolated strings, symbol strings, and heredocs remain
+  potentially raising because their embedded expressions execute before assignment completion.
 - `else` on a protected block runs only after normal body completion.
 - `ensure` runs for normal, returning, breaking, and continuing paths; abrupt
   control flow originating in the ensure body supersedes the protected path.

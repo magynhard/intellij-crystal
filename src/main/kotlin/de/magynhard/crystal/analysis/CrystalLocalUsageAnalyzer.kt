@@ -5,6 +5,7 @@ import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalFile
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 import java.util.IdentityHashMap
@@ -438,14 +439,37 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
     }
 
     private fun flowAssignment(assignment: CrystalAssignment, frame: Frame, incoming: State): Flow {
+        val rhs = assignment.assignment ?: assignment.expression
+        val heredocBindings = heredocBodyBindings(listOfNotNull(rhs), assignment.heredocBodies)
+        heredocBindings.forEach { (header, body) -> activeHeredocBodies[header] = body }
+        try {
+            return flowAssignmentWithBoundHeredocs(assignment, rhs, frame, incoming)
+        } finally {
+            heredocBindings.forEach { (header) -> activeHeredocBodies.remove(header) }
+        }
+    }
+
+    private fun flowAssignmentWithBoundHeredocs(
+        assignment: CrystalAssignment,
+        rhs: PsiElement?,
+        frame: Frame,
+        incoming: State,
+    ): Flow {
         val postfix = assignment.postfixModifier
         if (postfix == null) return flowAssignmentCore(assignment, frame, incoming)
         if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null) {
             val body = flowAssignmentCore(assignment, frame, incoming)
+            if (assignment.node.findChildByType(CrystalTypes.ASSIGN) != null &&
+                rhs != null && !mayRaise(rhs)
+            ) return body
             return mergeFlows(
                 listOf(
                     body,
-                    flowElement(postfix.conditionElement(), frame, exceptionalEntry(assignment, incoming)),
+                    flowElement(
+                        postfix.conditionElement(),
+                        frame,
+                        exceptionalEntry(listOfNotNull(rhs, assignment.heredocBodies), incoming),
+                    ),
                 )
             )
         }
@@ -659,7 +683,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         } ?: body
 
         val protectedFlows = mutableListOf(successfulBody)
-        if (rescueClauses.isNotEmpty()) {
+        if (rescueClauses.isNotEmpty() && bodyElement?.let(::mayRaise) == true) {
             val rescueInput = exceptionalEntry(bodyElement, incoming)
             rescueClauses.mapTo(protectedFlows) {
                 flowStatementList(it.statementList, frames[it] ?: frame, rescueInput)
@@ -676,13 +700,185 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
     private fun exceptionalEntry(bodyElements: Collection<PsiElement>, incoming: State): State {
         if (bodyElements.isEmpty()) return incoming
         val reaching = incoming.reaching.mapValuesTo(mutableMapOf()) { it.value.toMutableSet() }
-        definitions.asSequence()
+        val failurePoints = bodyElements.flatMap(::potentialFailurePoints)
+        val bodyDefinitions = definitions.asSequence()
             .filter { definition ->
                 definition.id in reachedDefinitions &&
                     bodyElements.any { PsiTreeUtil.isAncestor(it, definition.identifier, false) }
             }
-            .forEach { reaching.getOrPut(it.symbol.id) { linkedSetOf() }.add(it.id) }
+            .groupBy { it.symbol.id }
+
+        for ((symbolId, symbolDefinitions) in bodyDefinitions) {
+            val ordered = symbolDefinitions.sortedBy(::definitionCompletionOffset)
+            val candidates = linkedSetOf<Int>()
+            for (failure in failurePoints) {
+                val completed = ordered.filter { definition ->
+                    val completion = definitionCompletionOffset(definition)
+                    completion < failure.textRange.endOffset ||
+                        completion == failure.textRange.endOffset &&
+                        PsiTreeUtil.isAncestor(failure, definition.identifier, false)
+                }
+                val unconditional = completed.lastOrNull { conditionalContainers(it, bodyElements).isEmpty() }
+                val baseOffset = unconditional?.let(::definitionCompletionOffset) ?: Int.MIN_VALUE
+                val conditional = completed.filter {
+                    definitionCompletionOffset(it) > baseOffset &&
+                        conditionalContainers(it, bodyElements).isNotEmpty()
+                }
+                val dominating = conditional.lastOrNull { definition ->
+                    conditionalContainers(definition, bodyElements).all {
+                        PsiTreeUtil.isAncestor(it, failure, false)
+                    }
+                }
+                if (dominating != null) {
+                    candidates.add(dominating.id)
+                } else {
+                    if (unconditional != null) {
+                        candidates.add(unconditional.id)
+                    } else {
+                        candidates.addAll(incoming.definitions(ordered.first().symbol))
+                    }
+                    candidates.addAll(conditional.map { it.id })
+                }
+            }
+            if (candidates.isEmpty()) reaching.remove(symbolId) else reaching[symbolId] = candidates
+        }
         return State(reaching.mapValues { it.value.toSet() })
+    }
+
+    private fun definitionCompletionOffset(definition: Definition): Int {
+        var current = definition.identifier.parent
+        while (current != null) {
+            if (current is CrystalAssignment && definitionsByAssignment[current]?.id == definition.id) {
+                return current.textRange.endOffset
+            }
+            if (current is CrystalGroupedExpression && definitionsByGrouped[current]?.id == definition.id) {
+                return current.textRange.endOffset
+            }
+            current = current.parent
+        }
+        return definition.identifier.textRange.endOffset
+    }
+
+    private fun conditionalContainers(
+        definition: Definition,
+        bodyElements: Collection<PsiElement>,
+    ): List<PsiElement> {
+        val containers = mutableListOf<PsiElement>()
+        var current = definition.identifier.parent
+        while (current != null && bodyElements.none { it === current }) {
+            if (current is CrystalStatementList) {
+                val conditionalOwner = generateSequence(current.parent) { it.parent }
+                    .takeWhile { candidate -> bodyElements.none { it === candidate } }
+                    .any { candidate ->
+                        candidate.node.elementType in setOf(
+                            CrystalTypes.BLOCK,
+                            CrystalTypes.CASE_STATEMENT,
+                            CrystalTypes.FOR_STATEMENT,
+                            CrystalTypes.IF_STATEMENT,
+                            CrystalTypes.SELECT_STATEMENT,
+                            CrystalTypes.UNLESS_STATEMENT,
+                            CrystalTypes.UNTIL_STATEMENT,
+                            CrystalTypes.WHILE_STATEMENT,
+                        )
+                    }
+                if (conditionalOwner) containers.add(current)
+            }
+            if (current is CrystalAssignment && current.postfixModifier != null) containers.add(current)
+            current = current.parent
+        }
+        return containers
+    }
+
+    private fun potentialFailurePoints(element: PsiElement): List<PsiElement> {
+        activeHeredocBodies[element]?.let { return potentialFailurePoints(it) }
+        if (element is CrystalAssignment) {
+            val points = (element.assignment ?: element.expression)
+                ?.let(::potentialFailurePoints).orEmpty().toMutableList()
+            if (element.node.findChildByType(CrystalTypes.ASSIGN) == null) points.add(element)
+            return points
+        }
+        if (element is CrystalGroupedExpression && definitionsByGrouped.containsKey(element)) {
+            return element.expressionList.getOrNull(1)?.let(::potentialFailurePoints).orEmpty()
+        }
+        val points = element.node.getChildren(null).flatMap { potentialFailurePoints(it.psi) }.toMutableList()
+        if (isPotentiallyRaisingOperation(element)) points.add(element)
+        return points
+    }
+
+    private fun mayRaise(element: PsiElement): Boolean {
+        activeHeredocBodies[element]?.let { return mayRaise(it) }
+        if (element.node.elementType in setOf(
+                CrystalTypes.INTEGER_LITERAL,
+                CrystalTypes.FLOAT_LITERAL,
+                CrystalTypes.CHAR_LITERAL,
+                CrystalTypes.SYMBOL_LITERAL,
+                CrystalTypes.TRUE,
+                CrystalTypes.FALSE,
+                CrystalTypes.NIL,
+            )) return false
+        if (element is CrystalStringExpression && element.expressionList.isEmpty()) return false
+        if (element is CrystalSymbolStringExpression && element.expressionList.isEmpty()) return false
+        if (element is CrystalHeredocLiteral && element.expressionList.isEmpty()) return false
+        if (element.node.elementType == CrystalTypes.HEREDOC_START && element.text.startsWith("<<-")) {
+            return heredocBodyForHeader(element)?.let(::mayRaise) ?: true
+        }
+        if (element is CrystalGroupedExpression && definitionsByGrouped[element] == null) {
+            return element.expressionList.any(::mayRaise)
+        }
+        val children = element.node.getChildren(null)
+        if (children.isEmpty()) return false
+        return isPotentiallyRaisingOperation(element) ||
+            children.any { mayRaise(it.psi) }
+    }
+
+    private fun isPotentiallyRaisingOperation(element: PsiElement): Boolean {
+        if (element is CrystalVariableReference) {
+            val name = element.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: return true
+            val frame = generateSequence(element as PsiElement) { it.parent }
+                .mapNotNull { frames[it] }
+                .firstOrNull()
+            return frame?.lookup(name, element.textOffset) == null
+        }
+        if (element is CrystalMethodCallExpression || element is CrystalBareMethodCallExpression ||
+            element is CrystalDotCallAccess || element is CrystalIndexedAssignment
+        ) return true
+        return element.node.getChildren(null).any {
+            CrystalTokenTypes.OPERATORS.contains(it.elementType) &&
+                it.elementType !in setOf(
+                    CrystalTypes.ASSIGN,
+                    CrystalTypes.AND_AND,
+                    CrystalTypes.OR_OR,
+                    CrystalTypes.QUESTION,
+                    CrystalTypes.COLON,
+                    CrystalTypes.DOT,
+                    CrystalTypes.DOUBLE_COLON,
+                    CrystalTypes.ARROW,
+                    CrystalTypes.DOUBLE_ARROW,
+                )
+        }
+    }
+
+    private fun heredocBodyForHeader(header: PsiElement): CrystalHeredocLiteral? {
+        var owner = header.parent
+        while (owner != null) {
+            val bodies = owner.children.filterIsInstance<CrystalHeredocBodies>().firstOrNull()
+            if (bodies != null) {
+                val headers = mutableListOf<PsiElement>()
+                fun collect(node: com.intellij.lang.ASTNode) {
+                    if (node.elementType == CrystalTypes.HEREDOC_BODIES) return
+                    if (node.elementType == CrystalTypes.HEREDOC_START && node.text.startsWith("<<-")) {
+                        headers.add(node.psi)
+                        return
+                    }
+                    node.getChildren(null).forEach(::collect)
+                }
+                collect(owner.node)
+                val index = headers.indexOf(header)
+                return bodies.heredocLiteralList.getOrNull(index)
+            }
+            owner = owner.parent
+        }
+        return null
     }
 
     private fun applyEnsure(protected: Flow, body: CrystalStatementList, frame: Frame): Flow {

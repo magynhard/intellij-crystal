@@ -13,6 +13,10 @@
   tokenTypeClass="de.magynhard.crystal.lexer.CrystalTokenType"
   elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition|lib_definition|annotation_definition|alias_definition")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
 
+  parserImports=[
+    "static de.magynhard.crystal.parser.CrystalParserPredicates.*"
+  ]
+
   tokens = [
     // Keywords
     ABSTRACT="ABSTRACT"
@@ -856,6 +860,7 @@ argument ::= STAR expression
            | DOUBLE_STAR expression
            | AMPERSAND expression
            | out_argument
+           | named_type_argument
            | named_argument
            | starred_type_expression
            | expression
@@ -867,11 +872,21 @@ argument ::= STAR expression
 // argument and can never shadow normal calls.
 private starred_type_expression ::= type_path (STAR | DOUBLE_STAR)+
 
-// Named argument: requires both IDENTIFIER and COLON to match before committing.
-// Without pin=2, the optional [IDENTIFIER COLON] prefix would greedily consume
-// IDENTIFIER even when COLON doesn't follow, causing binary expressions like
-// x * 2 to be misparsed (x consumed, * 2 treated as unary star expression).
-private named_argument ::= (IDENTIFIER | keyword_identifier) COLON NLS (out_argument | expression) {pin=2}
+// Call arguments are whitespace-sensitive in Crystal: `name: value` is a named
+// expression, while `name : Type` is a type-shaped declaration-macro argument.
+// Whitespace tokens are skipped by PsiBuilder, so non-consuming external
+// predicates inspect skipped source text before COLON for horizontal whitespace
+// or an escaped newline. Keeping the two forms disjoint avoids PEG prefix commits
+// and preserves multiline multiplications such as `x: CONST *\n 3`.
+private compact_colon ::= !<<colonHasLeadingDeclarationWhitespace>> COLON
+private spaced_colon ::= &<<colonHasLeadingDeclarationWhitespace>> COLON
+
+private named_argument ::= (IDENTIFIER | keyword_identifier) compact_colon NLS (out_argument | expression) {pin=2}
+
+// TYPE-shaped parenthesized argument: `foo(x : Int32*)`,
+// `foo(x : Int32* | Nil)`, and multiline forms. Tried before named_argument;
+// spaced_colon makes the alternatives disjoint rather than heuristic.
+private named_type_argument ::= (IDENTIFIER | keyword_identifier) spaced_colon NLS type_reference [named_type_default] {pin=2}
 
 // Crystal `out` accepts a local (including `_`) or an instance variable and
 // allows a newline after the keyword. Keep this rule unpinned so `out: value`
@@ -885,39 +900,34 @@ private out_argument ::= OUT NLS (IDENTIFIER | INSTANCE_VAR)
 // keep their NEWLINE unconsumed.
 bare_argument_list ::= bare_argument (macro_argument_trivia COMMA macro_argument_trivia bare_argument)* [COMMA macro_argument_trivia]
 
-bare_argument ::= named_bare_argument
-                | named_type_bare_argument
+bare_argument ::= named_type_bare_argument
+                | named_bare_argument
                 | STAR bare_expression
                 | DOUBLE_STAR bare_expression
                 | AMPERSAND bare_expression
                 | bare_expression
                 | out_argument
 
-// Named bare argument: the IDENTIFIER COLON prefix is REQUIRED, so a missing
-// colon simply fails the rule and the argument falls back to bare_expression
-// (x * scalar stays a binary expression). No pin here: with pin=2 the rule
-// commits after IDENTIFIER COLON (result_ || pinned_) and a failing tail —
-// proc-type macro arguments like `upgrade_handler : (IO ->)?` — could never
-// fall through to named_type_bare_argument below.
-private named_bare_argument ::= (IDENTIFIER | keyword_identifier) COLON NLS (out_argument | bare_expression [ASSIGN bare_expression])
+private named_bare_argument ::= (IDENTIFIER | keyword_identifier) compact_colon NLS
+    (out_argument | absolute_namespace_bare_expression [ASSIGN bare_expression] | bare_expression [ASSIGN bare_expression]) {pin=2}
 
-// TYPE-shaped macro argument, reached only when named_bare_argument fails (PEG
-// order): proc types in property/getter macro calls like
+// Keep the absolute start bounded to compact named values: making it a global
+// bare-postfix alternative changes namespace-call PSI and resolution. The
+// regular expression grammar provides the complete operator precedence once
+// the unique DOUBLE_COLON start has selected this branch.
+private absolute_namespace_bare_expression ::= &DOUBLE_COLON expression
+
+// TYPE-shaped macro argument: proc types in property/getter macro calls like
 // `property upgrade_handler : (IO ->)?` (stdlib http/server/response.cr) or
-// `(->) | Nil` (spec/example.cr) are not expressions — bare_expression has no
-// ARROW rule. Without this alternative the whole stdlib file after the shape
-// fails to parse and its members silently drop from stub indexing (false
-// "Too many arguments" on HTTP::Server::Response.new(io) in kemal specs).
-// Kept as a separate rule (not a second named_bare_argument alternative):
-// GrammarKit factors the shared IDENTIFIER COLON prefix of a multi-alternative
-// private rule and drops the type tail, which also flips its global error
-// pinning and breaks previously clean files (deque.cr, json/to_json.cr).
-private named_type_bare_argument ::= (IDENTIFIER | keyword_identifier) COLON type_reference [named_bare_type_default] {pin=2}
+// `(->) | Nil` (spec/example.cr), pointer types, static arrays of pointers, and
+// pointer-to-proc types. spaced_colon keeps it disjoint from named expressions,
+// so it can precede named_bare_argument without shadowing regular calls.
+private named_type_bare_argument ::= (IDENTIFIER | keyword_identifier) spaced_colon type_reference [named_type_default] {pin=2}
 
-// Wrapped so the optional `expression` stays inside a private rule: GrammarKit's
+// Wrapped so the optional default stays inside a private rule: GrammarKit's
 // @NotNull inference flips unrelated element accessors (CrystalTupleLiteral,
-// CrystalAsmOperand) when `expression` appears directly in an optional position.
-private named_bare_type_default ::= ASSIGN expression
+// CrystalAsmOperand) when expression rules appear directly in an optional position.
+private named_type_default ::= ASSIGN (assignment | expression)
 
 // Bare expression: same as expression but does not consume blocks or assignments
 // This prevents the bare argument from eating the 'do' that belongs to the outer method call
@@ -1104,16 +1114,24 @@ type_reference ::= type_union [ARROW [type_union]]
 private type_union ::= type_single (PIPE NLS type_single)*
 
 private type_single ::= STAR type_path [type_arguments] [QUESTION]
-                       | type_path [type_arguments] [DOT CLASS] [QUESTION] (STAR | DOUBLE_STAR)* [LBRACKET INTEGER_LITERAL RBRACKET]
-                       // `num : {{type.id}} = 0` — macro-interpolated types appear in
-                       // macro-generated method bodies (int.cr from_digits).
-                       | macro_interpolation [QUESTION]
-                       | SELF [QUESTION]
-                       | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN [QUESTION]
-                       | LPAREN type_reference (COMMA type_reference)* RPAREN [QUESTION]
-                       | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE [QUESTION]
-                       | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE [QUESTION]
+                       | type_atom type_suffix*
+
+private type_atom ::= type_path [type_arguments]
+                        // `num : {{type.id}} = 0` — macro-interpolated types appear in
+                        // macro-generated method bodies (int.cr from_digits).
+                       | macro_interpolation
+                       | SELF
+                       | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN
+                       | LPAREN type_reference (COMMA type_reference)* RPAREN
+                       | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
+                       | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
                        | IDENTIFIER
+
+private type_suffix ::= QUESTION
+                      | STAR
+                      | DOUBLE_STAR
+                      | LBRACKET (INTEGER_LITERAL | type_path) RBRACKET
+                      | DOT CLASS
 
 type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"

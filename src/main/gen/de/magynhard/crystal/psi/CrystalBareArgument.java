@@ -16,6 +16,9 @@ public interface CrystalBareArgument extends PsiElement {
   @NotNull
   List<CrystalAsmExpression> getAsmExpressionList();
 
+  @Nullable
+  CrystalAssignment getAssignment();
+
   @NotNull
   List<CrystalBareArgumentList> getBareArgumentListList();
 
@@ -37,8 +40,8 @@ public interface CrystalBareArgument extends PsiElement {
   @NotNull
   List<CrystalDotCallAccess> getDotCallAccessList();
 
-  @NotNull
-  List<CrystalExpression> getExpressionList();
+  @Nullable
+  CrystalExpression getExpression();
 
   @NotNull
   List<CrystalGroupedExpression> getGroupedExpressionList();
@@ -94,8 +97,8 @@ public interface CrystalBareArgument extends PsiElement {
   @NotNull
   List<CrystalTupleLiteral> getTupleLiteralList();
 
-  @NotNull
-  List<CrystalTypeReference> getTypeReferenceList();
+  @Nullable
+  CrystalTypeReference getTypeReference();
 
   @NotNull
   List<CrystalTypeofExpression> getTypeofExpressionList();

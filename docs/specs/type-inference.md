@@ -64,6 +64,10 @@ the same structured execution result, so a terminating arm contributes its retur
 assignment value. Missing `else` paths contribute `Nil`. Every `elsif`, `when`, `in`, and rescue
 path participates in source order; a reachable unknown path makes the result unknown.
 
+Simple indexed assignments have the value of their RHS. Postfix `if`/`unless` adds `Nil` for the
+skipped path, and postfix `rescue` merges the successful RHS with the handler value. Compound
+indexed assignment values remain `Unknown` until the getter and operator can resolve exactly.
+
 Logical operators return values, not a fixed `Bool`:
 
 - Always-truthy left operands make `left && right` return `right` and `left || right` return `left`.

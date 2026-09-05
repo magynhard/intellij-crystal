@@ -8,9 +8,15 @@ import com.intellij.psi.PsiElement;
 public interface CrystalArgument extends PsiElement {
 
   @Nullable
+  CrystalAssignment getAssignment();
+
+  @Nullable
   CrystalExpression getExpression();
 
   @Nullable
   CrystalTypePath getTypePath();
+
+  @Nullable
+  CrystalTypeReference getTypeReference();
 
 }

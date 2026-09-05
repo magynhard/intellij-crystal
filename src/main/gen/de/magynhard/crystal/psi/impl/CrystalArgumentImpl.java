@@ -29,6 +29,12 @@ public class CrystalArgumentImpl extends ASTWrapperPsiElement implements Crystal
 
   @Override
   @Nullable
+  public CrystalAssignment getAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
@@ -37,6 +43,12 @@ public class CrystalArgumentImpl extends ASTWrapperPsiElement implements Crystal
   @Nullable
   public CrystalTypePath getTypePath() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypePath.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalTypeReference getTypeReference() {
+    return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }
 
 }

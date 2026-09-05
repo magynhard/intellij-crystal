@@ -12,10 +12,17 @@ internal fun CrystalAbruptStatement.valueElements(): List<PsiElement> = children
 }
 
 internal fun CrystalAbruptStatement.heredocBodyBindings(): List<Pair<PsiElement, CrystalHeredocLiteral>> {
-    val headers = valueElements().flatMap { value ->
+    return heredocBodyBindings(valueElements(), heredocBodies)
+}
+
+internal fun heredocBodyBindings(
+    values: Collection<PsiElement>,
+    bodies: CrystalHeredocBodies?,
+): List<Pair<PsiElement, CrystalHeredocLiteral>> {
+    val headers = values.flatMap { value ->
         PsiTreeUtil.collectElements(value) {
             it.node.elementType == CrystalTypes.HEREDOC_START && it.text.startsWith("<<-")
         }.asList()
     }
-    return headers.zip(heredocBodies?.heredocLiteralList.orEmpty())
+    return headers.zip(bodies?.heredocLiteralList.orEmpty())
 }
