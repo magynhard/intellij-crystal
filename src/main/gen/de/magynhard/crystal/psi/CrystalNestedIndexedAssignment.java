@@ -5,10 +5,10 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalAssignment extends PsiElement {
+public interface CrystalNestedIndexedAssignment extends PsiElement {
 
-  @Nullable
-  CrystalAssignment getAssignment();
+  @NotNull
+  List<CrystalArgumentList> getArgumentListList();
 
   @Nullable
   CrystalClassVarAccess getClassVarAccess();
@@ -17,15 +17,9 @@ public interface CrystalAssignment extends PsiElement {
   CrystalExpression getExpression();
 
   @Nullable
-  CrystalHeredocBodies getHeredocBodies();
-
-  @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
   @Nullable
-  CrystalNestedIndexedAssignment getNestedIndexedAssignment();
-
-  @Nullable
-  CrystalPostfixModifier getPostfixModifier();
+  CrystalNestedAssignment getNestedAssignment();
 
 }

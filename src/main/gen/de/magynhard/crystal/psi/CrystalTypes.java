@@ -78,6 +78,7 @@ public interface CrystalTypes {
   IElementType MULTI_ASSIGN_TARGET = new CrystalElementType("MULTI_ASSIGN_TARGET");
   IElementType NAMESPACE_ACCESS = new CrystalElementType("NAMESPACE_ACCESS");
   IElementType NESTED_ASSIGNMENT = new CrystalElementType("NESTED_ASSIGNMENT");
+  IElementType NESTED_INDEXED_ASSIGNMENT = new CrystalElementType("NESTED_INDEXED_ASSIGNMENT");
   IElementType NEXT_STATEMENT = new CrystalElementType("NEXT_STATEMENT");
   IElementType OFFSETOF_EXPRESSION = new CrystalElementType("OFFSETOF_EXPRESSION");
   IElementType PARAMETER = new CrystalElementType("PARAMETER");
@@ -494,6 +495,9 @@ public interface CrystalTypes {
       }
       else if (type == NESTED_ASSIGNMENT) {
         return new CrystalNestedAssignmentImpl(node);
+      }
+      else if (type == NESTED_INDEXED_ASSIGNMENT) {
+        return new CrystalNestedIndexedAssignmentImpl(node);
       }
       else if (type == NEXT_STATEMENT) {
         return new CrystalNextStatementImpl(node);

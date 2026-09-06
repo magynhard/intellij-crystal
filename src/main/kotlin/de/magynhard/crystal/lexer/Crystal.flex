@@ -51,17 +51,58 @@ import com.intellij.psi.TokenType;
     }
     if (pos < 0) return true; // start of file
     char c = zzBuffer.charAt(pos);
-    // A whitespace-separated slash after a DOT method name is a bare regex argument:
-    // `range.match /pattern/`. Crystal treats a space immediately inside the
-    // slash as division in this ambiguous form. Requiring non-whitespace regex
-    // content and a closing slash keeps chained division in operator position.
-    if ((Character.isLetterOrDigit(c) || c == '_' || c == '?' || c == '!')
-        && separatedByWhitespace && hasDottedReceiverBefore(pos)
-        && zzMarkedPos < zzEndRead && !Character.isWhitespace(zzBuffer.charAt(zzMarkedPos))
-        && hasRegexTerminator()) return true;
+    if (Character.isLetterOrDigit(c) || c == '_' || c == '?' || c == '!') {
+      if (!separatedByWhitespace) return false;
+      // Requiring non-whitespace regex content and a closing slash keeps chained
+      // division in operator position.
+      if (zzMarkedPos >= zzEndRead || Character.isWhitespace(zzBuffer.charAt(zzMarkedPos))) return false;
+      if (!hasRegexTerminator()) return false;
+      // A whitespace-separated slash after a DOT method name is a bare regex
+      // argument: `range.match /pattern/`.
+      if (hasDottedReceiverBefore(pos)) return true;
+      // After a keyword the slash starts a regex operand, never division:
+      // `when /^get_(\w+)$/`, `if /re/`, `return /re/`.
+      int wordStart = identifierStart(pos);
+      if (wordStart >= 0 && isRegexOperandKeyword(wordStart, pos)) return true;
+      // A nested bare callee takes regex arguments too: `x.should match /pattern/`
+      // — `match` is the callee of the dot-call `.should`'s bare argument list.
+      if (wordStart > 0) {
+        int before = wordStart - 1;
+        while (before >= 0 && (zzBuffer.charAt(before) == ' ' || zzBuffer.charAt(before) == '\t')) before--;
+        if (before >= 0 && hasDottedReceiverBefore(before)) return true;
+      }
+      return false;
+    }
     // After identifiers, constants, numbers, ), ] — it's division, not regex.
-    if (Character.isLetterOrDigit(c) || c == '_' || c == '?' || c == '!' || c == ')' || c == ']' || c == '"' || c == '\'') return false;
+    if (c == ')' || c == ']' || c == '"' || c == '\'') return false;
     return true;
+  }
+
+  /** Returns the start index of the identifier ending at [end] (inclusive), or -1. */
+  private int identifierStart(int end) {
+    int start = end;
+    while (start >= 0) {
+      char c = zzBuffer.charAt(start);
+      if (!Character.isLetterOrDigit(c) && c != '_' && c != '?' && c != '!') break;
+      start--;
+    }
+    return start < end ? start + 1 : -1;
+  }
+
+  private boolean isRegexOperandKeyword(int start, int end) {
+    String word = zzBuffer.subSequence(start, end + 1).toString();
+    switch (word) {
+      case "when":
+      case "if":
+      case "unless":
+      case "elsif":
+      case "while":
+      case "until":
+      case "return":
+        return true;
+      default:
+        return false;
+    }
   }
 
   private boolean hasDottedReceiverBefore(int identifierEnd) {
@@ -433,7 +474,13 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "&+="                { return CrystalTypes.WRAP_PLUS_ASSIGN; }
   "&+"                 { return CrystalTypes.WRAP_PLUS; }
   "&-="                { return CrystalTypes.WRAP_MINUS_ASSIGN; }
-  "&-"                 { return CrystalTypes.WRAP_MINUS; }
+  // `&->(x) { }` block-pass proc literals: `&-` must not swallow the arrow.
+  // Push the '-' back so the scanner re-lexes `->` as ARROW.
+  "&-"                 { if (zzMarkedPos < zzBuffer.length() && zzBuffer.charAt(zzMarkedPos) == '>') {
+                           yypushback(1);
+                           return CrystalTypes.AMPERSAND;
+                         }
+                         return CrystalTypes.WRAP_MINUS; }
   "**"                 { return CrystalTypes.DOUBLE_STAR; }
   "//"                 { return CrystalTypes.DOUBLE_SLASH; }
   "<<"                 { return CrystalTypes.LSHIFT; }
@@ -587,6 +634,9 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "&&"                 { return CrystalTypes.AND_AND; }
   "||"                 { return CrystalTypes.OR_OR; }
   "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
+  // Ranges inside string interpolations: `#{code[2...-2]}` (ameba heredoc_indent).
+  "..."                { return CrystalTypes.DOTDOTDOT; }
+  ".."                 { return CrystalTypes.DOTDOT; }
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
@@ -736,8 +786,13 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  "`"                  { pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
+  "/"                  { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.SLASH; }
   "->"                 { return CrystalTypes.ARROW; }
   "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
+  // Ranges inside interpolations: `#{code[2...-2]}` (ameba heredoc_indent).
+  "..."                { return CrystalTypes.DOTDOTDOT; }
+  ".."                 { return CrystalTypes.DOTDOT; }
   "@["                 { return CrystalTypes.ANNOTATION; }
   "@"                  { return CrystalTypes.AT; }
   "."                  { return CrystalTypes.DOT; }
@@ -746,6 +801,9 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "["                  { return CrystalTypes.LBRACKET; }
   "]"                  { return CrystalTypes.RBRACKET; }
   "{"                  { return CrystalTypes.LBRACE; }
+  // Nested macro interpolation inside {% ... %}: `@{{ method.id }}` generated
+  // accessors (kemal param_parser) mirror the <MACRO_INTERPOLATION> state.
+  "{{"                 { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN; }
   "}"                  { return CrystalTypes.RBRACE; }
   ","                  { return CrystalTypes.COMMA; }
   ";"                  { return CrystalTypes.SEMICOLON; }
@@ -758,6 +816,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
    ":"                  { return CrystalTypes.COLON; }
    "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
+  "=~"                 { return CrystalTypes.MATCH_OP; }
   "!~"                 { return CrystalTypes.BANG_TILDE; }
   "<"                  { return CrystalTypes.LT; }
   ">"                  { return CrystalTypes.GT; }
@@ -802,6 +861,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  "`"                  { pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
+  "/"                  { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.SLASH; }
   "->"                 { return CrystalTypes.ARROW; }
   "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
   "@["                 { return CrystalTypes.ANNOTATION; }
@@ -819,6 +880,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "#"                  { return CrystalTypes.HASH; }
   "=="                 { return CrystalTypes.EQ; }
   "!="                 { return CrystalTypes.NEQ; }
+  "=~"                 { return CrystalTypes.MATCH_OP; }
   "!~"                 { return CrystalTypes.BANG_TILDE; }
   "<="                 { return CrystalTypes.LTE; }
   ">="                 { return CrystalTypes.GTE; }

@@ -11,9 +11,21 @@ public interface CrystalImplicitObjectCall extends PsiElement {
   CrystalArgumentList getArgumentList();
 
   @Nullable
+  CrystalArrayLiteral getArrayLiteral();
+
+  @Nullable
+  CrystalBareArgumentList getBareArgumentList();
+
+  @Nullable
+  CrystalBlock getBlock();
+
+  @Nullable
   CrystalCallArgs getCallArgs();
 
   @Nullable
   CrystalExpression getExpression();
+
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
 
 }

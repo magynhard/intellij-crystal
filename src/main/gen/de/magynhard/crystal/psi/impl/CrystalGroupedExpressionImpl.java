@@ -33,4 +33,10 @@ public class CrystalGroupedExpressionImpl extends ASTWrapperPsiElement implement
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalPostfixModifier getPostfixModifier() {
+    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
+  }
+
 }

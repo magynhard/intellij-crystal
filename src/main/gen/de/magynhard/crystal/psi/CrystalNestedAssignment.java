@@ -19,4 +19,7 @@ public interface CrystalNestedAssignment extends CrystalAssignment {
   @Nullable
   CrystalNestedAssignment getNestedAssignment();
 
+  @Nullable
+  CrystalNestedIndexedAssignment getNestedIndexedAssignment();
+
 }

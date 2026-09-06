@@ -4,7 +4,9 @@ import com.intellij.extapi.psi.ASTWrapperPsiElement
 import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.CrystalAssignment
+import de.magynhard.crystal.psi.CrystalNestedIndexedAssignment
 import de.magynhard.crystal.psi.CrystalTypes
 
 /**
@@ -34,6 +36,13 @@ abstract class CrystalAssignmentMixin(node: ASTNode) : ASTWrapperPsiElement(node
     }
 
     override fun getName(): String? = nameIdentifier?.text
+
+    /**
+     * Optional nested indexed-assignment child (the composite rule is shared by
+     * assignment and nested_assignment; concrete rule instances may lack it).
+     */
+    override fun getNestedIndexedAssignment(): CrystalNestedIndexedAssignment? =
+        PsiTreeUtil.getChildOfType(this, CrystalNestedIndexedAssignment::class.java)
 
     override fun setName(name: String): PsiElement {
         val ident = nameIdentifier ?: return this

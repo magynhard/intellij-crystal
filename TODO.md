@@ -54,6 +54,13 @@
 
 ## Parser Recovery Follow-up
 
+- [ ] **Support bare callees followed by whitespace-separated regex arguments** — valid Crystal
+  such as `y = match /abc/` cannot be disambiguated lexically: after a plain identifier the
+  slash must stay division for `a /b/ c`, and Crystal resolves the call-vs-division conflict
+  with parser-level backtracking that a PEG lexer/parser split cannot reproduce. The dotted
+  (`range.match /re/`), nested-callee (`x.should match /re/`), and keyword (`when /^get_/`)
+  contexts are covered by lexer heuristics; a correct general solution needs parse-context
+  feedback into lexing.
 - [ ] **Preserve declarations after incomplete binary operators** — malformed prefix/postfix forms such as
   `value = !~ other` and `value = other !~` produce a `PsiErrorElement` but can consume a following
   declaration during pinned assignment recovery. Add boundary-aware recovery without `recoverWhile` or

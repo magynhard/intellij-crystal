@@ -14,9 +14,15 @@ public interface CrystalArgument extends PsiElement {
   CrystalExpression getExpression();
 
   @Nullable
+  CrystalIfStatement getIfStatement();
+
+  @Nullable
   CrystalTypePath getTypePath();
 
   @Nullable
   CrystalTypeReference getTypeReference();
+
+  @Nullable
+  CrystalUnlessStatement getUnlessStatement();
 
 }

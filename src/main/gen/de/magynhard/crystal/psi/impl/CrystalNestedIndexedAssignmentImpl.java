@@ -8,16 +8,17 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
+import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalAssignmentImpl extends CrystalAssignmentMixin implements CrystalAssignment {
+public class CrystalNestedIndexedAssignmentImpl extends ASTWrapperPsiElement implements CrystalNestedIndexedAssignment {
 
-  public CrystalAssignmentImpl(ASTNode node) {
+  public CrystalNestedIndexedAssignmentImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitAssignment(this);
+    visitor.visitNestedIndexedAssignment(this);
   }
 
   @Override
@@ -27,9 +28,9 @@ public class CrystalAssignmentImpl extends CrystalAssignmentMixin implements Cry
   }
 
   @Override
-  @Nullable
-  public CrystalAssignment getAssignment() {
-    return PsiTreeUtil.getChildOfType(this, CrystalAssignment.class);
+  @NotNull
+  public List<CrystalArgumentList> getArgumentListList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalArgumentList.class);
   }
 
   @Override
@@ -46,26 +47,14 @@ public class CrystalAssignmentImpl extends CrystalAssignmentMixin implements Cry
 
   @Override
   @Nullable
-  public CrystalHeredocBodies getHeredocBodies() {
-    return PsiTreeUtil.getChildOfType(this, CrystalHeredocBodies.class);
-  }
-
-  @Override
-  @Nullable
   public CrystalInstanceVarAccess getInstanceVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
   @Override
   @Nullable
-  public CrystalNestedIndexedAssignment getNestedIndexedAssignment() {
-    return PsiTreeUtil.getChildOfType(this, CrystalNestedIndexedAssignment.class);
-  }
-
-  @Override
-  @Nullable
-  public CrystalPostfixModifier getPostfixModifier() {
-    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
+  public CrystalNestedAssignment getNestedAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalNestedAssignment.class);
   }
 
 }

@@ -107,6 +107,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalHashEntryList> getHashEntryListList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalHashEntryList.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalHashLiteral> getHashLiteralList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalHashLiteral.class);
   }
@@ -217,6 +223,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
   @NotNull
   public List<CrystalTupleLiteral> getTupleLiteralList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTupleLiteral.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalTypePath> getTypePathList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypePath.class);
   }
 
   @Override

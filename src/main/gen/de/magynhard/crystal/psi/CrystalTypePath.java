@@ -7,4 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalTypePath extends PsiElement {
 
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
 }

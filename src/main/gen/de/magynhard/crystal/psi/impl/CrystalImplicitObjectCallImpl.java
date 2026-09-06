@@ -35,6 +35,24 @@ public class CrystalImplicitObjectCallImpl extends ASTWrapperPsiElement implemen
 
   @Override
   @Nullable
+  public CrystalArrayLiteral getArrayLiteral() {
+    return PsiTreeUtil.getChildOfType(this, CrystalArrayLiteral.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalBareArgumentList getBareArgumentList() {
+    return PsiTreeUtil.getChildOfType(this, CrystalBareArgumentList.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalBlock getBlock() {
+    return PsiTreeUtil.getChildOfType(this, CrystalBlock.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalCallArgs getCallArgs() {
     return PsiTreeUtil.getChildOfType(this, CrystalCallArgs.class);
   }
@@ -43,6 +61,12 @@ public class CrystalImplicitObjectCallImpl extends ASTWrapperPsiElement implemen
   @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
   }
 
 }

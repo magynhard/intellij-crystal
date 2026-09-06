@@ -27,21 +27,28 @@ class CrystalStdlibParseAuditTest : BasePlatformTestCase() {
         val scopeValue = System.getProperty(SCOPE_PROPERTY)?.takeIf(String::isNotBlank)
         val scope = AuditScope.parseOrNull(scopeValue)
         requireAudit(scope != null, reportPath, tsvPath) {
-            "Unsupported Crystal corpus '${scopeValue.orEmpty()}'; expected indexed or distribution"
+            "Unsupported Crystal corpus '${scopeValue.orEmpty()}'; expected indexed, distribution, or external"
         }
         val rootValue = System.getProperty(ROOT_PROPERTY)?.takeIf(String::isNotBlank)
         requireAudit(rootValue != null, reportPath, tsvPath) {
             "Required system property is missing: $ROOT_PROPERTY"
         }
         val rootPath = Paths.get(rootValue!!).toAbsolutePath().normalize()
-        val versionFile = rootPath.resolve("VERSION")
+        val version: String
+        if (scope == AuditScope.EXTERNAL) {
+            // External projects (shard checkouts, arbitrary sources) are not version
+            // pinned: every .cr file below the root is audited as-is.
+            version = "n/a"
+        } else {
+            val versionFile = rootPath.resolve("VERSION")
 
-        requireAudit(Files.isRegularFile(versionFile), reportPath, tsvPath) {
-            "Crystal stdlib root has no VERSION file: $rootPath"
-        }
-        val version = versionFile.readText().trim()
-        requireAudit(version == REQUIRED_VERSION, reportPath, tsvPath) {
-            "Crystal $REQUIRED_VERSION is required, found '$version' at $rootPath"
+            requireAudit(Files.isRegularFile(versionFile), reportPath, tsvPath) {
+                "Crystal stdlib root has no VERSION file: $rootPath"
+            }
+            version = versionFile.readText().trim()
+            requireAudit(version == REQUIRED_VERSION, reportPath, tsvPath) {
+                "Crystal $REQUIRED_VERSION is required, found '$version' at $rootPath"
+            }
         }
 
         val root = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(rootPath)
@@ -50,8 +57,13 @@ class CrystalStdlibParseAuditTest : BasePlatformTestCase() {
         }
 
         val files = collectCrystalFiles(scope!!.selectRoots(root!!))
-        requireAudit(files.size == scope.expectedFileCount, reportPath, tsvPath) {
-            "${scope.label} corpus must contain ${scope.expectedFileCount} Crystal files, found ${files.size}"
+        requireAudit(files.isNotEmpty(), reportPath, tsvPath) {
+            "${scope.label} corpus contains no Crystal files: $rootPath"
+        }
+        if (scope.expectedFileCount >= 0) {
+            requireAudit(files.size == scope.expectedFileCount, reportPath, tsvPath) {
+                "${scope.label} corpus must contain ${scope.expectedFileCount} Crystal files, found ${files.size}"
+            }
         }
 
         val issues = mutableListOf<ParseIssue>()
@@ -146,7 +158,7 @@ class CrystalStdlibParseAuditTest : BasePlatformTestCase() {
             appendLine("Status: ${if (issues.isEmpty()) "PASS" else "FAIL"}")
             appendLine("Scope: ${scope.label}")
             appendLine("Crystal version: $version")
-            appendLine("Stdlib root: $rootPath")
+            appendLine("Root: $rootPath")
             appendLine("Files parsed: $fileCount")
             appendLine("Bytes parsed: $totalBytes")
             appendLine("Elapsed ms: ${totalNanos / 1_000_000}")
@@ -215,6 +227,11 @@ class CrystalStdlibParseAuditTest : BasePlatformTestCase() {
             override fun selectRoots(root: VirtualFile): List<VirtualFile> = CrystalStdlibRoots.enumerate(root)
         },
         DISTRIBUTION("distribution", 1625) {
+            override fun selectRoots(root: VirtualFile): List<VirtualFile> = listOf(root)
+        },
+        // Unpinned project audit (shard checkouts, external Crystal projects): every
+        // .cr file below the root is collected; no VERSION or file-count validation.
+        EXTERNAL("external", -1) {
             override fun selectRoots(root: VirtualFile): List<VirtualFile> = listOf(root)
         };
 

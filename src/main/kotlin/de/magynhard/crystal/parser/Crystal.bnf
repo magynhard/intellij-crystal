@@ -347,14 +347,24 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
 private method_name ::= BACKTICK
               |  IDENTIFIER ASSIGN
               | SELF DOT IDENTIFIER ASSIGN
+              // `def {{type.id}}.from_digits(...)` — macro-interpolated receiver
+              // (int.cr inside `macro expand_...` for-loops). Must precede the
+              // fragment compounds: a committed plain compound would strand the
+              // receiver's DOT and fail the whole definition (PEG).
+              | macro_interpolation DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
+              // Compound generated names mix interpolations with literal
+              // fragments: `def {{ type.id }}_{{ method.id }}(path)` (kemal
+              // filter DSL) and `def to_i{{ n }} : Int{{ n }}` (stdlib big_int,
+              // identifier-first). Both directions require at least one
+              // interpolation so plain `def foo bar` stays invalid, and both
+              // precede the plain forms (PEG longest-match-first).
+              | IDENTIFIER macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
+              | macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
               | IDENTIFIER
               | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
               // `def Float64.new(...)` — qualified method names inside the type's
               // own scope (float.cr); optional ASSIGN covers `def Float64.round=`.
               | CONSTANT DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
-              // `def {{type.id}}.from_digits(...)` — macro-interpolated receiver
-              // (int.cr inside `macro expand_...` for-loops).
-              | macro_interpolation DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
               | keyword_as_method
               | operator_method_name
               | macro_interpolation
@@ -387,7 +397,12 @@ macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifi
 // trailing [block]) per Crystal semantics, never a hash argument. Braces after a
 // comma inside bare arguments remain hash literals (real Crystal: `f 1, {"a" => 1}`
 // parses as hash argument).
-private macro_interpolation_call ::= macro_interpolation [call_args | !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list] [block]
+// Tight (whitespace-free) name fragments concatenate onto a macro expansion:
+// `Crystal::{{ type.capitalize }}Def` (ameba's generated visitors). Whitespace-
+// separated identifiers stay call arguments (`{{ method.id }} path, form: body`).
+private macro_fragment_suffix ::= &<<isTokenTightAfterPreviousToken>> (IDENTIFIER | CONSTANT | macro_interpolation)
+
+private macro_interpolation_call ::= macro_interpolation macro_fragment_suffix* [call_args | !DOT !LBRACKET !LBRACE !binary_op_lookahead !<<isHeredocBodyOpener>> bare_argument_list] [block]
 
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 // CHAR_LITERAL and GLOBAL_VAR must stay in sync with the <MACRO_CONTROL> lexer state,
@@ -395,6 +410,11 @@ macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
     | INTEGER_LITERAL | CHAR_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
     | SYMBOL_LITERAL | SYMBOL_COLON
+    // Backtick commands and regex literals appear inside macro control blocks:
+    // `VERSION = {{ `shards version ...`.stringify }}` (kemal) and
+    // `{% elsif prop_stringified =~ /^(Int|Float)\d+$/ %}` (ameba rule_config).
+    | COMMAND_BEGIN | COMMAND_LITERAL | COMMAND_END | BACKTICK
+    | REGEX_BEGIN | REGEX_LITERAL | REGEX_END
     | TRUE | FALSE | NIL
     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM
     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
@@ -419,7 +439,10 @@ private param_prefix ::= annotation_usage
                        | macro_control
 // Explicit call-site name plus internal binding/storage target. This longer
 // IDENTIFIER-prefixed form must precede the single-name alternative (PEG).
-parameter ::= param_prefix* IDENTIFIER (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+// `end` is a valid call-site label (`def pos(location, end end_pos = false)`
+// in ameba's source.cr, called as `pos(location, end: true)`); the keyword
+// stays a token and only this rule accepts it as a label.
+parameter ::= param_prefix* (IDENTIFIER | END) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND IDENTIFIER COLON type_union COMMA type_union (COMMA type_union)* ARROW [type_reference]
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
@@ -533,8 +556,14 @@ when_clause ::= WHEN when_entry_list then_clause statement_list
 // this syntax is invalid anywhere else in Crystal.
 // NOTE: deliberately does NOT reference expression_list — a shared child element type
 // makes GrammarKit emit duplicate accessors on CrystalWhenClause.
+// Case when-entries accept assignments that bind the matched value:
+// `when path = find_as_path(globs)`, `when guard_clause = guard_clause(node)`
+// (ameba) — mirroring case_subject's assignment forms. Assignments must be
+// tried before plain expressions so `when x = expr` binds the whole entry.
 private when_entry_list ::= implicit_when_comparison (macro_argument_trivia COMMA macro_argument_trivia implicit_when_comparison)*
-                           | macro_argument_trivia expression (macro_argument_trivia COMMA macro_argument_trivia expression)* [COMMA macro_argument_trivia]
+                           | when_condition_entry (macro_argument_trivia COMMA macro_argument_trivia when_condition_entry)* [COMMA macro_argument_trivia]
+
+private when_condition_entry ::= multi_assignment | assignment | expression
 
 private implicit_when_comparison ::= DOT operator_method_name NLS expression
 
@@ -571,10 +600,18 @@ next_statement ::= NEXT postfix_modifier
 
 private abrupt_value_list ::= abrupt_value (COMMA NLS abrupt_value)*
 private abrupt_value ::= nested_assignment | expression
-nested_assignment ::= variable assign_op NLS (nested_assignment | expression) {pin=2
+nested_assignment ::= variable assign_op NLS (nested_assignment | nested_indexed_assignment | expression) {pin=2
   mixin="de.magynhard.crystal.psi.impl.CrystalNestedAssignmentMixin"
   implements="de.magynhard.crystal.psi.CrystalAssignment"
 }
+
+// Assignment RHS may itself be an indexed compound assignment:
+// `calls = @scope_call_queue[@current_scope] ||= [] of Crystal::Call` (ameba).
+// No postfix modifier in nested position — the outer assignment owns it.
+// Public (composite) so its children do not inline into assignment/nested_assignment:
+// an inlined repeated argument_list/ivar child flips the single accessors of
+// CrystalAssignment into lists (GrammarKit @NotNull inference).
+nested_indexed_assignment ::= assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression)
 
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
 // Yield in expression position may pass multiple values (`memo = found ? (yield memo, elem) : elem`).
@@ -593,7 +630,7 @@ with_yield_statement ::= WITH expression YIELD {pin=1}
 
 // ==================== Assignments ====================
 
-assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifier] [heredoc_bodies] {pin=2
+assignment ::= variable assign_op NLS (assignment | nested_indexed_assignment | expression) [postfix_modifier] [heredoc_bodies] {pin=2
   mixin="de.magynhard.crystal.psi.impl.CrystalAssignmentMixin"
 }
 
@@ -605,7 +642,11 @@ assignment ::= variable assign_op NLS (assignment | expression) [postfix_modifie
 // expression when no assignment operator follows the brackets.
 indexed_assignment ::= assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression) [postfix_modifier]
 
+// Indexed assignment targets also accept constant receivers:
+// `ENV["GITHUB_STEP_SUMMARY"] = ...` (ameba specs). Brackets are required by
+// indexed_assignment, so plain constants keep binding through constant_assignment.
 private assignment_target ::= variable | instance_var_access | class_var_access
+                            | [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)*
 
 // Postfix modifiers apply to multi-assignments exactly like plain assignments
 // (`u, v = v, u if u > v` in int.cr's gcd) — without it the trailing `if`
@@ -674,8 +715,15 @@ private postfix_expression ::= primary_expression postfix_op*
 private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
                      // PEG: member assignment must precede ordinary dot-call access, otherwise
                      // `config.server ||= value` commits to `.server` and strands the assign op.
-                     | NLS DOT IDENTIFIER compound_assign_op expression
+                     // Plain ASSIGN covers setter calls as nested assignment values
+                     // (`x = node.exp.visibility = node.modifier`, ameba scope_visitor);
+                     // top-level setter statements keep binding through the statement suffix.
+                     | NLS DOT IDENTIFIER (compound_assign_op | ASSIGN) expression
                      | NLS dot_call_access [block]
+                     // Nil-question chain on non-identifier receivers (`$1?.presence`,
+                     // ameba admonition): tight only, so the spaced ternary `a ? b : c`
+                     // keeps binding at the expression level.
+                     | &<<isTokenTightAfterPreviousToken>> QUESTION
                      | namespace_access
                      | LBRACKET argument_list RBRACKET [QUESTION]
                      | call_args [block]
@@ -705,7 +753,9 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // brackets, and the required COMMA after it distinguishes the argument form
 // from the index postfix (config["envs"] has no comma and keeps binding as
 // index).
-dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [call_args | !DOT !LBRACKET !LBRACE bare_argument_list | array_literal COMMA bare_argument_list] {
+dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [&<<isTokenTightAfterPreviousToken>> QUESTION]
+                           [!<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
+                           | call_args | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
@@ -715,7 +765,10 @@ dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyw
 // (e.g. `Bar` in `Foo::Bar.baz`). The DOUBLE_COLON and CONSTANT are children of this
 // composite; the preceding part of the namespace path is the prevSibling in the flattened
 // postfix_expression sequence.
-namespace_access ::= DOUBLE_COLON CONSTANT {
+// Macro-interpolated segments after the separator: `Crystal::{{ name }}` and
+// `Crystal::{{ type.capitalize }}Def` (ameba's generated visitors) concatenate
+// macro expansions into the qualified path.
+namespace_access ::= DOUBLE_COLON (CONSTANT | macro_interpolation) macro_fragment_suffix* {
   mixin="de.magynhard.crystal.psi.impl.CrystalNamespaceAccessMixin"
 }
 
@@ -763,6 +816,7 @@ private primary_expression ::= grouped_expression
                              | control_flow_expression
                              | array_literal
                              | hash_literal
+                             | typed_collection_literal
                              | tuple_literal
                              | proc_literal
                              | require_statement
@@ -790,7 +844,11 @@ private primary_expression ::= grouped_expression
                              | begin_statement
                              | SELF
 
-grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAREN
+// Crystal parenthesized expressions carry postfix modifiers inside the group:
+// `test(a, (ifs if ifs.size > 1))` (ameba) — the modifier belongs to the group
+// value, while `(x) if cond` keeps the modifier outside (PEG: the `)` ends the
+// group before the modifier can bind inside).
+grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] [postfix_modifier] NLS RPAREN
 
 // Global-scope method calls: ::raise "msg", ::puts x, ::Foo::Bar.baz. The [DOUBLE_COLON]
 // prefix calls the method in the top-level namespace, ignoring any current scope.
@@ -808,12 +866,18 @@ grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAR
 // Keep it a method_call_expression so existing record constructor resolution,
 // completion, navigation, and inspections continue to consume its arguments.
 method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare_argument_list) DO class_body END
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list [block]
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) array_literal COMMA bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
                          | (IDENTIFIER | CONSTANT) block
-                         | (SUPER | PREVIOUS_DEF) call_args
-                         | (SUPER | PREVIOUS_DEF) bare_argument_list {
+                         | (SUPER | PREVIOUS_DEF) call_args [block]
+                         // !DOT: `super.tap do` chains through the postfix rules — a
+                         // bare argument must not swallow the chained member access,
+                         // otherwise the trailing block strands. The remaining guards
+                         // mirror method_call_expression's bare alternative.
+                         | (SUPER | PREVIOUS_DEF) !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list [block] {
   mixin="de.magynhard.crystal.psi.impl.CrystalMethodCallExpressionMixin"
 }
 
@@ -843,7 +907,8 @@ private nested_call_lookahead ::= binary_op_lookahead | (DOTDOT | DOTDOTDOT)
 // Implicit object call: .method, .method(args), or .[index] (used in &.foo shorthand and case/when patterns)
 // AS/AS_QUESTION are needed for the &. shorthand without receiver (`to_a(&.as(T))`):
 // the postfix_op .as(...) form only applies after an existing primary expression.
-implicit_object_call ::= DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CLASS_VAR | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | operator_method_name) [call_args]
+implicit_object_call ::= DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CLASS_VAR | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | macro_interpolation | operator_method_name) [&<<isTokenTightAfterPreviousToken>> QUESTION]
+                           [call_args [block] | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list [block] | array_literal COMMA bare_argument_list | block]
                        | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
 
 // Third alternative group — closeless heredoc calls (`f(rule, <<-CRYSTAL)`): the
@@ -890,7 +955,7 @@ private starred_type_expression ::= type_path (STAR | DOUBLE_STAR)+
 private compact_colon ::= !<<colonHasLeadingDeclarationWhitespace>> COLON
 private spaced_colon ::= &<<colonHasLeadingDeclarationWhitespace>> COLON
 
-private named_argument ::= (IDENTIFIER | keyword_identifier) compact_colon NLS (out_argument | expression) {pin=2}
+private named_argument ::= (IDENTIFIER | keyword_identifier) compact_colon NLS (control_value | expression) {pin=2}
 
 // TYPE-shaped parenthesized argument: `foo(x : Int32*)`,
 // `foo(x : Int32* | Nil)`, and multiline forms. Tried before named_argument;
@@ -914,11 +979,17 @@ bare_argument ::= named_type_bare_argument
                 | STAR bare_expression
                 | DOUBLE_STAR bare_expression
                 | AMPERSAND bare_expression
+                | assignment
                 | bare_expression
                 | out_argument
 
+// Control expressions are valid argument VALUES: `skip: if skip.is_a?(Category)`
+// (ameba's elseif_aware_node_visitor). Positional bare arguments keep excluding
+// them — `f x if cond` is a postfix modifier on the call, never an argument.
+private control_value ::= if_statement | unless_statement | out_argument
+
 private named_bare_argument ::= (IDENTIFIER | keyword_identifier) compact_colon NLS
-    (out_argument | absolute_namespace_bare_expression [ASSIGN bare_expression] | bare_expression [ASSIGN bare_expression]) {pin=2}
+    (control_value | absolute_namespace_bare_expression [ASSIGN bare_expression] | bare_expression [ASSIGN bare_expression]) {pin=2}
 
 // Keep the absolute start bounded to compact named values: making it a global
 // bare-postfix alternative changes namespace-call PSI and resolution. The
@@ -983,6 +1054,7 @@ private bare_primary_expression ::= grouped_expression
                                   | control_flow_expression
                                   | array_literal
                                   | hash_literal
+                                  | typed_collection_literal
                                   | tuple_literal
                                   | proc_literal
                                   | require_statement
@@ -1010,7 +1082,12 @@ private bare_primary_expression ::= grouped_expression
 // method_call_expression: no member access, no index, and no binary-operator lookahead,
 // so `width + height` stays a binary expression instead of becoming call arguments.
 bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
-                              | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !nested_call_lookahead bare_argument_list {
+                              // !isHeredocBodyOpener: a trailing heredoc BODY opener
+                              // (`fail <<-MSG, file, line`) belongs to the statement's
+                              // heredoc_bodies, never to the last bare argument's own
+                              // nested call; header markers (delimiter text) still bind.
+                              | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !nested_call_lookahead !<<isHeredocBodyOpener>> bare_argument_list
+                              | (IDENTIFIER | CONSTANT) array_literal COMMA bare_argument_list {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 
@@ -1021,6 +1098,7 @@ block ::= DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* 
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
 proc_literal ::= ARROW LPAREN NLS parameter_list NLS RPAREN LBRACE statement_list RBRACE
+               | ARROW LPAREN NLS parameter_list NLS RPAREN DO [statement_list] END
                | ARROW LBRACE statement_list RBRACE
                | ARROW (IDENTIFIER | CONSTANT) [DOT (IDENTIFIER | CONSTANT)] [LPAREN type_reference (COMMA type_reference)* RPAREN] {pin=1}
 
@@ -1089,13 +1167,24 @@ array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference
 
 hash_literal ::= LBRACE NLS [hash_entry_list] NLS RBRACE [OF type_reference DOUBLE_ARROW type_reference]
 
+// Crystal literal instantiation: `HTTP::Headers{...}` (kemal request specs) —
+// a constant type path directly followed by a brace literal instantiates the
+// typed collection. Registered before method_call_expression/bare calls so
+// CONSTANT + LBRACE binds the literal instead of a block call.
+private typed_collection_literal ::= type_path LBRACE NLS [hash_entry_list] NLS RBRACE
+
 hash_entry_list ::= hash_entry (NLS COMMA NLS hash_entry)* [COMMA]
 
 hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
 
 // ==================== Variable References ====================
 
-instance_var_access ::= INSTANCE_VAR {
+// Macro-generated instance variables inside {% for %}-driven method bodies:
+// `@{{ method.id }}` and the compound `@{{ method.id }}_parsed` memoization
+// flags (kemal param_parser). The generated access carries no name element, so
+// name-based consumers see null exactly like other macro-generated members.
+instance_var_access ::= INSTANCE_VAR
+                      | AT macro_interpolation [IDENTIFIER] {
   mixin="de.magynhard.crystal.psi.impl.CrystalInstanceVarAccessMixin"
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
@@ -1111,7 +1200,12 @@ variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT {
 
 // ==================== Type References ====================
 
-type_reference ::= type_union [ARROW [type_union]]
+// Crystal proc-type sugar: `A, B -> C` is `Proc(A, B, C)` (kemal's router
+// aliases, block parameters typed `T1, T2 ->`). The comma list is only valid
+// when an ARROW follows, so parameter lists (`x : Int32, y : Int32`) fail the
+// first alternative cleanly and fall through to the plain union form.
+type_reference ::= type_union (COMMA NLS type_union)* ARROW [type_union]
+                 | type_union [ARROW [type_union]]
                  | ARROW [type_union]
 
 // Deliberately permissive across newlines: crystal rejects multi-line unions
@@ -1142,9 +1236,16 @@ private type_suffix ::= QUESTION
                       | LBRACKET (INTEGER_LITERAL | type_path) RBRACKET
                       | DOT CLASS
 
-type_path ::= [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)* {
+// Type paths with macro-interpolated segments: `Crystal::{{ name }}` (ameba's
+// generated visitors) and `Int{{ n.id }}` (stdlib big_int generated returns).
+// A segment is a constant optionally followed by an interpolation, or a bare
+// interpolation.
+type_path ::= [DOUBLE_COLON] type_path_piece (DOUBLE_COLON type_path_piece)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalTypePathMixin"
 }
+
+private type_path_piece ::= CONSTANT macro_interpolation?
+                          | macro_interpolation
 
 type_arguments ::= LPAREN NLS type_argument (NLS COMMA NLS type_argument)* [NLS COMMA] NLS RPAREN
 
@@ -1201,7 +1302,9 @@ expression_list ::= macro_argument_trivia expression (macro_argument_trivia COMM
 // Macro-controlled tuples: stdlib builds them via {% for %} loops. The extra
 // trailing trivia absorbs directives after the last entry without forcing
 // expression_list itself to consume terminator newlines needed by when-clauses.
-tuple_literal ::= LBRACE NLS expression_list macro_argument_trivia NLS RBRACE
+// Heredoc markers as tuple entries bind their string bodies inside the braces:
+// `.should eq({<<-PRE.lines, <<-POST.lines` + bodies + `})` (ameba util_spec).
+tuple_literal ::= LBRACE NLS expression_list [heredoc_bodies] macro_argument_trivia NLS RBRACE
 
 // ==================== Helper Rules ====================
 

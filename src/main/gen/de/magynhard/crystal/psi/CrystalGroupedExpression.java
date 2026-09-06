@@ -10,4 +10,7 @@ public interface CrystalGroupedExpression extends PsiElement {
   @NotNull
   List<CrystalExpression> getExpressionList();
 
+  @Nullable
+  CrystalPostfixModifier getPostfixModifier();
+
 }

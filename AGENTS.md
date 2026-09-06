@@ -39,6 +39,8 @@ scripts/crystal-inspect-audit.sh /path/to/project
 ```
 
 - Use this after parser, stub/index, resolution, type-inference, or inspection changes to detect real-world false positives and dropped declarations that focused tests may miss. The initial target is commonly `/home/magynhard/dev/github.com/kemalcr/kemal`.
+- **Install the project's dependencies first** (`shards install` — including development dependencies; kemal ships `lib/` with radix, exception_page, backtracer, and ameba). We want the full dependency set as a developer would see it; the plugin must not contort itself with suppressions for the shard-less case. Run the parse audit (`./gradlew stdlibParseAudit -PcrystalCorpus=external -PcrystalStdlibRoot=<project>`) and reach zero `PsiErrorElement` before judging inspection findings.
+- The audit profile runs every JetBrains inspection, so filter the XML reports to `Crystal*` inspection files when counting plugin findings; spell-check/HTML/Markdown findings in the inspected project are not ours.
 - The script builds the current dev plugin, installs it into an isolated RubyMine 2026.2 instance, creates fresh IDE indexes for deterministic results, runs JetBrains' language-neutral offline `inspect` command, and prints every `Crystal*.xml` problem as `file:line: description`.
 - Current results are available through `$AUDIT_HOME/out` (an atomically updated symlink); per-run XML reports and IDE logs remain under `$AUDIT_HOME/reports/` and `$AUDIT_HOME/logs/`. Default `AUDIT_HOME` is `/tmp/opencode/rm-audit`.
 - Override locations with `AUDIT_HOME=/tmp/audit RUBYMINE_HOME=/opt/jetbrains/RubyMine scripts/crystal-inspect-audit.sh /path/to/project`.

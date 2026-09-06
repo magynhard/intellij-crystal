@@ -29,6 +29,12 @@ public class CrystalWhenClauseImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalAssignment> getAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAssignment.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalExpression> getExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }
@@ -37,6 +43,12 @@ public class CrystalWhenClauseImpl extends ASTWrapperPsiElement implements Cryst
   @NotNull
   public List<CrystalMacroControl> getMacroControlList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalMultiAssignment> getMultiAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMultiAssignment.class);
   }
 
   @Override

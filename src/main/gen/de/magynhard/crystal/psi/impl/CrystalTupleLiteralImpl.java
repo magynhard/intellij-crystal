@@ -34,6 +34,12 @@ public class CrystalTupleLiteralImpl extends ASTWrapperPsiElement implements Cry
   }
 
   @Override
+  @Nullable
+  public CrystalHeredocBodies getHeredocBodies() {
+    return PsiTreeUtil.getChildOfType(this, CrystalHeredocBodies.class);
+  }
+
+  @Override
   @NotNull
   public List<CrystalMacroControl> getMacroControlList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);

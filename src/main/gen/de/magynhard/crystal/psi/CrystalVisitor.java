@@ -280,6 +280,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitAssignment(o);
   }
 
+  public void visitNestedIndexedAssignment(@NotNull CrystalNestedIndexedAssignment o) {
+    visitPsiElement(o);
+  }
+
   public void visitNextStatement(@NotNull CrystalNextStatement o) {
     visitAbruptStatement(o);
   }

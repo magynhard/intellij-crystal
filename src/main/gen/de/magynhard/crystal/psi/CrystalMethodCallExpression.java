@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalMethodCallExpression extends PsiElement {
 
   @Nullable
+  CrystalArrayLiteral getArrayLiteral();
+
+  @Nullable
   CrystalBareArgumentList getBareArgumentList();
 
   @Nullable

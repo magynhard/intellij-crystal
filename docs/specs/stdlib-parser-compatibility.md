@@ -154,6 +154,44 @@ type nested inside a record body keeps its own ownership. Record constructor
 completion retains its exact identity. The changed method-stub serialization
 increments the file stub version.
 
+The kemal external-project repair parses the full kemal checkout — `src`,
+`spec`, `examples`, and the installed shards under `lib/` (radix,
+exception_page, backtracer, ameba), 457 files — with zero `PsiErrorElement`.
+The audit gains an unpinned `external` corpus mode: it collects every `.cr`
+file below the given root, skips VERSION and file-count validation, and reuses
+the same report format. The repair touches roughly twenty syntax families,
+each compiler-validated against Crystal 1.21.0: comma-separated proc types
+(`alias H = A, B ->`, block parameters typed `T1, T2 ->`); typed collection
+literals (`HTTP::Headers{...}`); macro-interpolated type segments and namespace
+paths (`Crystal::{{ name }}`, `Int{{ n }}` returns, `def to_i{{ n }}` and
+`def {{ type.id }}_{{ method.id }}(params)` compound generated names);
+`@{{ method.id }}` instance-variable interpolations; backtick commands and
+regex literals inside `{{ }}`/`{% %}` (mirrored lexer states plus `=~` and
+range tokens); proc literals with `do ... end` bodies; bare calls with a
+leading array literal followed by more arguments (`only ["/a"], "POST"`);
+nested indexed compound assignments (`x = @q[i] ||= v`) and constant indexed
+assignment targets (`ENV["X"] = v`); the `end`-labeled positional parameter
+(`def pos(location, end end_pos = false)`); assignment-shaped bare arguments
+(`record R, a = 1`); control-expression named-argument values (`skip: if ...`);
+grouped expressions with postfix modifiers (`(ifs if ifs.size > 1)`); case
+when-entries that bind assignments (`when path = f(x)`); safe-navigation calls
+with bare arguments and macro-interpolated targets (`&.size 1`, `&.{{ m.id }}?`);
+tight heredoc-body-opener guards so `fail <<-MSG, file, line` and tuple-carried
+heredocs (`.should eq({<<-PRE.lines, <<-POST.lines ... })`) bind bodies at the
+owning construct; tight-fragment concatenation for macro-generated names
+(`Crystal::{{ type.capitalize }}Def`) while `{{ method.id }} path` stays an
+argument; bare regex arguments after nested callees and keywords
+(`x.should match /re/`, `when /^get_/`); whitespace-separated loose-paren
+calls with trailing arguments (`HANDLERS.insert (position || @h), ch1`);
+`&->` block-pass proc pointers (the lexer no longer folds `&->` into the wrap
+minus); and dot-setter chains as nested assignment values. The indexed corpus
+drops from 128 errors in 92 files to 115 errors in 78 files and the complete
+distribution from 2,625 errors in 714 files to 2,583 errors in 665 files;
+no previously clean file regresses. `y = match /abc/` — a bare callee followed
+by a whitespace-separated regex without a dotted receiver — remains a known
+limitation: Crystal resolves it through parser-level backtracking that a PEG
+lexer/parser split cannot reproduce, and it is tracked in `TODO.md`.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

@@ -137,7 +137,7 @@ val stdlibParseAudit by intellijPlatformTesting.testIde.registering {
     val scope = crystalCorpus.get()
     task {
         group = "verification"
-        description = "Parses the pinned Crystal 1.21.0 source corpus without recovery or exclusions."
+        description = "Parses the pinned Crystal 1.21.0 source corpus (crystalCorpus=indexed|distribution) or an unpinned external project (crystalCorpus=external) without recovery or exclusions."
         classpath += files(
             sourceSets.test.get().runtimeClasspath,
             configurations["intellijPlatformTestClasspath"]

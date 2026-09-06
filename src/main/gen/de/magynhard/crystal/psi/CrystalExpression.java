@@ -47,6 +47,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalGroupedExpression> getGroupedExpressionList();
 
   @NotNull
+  List<CrystalHashEntryList> getHashEntryListList();
+
+  @NotNull
   List<CrystalHashLiteral> getHashLiteralList();
 
   @NotNull
@@ -102,6 +105,9 @@ public interface CrystalExpression extends PsiElement {
 
   @NotNull
   List<CrystalTupleLiteral> getTupleLiteralList();
+
+  @NotNull
+  List<CrystalTypePath> getTypePathList();
 
   @NotNull
   List<CrystalTypeReference> getTypeReferenceList();

@@ -50,4 +50,10 @@ public class CrystalNestedAssignmentImpl extends CrystalNestedAssignmentMixin im
     return PsiTreeUtil.getChildOfType(this, CrystalNestedAssignment.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalNestedIndexedAssignment getNestedIndexedAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalNestedIndexedAssignment.class);
+  }
+
 }

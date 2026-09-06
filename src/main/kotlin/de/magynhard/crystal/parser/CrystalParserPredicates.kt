@@ -11,6 +11,36 @@ object CrystalParserPredicates {
         @Suppress("UNUSED_PARAMETER") level: Int,
     ): Boolean = builder.tokenType === CrystalTypes.IDENTIFIER && builder.tokenText == "record"
 
+    /**
+     * Distinguishes the queued heredoc BODY opener from a header marker. The lexer
+     * emits both as HEREDOC_START, but the body opener's token text is the newline
+     * it consumes while a header carries the delimiter text (`<<-MSG`). Nested bare
+     * calls (`fail <<-MSG, file, line`) must not bind the body opener as their own
+     * argument; the bodies attach at statement level instead.
+     */
+    @JvmStatic
+    fun isHeredocBodyOpener(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean = builder.tokenType === CrystalTypes.HEREDOC_START && builder.tokenText?.startsWith("\n") == true
+
+    /**
+     * True when the current token starts immediately after the previous raw token
+     * with no whitespace or newline in between. Macro-generated names concatenate
+     * textually (`{{ type.capitalize }}Def`) while macro-call arguments are
+     * whitespace separated (`{{ method.id }} path`), so fragment suffixes bind
+     * only when tight.
+     */
+    @JvmStatic
+    fun isTokenTightAfterPreviousToken(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        val previous = builder.rawLookup(-1) ?: return false
+        return previous !== TokenType.WHITE_SPACE && previous !== CrystalTypes.NEWLINE
+    }
+
+
     @JvmStatic
     fun colonHasLeadingDeclarationWhitespace(
         builder: PsiBuilder,
