@@ -755,7 +755,14 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // index).
 dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [&<<isTokenTightAfterPreviousToken>> QUESTION]
                            [!<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
-                           | call_args | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list] {
+                           | call_args
+                           // The lookahead mirrors method_call_expression's bare
+                           // alternative with Crystal's unary-operator whitespace rule:
+                           // `Time.monotonic - start` is the spaced binary minus, never a
+                           // bare argument of the dot-call, while the tight minus in
+                           // `file.seek -ZIP_TAIL_SIZE` stays the unary negation of the
+                           // first argument (stdlib time.cr `shift -span.to_i`).
+                           | !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
@@ -868,7 +875,11 @@ grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] [postfix
 method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare_argument_list) DO class_body END
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list [block]
+                         // The lookahead uses Crystal's unary-operator whitespace rule:
+                         // `shift -span.to_i, -span.nanoseconds` (time.cr) negates its
+                         // first bare argument; a spaced binary operator still blocks the
+                         // bare-argument alternative so `width + height` stays binary.
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) array_literal COMMA bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
                          | (IDENTIFIER | CONSTANT) block
@@ -1082,11 +1093,11 @@ private bare_primary_expression ::= grouped_expression
 // method_call_expression: no member access, no index, and no binary-operator lookahead,
 // so `width + height` stays a binary expression instead of becoming call arguments.
 bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
-                              // !isHeredocBodyOpener: a trailing heredoc BODY opener
-                              // (`fail <<-MSG, file, line`) belongs to the statement's
-                              // heredoc_bodies, never to the last bare argument's own
-                              // nested call; header markers (delimiter text) still bind.
-                              | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !nested_call_lookahead !<<isHeredocBodyOpener>> bare_argument_list
+                              // !isDotBareArgsBinaryOp refines the old !nested_call_lookahead
+                              // with Crystal's unary whitespace rule: `shift -span.to_i,
+                              // -span.nanoseconds` (time.cr) negates its first bare argument,
+                              // while a spaced `+`/`-`/`*` still starts a binary expression.
+                              | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isHeredocBodyOpener>> bare_argument_list
                               | (IDENTIFIER | CONSTANT) array_literal COMMA bare_argument_list {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }

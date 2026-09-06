@@ -40,6 +40,30 @@ object CrystalParserPredicates {
         return previous !== TokenType.WHITE_SPACE && previous !== CrystalTypes.NEWLINE
     }
 
+    /**
+     * Binary-operator lookahead for dot-call bare arguments, honoring Crystal's
+     * whitespace rule for unary operators: `Time.monotonic - start` is the
+     * binary minus (spaced after the operator), while `file.seek -ZIP_TAIL_SIZE`
+     * and `shift -span.to_i` use the tight minus as the unary negation of the
+     * first bare argument.
+     */
+    @JvmStatic
+    fun isDotBareArgsBinaryOp(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean = when (builder.tokenType) {
+        CrystalTypes.PLUS, CrystalTypes.STAR, CrystalTypes.SLASH,
+        CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT, CrystalTypes.DOUBLE_STAR,
+        -> true
+        CrystalTypes.MINUS -> {
+            // Spaced minus = binary operator; tight minus (`-ZIP_TAIL_SIZE`,
+            // `-span.to_i`) = the unary negation of the first bare argument.
+            val next = builder.originalText.getOrNull(builder.currentOffset + 1)
+            next == ' ' || next == '\t' || next == '\n' || next == '\r'
+        }
+        else -> false
+    }
+
 
     @JvmStatic
     fun colonHasLeadingDeclarationWhitespace(

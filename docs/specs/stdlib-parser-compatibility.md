@@ -192,6 +192,15 @@ by a whitespace-separated regex without a dotted receiver — remains a known
 limitation: Crystal resolves it through parser-level backtracking that a PEG
 lexer/parser split cannot reproduce, and it is tracked in `TODO.md`.
 
+The dot-call and statement-level bare-argument alternatives honor Crystal's
+unary-operator whitespace rule: a spaced binary operator blocks the bare
+alternatives so `Time.monotonic - start` stays the binary minus, while the
+tight minus stays the unary negation of the first bare argument
+(`file.seek -ZIP_TAIL_SIZE, IO::Seek::End` in time/location/loader.cr and
+`shift -span.to_i, -span.nanoseconds` in time.cr). The refined lookahead
+replaced the plain binary-operator guard on both alternatives; the indexed
+corpus reaches 114 errors in 77 files.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

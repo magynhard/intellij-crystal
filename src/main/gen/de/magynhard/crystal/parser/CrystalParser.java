@@ -1390,11 +1390,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // (IDENTIFIER | CONSTANT) call_args
-  //                               // !isHeredocBodyOpener: a trailing heredoc BODY opener
-  //                               // (`fail <<-MSG, file, line`) belongs to the statement's
-  //                               // heredoc_bodies, never to the last bare argument's own
-  //                               // nested call; header markers (delimiter text) still bind.
-  //                               | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !nested_call_lookahead !<<isHeredocBodyOpener>> bare_argument_list
+  //                               // !isDotBareArgsBinaryOp refines the old !nested_call_lookahead
+  //                               // with Crystal's unary whitespace rule: `shift -span.to_i,
+  //                               // -span.nanoseconds` (time.cr) negates its first bare argument,
+  //                               // while a spaced `+`/`-`/`*` still starts a binary expression.
+  //                               | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isHeredocBodyOpener>> bare_argument_list
   //                               | (IDENTIFIER | CONSTANT) array_literal COMMA bare_argument_list
   public static boolean bare_method_call_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_method_call_expression")) return false;
@@ -1428,7 +1428,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (IDENTIFIER | CONSTANT) !DOT !LBRACKET !nested_call_lookahead !<<isHeredocBodyOpener>> bare_argument_list
+  // (IDENTIFIER | CONSTANT) !DOT !LBRACKET !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isHeredocBodyOpener>> bare_argument_list
   private static boolean bare_method_call_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_method_call_expression_1")) return false;
     boolean result_;
@@ -1438,6 +1438,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && bare_method_call_expression_1_2(builder_, level_ + 1);
     result_ = result_ && bare_method_call_expression_1_3(builder_, level_ + 1);
     result_ = result_ && bare_method_call_expression_1_4(builder_, level_ + 1);
+    result_ = result_ && bare_method_call_expression_1_5(builder_, level_ + 1);
+    result_ = result_ && bare_method_call_expression_1_6(builder_, level_ + 1);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -1472,19 +1474,39 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // !nested_call_lookahead
+  // !<<isDotBareArgsBinaryOp>>
   private static boolean bare_method_call_expression_1_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_method_call_expression_1_3")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
-    result_ = !nested_call_lookahead(builder_, level_ + 1);
+    result_ = !isDotBareArgsBinaryOp(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // !DOTDOT
+  private static boolean bare_method_call_expression_1_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_method_call_expression_1_4")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !consumeToken(builder_, DOTDOT);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // !DOTDOTDOT
+  private static boolean bare_method_call_expression_1_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_method_call_expression_1_5")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !consumeToken(builder_, DOTDOTDOT);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 
   // !<<isHeredocBodyOpener>>
-  private static boolean bare_method_call_expression_1_4(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_method_call_expression_1_4")) return false;
+  private static boolean bare_method_call_expression_1_6(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_method_call_expression_1_6")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isHeredocBodyOpener(builder_, level_ + 1);
@@ -2884,7 +2906,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [&<<isTokenTightAfterPreviousToken>> QUESTION]
   //                            [!<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
-  //                            | call_args | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list]
+  //                            | call_args
+  //                            // The lookahead mirrors method_call_expression's bare
+  //                            // alternative with Crystal's unary-operator whitespace rule:
+  //                            // `Time.monotonic - start` is the spaced binary minus, never a
+  //                            // bare argument of the dot-call, while the tight minus in
+  //                            // `file.seek -ZIP_TAIL_SIZE` stays the unary negation of the
+  //                            // first argument (stdlib time.cr `shift -span.to_i`).
+  //                            | !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list]
   public static boolean dot_call_access(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "dot_call_access")) return false;
     if (!nextTokenIs(builder_, DOT)) return false;
@@ -2940,7 +2969,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [!<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
-  //                            | call_args | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list]
+  //                            | call_args
+  //                            // The lookahead mirrors method_call_expression's bare
+  //                            // alternative with Crystal's unary-operator whitespace rule:
+  //                            // `Time.monotonic - start` is the spaced binary minus, never a
+  //                            // bare argument of the dot-call, while the tight minus in
+  //                            // `file.seek -ZIP_TAIL_SIZE` stays the unary negation of the
+  //                            // first argument (stdlib time.cr `shift -span.to_i`).
+  //                            | !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list]
   private static boolean dot_call_access_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "dot_call_access_3")) return false;
     dot_call_access_3_0(builder_, level_ + 1);
@@ -2948,7 +2984,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
-  //                            | call_args | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list
+  //                            | call_args
+  //                            // The lookahead mirrors method_call_expression's bare
+  //                            // alternative with Crystal's unary-operator whitespace rule:
+  //                            // `Time.monotonic - start` is the spaced binary minus, never a
+  //                            // bare argument of the dot-call, while the tight minus in
+  //                            // `file.seek -ZIP_TAIL_SIZE` stays the unary negation of the
+  //                            // first argument (stdlib time.cr `shift -span.to_i`).
+  //                            | !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list
   private static boolean dot_call_access_3_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "dot_call_access_3_0")) return false;
     boolean result_;
@@ -2984,7 +3027,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list
+  // !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list
   private static boolean dot_call_access_3_0_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_2")) return false;
     boolean result_;
@@ -2993,6 +3036,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && dot_call_access_3_0_2_1(builder_, level_ + 1);
     result_ = result_ && dot_call_access_3_0_2_2(builder_, level_ + 1);
     result_ = result_ && dot_call_access_3_0_2_3(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_3_0_2_4(builder_, level_ + 1);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -3028,9 +3072,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // !<<isHeredocBodyOpener>>
+  // !<<isDotBareArgsBinaryOp>>
   private static boolean dot_call_access_3_0_2_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_2_3")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !isDotBareArgsBinaryOp(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // !<<isHeredocBodyOpener>>
+  private static boolean dot_call_access_3_0_2_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_2_4")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isHeredocBodyOpener(builder_, level_ + 1);
@@ -4895,7 +4949,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // &<<isRecordDeclaration>> IDENTIFIER (call_args | bare_argument_list) DO class_body END
   //                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list [block]
   //                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
-  //                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list [block]
+  //                          // The lookahead uses Crystal's unary-operator whitespace rule:
+  //                          // `shift -span.to_i, -span.nanoseconds` (time.cr) negates its
+  //                          // first bare argument; a spaced binary operator still blocks the
+  //                          // bare-argument alternative so `width + height` stays binary.
+  //                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
   //                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) array_literal COMMA bare_argument_list [block]
   //                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
   //                          | (IDENTIFIER | CONSTANT) block
@@ -5043,7 +5101,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list [block]
+  // [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
   private static boolean method_call_expression_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_call_expression_3")) return false;
     boolean result_;
@@ -5107,12 +5165,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // !binary_op_lookahead
+  // !<<isDotBareArgsBinaryOp>>
   private static boolean method_call_expression_3_5(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_call_expression_3_5")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
-    result_ = !binary_op_lookahead(builder_, level_ + 1);
+    result_ = !isDotBareArgsBinaryOp(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }

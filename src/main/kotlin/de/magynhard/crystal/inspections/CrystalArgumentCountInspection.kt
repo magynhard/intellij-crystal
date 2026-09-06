@@ -5,6 +5,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -58,6 +59,20 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     private fun checkArgumentlessDirectCall(reference: CrystalVariableReference, holder: ProblemsHolder) {
+        // A hash-entry key (`{error: "..."}`) is a symbol-like key, not a
+        // variable read and not a zero-argument call: the entry's leading
+        // identifier followed by the key colon never participates in name
+        // resolution, so kemal's `error` DSL must not meet JSON payload keys.
+        // The key expression sits inside an EXPRESSION wrapper, so match the
+        // nearest hash entry and require the reference to live in its first
+        // expression child of a colon-keyed entry.
+        val entry = PsiTreeUtil.getParentOfType(reference, CrystalHashEntry::class.java)
+        if (entry != null && entry.node.findChildByType(CrystalTypes.COLON) != null) {
+            val keyExpression = entry.node.getChildren(null)
+                .firstOrNull { it.elementType == CrystalTypes.EXPRESSION }
+            if (keyExpression != null && PsiTreeUtil.isAncestor(keyExpression.psi, reference, false)) return
+        }
+
         val methodNameElement = reference.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
             ?: reference.node.findChildByType(CrystalTypes.CONSTANT)?.psi
             ?: return
