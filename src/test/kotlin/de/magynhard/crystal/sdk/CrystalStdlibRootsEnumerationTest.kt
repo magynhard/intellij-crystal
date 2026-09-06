@@ -6,21 +6,16 @@ import com.intellij.testFramework.runInEdtAndWait
 import java.nio.file.Files
 
 /**
- * Root registration for the builtin macro-method API: the compiler/ tree is
- * excluded from stdlib indexing everywhere else, but
- * compiler/crystal/macros.cr must be a registered root so macro-context calls
- * resolve (run, system, puts, flag?, ...).
+ * Root registration for the compiler source tree: shards such as ameba
+ * require the compiler syntax tree via wildcard requires and reopen
+ * `Crystal::Location`, so the tree must be a registered root — the CLI/C
+ * ABI/LLVM bindings subtrees stay excluded.
  *
- * Uses a temp-dir layout that mimics the Crystal 1.20+ distribution. The
- * compiler/ subtree is deliberately NOT pre-refreshed into the VFS for the
- * findFileByRelativePath query — production relies on a synchronous refresh
- * fallback in that case, which is disabled under unit tests (VFS root-access
- * assertions), so the test pre-registers the file itself and validates the
- * root registration given a VFS-present file.
+ * Uses a temp-dir layout that mimics the Crystal 1.20+ distribution.
  */
 class CrystalStdlibRootsEnumerationTest : BasePlatformTestCase() {
 
-    fun testEnumerationIncludesCompilerMacrosCr() {
+    fun testEnumerationIncludesCompilerTree() {
         val tempRoot = Files.createTempDirectory("crystal-stdlib-enumeration").toFile()
         val macrosFile = java.io.File(tempRoot, "compiler/crystal/macros.cr")
         macrosFile.parentFile.mkdirs()
@@ -33,20 +28,16 @@ class CrystalStdlibRootsEnumerationTest : BasePlatformTestCase() {
         val rootVFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
             .refreshAndFindFileByIoFile(tempRoot) ?: return
 
-        // Bring the macro file into the VFS the way production's refresh
-        // fallback would (unit tests skip that fallback).
-        com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-            .refreshAndFindFileByIoFile(macrosFile) ?: return
-
         runInEdtAndWait {
             val roots = CrystalStdlibRoots.enumerate(rootVFile)
             val paths = roots.map { it.path }
             assertTrue(
-                "enumerate must register compiler/crystal/macros.cr, got: $paths",
-                paths.any { it.endsWith("compiler/crystal/macros.cr") })
-            assertFalse("llvm/ must stay excluded", paths.any { it.endsWith("/llvm") })
-            assertTrue("prelude.cr must be registered as an individual root",
+                "enumerate must register the compiler tree, got: $paths",
+                paths.any { it.endsWith("/compiler") })
+            assertTrue(
+                "prelude.cr must be registered as an individual root",
                 paths.any { it.endsWith("prelude.cr") })
+            assertFalse("llvm/ must stay excluded", paths.any { it.endsWith("/llvm") })
         }
     }
 }

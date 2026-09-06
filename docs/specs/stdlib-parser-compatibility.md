@@ -26,9 +26,9 @@ different, or incomplete distributions fail before parsing.
 ### Indexed Standard Library
 
 The first gate uses `CrystalStdlibRoots.enumerate`, the production source-root
-policy. It contains every user-facing standard-library source plus the builtin
-macro API at `compiler/crystal/macros.cr`: exactly 461 `.cr` files in the pinned
-distribution.
+policy. It contains every user-facing standard-library source plus the
+compiler source tree (shards such as ameba require compiler sources): exactly
+650 `.cr` files in the pinned distribution.
 
 ### Complete Distribution
 
@@ -191,6 +191,24 @@ no previously clean file regresses. `y = match /abc/` — a bare callee followed
 by a whitespace-separated regex without a dotted receiver — remains a known
 limitation: Crystal resolves it through parser-level backtracking that a PEG
 lexer/parser split cannot reproduce, and it is tracked in `TODO.md`.
+
+The indexed corpus now includes the compiler source tree: ameba (bundled
+with kemal) requires `compiler/crystal/syntax/*` and reopens
+`Crystal::Location`, whose primary definition — with the initialize — lives
+in the compiler tree; without it a shard's reopening becomes the only
+indexed declaration and every constructor call resolves to an empty pool
+("expected at most 0, got N"). The indexed corpus grows from 461 to 650
+files; the compiler's own parse errors (65 in the distribution corpus) are
+now visible in the indexed numbers as well.
+
+The argument type check also handles bare unparameterized generics:
+`paragraph : Array` is `Array(_)` and accepts every instantiation of the
+same base (`Array(String)` — the ameba explain_formatter case), while a
+known builtin on the non-generic side stays a definite mismatch
+(`Array(String)` is not `String`), mismatched known generic bases are
+rejected (`Hash(String, Int32)` is not `Array`), and non-builtin non-generic
+sides stay lenient. Named-tuple comparisons keep their definite structural
+verdict.
 
 The argument type check gained generic include-edge instantiation: when a
 parameter is a generic like `Enumerable(HTTP::Handler)` and the argument is a

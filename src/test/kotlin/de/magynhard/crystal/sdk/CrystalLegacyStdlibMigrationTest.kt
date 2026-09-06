@@ -81,9 +81,9 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
             addModuleLibrary(LEGACY_LIBRARY_NAME, compilerRoot)
             configureCrystalPath(fixture.executable)
 
-            assertEquals(
-                setOf(compilerRoot.toUri().toString().removeSuffix("/")),
-                CrystalLegacyStdlibExcludePolicy(project).excludeUrlsForProject.toSet()
+            assertTrue(
+                "The compiler root is indexed now and must not be excluded",
+                CrystalLegacyStdlibExcludePolicy(project).excludeUrlsForProject.isEmpty()
             )
         } finally {
             restoreCrystalPath()
@@ -195,6 +195,7 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
         val excludedDirectories = EXCLUDED_DIRECTORIES.map { name ->
             Files.createDirectory(stdlib.resolve(name))
         }
+        Files.createDirectory(stdlib.resolve("compiler"))
         val executable = Files.writeString(
             root.resolve("fake-crystal"),
             """
@@ -222,7 +223,9 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
 
     private companion object {
         const val LEGACY_LIBRARY_NAME = "Crystal StdLib"
-        val EXCLUDED_DIRECTORIES = listOf("compiler", "crystal", "lib_c", "lib_z", "ll", "llvm", "gc", "samples")
+        // The compiler tree is indexed now (shards require compiler sources),
+        // so the legacy exclusion policy no longer lists it.
+        val EXCLUDED_DIRECTORIES = listOf("crystal", "lib_c", "lib_z", "ll", "llvm", "gc", "samples")
         val TEST_LIBRARY_NAMES = setOf(LEGACY_LIBRARY_NAME, "Before", "After")
     }
 }

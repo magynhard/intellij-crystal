@@ -7,8 +7,9 @@ import org.junit.Assert.assertTrue
 
 /**
  * Tests for [CrystalStdlibRoots] — the helper that enumerates the
- * user-facing stdlib source roots while excluding the compiler/CLI/C ABI
- * bindings subtrees from indexing.
+ * indexed stdlib source roots: the compiler tree IS indexed (shards such
+ * as ameba require the compiler syntax tree via wildcard requires), while
+ * the CLI/C ABI/LLVM bindings subtrees stay excluded.
  */
 class CrystalStdlibRootsTest : BasePlatformTestCase() {
 
@@ -45,7 +46,7 @@ class CrystalStdlibRootsTest : BasePlatformTestCase() {
         assertTrue("`spec` included: $roots", roots.contains("spec"))
         assertTrue("`crypto` included: $roots", roots.contains("crypto"))
 
-        assertFalse("compiler/ excluded: $roots", roots.contains("compiler"))
+        assertTrue("compiler/ indexed (ameba requires compiler sources): $roots", roots.contains("compiler"))
         assertFalse("crystal/ excluded: $roots", roots.contains("crystal"))
         assertFalse("lib_c/ excluded: $roots", roots.contains("lib_c"))
         assertFalse("lib_z/ excluded: $roots", roots.contains("lib_z"))

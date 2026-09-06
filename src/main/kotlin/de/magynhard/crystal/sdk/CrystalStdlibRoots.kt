@@ -1,6 +1,5 @@
 package de.magynhard.crystal.sdk
 
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 
 /**
@@ -10,18 +9,25 @@ import com.intellij.openapi.vfs.VirtualFile
  *
  * Background — Crystal 1.20+ ships stdlib files directly under
  * `/usr/lib/crystal` (no `src/` subdirectory). The distribution tree also
- * contains the compiler source (`compiler/`), CLI tools (`crystal/`), C ABI
- * bindings (`lib_c/`, `lib_z/`), LLVM bindings (`llvm/`, `ll/`), the Boehm
- * GC interface (`gc/`), and samples — together ~1150 files that are NOT
- * part of the stdlib but would be indexed by IntelliJ if the bare
- * `/usr/lib/crystal` root was handed to a library.
+ * contains the CLI tools (`crystal/`), C ABI bindings (`lib_c/`, `lib_z/`),
+ * LLVM bindings (`llvm/`, `ll/`), the Boehm GC interface (`gc/`), and
+ * samples — together ~960 files that are NOT part of the stdlib but would
+ * be indexed by IntelliJ if the bare `/usr/lib/crystal` root was handed to
+ * a library.
  *
- * Indexing those ~1150 files caused noticeable hangs on plugin update (the
- * StubIndex rebuild forced by the new `CrystalTopLevelMethodIndex` had to
- * parse the metaprogramming-heavy `compiler/` source, taking minutes and
- * blocking the EDT when a user typed a free-text completion character).
+ * The compiler source (`compiler/`, ~190 files) IS indexed: real projects
+ * require compiler internals — ameba, the standard Crystal linter and a
+ * bundled dev dependency of kemal, requires the compiler syntax tree with
+ * a wildcard require and reopens `Crystal::Location`.
+ * Without the tree, a shard's reopening becomes the only indexed
+ * declaration of the type and its constructor pool resolves empty
+ * ("expected at most 0, got N" false positives). The historical concern
+ * (a one-time StubIndex rebuild parsing the metaprogramming-heavy source
+ * took minutes on the EDT) predates the current parser, whose compiler
+ * tree is mostly clean; the build runs on the platform's background
+ * indexing threads.
  *
- * This helper returns only the user-facing stdlib roots:
+ * This helper returns the indexed roots:
  *
  * - All top-level `.cr` files under the stdlib root (`array.cr`,
  *   `string.cr`, …) — added **individually** as source roots.
@@ -41,7 +47,6 @@ object CrystalStdlibRoots {
      * must be excluded from indexing.
      */
     private val EXCLUDED_DIRS = setOf(
-        "compiler",   // Crystal compiler source — ~190 files, metaprogramming-heavy
         "crystal",    // `crystal` CLI tooling — ~176 files
         "lib_c",      // C ABI bindings — ~721 files, mostly per-arch duplicates
         "lib_z",      // zlib bindings
@@ -74,19 +79,6 @@ object CrystalStdlibRoots {
                 result.add(child)
             }
         }
-        // The builtin macro-method API (run, puts, flag?, …) lives in the
-        // excluded compiler tree but is part of the user-facing surface:
-        // index the single file so macro-context calls resolve to it.
-        // VFS note: the compiler/ subtree may never have been refreshed into
-        // the virtual file system (it is excluded everywhere else), so
-        // findFileByRelativePath alone can return null — fall back to a
-        // synchronous refresh of the file from disk.
-        val macrosCandidate = stdlibRoot.findFileByRelativePath("compiler/crystal/macros.cr")
-            ?: LocalFileSystem.getInstance().refreshAndFindFileByIoFile(
-                java.io.File(stdlibRoot.path, "compiler/crystal/macros.cr"))
-        macrosCandidate
-            ?.takeIf { it.extension == "cr" }
-            ?.let { result.add(it) }
         return result
     }
 

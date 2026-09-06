@@ -15,6 +15,18 @@ object CrystalTypeCompatibility {
         "String", "Char", "Bool", "Nil", "Symbol", "Regex"
     )
 
+    /**
+     * Generic base types whose instantiations we can compare structurally.
+     * A bare unparameterized generic in a restriction (`paragraph : Array`)
+     * is `Array(_)` in Crystal and accepts every instantiation of the same
+     * base, while a mismatched base is a definite rejection.
+     */
+    private val KNOWN_GENERIC_BASES = setOf(
+        "Array", "Hash", "Set", "Tuple", "NamedTuple", "Range", "Pointer",
+        "Slice", "StaticArray", "Enumerable", "Indexable", "Iterable",
+        "Comparable", "Proc"
+    )
+
     /** All numeric types (integers + floats). */
     private val NUMERIC_TYPES = setOf(
         "Int8", "Int16", "Int32", "Int64", "Int128",
@@ -119,13 +131,29 @@ object CrystalTypeCompatibility {
             if (paramInner.size != argInner.size) return false
             return paramInner.zip(argInner).all { (p, a) -> isCompatible(a, p, isUnsuffixedNumericLiteral) }
         }
-        // Arg is generic but param is not (e.g. arg="Array(Int32)", param="String") → incompatible
+        // Generic vs non-generic sides. Crystal's unary-restriction rule: a
+        // bare unparameterized generic parameter (`paragraph : Array`) is
+        // `Array(_)` and accepts every instantiation of the same base, while
+        // a known builtin on the non-generic side is a definite mismatch. A
+        // non-builtin non-generic side (user class/module) stays unknown —
+        // include/subclass edges the string comparison cannot see may apply.
+        // Named-tuple forms keep the definite verdict: their comparison is
+        // structural (same keys, compatible values), so a failed structural
+        // match is definite, not unknown.
         if (argType.contains("(") && !normalizedParam.contains("(")) {
-            return false
+            if (argIsNamedTuple || paramIsBraceTuple) return false
+            if (normalizedParam == argType.substringBefore("(").trim()) return true
+            if (normalizedParam in KNOWN_BUILTINS) return false
+            if (normalizedParam in KNOWN_GENERIC_BASES) return false
+            return true
         }
-        // Param is generic but arg is not (e.g. param="Array(Int32)", arg="String") → incompatible
         if (normalizedParam.contains("(") && !argType.contains("(")) {
-            return false
+            if (argIsNamedTuple || paramIsBraceTuple) return false
+            if (argType in KNOWN_BUILTINS) return false
+            if (argType in KNOWN_GENERIC_BASES) {
+                return argType == normalizedParam.substringBefore("(").trim()
+            }
+            return true
         }
 
         // If the parameter type is NOT a known builtin, we can't be sure it's incompatible

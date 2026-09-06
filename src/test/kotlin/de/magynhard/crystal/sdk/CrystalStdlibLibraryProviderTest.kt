@@ -17,7 +17,9 @@ class CrystalStdlibLibraryProviderTest : BasePlatformTestCase() {
             Files.writeString(stdlib.resolve("array.cr"), "class Array; end")
             Files.createDirectories(stdlib.resolve("json"))
             Files.writeString(stdlib.resolve("json/parser.cr"), "module JSON; end")
-            for (excluded in listOf("compiler", "crystal", "lib_c", "lib_z", "ll", "llvm", "gc", "samples")) {
+            // The compiler tree is indexed now; only the CLI/C ABI/LLVM
+            // bindings subtrees stay excluded.
+            for (excluded in listOf("crystal", "lib_c", "lib_z", "ll", "llvm", "gc", "samples")) {
                 Files.createDirectories(stdlib.resolve(excluded))
                 Files.writeString(stdlib.resolve("$excluded/excluded.cr"), "class Excluded; end")
             }
