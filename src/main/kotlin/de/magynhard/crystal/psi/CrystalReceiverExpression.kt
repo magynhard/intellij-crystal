@@ -147,7 +147,12 @@ object CrystalReceiverExpression {
             }) {
             return null
         }
-        return root.text
+        // Keep the owner arguments in the root text: the constructor result of
+        // `Node(K, V).new(...)` is the parameterized type `Node(K, V)`, and
+        // parameter compatibility compares parameterized identities. Consumers
+        // normalize the arguments away for name lookup; identity preservation
+        // happens at the constructor-result site.
+        return root.text + callArgs.text
     }
 
     private fun promoteVariableAccess(receiver: PsiElement): PsiElement =

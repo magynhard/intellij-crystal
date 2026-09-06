@@ -103,9 +103,52 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val scope = GlobalSearchScope.projectScope(project)
         // Require-graph visibility: methods from files this call cannot see must
         // not participate in the overload set.
-        val methods = CrystalRequireVisibility.visibleMethods(
-            CrystalIndexService.findMethods(methodName, project, scope).toList(), callExpr
+        val methods = CrystalRequireVisibility.callableUnqualified(
+            CrystalRequireVisibility.visibleMethods(
+                CrystalIndexService.findMethods(methodName, project, scope).toList(), callExpr
+            ),
+            callExpr,
         )
+
+        // An unqualified `new` inside a type resolves through the shared exact
+        // constructor pool — explicit `def self.new` overloads plus implicit
+        // initializer forwarders, including inherited ones — exactly like the
+        // DOT-call path. The plain method index only contains written `new`
+        // definitions, so a forwarding call such as `def self.new(context,
+        // exception)` calling `new(exception, ... 10 args)` against an inherited
+        // initializer was measured against the two-parameter forwarder alone.
+        if (methodName == "new") {
+            val enclosingType = CrystalPsiUtils.getEnclosingType(callExpr)
+            val qualifiedName = enclosingType?.let(CrystalPsiUtils::buildQualifiedName)
+            if (qualifiedName != null) {
+                val identity = de.magynhard.crystal.analysis.CrystalTypeIdentity(
+                    qualifiedName.substringAfterLast("::"),
+                    qualifiedName,
+                )
+                val session = de.magynhard.crystal.analysis.CrystalTypeSetResolver.session(callExpr)
+                when (val resolution = session.resolveConstructor(identity)) {
+                    is de.magynhard.crystal.analysis.CrystalConstructorResolution.Methods -> {
+                        checkArgumentCount(resolution.methods, arguments, methodNameElement, holder)
+                        return
+                    }
+                    is de.magynhard.crystal.analysis.CrystalConstructorResolution.Record -> {
+                        val fieldArguments = CrystalPsiUtils.recordFieldArguments(resolution.recordDefinition)
+                        if (fieldArguments.isNotEmpty()) {
+                            checkRecordArguments(extractRecordFields(fieldArguments), arguments, methodNameElement, holder)
+                        }
+                        return
+                    }
+                    is de.magynhard.crystal.analysis.CrystalConstructorResolution.Implicit -> {
+                        checkImplicitConstructorArguments(arguments, methodNameElement, holder)
+                        return
+                    }
+                    is de.magynhard.crystal.analysis.CrystalConstructorResolution.Abstract,
+                    is de.magynhard.crystal.analysis.CrystalConstructorResolution.Incomplete,
+                    -> return
+                    is de.magynhard.crystal.analysis.CrystalConstructorResolution.Unavailable -> Unit
+                }
+            }
+        }
 
         if (methods.isEmpty()) return
 

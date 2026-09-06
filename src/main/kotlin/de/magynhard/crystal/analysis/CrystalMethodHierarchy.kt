@@ -292,9 +292,15 @@ internal class CrystalMethodHierarchy(
         } else {
             lexicalTypeCandidates(simpleName, edgeContext)
         }
+        // A type is never its own superclass: `class ExceptionPage < ExceptionPage`
+        // inside `module Kemal` lexically matches Kemal::ExceptionPage first, but
+        // Crystal resolves the edge to the outer declaration instead (the compiler
+        // compiles the shard pattern against the top-level ExceptionPage). Skipping
+        // the self-match lets the next lexical candidate resolve the real edge.
+        val selfIdentity = CrystalPsiUtils.buildQualifiedName(edgeContext)
         for (candidate in candidates) {
             val identities = findTypesByName(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName)
-                .filter { it == candidate }.distinct()
+                .filter { it == candidate && it != selfIdentity }.distinct()
             if (identities.size > 1) return null
             identities.singleOrNull()?.let { return CrystalTypeIdentity(simpleName, it) }
         }

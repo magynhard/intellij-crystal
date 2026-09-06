@@ -72,8 +72,11 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         val scope = GlobalSearchScope.projectScope(project)
         // Require-graph visibility: methods from files this call cannot see must
         // not participate in the overload set.
-        var methods = CrystalRequireVisibility.visibleMethods(
-            CrystalIndexService.findMethods(methodName, project, scope).toList(), callExpr
+        var methods = CrystalRequireVisibility.callableUnqualified(
+            CrystalRequireVisibility.visibleMethods(
+                CrystalIndexService.findMethods(methodName, project, scope).toList(), callExpr
+            ),
+            callExpr,
         )
 
         // Check record definition first — if `record Config, ...` exists in the

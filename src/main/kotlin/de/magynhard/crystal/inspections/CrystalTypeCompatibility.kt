@@ -107,8 +107,11 @@ object CrystalTypeCompatibility {
 
         // Handle generic types: "Array(Int32)", "Hash(String, Int32)", etc.
         if (normalizedParam.contains("(") && argType.contains("(")) {
-            val paramBase = normalizedParam.substringBefore("(").trim()
-            val argBase = argType.substringBefore("(").trim()
+            // Compare the simple base names: a generic instance written inside
+            // its own class (`Node(K, V)`) and the resolved qualified identity
+            // (`Kemal::LRUCache::Node(K, V)`) name the same type.
+            val paramBase = normalizedParam.substringBefore("(").trim().substringAfterLast("::")
+            val argBase = argType.substringBefore("(").trim().substringAfterLast("::")
             if (paramBase != argBase) return false
             // Same base generic — compare inner types
             val paramInner = extractGenericTypeArgs(normalizedParam)

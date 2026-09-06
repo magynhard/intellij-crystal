@@ -2,6 +2,7 @@ package de.magynhard.crystal.analysis
 
 import com.intellij.psi.PsiElement
 import de.magynhard.crystal.psi.CrystalMethodDefinition
+import de.magynhard.crystal.psi.CrystalPsiUtils
 
 /**
  * Require-graph visibility for name-based lookups that bypass the shared
@@ -25,5 +26,31 @@ internal object CrystalRequireVisibility {
         val sources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
         if (sources.files.isEmpty()) return emptyList()
         return methods.filter { sources.contains(it) }
+    }
+
+    /**
+     * Callable-scope filter for receiver-less calls on top of [visibleMethods]:
+     * an unqualified name resolves against top-level methods plus the
+     * implicit-self scope of the enclosing type. Instance methods of unrelated
+     * types (a shard's `Frame#context` meeting the spec DSL's top-level
+     * `context`) need a receiver and must not enter the overload pool.
+     * Top-level `def self.` methods stay excluded, mirroring the shared
+     * unqualified-call resolution.
+     */
+    fun callableUnqualified(
+        methods: Collection<CrystalMethodDefinition>,
+        context: PsiElement,
+    ): List<CrystalMethodDefinition> {
+        val callSiteType = CrystalPsiUtils.getEnclosingType(context)?.let(CrystalPsiUtils::buildQualifiedName)
+        return methods.filter { method ->
+            val enclosing = CrystalPsiUtils.getEnclosingType(method)
+            when {
+                enclosing == null -> !CrystalPsiUtils.isSelfMethod(method)
+                else -> {
+                    val owner = CrystalPsiUtils.buildQualifiedName(enclosing)
+                    callSiteType != null && (owner == callSiteType || callSiteType.startsWith("$owner::"))
+                }
+            }
+        }
     }
 }

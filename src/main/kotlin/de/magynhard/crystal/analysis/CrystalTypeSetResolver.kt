@@ -295,6 +295,13 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val firstAccess = children.indexOfFirst { it is CrystalDotCallAccess }
         if (firstAccess < 0) return CrystalTypeResolution.Unknown
         val baseElements = children.take(firstAccess)
+        // Generic owner arguments (`Node(K, V)`) survive into the constructor
+        // result: the instance type is the parameterized identity, so later
+        // parameter compatibility compares `Node(K, V)` against the same
+        // parameterized form instead of the bare name.
+        val genericSuffix = exactTypeRoot(baseElements)
+            ?.let { root -> if (root.contains('(')) root.substring(root.indexOf('(')) else "" }
+            .orEmpty()
         var receiver: ReceiverState = exactTypeRoot(baseElements)?.let { root ->
             val identity = resolveTypeIdentity(root, callContext) ?: return CrystalTypeResolution.Unknown
             ReceiverState.TypeObject(identity)
@@ -314,7 +321,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                                 is CrystalConstructorResolution.Record -> Unit
                                 else -> return CrystalTypeResolution.Unknown
                             }
-                            ReceiverState.Values(knownType(receiver.identity.qualifiedName))
+                            ReceiverState.Values(knownType(receiver.identity.qualifiedName + genericSuffix))
                         } else {
                             ReceiverState.Values(
                                 resolveCall(listOf(receiver.identity.qualifiedName), name, true, dotAccess)

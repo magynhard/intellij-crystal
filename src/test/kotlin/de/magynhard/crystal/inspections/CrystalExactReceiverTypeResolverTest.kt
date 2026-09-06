@@ -115,7 +115,10 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
     fun testNeutralHelperExtractsGenericConstantRootDirectly() {
         val receiver = receiverCalls("Box(Int32).run").getValue("run")
 
-        assertEquals("Box", CrystalReceiverExpression.extractExactConstantTypeRoot(receiver))
+        // The generic owner arguments stay in the root text: the constructor
+        // result is the parameterized identity, and parameter compatibility
+        // compares parameterized forms. Name lookups normalize them away.
+        assertEquals("Box(Int32)", CrystalReceiverExpression.extractExactConstantTypeRoot(receiver))
     }
 
     fun testResolvesNearestPrecedingLocalConstructorAssignment() {
