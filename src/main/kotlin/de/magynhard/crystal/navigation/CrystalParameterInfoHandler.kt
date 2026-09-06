@@ -82,8 +82,7 @@ class CrystalParameterInfoHandler : ParameterInfoHandler<PsiElement, Any> {
      * Extracts a parameter list from a `record` macro call for parameter info display.
      */
     private fun extractRecordParameterList(recordCall: CrystalMethodCallExpression): RecordParameterInfo? {
-        val bareArgList = recordCall.bareArgumentList ?: return null
-        val args = bareArgList.bareArgumentList
+        val args = CrystalPsiUtils.recordArguments(recordCall)
         if (args.size <= 1) return RecordParameterInfo(emptyList())
 
         val params = mutableListOf<RecordParam>()

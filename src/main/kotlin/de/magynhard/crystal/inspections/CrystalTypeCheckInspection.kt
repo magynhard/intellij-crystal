@@ -200,9 +200,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             is DotCallResolution.RecordFallback -> {
                 val arguments = extractDotCallArguments(resolution.call.argumentHolder)
                 if (arguments.isEmpty()) return
-                val recordArgs = resolution.recordDefinition.bareArgumentList ?: return
-                if (recordArgs.bareArgumentList.size <= 1) return
-                checkRecordTypeArgs(recordParamsFrom(recordArgs), arguments, holder)
+                val fieldArguments = CrystalPsiUtils.recordFieldArguments(resolution.recordDefinition)
+                if (fieldArguments.isEmpty()) return
+                checkRecordTypeArgs(recordParamsFrom(fieldArguments), arguments, holder)
             }
             is DotCallResolution.ImplicitConstructor,
             DotCallResolution.Suppressed,
@@ -599,17 +599,15 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     private fun extractRecordParamInfo(className: String, contextElement: PsiElement): List<RecordParamInfo>? {
         val file = contextElement.containingFile ?: return null
         val recordDef = CrystalCompletionHelper.findRecordDefinition(className, file) ?: return null
-        val bareArgList = recordDef.bareArgumentList ?: return null
-        if (bareArgList.bareArgumentList.size <= 1) return emptyList()
-        return recordParamsFrom(bareArgList)
+        val fieldArguments = CrystalPsiUtils.recordFieldArguments(recordDef)
+        if (fieldArguments.isEmpty()) return emptyList()
+        return recordParamsFrom(fieldArguments)
     }
 
-    /** Extracts name/type/default triples from a record definition's argument list (skipping the type name at index 0). */
-    private fun recordParamsFrom(bareArgList: CrystalBareArgumentList): List<RecordParamInfo> {
-        val args = bareArgList.bareArgumentList
+    /** Extracts name/type/default triples from a record definition's field arguments. */
+    private fun recordParamsFrom(fieldArguments: List<PsiElement>): List<RecordParamInfo> {
         val params = mutableListOf<RecordParamInfo>()
-        for (i in 1 until args.size) {
-            val arg = args[i]
+        for (arg in fieldArguments) {
             val children = arg.node.getChildren(null)
             var name: String? = null
             var typeText: String? = null

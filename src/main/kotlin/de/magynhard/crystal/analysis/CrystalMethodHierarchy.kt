@@ -341,7 +341,9 @@ internal class CrystalMethodHierarchy(
 
     private fun findExactMethods(type: CrystalTypeIdentity): List<CrystalMethodDefinition> = methods.getOrPut(type) {
         findMethodsByTypeName(type.simpleName).asSequence().filter { method ->
-            CrystalPsiUtils.getEnclosingType(method)?.let(CrystalPsiUtils::buildQualifiedName) == type.qualifiedName
+            val owner = method.stub?.enclosingRecordQualifiedName
+                ?: CrystalPsiUtils.getEnclosingType(method)?.let(CrystalPsiUtils::buildQualifiedName)
+            owner == type.qualifiedName
         }.sortedWith(sourcePrecedence()).toList()
     }
 

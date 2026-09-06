@@ -201,8 +201,7 @@ class CrystalReference(
     private fun findAssignmentWithName(element: PsiElement, targetName: String): PsiElement? {
         // Don't cross scope boundaries
         if (element is CrystalMethodDefinition || element is CrystalMacroDefinition ||
-            element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-            element is CrystalStructDefinition || element is CrystalEnumDefinition) {
+            CrystalPsiUtils.isTypeDefinition(element)) {
             return null
         }
         // Hard boundary: never recurse into files or directories. This is a defensive

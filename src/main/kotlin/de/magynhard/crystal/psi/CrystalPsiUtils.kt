@@ -22,23 +22,44 @@ object CrystalPsiUtils {
 
     fun findRecordDefinitions(className: String, file: PsiFile): List<RecordDefinition> {
         return PsiTreeUtil.findChildrenOfType(file, CrystalMethodCallExpression::class.java).mapNotNull { call ->
-            if (call.firstChild?.text != "record") return@mapNotNull null
-            val firstArgument = call.bareArgumentList?.bareArgumentList?.firstOrNull()
-                ?: return@mapNotNull null
-            val firstName = firstArgument.firstChild
-            val name = if (firstName?.node?.elementType == CrystalTypes.CONSTANT) {
-                firstName.text
-            } else {
-                firstName?.node?.findChildByType(CrystalTypes.CONSTANT)?.text
-            }
+            val name = recordName(call) ?: return@mapNotNull null
             if (name != className) return@mapNotNull null
-            val enclosingName = getEnclosingType(call)?.let(::buildQualifiedName)
             RecordDefinition(
-                listOfNotNull(enclosingName, name).joinToString("::"),
+                buildQualifiedName(call) ?: return@mapNotNull null,
                 call
             )
         }
     }
+
+    fun recordName(call: CrystalMethodCallExpression): String? {
+        return recordDeclaredName(call)?.removePrefix("::")?.substringAfterLast("::")
+    }
+
+    fun recordArguments(call: CrystalMethodCallExpression): List<PsiElement> =
+        call.bareArgumentList?.bareArgumentList.orEmpty() +
+            call.callArgs?.argumentList?.argumentList.orEmpty()
+
+    /** Field arguments of a record declaration, without the leading type-name argument. */
+    fun recordFieldArguments(call: CrystalMethodCallExpression): List<PsiElement> =
+        recordArguments(call).drop(1)
+
+    private fun recordDeclaredName(call: CrystalMethodCallExpression): String? {
+        if (call.firstChild?.text != "record") return null
+        val candidate = recordArguments(call).firstOrNull()?.text?.filterNot(Char::isWhitespace) ?: return null
+        return candidate.takeIf { RECORD_NAME.matches(it) }
+    }
+
+    /**
+     * Returns whether the element is a nominal type boundary: a class, module,
+     * struct, or enum definition, or a `record` declaration with a type body.
+     */
+    fun isTypeDefinition(element: PsiElement): Boolean =
+        element is CrystalClassDefinition ||
+            element is CrystalModuleDefinition ||
+            element is CrystalStructDefinition ||
+            element is CrystalEnumDefinition ||
+            element is CrystalMethodCallExpression && recordName(element) != null &&
+            element.classBody != null
 
     fun buildLexicalQualifiedNameCandidates(simpleName: String, context: PsiElement): Set<String> {
         val candidates = linkedSetOf<String>()
@@ -111,7 +132,13 @@ object CrystalPsiUtils {
                 is CrystalModuleDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalStructDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalEnumDefinition -> extractQualifiedTypeName(current) ?: current.name
+                is CrystalMethodCallExpression -> recordDeclaredName(current)
                 else -> null
+            }
+            if (name?.startsWith("::") == true) {
+                parts.clear()
+                parts.add(name.removePrefix("::"))
+                break
             }
             if (name != null) parts.add(0, name)
             current = current.parent
@@ -139,14 +166,12 @@ object CrystalPsiUtils {
     }
 
     /**
-     * Returns the immediate enclosing class/module/struct/enum of an element.
+     * Returns the immediate enclosing class/module/struct/enum (or body-bearing
+     * record declaration) of an element.
      */
     fun getEnclosingType(element: PsiElement): PsiElement? {
         return PsiTreeUtil.findFirstParent(element) { parent ->
-            parent is CrystalClassDefinition ||
-            parent is CrystalModuleDefinition ||
-            parent is CrystalStructDefinition ||
-            parent is CrystalEnumDefinition
+            parent !== element && isTypeDefinition(parent)
         }
     }
 
@@ -212,4 +237,6 @@ object CrystalPsiUtils {
         // If there are multiple CONSTANTS (e.g. Foo::Bar), return the full qualified name
         return if (constants.size >= 2) constants.joinToString("::") else null
     }
+
+    private val RECORD_NAME = Regex("(?:::)?[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*")
 }

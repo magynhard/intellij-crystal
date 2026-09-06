@@ -60,6 +60,79 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         assertContainsElements(topLevelMethods.mapNotNull { it.name }, "global_method")
     }
 
+    fun testIndexesRecordBodyMethodsUnderRecordType() {
+        myFixture.addFileToProject("record.cr", """
+            record Config, value : Int32 do
+              def formatted_value
+                value.to_s
+              end
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val recordMethods = CrystalIndexService.findMethodsByClass("Config", project, scope)
+        val topLevelMethods = CrystalIndexService.findTopLevelMethods("formatted_value", project, scope)
+
+        assertContainsElements(recordMethods.mapNotNull { it.name }, "formatted_value")
+        assertEmpty(topLevelMethods)
+    }
+
+    fun testIndexesRecordBodySelfMethodsUnderRecordType() {
+        myFixture.addFileToProject("record_self.cr", """
+            record Meter, value : Int32 do
+              def self.build(value : Int32)
+                new(value)
+              end
+
+              def reset
+              end
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val recordMethods = CrystalIndexService.findMethodsByClass("Meter", project, scope)
+        val topLevelMethods = CrystalIndexService.findTopLevelMethods("build", project, scope)
+
+        assertContainsElements(recordMethods.mapNotNull { it.name }, "build", "reset")
+        assertEmpty(topLevelMethods)
+    }
+
+    fun testIndexesQualifiedRecordBodyMethodsUnderRecordType() {
+        myFixture.addFileToProject("record_qualified.cr", """
+            record Registry::Entry, name : String do
+              def label
+                name
+              end
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val byClass = CrystalIndexService.findMethodsByClass("Entry", project, scope)
+        val topLevelMethods = CrystalIndexService.findTopLevelMethods("label", project, scope)
+
+        assertContainsElements(byClass.mapNotNull { it.name }, "label")
+        assertEquals("Registry::Entry", byClass.single().stub?.enclosingRecordQualifiedName)
+        assertEmpty(topLevelMethods)
+    }
+
+    fun testIndexesNestedTypeMethodsInsideRecordBodyUnderNestedType() {
+        myFixture.addFileToProject("record_nested.cr", """
+            record Outer do
+              class Inner
+                def value
+                end
+              end
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val innerMethods = CrystalIndexService.findMethodsByClass("Inner", project, scope)
+        val outerMethods = CrystalIndexService.findMethodsByClass("Outer", project, scope)
+
+        assertContainsElements(innerMethods.mapNotNull { it.name }, "value")
+        assertEmpty(outerMethods)
+    }
+
     fun testFileLevelSelfMethodIsNotIndexedAsTopLevel() {
         myFixture.addFileToProject("self_method.cr", """
             def self.require(path)

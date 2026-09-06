@@ -1600,8 +1600,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         element is CrystalMethodDefinition || element is CrystalMacroDefinition || isTypeBoundary(element) || element is PsiFile
 
     private fun isTypeBoundary(element: PsiElement): Boolean =
-        element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-            element is CrystalStructDefinition || element is CrystalEnumDefinition
+        CrystalPsiUtils.isTypeDefinition(element)
 
     private fun types(name: String): List<CrystalNamedElement> = typeCache.getOrPut(name) {
         CrystalIndexService.findTypes(name, context.project, GlobalSearchScope.allScope(context.project))

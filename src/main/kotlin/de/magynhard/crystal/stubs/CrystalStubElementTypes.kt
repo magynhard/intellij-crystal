@@ -153,16 +153,27 @@ class CrystalMethodDefinitionElementType(debugName: String) :
     override fun serialize(stub: CrystalMethodDefinitionStub, dataStream: StubOutputStream) {
         dataStream.writeName(stub.name)
         dataStream.writeBoolean(stub.isSelfMethod)
+        dataStream.writeName(stub.enclosingRecordQualifiedName)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalMethodDefinitionStub {
         val name = dataStream.readNameString()
         val isSelfMethod = dataStream.readBoolean()
-        return CrystalMethodDefinitionStub(parentStub, this, name, isSelfMethod)
+        val enclosingRecordQualifiedName = dataStream.readNameString()
+        return CrystalMethodDefinitionStub(parentStub, this, name, isSelfMethod, enclosingRecordQualifiedName)
     }
 
     override fun createStub(psi: CrystalMethodDefinition, parentStub: StubElement<out PsiElement>?): CrystalMethodDefinitionStub {
-        return CrystalMethodDefinitionStub(parentStub, this, psi.name, CrystalPsiUtils.isSelfMethod(psi))
+        val enclosingRecordQualifiedName = CrystalPsiUtils.getEnclosingType(psi)
+            ?.takeIf { it is CrystalMethodCallExpression }
+            ?.let(CrystalPsiUtils::buildQualifiedName)
+        return CrystalMethodDefinitionStub(
+            parentStub,
+            this,
+            psi.name,
+            CrystalPsiUtils.isSelfMethod(psi),
+            enclosingRecordQualifiedName,
+        )
     }
 
     override fun createPsi(stub: CrystalMethodDefinitionStub): CrystalMethodDefinition {
@@ -176,7 +187,8 @@ class CrystalMethodDefinitionElementType(debugName: String) :
         // Index by enclosing class/module/struct/enum name for O(1) class→methods lookups.
         // Top-level defs (no enclosing type) go into a dedicated index so free-text
         // completion can retrieve them without scanning all methods.
-        val className = findEnclosingParentName(stub)
+        val className = stub.enclosingRecordQualifiedName?.substringAfterLast("::")
+            ?: findEnclosingParentName(stub)
         if (className != null) {
             sink.occurrence(CrystalMethodByClassIndex.KEY, className)
         } else if (name != null && !stub.isSelfMethod) {

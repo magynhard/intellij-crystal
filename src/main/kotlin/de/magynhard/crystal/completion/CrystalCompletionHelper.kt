@@ -84,8 +84,7 @@ object CrystalCompletionHelper {
      * Returns a string like "(host : String, port : Int32 = 80, ssl : Bool = false)".
      */
     fun getRecordSignature(recordCall: CrystalMethodCallExpression): String {
-        val bareArgList = recordCall.bareArgumentList ?: return "()"
-        val args = bareArgList.bareArgumentList
+        val args = CrystalPsiUtils.recordArguments(recordCall)
         if (args.size <= 1) return "()"
 
         val paramStrings = mutableListOf<String>()

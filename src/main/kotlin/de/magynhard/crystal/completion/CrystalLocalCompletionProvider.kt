@@ -163,10 +163,7 @@ internal object CrystalLocalCompletionProvider {
     ) {
         var enteredEnclosing = false
         fun visit(element: PsiElement) {
-            if (enteredEnclosing &&
-                (element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-                    element is CrystalStructDefinition || element is CrystalEnumDefinition)
-            ) {
+            if (enteredEnclosing && CrystalPsiUtils.isTypeDefinition(element)) {
                 return
             }
             when (element) {
@@ -185,10 +182,7 @@ internal object CrystalLocalCompletionProvider {
             } else if (tokenType == CrystalTypes.CLASS_VAR) {
                 add(element.text, "class variable")
             }
-            if (!enteredEnclosing &&
-                (element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-                    element is CrystalStructDefinition || element is CrystalEnumDefinition)
-            ) {
+            if (!enteredEnclosing && CrystalPsiUtils.isTypeDefinition(element)) {
                 enteredEnclosing = true
             }
             for (child in element.children) visit(child)

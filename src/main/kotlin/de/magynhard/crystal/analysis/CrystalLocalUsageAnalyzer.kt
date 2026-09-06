@@ -1122,7 +1122,5 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
 
     private fun isHardBoundary(element: PsiElement): Boolean =
         element is CrystalMethodDefinition || element is CrystalMacroDefinition ||
-            element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-            element is CrystalStructDefinition || element is CrystalEnumDefinition ||
-            element is CrystalFile
+            CrystalPsiUtils.isTypeDefinition(element) || element is CrystalFile
 }

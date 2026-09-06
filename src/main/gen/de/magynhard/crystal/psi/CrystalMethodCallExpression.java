@@ -16,4 +16,7 @@ public interface CrystalMethodCallExpression extends PsiElement {
   @Nullable
   CrystalCallArgs getCallArgs();
 
+  @Nullable
+  CrystalClassBody getClassBody();
+
 }

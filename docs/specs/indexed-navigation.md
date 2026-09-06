@@ -18,6 +18,8 @@ The active index set consists of exactly nine indexes:
 
 Constant, instance-variable, and class-variable declaration indexes are intentionally absent. Constant indexing is deferred until the grammar distinguishes definition contexts from ordinary statement assignment. Variable indexing remains deferred unless a valid stubbed declaration model is designed.
 
+Methods declared in a `record Name, ... do ... end` body carry the enclosing record's qualified name in their method stub. They are emitted to `CrystalMethodByClassIndex` under the record's simple name and are excluded from `CrystalTopLevelMethodIndex`, even though the record declaration itself remains a macro-call PSI element rather than a named type stub. Exact-identity filtering prefers the serialized qualified owner over PSI ancestor walks, so record-body methods survive index persistence; qualified identities (`record Registry::Entry`) and records nested in classes or modules keep their full identity, while a class nested inside a record body owns its methods itself.
+
 ## Index Gateway
 
 Production code accesses stub indexes through the stateless `CrystalIndexService`, the typed production gateway for StubIndex access. The service exposes typed element lookup, streaming element processing, and key-processing methods; callers must always choose an explicit `GlobalSearchScope`. Completion, references, documentation, Parameter Info, and SDK-aware paths use all scope where library definitions are required. Inspections use project scope when diagnostics must be limited to project declarations. Navigation contributors use the scope supplied by IntelliJ.

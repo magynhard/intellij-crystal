@@ -803,7 +803,12 @@ grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] NLS RPAR
 // starts a BLOCK (bound by the trailing [block] or the block-only alternatives below),
 // never a hash argument — real Crystal parses `Thread.new { }` as an empty block and
 // even errors on `f {"a" => 1}`; braces after a comma (`f 1, {…}`) stay hash literals.
-method_call_expression ::= [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
+// `record Name, field : Type do ... end` is a macro call whose body is parsed
+// as a type body: unlike an ordinary runtime block it may contain definitions.
+// Keep it a method_call_expression so existing record constructor resolution,
+// completion, navigation, and inspections continue to consume its arguments.
+method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare_argument_list) DO class_body END
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !binary_op_lookahead bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
                          | (IDENTIFIER | CONSTANT) block

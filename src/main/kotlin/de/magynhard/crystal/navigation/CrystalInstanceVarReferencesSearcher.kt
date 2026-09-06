@@ -43,8 +43,9 @@ class CrystalInstanceVarReferencesSearcher : QueryExecutorBase<PsiReference, Ref
             return
         }
         for (child in element.children) {
-            // Don't cross into nested classes/structs/modules
-            if (child is CrystalClassDefinition || child is CrystalStructDefinition || child is CrystalModuleDefinition) {
+            // Don't cross into nested types (classes, structs, modules, enums,
+            // or body-bearing record declarations)
+            if (CrystalPsiUtils.isTypeDefinition(child)) {
                 continue
             }
             collectVarAccesses(child, varName, results)

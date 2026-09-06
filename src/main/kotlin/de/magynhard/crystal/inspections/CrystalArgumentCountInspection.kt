@@ -135,9 +135,8 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 holder
             )
             is DotCallResolution.RecordFallback -> {
-                val recordArguments = resolution.recordDefinition.bareArgumentList ?: return
                 checkRecordArguments(
-                    extractRecordFields(recordArguments),
+                    extractRecordFields(CrystalPsiUtils.recordFieldArguments(resolution.recordDefinition)),
                     arguments,
                     call.methodNameElement,
                     holder
@@ -642,15 +641,12 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     // ==================== Record Macro Support ====================
 
     /**
-     * Extracts parameter infos from a record's bare argument list.
+     * Extracts parameter infos from a record's field arguments.
      * Each record field like `host : String` or `port : Int32 = 80` becomes a ParamInfo.
      */
-    private fun extractRecordFields(bareArgList: CrystalBareArgumentList): List<ParamInfo> {
+    private fun extractRecordFields(fieldArguments: List<PsiElement>): List<ParamInfo> {
         val params = mutableListOf<ParamInfo>()
-        val args = bareArgList.bareArgumentList
-        // Skip the first argument (class name)
-        for (i in 1 until args.size) {
-            val arg = args[i]
+        for (arg in fieldArguments) {
             val children = arg.node.getChildren(null)
             var name: String? = null
             var hasDefault = false

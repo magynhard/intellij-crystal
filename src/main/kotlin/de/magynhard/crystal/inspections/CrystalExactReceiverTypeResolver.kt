@@ -417,8 +417,7 @@ internal object CrystalExactReceiverTypeResolver {
         element.node.getChildren(null).map { it.psi }.filterNot(::isTrivia)
 
     private fun isTypeBoundary(element: PsiElement): Boolean =
-        element is CrystalClassDefinition || element is CrystalModuleDefinition ||
-            element is CrystalStructDefinition || element is CrystalEnumDefinition
+        CrystalPsiUtils.isTypeDefinition(element)
 
     private data class ResolutionEvidence(
         val found: Boolean,

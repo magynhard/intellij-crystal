@@ -24,7 +24,7 @@ class CrystalParserDefinition : ParserDefinition {
             override fun getExternalId(): String = "crystal.FILE"
             // v15: pointer-typed declaration-macro arguments keep later declarations parseable
             // in unchanged stdlib files, so persisted indexes must rebuild.
-            override fun getStubVersion(): Int = 15
+            override fun getStubVersion(): Int = 16
         }
     }
 

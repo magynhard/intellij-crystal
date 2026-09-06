@@ -6,6 +6,12 @@ import de.magynhard.crystal.psi.CrystalTypes
 
 object CrystalParserPredicates {
     @JvmStatic
+    fun isRecordDeclaration(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean = builder.tokenType === CrystalTypes.IDENTIFIER && builder.tokenText == "record"
+
+    @JvmStatic
     fun colonHasLeadingDeclarationWhitespace(
         builder: PsiBuilder,
         @Suppress("UNUSED_PARAMETER") level: Int,

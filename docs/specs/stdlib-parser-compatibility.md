@@ -135,6 +135,25 @@ indexed files and 2,625 errors in 714 distribution files. This confirms that no
 valid corpus construct depended on the historical trailing-modifier acceptance.
 The external kemal inspection audit remains stable at 18 known findings.
 
+Record declarations with `do ... end` bodies use type-body grammar rather than
+ordinary call-block grammar, so declarations such as `def matches?` and
+`def self.new` remain structured members. The record-specific alternative is
+selected only when the unqualified callee text is exactly `record` and accepts
+both the bare (`record Name, field : Type`) and parenthesized
+(`record(Name, field : Type)`) argument forms plus qualified names
+(`record Registry::Entry, ...`). Ordinary method blocks remain statement
+bodies and cannot acquire type declarations. Record field extraction is
+unified: bare and parenthesized argument shapes share one accessor, so
+constructor signatures, Parameter Info, and argument diagnostics treat both
+spellings identically.
+The indexed corpus drops to 128 errors in 92 files, with the five affected files
+advancing past their record bodies and no previously clean file regressing.
+Methods in a record body are indexed under the record's qualified type rather
+than as top-level methods, including records nested in classes or modules; a
+type nested inside a record body keeps its own ownership. Record constructor
+completion retains its exact identity. The changed method-stub serialization
+increments the file stub version.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

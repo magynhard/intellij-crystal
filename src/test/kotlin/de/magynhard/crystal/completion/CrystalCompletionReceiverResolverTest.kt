@@ -56,6 +56,29 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         assertTrue(receiver.recordDefinition!!.text.startsWith("record Config"))
     }
 
+    fun testResolvesRecordTypeObjectWithDefinitionBody() {
+        val position = configurePosition(
+            "record Config, name : String do\n  def label\n    name\n  end\nend\nConfig.<caret>"
+        )
+        val receiver = CrystalCompletionReceiverResolver.resolve(position) as CompletionReceiver.TypeObject
+
+        assertEquals("Config", receiver.qualifiedName)
+        assertNotNull(receiver.recordDefinition)
+        assertTrue(receiver.recordDefinition!!.text.startsWith("record Config"))
+    }
+
+    fun testResolvesSameSimpleNameRecordsByLexicalIdentity() {
+        val position = configurePosition(
+            "module Left\n  record Config, a : Int32\nend\n" +
+                "module Right\n  record Config, b : String do\n    def label\n      b\n    end\n  end\n" +
+                "  Config.<caret>\nend"
+        )
+        val receiver = CrystalCompletionReceiverResolver.resolve(position) as CompletionReceiver.TypeObject
+
+        assertEquals("Right::Config", receiver.qualifiedName)
+        assertTrue(receiver.recordDefinition!!.text.contains("record Config, b : String"))
+    }
+
     fun testRecordWinsSameExactIdentityTypeObjectCollision() {
         val position = configurePosition(
             "record Config, record_value : String\n" +
