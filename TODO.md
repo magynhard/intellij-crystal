@@ -72,7 +72,7 @@
 
 ## Call Argument Inspection Follow-up
 
-- [ ] **Model generic include-edge instantiation for array arguments (1 remaining kemal finding)** — `use "/multi", [TestHeaderHandler.new(...), ...]` at `spec/path_handler_spec.cr:157` reports "expected 'Int32' or 'HTTP::Handler' or 'Enumerable(HTTP::Handler)', got 'Array(TestHeaderHandler)'". Crystal accepts it because `Array(T)` includes `Enumerable(T)` with the include's type parameter substituted by the includer's own. Modeling that requires the include-edge generic-substitution step in the hierarchy before compatibility checking.
+- [ ] **Deepen generic include-edge leaf comparison** — the include-edge traversal (CrystalGenericIncludeCompat) accepts `Array(TestHeaderHandler)` against `Enumerable(HTTP::Handler)` structurally and leaves leaf comparisons to the existing user-type leniency; when the hierarchy gains concrete user-subclass relations for the type checker, wire the leaf comparison through it so genuinely wrong element types inside include-compatible generics are reported.
 - [ ] **Validate `lib fun` calls** — add indexed FFI function declaration resolution, then apply argument-count and argument-type diagnostics to calls such as `LibC.exit`, `LibC.exit()`, and `LibC.exit(value)`.
 - [ ] **Model named-only parameter boundaries** — preserve bare `*` and positional-splat boundaries in parameter metadata so positional arguments cannot satisfy parameters that must be passed by name.
 - [ ] **Validate signature parameter ordering** — report invalid required positional parameters declared after optional positional parameters while preserving valid named-only parameters after splats.

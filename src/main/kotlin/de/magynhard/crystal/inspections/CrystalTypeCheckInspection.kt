@@ -112,7 +112,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         // The unqualified-call lookup is name-based; the overload set may mix
         // unrelated definitions, so unknown slots simply skip their comparison.
         if (arguments.any { it.isSplat || it.isDoubleSplat }) {
-            checkExpandedOverloadTypes(methods, arguments, holder)
+            checkExpandedOverloadTypes(methods, arguments, holder, callExpr)
             return
         }
         for ((argIndex, argInfo) in arguments.withIndex()) {
@@ -149,8 +149,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 val paramType = paramTypeRef.text
                 expectedTypes.add(paramType)
 
-                if (CrystalTypeCompatibility.isCompatible(
-                        resolvedType.typeName, paramType, resolvedType.isUnsuffixedNumericLiteral
+                if (argumentCompatible(
+                        callExpr, resolvedType.typeName, paramType, resolvedType.isUnsuffixedNumericLiteral
                     )) {
                     anyOverloadAccepts = true
                     break
@@ -198,7 +198,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             is DotCallResolution.Methods -> {
                 val arguments = extractDotCallArguments(resolution.call.argumentHolder)
                 if (arguments.isEmpty()) return
-                checkOverloadTypes(resolution.methods, arguments, holder)
+                checkOverloadTypes(resolution.methods, arguments, holder, access)
             }
             is DotCallResolution.RecordFallback -> {
                 val arguments = extractDotCallArguments(resolution.call.argumentHolder)
@@ -231,12 +231,57 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         return result
     }
 
+    /**
+     * Argument compatibility with the hierarchy-aware fallback: beyond the
+     * string-level rules, a generic argument may reach the parameter's generic
+     * base through transitive include edges (`Array(TestHeaderHandler)` is an
+     * `Enumerable(HTTP::Handler)` because Array's include chain substitutes
+     * the includer's type parameter). Union parameters are split and any
+     * member may accept the argument.
+     */
+    private fun argumentCompatible(
+        context: PsiElement,
+        argType: String,
+        paramType: String,
+        isUnsuffixedNumericLiteral: Boolean = false,
+    ): Boolean {
+        if (CrystalTypeCompatibility.isCompatible(argType, paramType, isUnsuffixedNumericLiteral)) return true
+        for (member in splitTopLevelUnion(paramType)) {
+            if (CrystalTypeCompatibility.isCompatible(argType, member, isUnsuffixedNumericLiteral)) continue
+            if (de.magynhard.crystal.analysis.CrystalGenericIncludeCompat.includeEdgeCompatible(argType, member, context) == true) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /** Splits a union type on top-level pipes only (generics keep their pipes). */
+    private fun splitTopLevelUnion(paramType: String): List<String> {
+        if (!paramType.contains("|")) return listOf(paramType)
+        val members = mutableListOf<String>()
+        var depth = 0
+        var start = 0
+        for ((index, char) in paramType.withIndex()) {
+            when (char) {
+                '(', '{', '[' -> depth++
+                ')', '}', ']' -> depth--
+                '|' -> if (depth == 0) {
+                    members.add(paramType.substring(start, index).trim())
+                    start = index + 1
+                }
+            }
+        }
+        members.add(paramType.substring(start).trim())
+        return members.filter { it.isNotEmpty() }
+    }
+
     private fun checkOverloadTypes(
         methods: List<CrystalMethodDefinition>,
         arguments: List<ArgumentInfo>,
-        holder: ProblemsHolder
+        holder: ProblemsHolder,
+        context: PsiElement,
     ) {
-        checkExpandedOverloadTypes(methods, arguments, holder)
+        checkExpandedOverloadTypes(methods, arguments, holder, context)
     }
 
     /**
@@ -248,7 +293,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     private fun checkExpandedOverloadTypes(
         methods: List<CrystalMethodDefinition>,
         arguments: List<ArgumentInfo>,
-        holder: ProblemsHolder
+        holder: ProblemsHolder,
+        context: PsiElement,
     ) {
         val slots = materializeEffectiveSlots(arguments) ?: return
 
@@ -258,7 +304,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             val expectedTypes = mutableListOf<String>()
 
             for (method in methods) {
-                val verdict = evaluateExpandedSlot(method, slots, index)
+                val verdict = evaluateExpandedSlot(method, slots, index, context)
                 if (verdict.accepted) {
                     anyOverloadAccepts = true
                     break
@@ -365,6 +411,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         method: CrystalMethodDefinition,
         slots: List<EffectiveSlot>,
         targetIndex: Int,
+        context: PsiElement,
     ): ExpandedSlotVerdict {
         val params = method.parameterList?.parameterList
             ?: return ExpandedSlotVerdict.SKIPPED
@@ -399,7 +446,7 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     if (!isTarget) continue
                     val typeRef = param.typeReference ?: return ExpandedSlotVerdict.SKIPPED
                     return ExpandedSlotVerdict(
-                        accepted = CrystalTypeCompatibility.isCompatible(slot.typeName ?: return ExpandedSlotVerdict.SKIPPED, typeRef.text),
+                        accepted = argumentCompatible(context, slot.typeName ?: return ExpandedSlotVerdict.SKIPPED, typeRef.text),
                         compared = true,
                         expectedType = typeRef.text,
                     )
@@ -415,8 +462,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     val typeRef = param.typeReference ?: return ExpandedSlotVerdict.SKIPPED
                     val argTypeName = slot.typeName ?: return ExpandedSlotVerdict.SKIPPED
                     return ExpandedSlotVerdict(
-                        accepted = CrystalTypeCompatibility.isCompatible(
-                            argTypeName, typeRef.text, slot.isUnsuffixedNumericLiteral
+                        accepted = argumentCompatible(
+                            context, argTypeName, typeRef.text, slot.isUnsuffixedNumericLiteral
                         ),
                         compared = true,
                         expectedType = typeRef.text,

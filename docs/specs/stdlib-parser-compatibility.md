@@ -192,6 +192,17 @@ by a whitespace-separated regex without a dotted receiver — remains a known
 limitation: Crystal resolves it through parser-level backtracking that a PEG
 lexer/parser split cannot reproduce, and it is tracked in `TODO.md`.
 
+The argument type check gained generic include-edge instantiation: when a
+parameter is a generic like `Enumerable(HTTP::Handler)` and the argument is a
+generic with a different base like `Array(TestHeaderHandler)`, the checker
+walks the argument base's include statements transitively
+(`Array(T)` → `Indexable::Mutable(T)` → `Indexable(T)` → `Enumerable(T)`)
+through the require-graph lens, substitutes the includer's own type
+parameters with the caller's actual type arguments, and accepts when the
+reached include's base matches the parameter's generic base with compatible
+substituted arguments. Union parameters split and any member accepts; the
+traversal only turns definite mismatches into acceptances.
+
 The dot-call and statement-level bare-argument alternatives honor Crystal's
 unary-operator whitespace rule: a spaced binary operator blocks the bare
 alternatives so `Time.monotonic - start` stays the binary minus, while the
