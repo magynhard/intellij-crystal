@@ -201,6 +201,13 @@ indexed declaration and every constructor call resolves to an empty pool
 files; the compiler's own parse errors (65 in the distribution corpus) are
 now visible in the indexed numbers as well.
 
+The dot-call bare-argument guard blocks the binary range operators
+(`..`, `...`) consistently with the unqualified bare-call path: the range
+operators are binary-only in Crystal and always bind to the left expression
+(`0.seconds..1.day` in ameba's admonition case ranges is a Range, never
+`0.seconds(..1.day)`); Crystal rejects a leading `..` in bare argument
+position. The range-as-bare-argument form (`f 1..2`) keeps parsing.
+
 The shared call resolution merges return types across overloads when every
 overload declares the same return annotation (all seven `String#gsub`
 overloads declare `: String` — the chain type is determinable), while

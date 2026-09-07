@@ -151,6 +151,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testWhenRangeEntries() {
+        doTest(true)
+    }
+
     fun testTypedDeclaration() {
         doTest(true)
     }

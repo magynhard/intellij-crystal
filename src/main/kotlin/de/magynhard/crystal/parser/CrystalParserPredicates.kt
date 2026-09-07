@@ -45,7 +45,10 @@ object CrystalParserPredicates {
      * whitespace rule for unary operators: `Time.monotonic - start` is the
      * binary minus (spaced after the operator), while `file.seek -ZIP_TAIL_SIZE`
      * and `shift -span.to_i` use the tight minus as the unary negation of the
-     * first bare argument.
+     * first bare argument. The range operators (`..`, `...`) are binary only —
+     * they always bind to the left expression (`0.seconds..1.day` is a Range,
+     * never `0.seconds(..1.day)`); Crystal rejects a leading `..` in bare
+     * argument position ("wrong number of arguments").
      */
     @JvmStatic
     fun isDotBareArgsBinaryOp(
@@ -54,6 +57,7 @@ object CrystalParserPredicates {
     ): Boolean = when (builder.tokenType) {
         CrystalTypes.PLUS, CrystalTypes.STAR, CrystalTypes.SLASH,
         CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT, CrystalTypes.DOUBLE_STAR,
+        CrystalTypes.DOTDOT, CrystalTypes.DOTDOTDOT,
         -> true
         CrystalTypes.MINUS -> {
             // Spaced minus = binary operator; tight minus (`-ZIP_TAIL_SIZE`,

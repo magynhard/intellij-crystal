@@ -2099,4 +2099,36 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             "Reopen with macro-controlled nested class must keep the constructor resolvable",
             highlights.any { it.description?.contains("Too many arguments") == true })
     }
+
+    fun testWhenRangeEntriesAreNotBareArgumentsOfDotCalls() {
+        // ameba admonition.cr: the when-entry range `0.seconds..1.day` binds as
+        // the binary range of `0.seconds`, never as a negated/leading bare
+        // argument of the dot-call — the zero-arg Int#seconds check must not
+        // fire on the range's DOTDOT.
+        myFixture.configureByText("util.cr", """
+            class Time
+              def seconds : Int
+                0
+              end
+
+              def day : Int
+                0
+              end
+            end
+
+            def colorize_markdown(diff : Time)
+              past = case diff
+                     when 0.seconds..1.day then "today is the day!"
+                     when 1.day..2.days    then "1 day past"
+                     else                       "\#{diff.total_days.to_i} days past"
+                     end
+              past
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "The when-entry ranges must not be flagged as zero-arg call arguments",
+            highlights.any { it.description?.contains("expected at most 0") == true },
+        )
+    }
 }
