@@ -72,7 +72,7 @@
 
 ## Call Argument Inspection Follow-up
 
-- [ ] **Hover on reassigned parameters shows the enclosing method definition** — hovering the LHS `string` of `string = colorize_text_styles(string)` (ameba util.cr:31-32) renders the enclosing `colorize_markdown` signature instead of the variable's type; the reference/hover fallback for assignment LHS resolves through the enclosing def. The underlying type inference is fixed (macro-only method bodies infer Unknown, not Nil).
+
 - [ ] **Deepen generic include-edge leaf comparison** — the include-edge traversal (CrystalGenericIncludeCompat) accepts `Array(TestHeaderHandler)` against `Enumerable(HTTP::Handler)` structurally and leaves leaf comparisons to the existing user-type leniency; when the hierarchy gains concrete user-subclass relations for the type checker, wire the leaf comparison through it so genuinely wrong element types inside include-compatible generics are reported.
 - [ ] **Validate `lib fun` calls** — add indexed FFI function declaration resolution, then apply argument-count and argument-type diagnostics to calls such as `LibC.exit`, `LibC.exit()`, and `LibC.exit(value)`.
 - [ ] **Model named-only parameter boundaries** — preserve bare `*` and positional-splat boundaries in parameter metadata so positional arguments cannot satisfy parameters that must be passed by name.

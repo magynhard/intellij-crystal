@@ -53,6 +53,17 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     ): PsiElement? {
         if (contextElement == null) return null
 
+        // 0. Assignment left-hand side: hovering the write target is a
+        // variable hover. The name-based fallbacks below resolve through the
+        // require-graph lens — a reassignment like `string = colorize_...`
+        // must never render an unrelated method signature (ameba util.cr).
+        val lhsAssignment = PsiTreeUtil.getParentOfType(
+            contextElement, CrystalAssignment::class.java, false
+        )
+        if (lhsAssignment != null && (lhsAssignment as com.intellij.psi.PsiNameIdentifierOwner).nameIdentifier === contextElement) {
+            return contextElement
+        }
+
         // 1. Unwrap argument wrappers to find the actual expression inside
         val unwrapped = unwrapArgument(contextElement)
 
@@ -134,6 +145,14 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     private fun resolveTarget(element: PsiElement?): PsiElement? {
         if (element == null) return null
+        // Assignment left-hand side: a variable hover, never a method signature
+        // (the name-based fallbacks resolve through the require-graph lens).
+        val lhsAssignment = PsiTreeUtil.getParentOfType(
+            element, CrystalAssignment::class.java, false
+        )
+        if (lhsAssignment != null && (lhsAssignment as com.intellij.psi.PsiNameIdentifierOwner).nameIdentifier === element) {
+            return element
+        }
         // Already a definition or parameter — return directly
         if (element is CrystalMethodDefinition || element is CrystalClassDefinition
             || element is CrystalModuleDefinition || element is CrystalStructDefinition
