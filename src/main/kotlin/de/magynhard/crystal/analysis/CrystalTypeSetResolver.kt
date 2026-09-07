@@ -1259,7 +1259,15 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val returns = mutableListOf<CrystalTypeResolution>()
         var fallsThrough = true
         var value: CrystalTypeResolution? = knownType("Nil")
-        for (statement in statementList?.statementList.orEmpty()) {
+        val statements = statementList?.statementList.orEmpty()
+        if (statements.isEmpty() && statementList != null && hasMacroGeneratedContent(statementList)) {
+            // A body whose visible statements are entirely macro-generated
+            // (def colorize_text_styles with {% begin %} chains) has an
+            // unknown generated return type — the empty-body `Nil` default
+            // would poison tracked variable types (ameba util.cr).
+            return ExecutionResult(emptyList(), CrystalTypeResolution.Unknown, true)
+        }
+        for (statement in statements) {
             if (!fallsThrough) break
             val execution = analyzeStatement(statement)
             returns.addAll(execution.returns)
@@ -1269,7 +1277,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return ExecutionResult(returns, value, fallsThrough)
     }
 
+    private fun hasMacroGeneratedContent(element: PsiElement): Boolean =
+        PsiTreeUtil.findChildOfType(element, CrystalMacroControl::class.java) != null ||
+            PsiTreeUtil.findChildOfType(element, CrystalMacroInterpolation::class.java) != null
+
     private fun analyzeStatement(statement: CrystalStatement): ExecutionResult {
+        // Macro-control statements ({% begin %}, {% for %}...) compile to
+        // generated code but carry no parser-visible value. Their earlier
+        // fall-through to the empty-body `Nil` default poisoned inferred
+        // method returns (ameba colorize_text_styles); a macro statement
+        // contributes no value and lets the previous statement's value stand.
+        if (PsiTreeUtil.getChildOfType(statement, CrystalMacroControl::class.java) != null) {
+            return ExecutionResult(emptyList(), null, true)
+        }
         statement.returnStatement?.let { returnStatement ->
             val result = resolveAbruptValues(returnStatement.valueElements())
             val postfix = returnStatement.postfixModifier
