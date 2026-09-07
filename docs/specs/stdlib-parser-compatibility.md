@@ -201,6 +201,19 @@ indexed declaration and every constructor call resolves to an empty pool
 files; the compiler's own parse errors (65 in the distribution corpus) are
 now visible in the indexed numbers as well.
 
+A whitespace-separated array after a callee binds as a call argument, not an
+index: the dot-call, method-call, and bare-method-call grammars gained a
+looseness-guarded bare-array alternative (`CLI.parse_args [...]` — the array
+is the call's only argument), while a tight `[` (`config.foo["key"]`) stays
+on the index postfix path.
+
+The argument extraction covers the array-comma bare shape: the grammar's
+`array_literal COMMA bare_argument_list` alternative keeps the leading array
+outside the bare list (bracket-without-comma still binds as an index
+postfix), and the shared argument accessor delivers the leading array as the
+first argument so two-overload constructors (`AnnotatedSource.new [] of
+String, [...]`) see both arguments.
+
 The dot-call bare-argument guard blocks the binary range operators
 (`..`, `...`) consistently with the unqualified bare-call path: the range
 operators are binary-only in Crystal and always bind to the left expression

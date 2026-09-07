@@ -216,16 +216,13 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     private fun extractDotCallArguments(argsElement: PsiElement?): List<ArgumentInfo> {
         if (argsElement == null) return emptyList()
         val result = mutableListOf<ArgumentInfo>()
-        when (argsElement) {
-            is CrystalCallArgs -> {
-                CrystalPsiCallArguments.getArguments(argsElement).forEach { arg ->
-                    extractArgumentInfo(arg)?.let { result.add(it) }
-                }
-            }
-            is CrystalBareArgumentList -> {
-                for (bareArg in argsElement.bareArgumentList) {
-                    result.add(extractBareArgumentInfo(bareArg))
-                }
+        for (element in CrystalPsiCallArguments.argumentElements(argsElement)) {
+            when (element) {
+                is CrystalArgument -> extractArgumentInfo(element)?.let { result.add(it) }
+                is CrystalBareArgument -> result.add(extractBareArgumentInfo(element))
+                // The leading array literal of the array-comma bare shape
+                // (`obj [a], b`): a positional argument.
+                else -> result.add(ArgumentInfo(element))
             }
         }
         return result
@@ -518,8 +515,12 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 // Try bare_argument_list
                 val bareArgList = callExpr.bareArgumentList
                 if (bareArgList != null) {
-                    for (bareArg in bareArgList.bareArgumentList) {
-                        result.add(extractBareArgumentInfo(bareArg))
+                    for (element in CrystalPsiCallArguments.argumentElements(bareArgList)) {
+                        when (element) {
+                            is CrystalBareArgument -> result.add(extractBareArgumentInfo(element))
+                            // The leading array literal of the array-comma shape.
+                            else -> result.add(ArgumentInfo(element))
+                        }
                     }
                 }
             }

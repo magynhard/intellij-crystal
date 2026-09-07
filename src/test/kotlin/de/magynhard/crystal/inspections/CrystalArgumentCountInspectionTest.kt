@@ -2131,4 +2131,87 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("expected at most 0") == true },
         )
     }
+
+    fun testAnnotatedSourceArrayCommaBareCallCountsBothArguments() {
+        // ameba annotated_source_spec.cr:146 — `AnnotatedSource.new [] of String,
+        // [...]`: the grammar's array-comma alternative keeps the leading array
+        // outside the bare argument list; the argument extraction must still
+        // count it, so the `issues` overload is not reported as missing.
+        myFixture.configureByText("annotated.cr", """
+            class Issue
+            end
+
+            class AnnotatedSource
+              def initialize(@lines, annotations : Enumerable({Int32, String, String}))
+                @annotations = annotations
+              end
+
+              def initialize(@lines, issues : Enumerable(Issue))
+                @issues = issues
+              end
+            end
+
+            annotated_source = AnnotatedSource.new [] of String, [
+              {2, "", "Annotation C"},
+              {1, "", "Annotation B"},
+              {1, "", "Annotation A"},
+            ]
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Both arguments must be counted for the two-overload constructor",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+        assertFalse(
+            "No too-many-arguments report on the array-comma call",
+            highlights.any { it.description?.contains("Too many arguments") == true },
+        )
+    }
+
+    fun testLooseArrayArgumentCountsForQualifiedCall() {
+        // ameba cmd_spec.cr:238 — `CLI.parse_args [...]` (whitespace-separated,
+        // no comma): the array is the call's only argument, not an index postfix.
+        myFixture.configureByText("cmd.cr", """
+            class Path
+            end
+
+            class CLI
+              def self.parse_args(args, opts = nil, output = nil)
+                args
+              end
+            end
+
+            opts = CLI.parse_args [
+              Path["a"].to_s,
+              Path["b"].to_s,
+            ]
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "The loose array argument satisfies the args parameter",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+        assertFalse(
+            "No index-postfix misparse on the loose array",
+            highlights.any { it.description?.contains("Too many arguments") == true },
+        )
+    }
+
+    fun testTightBracketAfterQualifiedCallIsStillIndex() {
+        myFixture.configureByText("idx.cr", """
+            class Holder
+              def values
+                [] of String
+              end
+            end
+
+            h = Holder.new
+            first = h.values[0]
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "The tight bracket stays an index postfix (no array-argument report)",
+            highlights.any { it.description?.contains("argument") == true },
+        )
+    }
 }

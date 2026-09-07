@@ -1,6 +1,7 @@
 package de.magynhard.crystal.psi
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
 
 /**
  * Single source of truth for reading call arguments from a [CrystalCallArgs].
@@ -21,6 +22,45 @@ object CrystalPsiCallArguments {
     fun getArguments(callArgs: CrystalCallArgs): List<CrystalArgument> {
         val argList = callArgs.argumentList ?: return emptyList()
         return argList.argumentList.toList()
+    }
+
+    /**
+     * The argument PSI elements of a call. A parenthesized list yields its
+     * arguments; a bare list that follows a leading array literal — the
+     * `obj [a], b` array-comma shape, where the array is a sibling before the
+     * comma — yields the array first, then the list's arguments. The grammar's
+     * `array_literal COMMA bare_argument_list` alternative keeps the array
+     * outside the list (so bracket-without-comma still binds as an index
+     * postfix); consumers must not lose it.
+     */
+    fun argumentElements(argsElement: PsiElement?): List<PsiElement> {
+        if (argsElement == null) return emptyList()
+        if (argsElement is CrystalCallArgs) {
+            val argList = argsElement.argumentList ?: return emptyList()
+            return argList.argumentList.map { it as PsiElement }
+        }
+        if (argsElement is CrystalBareArgumentList) {
+            val elements = mutableListOf<PsiElement>()
+            leadingArrayLiteralOf(argsElement)?.let(elements::add)
+            elements.addAll(argsElement.bareArgumentList)
+            return elements
+        }
+        return emptyList()
+    }
+
+    /** The leading array literal of the array-comma bare shape, or null. */
+    private fun leadingArrayLiteralOf(bareList: CrystalBareArgumentList): CrystalArrayLiteral? {
+        val comma = previousSignificantSibling(bareList)
+            ?.takeIf { it.node?.elementType == CrystalTypes.COMMA } ?: return null
+        return previousSignificantSibling(comma) as? CrystalArrayLiteral
+    }
+
+    private fun previousSignificantSibling(element: PsiElement): PsiElement? {
+        var current = element.prevSibling
+        while (current != null && (current is PsiWhiteSpace || current.node?.elementType == CrystalTypes.NEWLINE)) {
+            current = current.prevSibling
+        }
+        return current
     }
 
     /** Returns the direct token before a named argument's colon. */

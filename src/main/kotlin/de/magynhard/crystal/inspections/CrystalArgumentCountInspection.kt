@@ -451,8 +451,12 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 }
                 val bareArgList = callExpr.bareArgumentList
                 if (bareArgList != null) {
-                    for (bareArg in bareArgList.bareArgumentList) {
-                        result.add(extractBareArgInfo(bareArg))
+                    for (element in CrystalPsiCallArguments.argumentElements(bareArgList)) {
+                        when (element) {
+                            is CrystalBareArgument -> result.add(extractBareArgInfo(element))
+                            // The leading array literal of the array-comma shape.
+                            else -> result.add(ArgumentInfo(element))
+                        }
                     }
                 }
             }
@@ -471,16 +475,13 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
     private fun extractArgumentsFromArgsElement(argsElement: PsiElement): List<ArgumentInfo> {
         val result = mutableListOf<ArgumentInfo>()
-        when (argsElement) {
-            is CrystalCallArgs -> {
-                for (arg in CrystalPsiCallArguments.getArguments(argsElement)) {
-                    result.add(extractArgInfo(arg))
-                }
-            }
-            is CrystalBareArgumentList -> {
-                for (bareArg in argsElement.bareArgumentList) {
-                    result.add(extractBareArgInfo(bareArg))
-                }
+        for (element in CrystalPsiCallArguments.argumentElements(argsElement)) {
+            when (element) {
+                is CrystalArgument -> result.add(extractArgInfo(element))
+                is CrystalBareArgument -> result.add(extractBareArgInfo(element))
+                // The leading array literal of the array-comma bare shape
+                // (`obj [a], b`): a positional argument.
+                else -> result.add(ArgumentInfo(element))
             }
         }
         return result

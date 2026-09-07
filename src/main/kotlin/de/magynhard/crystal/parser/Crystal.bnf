@@ -762,7 +762,17 @@ dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyw
                            // bare argument of the dot-call, while the tight minus in
                            // `file.seek -ZIP_TAIL_SIZE` stays the unary negation of the
                            // first argument (stdlib time.cr `shift -span.to_i`).
-                           | !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list | array_literal COMMA bare_argument_list] {
+                           | !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list
+                           // Loose (whitespace-separated) bare array argument with
+                           // no comma: `CLI.parse_args [\n ... \n]` (ameba cmd_spec)
+                           // is a call with the array as its only argument, never an
+                           // index postfix. The looseness predicate replaces the
+                           // !LBRACKET veto: a tight `[` (`config.foo["key"]`) still
+                           // binds as the index postfix. !LBRACE keeps `obj.m { }` on
+                           // the block path; the binary/range ops (`obj.m ..5` — Crystal
+                           // rejects a leading `..` here) stay blocked.
+                           | !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list
+                           | array_literal COMMA bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
@@ -881,6 +891,11 @@ method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare
                          // bare-argument alternative so `width + height` stays binary.
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) array_literal COMMA bare_argument_list [block]
+                         // Loose (whitespace-separated) bare array argument with no
+                        // comma: `parse_args [\n ... \n]` is a call with the array as
+                        // its only argument; the looseness predicate keeps a tight
+                        // `[` (`foo["key"]`) on the index postfix path.
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list [block]
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
                          | (IDENTIFIER | CONSTANT) block
                          | (SUPER | PREVIOUS_DEF) call_args [block]
@@ -1098,7 +1113,11 @@ bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
                               // -span.nanoseconds` (time.cr) negates its first bare argument,
                               // while a spaced `+`/`-`/`*` still starts a binary expression.
                               | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isHeredocBodyOpener>> bare_argument_list
-                              | (IDENTIFIER | CONSTANT) array_literal COMMA bare_argument_list {
+                              | (IDENTIFIER | CONSTANT) array_literal COMMA bare_argument_list
+                              // Loose (whitespace-separated) bare array argument with
+                              // no comma (`parse_args [\n ... \n]`); the tight `[`
+                              // stays on the index postfix path.
+                              | (IDENTIFIER | CONSTANT) !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 
