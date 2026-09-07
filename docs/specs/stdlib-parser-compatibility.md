@@ -201,6 +201,17 @@ indexed declaration and every constructor call resolves to an empty pool
 files; the compiler's own parse errors (65 in the distribution corpus) are
 now visible in the indexed numbers as well.
 
+The shared call resolution merges return types across overloads when every
+overload declares the same return annotation (all seven `String#gsub`
+overloads declare `: String` — the chain type is determinable), while
+diverging or missing annotations stay Unknown. Variable hovers distinguish
+bound-but-uninferable from unconstrained: a variable with assignment
+evidence whose value type is not inferable renders the gray "Unknown"
+placeholder; "Any" stays reserved for genuinely unconstrained duck-typed
+variables. The assignment left-hand side hovers as the variable itself —
+the enclosing-def veto in the identifier walk-up does not reduce the hover
+to the raw name.
+
 The argument type check also handles bare unparameterized generics:
 `paragraph : Array` is `Array(_)` and accepts every instantiation of the
 same base (`Array(String)` — the ameba explain_formatter case), while a

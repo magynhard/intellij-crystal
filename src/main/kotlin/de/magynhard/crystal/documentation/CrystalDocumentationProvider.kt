@@ -37,6 +37,16 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? {
         val target = resolveTarget(element) ?: return null
 
+        // Assignment left-hand side: a variable hover. The LHS identifier sits
+        // within isVariableIdentifier's enclosing-def walk-up distance (it
+        // hangs directly off the assignment), so the def-veto would misfire
+        // and reduce the hover to the raw name.
+        val lhsAssignment = PsiTreeUtil.getParentOfType(target, CrystalAssignment::class.java, false)
+        if (lhsAssignment != null &&
+            (lhsAssignment as com.intellij.psi.PsiNameIdentifierOwner).nameIdentifier === target
+        ) {
+            return buildVariableDocumentation(target)
+        }
         // Variable hover: show inferred type
         if (isVariableIdentifier(target)) {
             return buildVariableDocumentation(target)
@@ -62,6 +72,12 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         )
         if (lhsAssignment != null && (lhsAssignment as com.intellij.psi.PsiNameIdentifierOwner).nameIdentifier === contextElement) {
             return contextElement
+        }
+
+        // 0b. The platform may deliver the assignment composite itself as the
+        // hover target — resolve to its name identifier (variable hover).
+        if (contextElement is CrystalAssignment) {
+            return (contextElement as com.intellij.psi.PsiNameIdentifierOwner).nameIdentifier
         }
 
         // 1. Unwrap argument wrappers to find the actual expression inside
@@ -147,6 +163,9 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         if (element == null) return null
         // Assignment left-hand side: a variable hover, never a method signature
         // (the name-based fallbacks resolve through the require-graph lens).
+        if (element is CrystalAssignment) {
+            return (element as com.intellij.psi.PsiNameIdentifierOwner).nameIdentifier
+        }
         val lhsAssignment = PsiTreeUtil.getParentOfType(
             element, CrystalAssignment::class.java, false
         )
@@ -399,7 +418,12 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
         // Line 1: inferred type (linked) + muted "(Variable)"
         val inferredType = CrystalTypeInference.inferType(name, target, project)
-        if (inferredType != null) {
+        if (inferredType == CrystalTypeInference.UNKNOWN_TYPE) {
+            // The honest placeholder: gray, visually a marker rather than a
+            // type name (Crystal has no Unknown type, and "Any" would collide
+            // with JSON::Any / YAML::Any).
+            sb.append("<span style='color:gray'>Unknown</span>")
+        } else if (inferredType != null) {
             val highlighted = highlightCrystalCode(inferredType, target) ?: escapeHtml(inferredType)
             sb.append(wrapTypeLinks(highlighted, project))
         } else {

@@ -83,8 +83,20 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 if (isStatic) CrystalReceiverMode.STATIC else CrystalReceiverMode.INSTANCE,
                 methodName
             )
-            if (!collection.complete || collection.methods.size != 1) return CrystalTypeResolution.Unknown
-            results.add(resolveMethodReturn(collection.methods.single()))
+            if (!collection.complete || collection.methods.isEmpty()) return CrystalTypeResolution.Unknown
+            // Multiple overloads may still agree on their return type: every
+            // String#gsub overload declares `: String`, so the chain's type is
+            // determinable even though the argument shapes differ. Diverging
+            // or missing annotations stay Unknown (honest).
+            if (collection.methods.size > 1) {
+                val returns = collection.methods.map { method ->
+                    method.typeReference?.text?.filterNot(Char::isWhitespace)
+                }
+                if (returns.any { it == null } || returns.distinct().size != 1) {
+                    return CrystalTypeResolution.Unknown
+                }
+            }
+            results.add(resolveMethodReturn(collection.methods.first()))
         }
         return mergeKnown(results)
     }
