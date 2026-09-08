@@ -389,6 +389,10 @@ Automated coverage protects:
   late requirers extend them without stale snapshots, and the 5 000-file cycle stays bounded.
 - Macro-call arguments are not measured as runtime calls; proc-literal parameters resolve
   as local declarations.
+- Bare calls' parenthesis-free arguments count: `extractArguments` handles BOTH forms of
+  `CrystalBareMethodCallExpression` — the paren `call_args` form and the bare argument list,
+  whose heredoc headers are ordinary marker arguments (ameba's `as_node <<-CRYSTAL` as
+  `Scope.new`'s only argument stays one positional argument for the `source` parameter).
 - Block bodies of macro invocations (`properties do bin_path nil, as: String? end`) are macro
   data: `CrystalMacroContext.isInsideMacroCallBlock` recognizes a block whose owner call resolves
   to a macro (whole-index lookup — stdlib macros sit outside the project scope); the argument-count

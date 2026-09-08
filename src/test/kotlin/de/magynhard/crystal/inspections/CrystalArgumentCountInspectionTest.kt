@@ -2386,4 +2386,45 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
     }
+
+    fun testBareCallHeredocArgumentCountsAgainstDef() {
+        // ameba variable_spec.cr:102 — `scope = Scope.new as_node <<-CRYSTAL ...`:
+        // the bare call's argument list holds the heredoc header marker, but
+        // extractArguments only dispatched the paren form of
+        // CrystalBareMethodCallExpression, so as_node saw zero arguments and
+        // reported "Missing required argument(s): 'source'".
+        myFixture.configureByText("helper.cr", """
+            def as_node(source, *, wants_doc = false)
+              source
+            end
+
+            class Scope
+              def initialize(node)
+                @node = node
+              end
+
+              def add_variable(v)
+                v
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("spec.cr", """
+            require "./helper"
+
+            it "returns falsy if the variable is not captured by the block" do
+              scope = Scope.new as_node <<-CRYSTAL
+                def method
+                  a = 1
+                end
+                CRYSTAL
+
+              scope.add_variable(1)
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "The heredoc marker argument satisfies the source parameter",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+    }
 }

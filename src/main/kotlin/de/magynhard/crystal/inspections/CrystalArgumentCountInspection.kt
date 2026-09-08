@@ -144,6 +144,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
         val methodName = CrystalCallExtractor.extractMethodName(callExpr) ?: return
         val arguments = extractArguments(callExpr)
+
         val methodNameElement = CrystalCallExtractor.findMethodNameElement(callExpr) ?: return
 
         val project = callExpr.project
@@ -499,6 +500,20 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 if (argList != null) {
                     for (arg in argList.argumentList) {
                         result.add(extractArgInfo(arg))
+                    }
+                } else {
+                    // Bare (parenthesis-free) arguments: heredoc headers, bare
+                    // calls and literals live in the bare list — ameba's
+                    // `as_node <<-CRYSTAL` (variable_spec.cr:102) used to lose
+                    // its only argument here and report "Missing 'source'".
+                    val bareArgList = callExpr.bareArgumentList
+                    if (bareArgList != null) {
+                        for (element in CrystalPsiCallArguments.argumentElements(bareArgList)) {
+                            when (element) {
+                                is CrystalBareArgument -> result.add(extractBareArgInfo(element))
+                                else -> result.add(ArgumentInfo(element))
+                            }
+                        }
                     }
                 }
             }
