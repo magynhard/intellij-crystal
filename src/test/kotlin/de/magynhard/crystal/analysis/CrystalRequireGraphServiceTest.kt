@@ -617,6 +617,83 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertTrue(sources.files.contains(vf("src/chain_4999.cr")))
     }
 
+    fun testEffectiveSourcesIncludeRequirerPrograms() {
+        // Crystal gives every file of one program the same global namespace: the
+        // sibling `Reference` class is visible from `variable.cr` even though
+        // this file never requires it — the shared hub (and its glob) loads
+        // both, and the conflicting top-level `Reference` must NOT shadow the
+        // sibling inside the module scope.
+        files(
+            "src/variable.cr" to "module Ameba::AST\nclass Variable\nend\nend",
+            "src/reference.cr" to "require \"./variable\"\nmodule Ameba::AST\nclass Reference\nend\nend",
+            "src/hub.cr" to "require \"./reference\"\nrequire \"./conflict\"",
+            "src/conflict.cr" to "class Reference\nend",
+        )
+        val service = service(stdlib = null)
+
+        assertEquals(setOf(vf("src/variable.cr")), service.effectiveSources(elementIn("src/variable.cr")).files)
+
+        // Warm the graph from the entry file like a loaded IDE session: the
+        // forward traversal builds every node, populating the reverse requirer
+        // edges the program closure reads.
+        service.effectiveSources(elementIn("src/hub.cr"))
+
+        assertEquals(
+            setOf(
+                vf("src/variable.cr"),
+                vf("src/reference.cr"),
+                vf("src/hub.cr"),
+                vf("src/conflict.cr"),
+            ),
+            service.effectiveSources(elementIn("src/variable.cr")).files,
+        )
+    }
+
+    fun testRequirerProgramClosureRefreshesAfterRequireChange() {
+        // The program of a file is the union over every containing program:
+        // old_sibling stays a direct requirer of variable.cr regardless of what
+        // hub loads, while hub's switch pulls new_sibling into the union.
+        files(
+            "src/variable.cr" to "class Variable\nend",
+            "src/old_sibling.cr" to "require \"./variable\"\nclass OldSibling\nend",
+            "src/new_sibling.cr" to "require \"./variable\"\nclass NewSibling\nend",
+            "src/hub.cr" to "require \"./old_sibling\"",
+        )
+        val service = service(stdlib = null)
+        service.effectiveSources(elementIn("src/hub.cr"))
+        val before = service.effectiveSources(elementIn("src/variable.cr"))
+        assertTrue(before.files.containsAll(setOf(vf("src/old_sibling.cr"), vf("src/hub.cr"))))
+        assertFalse(before.files.contains(vf("src/new_sibling.cr")))
+
+        replaceText("src/hub.cr", "require \"./new_sibling\"")
+        val after = service.effectiveSources(elementIn("src/variable.cr"))
+
+        assertTrue(after.files.contains(vf("src/new_sibling.cr")))
+        assertTrue(after.files.contains(vf("src/hub.cr")))
+    }
+
+    fun testNewRequirerExtendsProgramWithoutStaleSnapshot() {
+        // A requirer node built AFTER the target's snapshot must extend the
+        // target's program: the union's dependency versions cannot detect a
+        // contributor that simply appeared, so the publish step invalidates the
+        // dependency's forward-closure snapshots. The late file is traversed
+        // once (as a loaded IDE session would) so its node and reverse edge
+        // exist before the target is re-read.
+        files(
+            "src/variable.cr" to "class Variable\nend",
+            "src/hub.cr" to "require \"./variable\"",
+        )
+        val service = service(stdlib = null)
+        assertTrue(service.effectiveSources(elementIn("src/variable.cr")).files.contains(vf("src/variable.cr")))
+
+        files("src/late.cr" to "require \"./hub\"\nclass Late\nend")
+        service.effectiveSources(elementIn("src/late.cr"))
+        val after = service.effectiveSources(elementIn("src/variable.cr"))
+
+        assertTrue(after.files.contains(vf("src/late.cr")))
+        assertTrue(after.files.contains(vf("src/hub.cr")))
+    }
+
     fun testReusesNodesClosuresAndImmutableEffectiveSnapshotAfterMethodBodyEdit() {
         files(
             "stdlib/prelude.cr" to "require \"./string\"",

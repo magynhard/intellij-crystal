@@ -2214,4 +2214,65 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("argument") == true },
         )
     }
+
+    fun testMacroCallArgumentsAreNotCheckedAsDirectCalls() {
+        // kemal config.cr:24 — `property ... logging ...` inside `class Config`
+        // met the top-level `def logging(status)` from the program closure: the
+        // macro call's arguments are macro syntax, never runtime calls.
+        myFixture.configureByText("helpers.cr", """
+            def logging(status)
+              status
+            end
+
+            def public_folder(path)
+              path
+            end
+
+            macro property(names)
+              names
+            end
+        """.trimIndent())
+        myFixture.configureByText("config.cr", """
+            require "./helpers"
+
+            class Config
+              property app_name, logging, public_folder
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Macro arguments must not be measured against same-named defs",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+    }
+
+    fun testProcLiteralParameterIsNotCheckedAsDirectCall() {
+        // kemal config.cr:149 — `error` inside `handler.call(context, error)` is
+        // the proc literal's own parameter, but the parameter lookup stopped at
+        // the enclosing method boundary while the program closure made the
+        // top-level `def error(status_code, &block)` visible.
+        myFixture.configureByText("dsl.cr", """
+            def error(status_code, &block)
+              status_code
+            end
+        """.trimIndent())
+        myFixture.configureByText("handler.cr", """
+            require "./dsl"
+
+            class Handler
+              def call(context)
+                context
+              end
+            end
+
+            def add_error_handler(status_code, &handler)
+              ERROR_HANDLERS[status_code] = ->(context : String, error : String) { handler.call(context, error).to_s }
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "The proc literal's parameter is a local declaration, not a call",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+    }
 }

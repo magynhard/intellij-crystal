@@ -311,6 +311,54 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
   listener. Listenerless tests can explicitly select full validation instead of
   imposing unconditional PSI walks on production queries.
 
+## Program Closure (requirer visibility)
+
+Crystal gives every file of one compiled program the same global namespace:
+`Reference.new(node, scope)` inside `Ameba::AST::Variable` sees the sibling
+`Ameba::AST::Reference` declared in a file this file never requires — the
+shared entry (or a glob require from an ancestor file) loads both. The
+forward-only effective-source set under-included such program siblings and
+starved type resolution of declarations living behind a shared entry.
+
+The effective source set of a file is therefore the **program closure**:
+
+1. its own forward require closure, and
+2. the forward closures of every already-known requirer, discovered by
+   walking the lazily built reverse edge index outward from the file.
+
+Properties and trade-offs:
+
+- No whole-project scan is ever performed. The reverse index only contains
+  nodes built so far, so a file opened in isolation keeps the conservative
+  forward-only view; the program view grows as the session loads more of the
+  graph (the offline audit traverses every file, so its view is complete).
+- The union's merged dependency-version map is the authoritative freshness
+  test on the fast path; any contributing change an event pass missed makes
+  the snapshot rebuild (and force-dirties drifted closures to guarantee
+  progress instead of spinning).
+- A requirer whose closure is already covered by the union is skipped via its
+  node's outgoing list — a 5 000-file require cycle stays linear and bounded.
+- Publishing a node that GAINS a requirer edge drops the dependency's
+  forward-closure snapshots: dependency versions cannot detect a contributor
+  that simply appeared.
+- The model is a union over every containing program, so a sibling that
+  still directly requires the file stays visible even when an intermediate
+  hub switches requires — an intentional superset of any single-entry build.
+
+Two latent inspection gaps surfaced once kemal's program merged with its
+dev-dependency shard (top-level `def public_folder(path)` / `def
+logging(status)` / `def error(status_code, &block)` became visible from
+config.cr):
+
+- Arguments of macro invocations (`property app_name, … logging …`) are
+  macro syntax. The argument-count inspection skips bare identifiers inside
+  a call whose name matches a macro — macro existence is checked against the
+  whole index because stdlib macros live outside the project content root.
+- Proc-literal parameters (`->(context, error) { handler.call(context,
+  error) }`) resolve as local declarations; the local-declaration walk
+  checks the proc literal's parameter list before the enclosing
+  method-boundary break.
+
 ## Verification Matrix
 
 Automated coverage protects:
@@ -337,3 +385,7 @@ Automated coverage protects:
   path suppression, project-`lib/` shard resolution, and stdlib navigation (gated on an installed
   Crystal compiler).
 - Suite-wide stdlib VFS root allowance surviving Application recreation between test classes.
+- Program closure: requirer programs extend effective sources, require changes refresh them,
+  late requirers extend them without stale snapshots, and the 5 000-file cycle stays bounded.
+- Macro-call arguments are not measured as runtime calls; proc-literal parameters resolve
+  as local declarations.

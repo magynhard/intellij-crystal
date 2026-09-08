@@ -264,33 +264,104 @@ internal class CrystalRequireGraphService private constructor(
             cleanEffectiveSnapshot(root, capturedGeneration)?.let { return it }
             try {
                 val foundation = preludeFoundation(capturedGeneration, stdlibRoot)
-                val closure = closure(
-                    root,
-                    TraversalProvenance.PROJECT,
-                    capturedGeneration,
-                    stdlibRoot,
-                ) ?: return EMPTY_SOURCES
+                val program = programClosure(root, capturedGeneration, stdlibRoot) ?: return EMPTY_SOURCES
                 synchronized(lock) {
                     if (
                         generation != capturedGeneration ||
                         foundation.closure?.let(::closureIsCurrent) == false ||
-                        !closureIsCurrent(closure)
+                        !closureIsCurrent(program)
                     ) {
+                        // A contributing closure cached before one of its
+                        // dependencies changed: dirty the closures owning the
+                        // drifted nodes so the retry rebuilds them instead of
+                        // spinning on the same stale instances.
+                        if (generation == capturedGeneration && !closureIsCurrent(program)) {
+                            program.dependencyVersions.keys
+                                .filter { nodes[it]?.version != program.dependencyVersions[it] }
+                                .forEach { drifted ->
+                                    closureOwners[drifted].orEmpty().forEach { owner ->
+                                        dirtyClosureReasons.getOrPut(owner, ::linkedSetOf).add(drifted)
+                                    }
+                                }
+                        }
                         return@synchronized
                     }
                     val cached = effectiveSnapshots[root]
-                    if (cached != null && cached.foundation === foundation && cached.closure === closure) {
+                    if (cached != null && cached.foundation === foundation && cached.closure === program) {
                         return cached.sources
                     }
-                    val files = immutableSet(foundation.files + closure.files)
+                    val files = immutableSet(foundation.files + program.files)
                     return CrystalEffectiveSourceSet(files).also { sources ->
-                        effectiveSnapshots[root] = EffectiveSnapshot(foundation, closure, sources)
+                        effectiveSnapshots[root] = EffectiveSnapshot(foundation, program, sources)
                     }
                 }
             } catch (_: StaleGeneration) {
                 // A full invalidation raced this read; retry against the new generation.
             }
         }
+    }
+
+    /**
+     * The program closure of a file: its own forward require closure extended
+     * with the forward closures of every already-known requirer.
+     *
+     * Crystal compiles one entry file and gives every file of that program the
+     * same global namespace — `Reference.new` inside `Ameba::AST::Variable` sees
+     * the sibling `Ameba::AST::Reference` declared in a file this file never
+     * requires itself. The forward-only closure under-included such program
+     * siblings and starved type resolution of declarations that live behind a
+     * shared entry (or a glob require from an ancestor file). The union over
+     * requirers' closures reconstructs the containing program without any
+     * whole-project scan: the reverse edges are the lazily built requirer
+     * index, so a file opened in isolation still keeps the conservative
+     * forward-only view and the program view grows as the session loads more
+     * of the graph.
+     */
+    private fun programClosure(
+        root: VirtualFile,
+        capturedGeneration: Long,
+        stdlibRoot: VirtualFile?,
+    ): Closure? {
+        val own = closure(root, TraversalProvenance.PROJECT, capturedGeneration, stdlibRoot)
+        synchronized(lock) {
+            if (generation != capturedGeneration) throw StaleGeneration
+        }
+        if (own == null) return null
+        val requirers = linkedSetOf<NodeKey>()
+        val pending = ArrayDeque<NodeKey>()
+        pending.add(NodeKey(root, TraversalProvenance.PROJECT))
+        while (pending.isNotEmpty()) {
+            ProgressManager.checkCanceled()
+            val current = pending.removeFirst()
+            val edges = synchronized(lock) {
+                if (generation != capturedGeneration) throw StaleGeneration
+                reverseEdges[current].orEmpty().toList()
+            }
+            for (requirer in edges) {
+                if (requirers.add(requirer)) pending.add(requirer)
+            }
+        }
+        if (requirers.isEmpty()) return own
+        val files = LinkedHashSet(own.files)
+        val dependencyVersions = LinkedHashMap(own.dependencyVersions)
+        for (requirer in requirers) {
+            // A requirer whose closure is already covered by the accumulation
+            // contributes nothing: its own file and every transitive target of
+            // its outgoing edges are already in the union. Checking the node's
+            // outgoing list avoids building a fresh closure per requirer — a
+            // large require cycle would otherwise build |cycle| closures of
+            // |cycle| files each and blow the heap.
+            val node = synchronized(lock) {
+                if (generation != capturedGeneration) throw StaleGeneration
+                nodes[requirer]
+            }
+            if (node != null && requirer.file in files && node.outgoing.all { it.file in files }) continue
+            val requirerClosure = closure(requirer.file, requirer.provenance, capturedGeneration, stdlibRoot)
+                ?: continue
+            files.addAll(requirerClosure.files)
+            dependencyVersions.putAll(requirerClosure.dependencyVersions)
+        }
+        return Closure(immutableSet(files), immutableMap(dependencyVersions))
     }
 
     fun invalidateAll() {
@@ -367,8 +438,13 @@ internal class CrystalRequireGraphService private constructor(
             if (ClosureKey(root, TraversalProvenance.PROJECT) in dirtyClosureReasons || preludeClosureDirty) {
                 return@synchronized null
             }
+            // The snapshot's program closure spans this file's own requires AND
+            // every requirer's closure, so a version check against the union's
+            // dependency map is the authoritative freshness test — it also
+            // self-heals any dependency change an event pass missed.
             effectiveSnapshots[root]
                 ?.takeIf { it.foundation.generation == capturedGeneration }
+                ?.takeIf { closureIsCurrent(it.closure) }
                 ?.sources
         }
 
@@ -739,6 +815,7 @@ internal class CrystalRequireGraphService private constructor(
         exactCandidatePaths: Set<String>,
         wildcardWatches: Set<NodeWildcardWatch>,
     ): Node {
+        val previous = nodes[key]?.outgoing
         nodes[key]?.outgoing?.forEach { dependency -> reverseEdges[dependency]?.remove(key) }
         val node = Node(
             fingerprint,
@@ -748,7 +825,26 @@ internal class CrystalRequireGraphService private constructor(
             ++nextNodeVersion,
         )
         nodes[key] = node
-        outgoing.forEach { dependency -> reverseEdges.getOrPut(dependency, ::linkedSetOf).add(key) }
+        val addedDependencies = outgoing.filter { dependency ->
+            reverseEdges.getOrPut(dependency, ::linkedSetOf).add(key)
+        }
+        // A freshly gained requirer extends the programs of everything in the
+        // dependency's forward closure: their effective source sets may now
+        // include the requirer's closure. Drop those snapshots so the next
+        // read rebuilds them — the unions' dependency versions cannot detect
+        // a contributor that simply appeared.
+        for (dependency in addedDependencies) {
+            val pending = ArrayDeque<NodeKey>()
+            pending.add(dependency)
+            val seen = linkedSetOf(dependency)
+            while (pending.isNotEmpty()) {
+                val current = pending.removeFirst()
+                effectiveSnapshots.remove(current.file)
+                nodes[current]?.outgoing?.forEach { next ->
+                    if (seen.add(next)) pending.add(next)
+                }
+            }
+        }
         invalidateDependentClosures(key)
         nodeBuilds++
         return node

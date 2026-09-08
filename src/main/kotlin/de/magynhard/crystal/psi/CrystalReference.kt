@@ -148,6 +148,17 @@ class CrystalReference(
                     findParameterNameElement(param, name)?.let { return it }
                 }
             }
+            // Check proc-literal parameters (e.g., `error` in
+            // `->(context, error) { handler.call(context, error) }`). The proc
+            // literal nests inside its enclosing def, so this must happen
+            // before the method-boundary break below or the lambda's own
+            // parameters are unreachable.
+            if (scope is CrystalProcLiteral) {
+                val paramList = scope.parameterList
+                paramList?.parameterList?.forEach { param ->
+                    findParameterNameElement(param, name)?.let { return it }
+                }
+            }
             scope = scope.parent
         }
         return null

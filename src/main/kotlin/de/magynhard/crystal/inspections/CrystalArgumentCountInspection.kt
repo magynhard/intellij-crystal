@@ -3,6 +3,7 @@ package de.magynhard.crystal.inspections
 import com.intellij.codeInspection.*
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
+import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
@@ -77,6 +78,27 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             ?: reference.node.findChildByType(CrystalTypes.CONSTANT)?.psi
             ?: return
 
+        // Arguments of macro invocations are macro syntax, not runtime calls:
+        // inside `property app_name, host_binding, … logging …` the identifiers
+        // feed the macro expansion and must never be measured against the
+        // same-named top-level defs (`def logging(status)` in kemal's helpers).
+        val owningCall = generateSequence(reference.parent) { it.parent }
+            .takeWhile { it !is PsiFile }
+            .firstOrNull { it is CrystalMethodCallExpression || it is CrystalBareMethodCallExpression }
+        if (owningCall != null) {
+            val callName = CrystalCallExtractor.extractMethodName(owningCall)
+            // Stdlib macros (`property`, `getter`, …) live outside the project
+            // content root — the macro existence test must look at the whole
+            // index, matching the always-visible prelude semantics of Crystal.
+            if (callName != null &&
+                CrystalIndexService.findMacros(
+                    callName, reference.project, GlobalSearchScope.allScope(reference.project),
+                ).isNotEmpty()
+            ) {
+                return
+            }
+        }
+
         var next = reference.nextSibling
         while (next is PsiWhiteSpace || next?.node?.elementType == CrystalTypes.NEWLINE) {
             next = next.nextSibling
@@ -97,7 +119,11 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         if (crystalReference?.resolveLocalDeclaration() != null) return
 
         if (CrystalIndexService.findTypes(methodName, project, scope).isNotEmpty()) return
-        if (CrystalIndexService.findMacros(methodName, project, scope).isNotEmpty()) return
+        // Same-name macros (stdlib ones included) make the name a macro
+        // invocation rather than a runtime call.
+        if (CrystalIndexService.findMacros(methodName, project, GlobalSearchScope.allScope(project)).isNotEmpty()) {
+            return
+        }
 
         checkArgumentCount(methods, emptyList(), methodNameElement, holder)
     }
