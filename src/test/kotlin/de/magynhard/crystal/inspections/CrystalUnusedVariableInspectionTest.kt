@@ -1227,4 +1227,45 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testRecordDeclarationDefaultsAreNeverUnused() {
+        // `record Result, sources = [] of Source, ...` — every field argument is
+        // a FIELD DECLARATION (macro data): the field is consumed through the
+        // generated methods/deserial, never as a local-variable read.
+        myFixture.configureByText("records.cr", """
+            class Source
+            end
+
+            class Summary
+            end
+
+            record Result,
+              sources = [] of Source,
+              metadata = Summary.new,
+              summary = Summary.new do
+              def name
+                1
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "Record field declarations are not reported as unused",
+            highlights.none { it.description?.contains("never used") == true },
+        )
+    }
+
+    fun testRecordInMethodBodyUnrelatedLocalsStillReport() {
+        myFixture.configureByText("records.cr", """
+            class Point
+            end
+
+            record Bundled, v = Point.new
+
+            def work
+              <weak_warning descr="Variable 'local' is never used">local</weak_warning> = Point.new
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

@@ -220,7 +220,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         if (!isRoot && element is CrystalBlock) return
         if (!isRoot && element is CrystalRescueClause) return
         if (element is CrystalAssignment && localAssignmentIdentifier(element) != null) {
-            if (!isInsideAccessorMacroArgument(element)) {
+            if (!isInsideDeclarationMacroArgument(element)) {
                 result.add(element)
             }
         }
@@ -252,26 +252,46 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
     }
 
     /**
-     * Arguments of accessor macro declarations (`property autocorrect = false`,
-     * `property? enabled`, `getter foo : String`, … — the whole family from
-     * [CrystalAccessorCoupling]) bind the default-value form through the
-     * `bare_argument ::= ... | assignment` alternative. The unused-variable
-     * analysis would therefore treat every declaration as a plain local
-     * assignment whose reader/setter methods are never called as PSI and
-     * report "Variable '…' is never used" — but accessor declarations are API
-     * surface: Crystal itself never warns for them, one is declared precisely
-     * so that OTHERS (instances, subclasses, other files) may consume it, and
-     * tracking that consumption would require full-program receiver analysis.
+     * Arguments of declaration macros bind the default-value form through the
+     * `bare_argument ::= ... | assignment` alternative, so the unused-variable
+     * analysis would treat every declaration as a plain local assignment whose
+     * generated methods never run as PSI and report "Variable '…' is never
+     * used". Two declaration families are macro data, never runtime
+     * assignments:
+     *
+     * - accessor macros (`property autocorrect = false`, `property? enabled`,
+     *   `getter foo : String`, … — the whole family from
+     *   [CrystalAccessorCoupling]): the declaration is API surface — Crystal
+     *   itself never warns for it, one is declared precisely so that OTHERS
+     *   (instances, subclasses, other files) may consume it, and tracking that
+     *   consumption would require full-program receiver analysis.
+     * - `record` declarations: every field argument is a FIELD DECLARATION —
+     *   `record Result, sources = [] of Source, metadata = Metadata.new` — the
+     *   name is a struct field consumed through the generated methods/deserial
+     *   or by other files, never a local variable read.
+     *
      * The declaration argument is macro data, not a runtime assignment.
      */
-    private fun isInsideAccessorMacroArgument(element: CrystalAssignment): Boolean {
+    private fun isInsideDeclarationMacroArgument(element: CrystalAssignment): Boolean {
         val call = PsiTreeUtil.getParentOfType(
             element,
             CrystalMethodCallExpression::class.java,
             CrystalBareMethodCallExpression::class.java,
         ) ?: return false
-        return de.magynhard.crystal.navigation.CrystalAccessorCoupling.isAccessorMacroCall(call)
+        return de.magynhard.crystal.navigation.CrystalAccessorCoupling.isAccessorMacroCall(call) ||
+            isRecordDeclarationCall(call)
     }
+
+    /** `record Name, field-args …` macro-call declarations (see CrystalPsiUtils.recordDeclaredName). */
+    private fun isRecordDeclarationCall(call: PsiElement): Boolean {
+        if (call !is CrystalMethodCallExpression) return false
+        if (call.firstChild?.text != "record") return false
+        val candidate = CrystalPsiUtils.recordArguments(call).firstOrNull()?.text
+            ?.filterNot(Char::isWhitespace) ?: return false
+        return RECORD_DECLARATION_NAME.matches(candidate)
+    }
+
+    private val RECORD_DECLARATION_NAME = Regex("(?:::)?[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*")
 
     private fun prepareNestedFrames(element: PsiElement, frame: Frame, isRoot: Boolean = false) {
         if (!isRoot && isHardBoundary(element)) return

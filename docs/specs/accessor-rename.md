@@ -81,7 +81,7 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
 - The rename verifier (`CrystalRenameVerifier`) runs the compiler check on
   the file after the rename completes as before.
 
-## Unused-variable analysis on accessor declarations
+## Unused-variable analysis on declaration-macro arguments
 
 The accessor name is a macro-call ARGUMENT that binds its default value
 (`property autocorrect = false`) through the `bare_argument ::= ... |
@@ -92,11 +92,21 @@ API surface (Crystal itself never warns for it), consumers are instances /
 subclasses / other files that local analysis cannot see, and tracking that
 consumption would require full-program receiver analysis.
 
-`CrystalLocalUsageAnalyzer` therefore skips CrystalAssignments whose nearest
-call ancestor is in the accessor family (`CrystalAccessorCoupling` — the
-16-macro set shared with the rename coupling). Real locals in the same class
-keep their ordinary diagnosis; the gate is argument-scoped, so unrelated
-assignments stay tracked.
+`CrystalLocalUsageAnalyzer` skips CrystalAssignments under TWO declaration
+families:
+
+- accessor macros (`CrystalAccessorCoupling`'s 16-macro set shared with the
+  rename coupling),
+- `record` declarations — every field argument is a FIELD DECLARATION
+  (`record Result, sources = [] of Source, metadata = Metadata.new`): the
+  field is consumed through the generated accessor methods, the deserializer,
+  or other files — never as a local-variable read. The declaration detection
+  mirrors `CrystalPsiUtils.recordDeclaredName` (`record` first child plus the
+  capitalized-type name shape), so unrelated `record`-named runtime calls are
+  unaffected.
+
+Real locals in the same class keep their ordinary diagnosis; the gate is
+argument-scoped, so unrelated assignments stay tracked.
 
 ## Known scope boundaries (follow-up)
 
