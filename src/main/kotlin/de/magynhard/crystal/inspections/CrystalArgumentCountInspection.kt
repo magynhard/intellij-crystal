@@ -32,10 +32,16 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
-                // Macro context: {{ … }} interpolations and macro bodies hold
-                // AST arguments resolved by the compiler as macros — ordinary
-                // argument diagnostics do not apply (v13).
-                if (CrystalMacroContext.isInMacroContext(element)) return
+                // Macro context: {{ … }} interpolations, macro bodies, and
+                // macro-invocation block bodies hold AST arguments consumed by
+                // macros as data — ordinary argument diagnostics do not apply
+                // (v13). The macro-block gate covers DSL forms like ameba's
+                // `properties do bin_path nil, as: String? end`, where the
+                // documented named argument `as` carries the property type.
+                if (CrystalMacroContext.isInMacroContext(element) ||
+                    CrystalMacroContext.isInsideMacroCallBlock(element)) {
+                    return
+                }
                 when (element) {
                     is CrystalMethodCallExpression -> checkCall(element, holder)
                     is CrystalBareMethodCallExpression -> checkCall(element, holder)
@@ -150,6 +156,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             ),
             callExpr,
         )
+
 
         // An unqualified `new` inside a type resolves through the shared exact
         // constructor pool — explicit `def self.new` overloads plus implicit

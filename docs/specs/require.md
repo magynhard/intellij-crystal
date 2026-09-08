@@ -389,6 +389,11 @@ Automated coverage protects:
   late requirers extend them without stale snapshots, and the 5 000-file cycle stays bounded.
 - Macro-call arguments are not measured as runtime calls; proc-literal parameters resolve
   as local declarations.
+- Block bodies of macro invocations (`properties do bin_path nil, as: String? end`) are macro
+  data: `CrystalMacroContext.isInsideMacroCallBlock` recognizes a block whose owner call resolves
+  to a macro (whole-index lookup — stdlib macros sit outside the project scope); the argument-count
+  and type-check inspections skip their ordinary diagnostics there. Blocks owned by real methods
+  keep diagnostics.
 - The tight bracket after a dot-call method name binds as the receiver's index postfix:
   `identity.headers["Etag"], "gzip"` inside a parenthesized argument list yields TWO
   arguments of the enclosing call (`Kemal::Utils.etag_with_coding(etag, coding)` with both

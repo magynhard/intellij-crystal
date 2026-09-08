@@ -2323,4 +2323,67 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("Too many arguments") == true },
         )
     }
+
+    fun testMacroBlockBodyNamedArgumentsAreNotDiagnosed() {
+        // ameba typos.cr:22 — `properties do bin_path nil, as: String? end`:
+        // the macro reads its block statements via prop.named_args, and `as:` is
+        // the documented DSL form for the property type annotation. The named
+        // argument has no method parameter and the call is never executed.
+        myFixture.configureByText("props.cr", """
+            macro properties(&block)
+              {{ block.body }}
+            end
+
+            macro enabled(value)
+              value
+            end
+        """.trimIndent())
+        myFixture.configureByText("typos.cr", """
+            require "./props"
+
+            class Typos
+              properties do
+                since_version "1.6.0"
+                enabled false
+
+                bin_path nil, as: String?
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Macro block bodies hold macro data, not runtime calls",
+            highlights.any { it.description?.contains("Unknown named argument") == true },
+        )
+        assertFalse(
+            "No missing-argument report from the DSL block",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+    }
+
+    fun testRegularMethodBlockKeepsArgumentDiagnostics() {
+        // A block owned by a real method keeps ordinary diagnostics.
+        myFixture.configureByText("helper.cr", """
+            class Aggregator
+              def each(&block)
+                block
+              end
+            end
+
+            class Runner
+              def bin_path
+                1
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("use.cr", """
+            require "./helper"
+
+            r = Runner.new
+            a = Aggregator.new
+            a.each do
+              r.bin_path nil, as: String?
+            end
+        """.trimIndent())
+    }
 }
