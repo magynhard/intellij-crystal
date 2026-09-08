@@ -772,7 +772,13 @@ dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyw
                            // the block path; the binary/range ops (`obj.m ..5` — Crystal
                            // rejects a leading `..` here) stay blocked.
                            | !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list
-                           | array_literal COMMA bare_argument_list] {
+                           // Array-comma bare arguments (`obj.f [1], 2`) are a
+                           // whitespace-separated form: a tight `[` directly after
+                           // the method name is the receiver's INDEX postfix
+                           // (`identity.headers["Etag"], "gzip"` as another call's
+                           // argument — kemal static_file_handler_spec:135) and
+                           // must never swallow the enclosing call's next argument.
+                           | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list] {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
@@ -890,7 +896,9 @@ method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare
                          // first bare argument; a spaced binary operator still blocks the
                          // bare-argument alternative so `width + height` stays binary.
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) array_literal COMMA bare_argument_list [block]
+                         // Tight-`[` is the index postfix (see dot_call_access), never
+                         // the receiver's own array argument.
+                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list [block]
                          // Loose (whitespace-separated) bare array argument with no
                         // comma: `parse_args [\n ... \n]` is a call with the array as
                         // its only argument; the looseness predicate keeps a tight
@@ -934,7 +942,7 @@ private nested_call_lookahead ::= binary_op_lookahead | (DOTDOT | DOTDOTDOT)
 // AS/AS_QUESTION are needed for the &. shorthand without receiver (`to_a(&.as(T))`):
 // the postfix_op .as(...) form only applies after an existing primary expression.
 implicit_object_call ::= DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CLASS_VAR | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | macro_interpolation | operator_method_name) [&<<isTokenTightAfterPreviousToken>> QUESTION]
-                           [call_args [block] | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list [block] | array_literal COMMA bare_argument_list | block]
+                           [call_args [block] | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list [block] | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list | block]
                        | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
 
 // Third alternative group — closeless heredoc calls (`f(rule, <<-CRYSTAL)`): the
@@ -1113,7 +1121,7 @@ bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
                               // -span.nanoseconds` (time.cr) negates its first bare argument,
                               // while a spaced `+`/`-`/`*` still starts a binary expression.
                               | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isHeredocBodyOpener>> bare_argument_list
-                              | (IDENTIFIER | CONSTANT) array_literal COMMA bare_argument_list
+                              | (IDENTIFIER | CONSTANT) !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list
                               // Loose (whitespace-separated) bare array argument with
                               // no comma (`parse_args [\n ... \n]`); the tight `[`
                               // stays on the index postfix path.

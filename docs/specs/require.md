@@ -389,3 +389,8 @@ Automated coverage protects:
   late requirers extend them without stale snapshots, and the 5 000-file cycle stays bounded.
 - Macro-call arguments are not measured as runtime calls; proc-literal parameters resolve
   as local declarations.
+- The tight bracket after a dot-call method name binds as the receiver's index postfix:
+  `identity.headers["Etag"], "gzip"` inside a parenthesized argument list yields TWO
+  arguments of the enclosing call (`Kemal::Utils.etag_with_coding(etag, coding)` with both
+  `etag` and `coding` bound), while the whitespace-separated array-comma form keeps
+  counting a leading array plus the tail as bare arguments of the dot-call.

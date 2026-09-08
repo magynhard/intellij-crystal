@@ -2275,4 +2275,52 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("Missing required argument") == true },
         )
     }
+
+    fun testIndexedFirstArgumentKeepsSecondArgumentOfQualifiedCall() {
+        // kemal static_file_handler_spec.cr:135 — the array-literal-comma
+        // alternative of dot_call_access used to bind `["Etag"], "gzip"` as the
+        // arguments of `.headers`, so etag_with_coding saw one argument and
+        // reported "Missing required argument(s): 'coding'". The tight bracket
+        // after the method name is the receiver's index postfix.
+        myFixture.configureByText("etag.cr", """
+            module Kemal
+              module Utils
+                def self.etag_with_coding(etag, coding)
+                  etag
+                end
+              end
+            end
+
+            class Header
+              def [](key)
+                1
+              end
+            end
+
+            class Response
+              def headers
+                Header.new
+              end
+            end
+
+            class Spec
+              def should(x)
+                x
+              end
+            end
+
+            r1 = Response.new
+            r2 = Response.new
+            r1.headers["Etag"].should eq Kemal::Utils.etag_with_coding(r2.headers["Etag"], "gzip")
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Both call arguments must reach the overload check",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+        assertFalse(
+            "No swallowed-comma failure from the index postfix",
+            highlights.any { it.description?.contains("Too many arguments") == true },
+        )
+    }
 }
