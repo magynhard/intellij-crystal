@@ -220,7 +220,9 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         if (!isRoot && element is CrystalBlock) return
         if (!isRoot && element is CrystalRescueClause) return
         if (element is CrystalAssignment && localAssignmentIdentifier(element) != null) {
-            result.add(element)
+            if (!isInsideAccessorMacroArgument(element)) {
+                result.add(element)
+            }
         }
         for (child in element.children) collectFrameAssignments(child, result)
     }
@@ -247,6 +249,28 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         if (!isRoot && element is CrystalRescueClause) return
         if (element is CrystalGroupedExpression && groupedAssignmentIdentifier(element) != null) result.add(element)
         for (child in element.children) collectFrameGroupedAssignments(child, result)
+    }
+
+    /**
+     * Arguments of accessor macro declarations (`property autocorrect = false`,
+     * `property? enabled`, `getter foo : String`, … — the whole family from
+     * [CrystalAccessorCoupling]) bind the default-value form through the
+     * `bare_argument ::= ... | assignment` alternative. The unused-variable
+     * analysis would therefore treat every declaration as a plain local
+     * assignment whose reader/setter methods are never called as PSI and
+     * report "Variable '…' is never used" — but accessor declarations are API
+     * surface: Crystal itself never warns for them, one is declared precisely
+     * so that OTHERS (instances, subclasses, other files) may consume it, and
+     * tracking that consumption would require full-program receiver analysis.
+     * The declaration argument is macro data, not a runtime assignment.
+     */
+    private fun isInsideAccessorMacroArgument(element: CrystalAssignment): Boolean {
+        val call = PsiTreeUtil.getParentOfType(
+            element,
+            CrystalMethodCallExpression::class.java,
+            CrystalBareMethodCallExpression::class.java,
+        ) ?: return false
+        return de.magynhard.crystal.navigation.CrystalAccessorCoupling.isAccessorMacroCall(call)
     }
 
     private fun prepareNestedFrames(element: PsiElement, frame: Frame, isRoot: Boolean = false) {

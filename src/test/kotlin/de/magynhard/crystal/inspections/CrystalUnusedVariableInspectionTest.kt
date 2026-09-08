@@ -1190,4 +1190,41 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+
+    // ==================== Accessor-macro declaration arguments ====================
+
+    fun testAccessorDeclarationArgumentsAreNeverUnused() {
+        // `property autocorrect = false` binds its default through the
+        // bare-argument assignment alternative; the declaration is API surface —
+        // Crystal never warns, and the consumer (instances, other files) is not
+        // a local read.
+        myFixture.configureByText("accessors.cr", """
+            class Config
+              property autocorrect = false
+              property foo, bar, baz
+              property? powered_by_header : Bool = false
+              getter! config
+              class_property timeout : Int32 = 30
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "The accessor declarations are not reported as unused",
+            highlights.none { it.description?.contains("never used") == true },
+        )
+    }
+
+    fun testPlainAssignmentsInsideTheSameClassStillReport() {
+        // Real locals in method bodies keep the regular diagnosis.
+        myFixture.configureByText("accessors.cr", """
+            class Config
+              property foo = false
+
+              def warm
+                <weak_warning descr="Variable 'ignored' is never used">ignored</weak_warning> = 17
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

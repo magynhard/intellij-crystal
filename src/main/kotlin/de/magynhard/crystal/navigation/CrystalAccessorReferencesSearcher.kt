@@ -66,11 +66,7 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
                 varName = CrystalAccessorCoupling.coupledVarName(arg) ?: return
             }
             target is CrystalInstanceVarAccess -> {
-                val coupled = CrystalAccessorCoupling.findAccessorArgForVar(target)
-                com.intellij.openapi.diagnostic.Logger.getInstance("CRYSTAL DEBUG")
-                    .warn("accessor-search ivar target=" + target.text + " coupled=" + coupled?.text +
-                        " name=" + CrystalAccessorCoupling.accessorArgName(coupled))
-                arg = coupled ?: return
+                arg = CrystalAccessorCoupling.findAccessorArgForVar(target) ?: return
                 varName = target.text
             }
             target is CrystalClassVarAccess -> {
@@ -106,6 +102,7 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
             }
             true
         }
+
         PsiSearchHelper.getInstance(arg.project).processElementsWithWord(
             hitProcessor,
             queryParameters.effectiveSearchScope,

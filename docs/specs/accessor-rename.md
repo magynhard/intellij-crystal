@@ -81,6 +81,23 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
 - The rename verifier (`CrystalRenameVerifier`) runs the compiler check on
   the file after the rename completes as before.
 
+## Unused-variable analysis on accessor declarations
+
+The accessor name is a macro-call ARGUMENT that binds its default value
+(`property autocorrect = false`) through the `bare_argument ::= ... |
+assignment` alternative. The unused-variable analysis would collect that
+composite as a plain local assignment and report "Variable '…' is never
+used" — a false positive for the whole family: an accessor declaration is
+API surface (Crystal itself never warns for it), consumers are instances /
+subclasses / other files that local analysis cannot see, and tracking that
+consumption would require full-program receiver analysis.
+
+`CrystalLocalUsageAnalyzer` therefore skips CrystalAssignments whose nearest
+call ancestor is in the accessor family (`CrystalAccessorCoupling` — the
+16-macro set shared with the rename coupling). Real locals in the same class
+keep their ordinary diagnosis; the gate is argument-scoped, so unrelated
+assignments stay tracked.
+
 ## Known scope boundaries (follow-up)
 
 - Setter receiver chains (`obj.nested.foo = v`) participate only when the
