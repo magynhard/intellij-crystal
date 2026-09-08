@@ -8,12 +8,11 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalArgumentImpl extends ASTWrapperPsiElement implements CrystalArgument {
+public class CrystalArgumentImpl extends CrystalAccessorArgumentMixin implements CrystalArgument {
 
-  public CrystalArgumentImpl(@NotNull ASTNode node) {
+  public CrystalArgumentImpl(ASTNode node) {
     super(node);
   }
 

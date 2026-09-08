@@ -11,6 +11,7 @@ import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalMethodCallExpression
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
+import de.magynhard.crystal.navigation.CrystalAccessorCoupling
 import de.magynhard.crystal.psi.CrystalReceiverExpression
 
 sealed interface DotCallResolution {
@@ -30,6 +31,18 @@ sealed interface DotCallResolution {
         val receiverName: String,
         val qualifiedName: String,
         val recordDefinition: CrystalMethodCallExpression
+    ) : DotCallResolution
+
+    /**
+     * An accessor-macro binding: the receiver type declares `property foo` /
+     * `getter? foo` / `class_property foo` (whole family,好人 suffix count?) …
+     * the accessor ARGUMENT is the declaration — the generated reader/setter
+     * methods have no PSI of their own.
+     */
+    data class Accessor(
+        val call: DotCallDescriptor,
+        val receiverType: ExactReceiverType,
+        val accessorArgs: List<com.intellij.psi.PsiElement>
     ) : DotCallResolution
 
     data object Unresolved : DotCallResolution
@@ -73,11 +86,16 @@ object CrystalDotCallTargetResolver {
         val mode = if (constantReceiver) ReceiverMode.STATIC else ReceiverMode.INSTANCE
         val collection = collectMethods(receiverType, mode, call.methodName, session)
         if (!collection.complete) return DotCallResolution.Suppressed
-        return if (collection.methods.isEmpty()) {
-            DotCallResolution.Unresolved
-        } else {
-            DotCallResolution.Methods(call, receiverType, collection.methods)
+        if (collection.methods.isEmpty()) {
+            // Accessor macros (`property foo` … class_* family) declare their
+            // reader/setter methods purely in macro-land: the ARGUMENT is the
+            // declaration, so an unresolved method name falls through to the
+            // accessor binding of the receiver type.
+            val accessorArgs = collectAccessorArguments(call, receiverType, mode, session)
+            if (accessorArgs.isNotEmpty()) return DotCallResolution.Accessor(call, receiverType, accessorArgs)
+            return DotCallResolution.Unresolved
         }
+        return DotCallResolution.Methods(call, receiverType, collection.methods)
     }
 
     private fun resolveConstructor(
@@ -119,6 +137,36 @@ object CrystalDotCallTargetResolver {
     }
 
 
+    /**
+     * Accessor-macro name arguments of the receiver type matching the called
+     * method shape: `foo` (plain reader), `foo?`/`foo!` (suffix variants), or
+     * `foo=` (setter, from `obj.foo = v`). Instance mode binds the plain
+     * family, static mode (`Session.timeout`, `session.foo=` — an instance
+     * receiver never binds `self.timeout`) the `class_*` family.
+     */
+    private fun collectAccessorArguments(
+        call: DotCallDescriptor,
+        receiverType: ExactReceiverType,
+        mode: ReceiverMode,
+        session: CrystalTypeResolutionSession,
+    ): List<PsiElement> {
+        val allowed = CrystalAccessorCoupling.allowedAccessorMacros(call.methodName) ?: return emptyList()
+        val propertyName = call.methodName
+            .removeSuffix("=").removeSuffix("?").removeSuffix("!")
+        if (propertyName.isEmpty()) return emptyList()
+        val declarations = session.findExactTypeDeclarations(
+            CrystalTypeIdentity(receiverType.simpleName, receiverType.qualifiedName),
+        )
+        return declarations.flatMap { declaration ->
+            CrystalAccessorCoupling.accessorArgsMatching(
+                declaration,
+                propertyName,
+                allowed,
+                classMacrosOnly = mode == ReceiverMode.STATIC,
+            )
+        }
+    }
+
     private fun containsMacroInterpolation(element: PsiElement): Boolean =
         element is de.magynhard.crystal.psi.CrystalMacroInterpolation ||
             PsiTreeUtil.findChildOfType(
@@ -129,6 +177,8 @@ object CrystalDotCallTargetResolver {
 
     private fun isConstantReceiver(receiverText: String): Boolean =
         receiverText.removePrefix("::").firstOrNull()?.isUpperCase() == true
+
+
 
     private enum class ReceiverMode { STATIC, INSTANCE }
 

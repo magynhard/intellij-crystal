@@ -204,6 +204,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 if (arguments.isEmpty()) return
                 checkOverloadTypes(resolution.methods, arguments, holder, access)
             }
+            // Accessor methods have no call-shape beyond their
+            // macro-generated reader/setter shape — no type diagnostics.
+            is DotCallResolution.Accessor -> return
             is DotCallResolution.RecordFallback -> {
                 val arguments = extractDotCallArguments(resolution.call.argumentHolder)
                 if (arguments.isEmpty()) return

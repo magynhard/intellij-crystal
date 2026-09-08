@@ -104,6 +104,10 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     fun resolveType(typeName: String, element: PsiElement): CrystalTypeIdentity? =
         resolveTypeIdentity(typeName, element)?.toShared()
 
+    /** The exact type declarations backing [identity] (accessor coupling). */
+    fun findExactTypeDeclarations(identity: CrystalTypeIdentity): List<CrystalNamedElement> =
+        hierarchy.findExactTypeDeclarations(identity)
+
     fun isConstructible(typeName: String, element: PsiElement): Boolean =
         resolveConstructor(typeName, element).let {
             it is CrystalConstructorResolution.Methods || it is CrystalConstructorResolution.Implicit ||

@@ -210,6 +210,9 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             is DotCallResolution.Methods -> resolution.call
             is DotCallResolution.ImplicitConstructor -> resolution.call
             is DotCallResolution.RecordFallback -> resolution.call
+            // Accessor declarations have no call-shape beyond their
+            // macro-generated reader/setter shape — no arg diagnostics.
+            is DotCallResolution.Accessor -> return
             DotCallResolution.Suppressed, DotCallResolution.Unresolved -> return
         }
         val arguments = extractArgumentsFromArgsElement(call.argumentHolder)

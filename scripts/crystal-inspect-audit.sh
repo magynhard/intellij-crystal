@@ -101,7 +101,7 @@ if ! flock -n 9; then
 fi
 
 echo "==> Building dev plugin"
-(cd "$REPO_ROOT" && ./gradlew buildPlugin -q)
+(cd "$REPO_ROOT" && ./gradlew buildPlugin -x buildSearchableOptions -q)
 
 VERSION=""
 while IFS='=' read -r key value; do

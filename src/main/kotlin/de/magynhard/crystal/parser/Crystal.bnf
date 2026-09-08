@@ -972,6 +972,9 @@ argument ::= STAR expression
            | named_argument
            | starred_type_expression
            | expression
+           {
+  mixin="de.magynhard.crystal.psi.impl.CrystalAccessorArgumentMixin"
+}
 
 // C pointer suffixes inside generic type arguments used as call arguments:
 // `Pointer(UInt8*)`, `Pointer(LibC::SizeT)`-style receivers in stdlib code
@@ -1016,6 +1019,9 @@ bare_argument ::= named_type_bare_argument
                 | assignment
                 | bare_expression
                 | out_argument
+                {
+  mixin="de.magynhard.crystal.psi.impl.CrystalAccessorArgumentMixin"
+}
 
 // Control expressions are valid argument VALUES: `skip: if skip.is_a?(Category)`
 // (ameba's elseif_aware_node_visitor). Positional bare arguments keep excluding

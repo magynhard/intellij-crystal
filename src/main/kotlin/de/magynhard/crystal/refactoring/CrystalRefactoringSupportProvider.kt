@@ -2,6 +2,7 @@ package de.magynhard.crystal.refactoring
 
 import com.intellij.lang.refactoring.RefactoringSupportProvider
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiNameIdentifierOwner
 import de.magynhard.crystal.psi.CrystalNamedElement
 import de.magynhard.crystal.psi.CrystalInstanceVarAccess
 import de.magynhard.crystal.psi.CrystalTypes
@@ -29,6 +30,13 @@ class CrystalRefactoringSupportProvider : RefactoringSupportProvider() {
     override fun isMemberInplaceRenameAvailable(element: PsiElement, context: PsiElement?): Boolean {
         // Composites that implement PsiNameIdentifierOwner via their BNF mixins
         if (element is CrystalNamedElement || element is CrystalInstanceVarAccess) return true
+
+        // Accessor-macro name arguments (`property foo` / `property? enabled` …
+        // | class_ family): the arg is the declaration via
+        // CrystalAccessorArgumentMixin (PsiNameIdentifierOwner). `foo` expands
+        // the whole chain — reader/setter methods, @foo/@foo=, the initializer
+        // storage shortcut, and the call sites.
+        if (element is PsiNameIdentifierOwner && element.nameIdentifier != null) return true
 
         // Also accept the raw element types that our mixins attach to
         val tokenType = element.node?.elementType

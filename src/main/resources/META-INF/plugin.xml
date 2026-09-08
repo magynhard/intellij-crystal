@@ -517,6 +517,13 @@
         <referencesSearch
                 implementation="de.magynhard.crystal.navigation.CrystalInstanceVarReferencesSearcher"/>
 
+        <referencesSearch
+                implementation="de.magynhard.crystal.navigation.CrystalAccessorReferencesSearcher"/>
+
+        <renamePsiElementProcessor
+                implementation="de.magynhard.crystal.refactoring.CrystalAccessorRenamePsiElementProcessor"
+                order="last"/>
+
         <gotoClassContributor
                 implementation="de.magynhard.crystal.navigation.CrystalGoToClassContributor"/>
 

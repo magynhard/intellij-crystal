@@ -54,6 +54,20 @@ object CrystalTokenTypes {
         CrystalTypes.INTEGER_LITERAL, CrystalTypes.FLOAT_LITERAL
     )
 
+    /** Assignment operators: `foo = v`, plus every compound op (`+=` …). */
+    @JvmField val ASSIGN_OPS = TokenSet.create(
+        CrystalTypes.ASSIGN,
+        CrystalTypes.PLUS_ASSIGN, CrystalTypes.MINUS_ASSIGN,
+        CrystalTypes.STAR_ASSIGN, CrystalTypes.SLASH_ASSIGN,
+        CrystalTypes.PERCENT_ASSIGN, CrystalTypes.AMPERSAND_ASSIGN,
+        CrystalTypes.PIPE_ASSIGN, CrystalTypes.CARET_ASSIGN,
+        CrystalTypes.DOUBLE_STAR_ASSIGN, CrystalTypes.DOUBLE_SLASH_ASSIGN,
+        CrystalTypes.WRAP_PLUS_ASSIGN, CrystalTypes.WRAP_MINUS_ASSIGN,
+        CrystalTypes.WRAP_STAR_ASSIGN, CrystalTypes.WRAP_DOUBLE_STAR_ASSIGN,
+        CrystalTypes.LSHIFT_ASSIGN, CrystalTypes.RSHIFT_ASSIGN,
+        CrystalTypes.OR_OR_ASSIGN, CrystalTypes.AND_AND_ASSIGN,
+    )
+
     @JvmField val OPERATORS = TokenSet.create(
         CrystalTypes.PLUS, CrystalTypes.MINUS, CrystalTypes.STAR,
         CrystalTypes.SLASH, CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT,
