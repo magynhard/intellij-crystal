@@ -60,6 +60,17 @@ object CrystalAccessorCoupling {
         if (arg == null) return null
         val direct = arg.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
         if (direct != null) return direct
+        // Default-valued declarations (`getter? in_call_args = false`): the
+        // name is the assignment LHS of the bare argument — the identifier
+        // lives inside the nested assignment, neither as a direct child nor
+        // in a bare variable_reference wrapper.
+        if (arg is de.magynhard.crystal.psi.CrystalAssignment) {
+            return arg.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+        }
+        val assignment = PsiTreeUtil.getChildOfType(arg, de.magynhard.crystal.psi.CrystalAssignment::class.java)
+        if (assignment != null) {
+            return assignment.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+        }
         val ref = PsiTreeUtil.findChildOfType(arg, CrystalVariableReference::class.java) ?: return null
         return ref.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
     }
@@ -108,8 +119,9 @@ object CrystalAccessorCoupling {
      * The first accessor name argument of [propertyName] inside a type body
      * (class, struct, module), or null.
      */
-    fun findAccessorArg(propertyName: String, typeDef: PsiElement): PsiElement? =
-        findAccessorCallIn(typeDef, propertyName)?.let { accessorArgsOfName(it, propertyName).firstOrNull() }
+    fun findAccessorArg(propertyName: String, typeDef: PsiElement): PsiElement? {
+        return findAccessorCallIn(typeDef, propertyName)?.let { accessorArgsOfName(it, propertyName).firstOrNull() }
+    }
 
     /**
      * The coupled instance/class variable name for the accessor declaration

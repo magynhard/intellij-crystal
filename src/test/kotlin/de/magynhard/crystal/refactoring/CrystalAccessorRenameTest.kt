@@ -422,4 +422,56 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
             text.contains("getter? uses_loop") && !text.contains(" in_loop"),
         )
     }
+
+    fun testReverseRenameUntypedDefaultDeclarationInNestedClass() {
+        // ameba assignment_in_call_argument.cr: nested class in a module,
+        // untyped `getter? in_call_args = false` with a default value, ivar
+        // writes inside a SAME-NAME method, bare calls of that separate def.
+        // The reverse rename must pull the declaration; the separate same-name
+        // method and its calls are distinct symbols and stay.
+        myFixture.configureByText("flow.cr", """
+            module Ameba::Rule::Lint
+              private class Visitor
+                getter? in_call_args = false
+
+                def initialize(rule, source, &@on_assign : Crystal::ASTNode ->)
+                  super(rule, source)
+                end
+
+                private def in_call_args(value = true, &)
+                  prev_value = @in_c<caret>all_args
+                  begin
+                    @in_call_args = value
+                    yield
+                  ensure
+                    @in_call_args = prev_value
+                  end
+                end
+
+                def visit(node : Crystal::Block)
+                  in_call_args(false) do
+                    node.accept_children(self)
+                  end
+                  false
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("in_callargs")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "declaration and ivars follow:\n$text",
+            text.contains("getter? in_callargs = false") &&
+                text.contains("prev_value = @in_callargs") &&
+                text.contains("@in_callargs = value") &&
+                text.contains("@in_callargs = prev_value"),
+        )
+        // The separate same-name def is not the accessor symbol.
+        assertTrue(
+            "same-name method and its calls stay:\n$text",
+            text.contains("private def in_call_args(value = true, &)") &&
+                text.contains("in_call_args(false) do"),
+        )
+    }
 }

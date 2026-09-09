@@ -135,6 +135,26 @@ The resolve-side promotion stays untouched — it is the IDE rename trigger
 for storage shortcuts, and the highlight fix lives entirely in the search
 targets.
 
+### Untyped default-valued declarations
+
+`getter? in_call_args = false` (ameba `assignment_in_call_argument.cr`):
+the bare argument composite is `name = default` and the bearer name is
+the assignment LHS — previously `accessorNameIdentifier` resolved
+neither a direct IDENTIFIER child nor a bare variable_reference wrapper,
+so `findAccessorArgForVar` found nothing and the ivar-driven reverse
+rename left the declaration behind (the forward direction worked by a
+different plumbing path). `accessorNameIdentifier` now resolves the
+assignment LHS of the bare argument: the nested
+`CrystalAssignment`'s direct IDENTIFIER child (direct-child or nested
+forms both handled). Rename plumbing (declaration rename reference
+rewrite, narrowed highlight range, arg matching) shares this resolver,
+so the default-valued shape joins every direction.
+
+Note the honest boundary: a SEPARATE method with the same name as the
+reader (`private def in_call_args(value = true, &)` next to
+`getter? in_call_args`) is a distinct symbol — its declaration and its
+bare calls never join the rename.
+
 ### Bare implicit-self reader calls
 
 The lexer folds the `?` reader suffix into the IDENTIFIER token
