@@ -22,6 +22,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   searchers now route parameter targets through the wrapped access
   composite, so the declaration argument, the intra-class occurrences and
   the word-level call sites all highlight from either side.
+- **Accessor declaration highlights marked the type annotation** — the
+  declaration rename reference declared the whole argument-composite range,
+  so for a typed `getter? in_loop : Bool` the highlight-usages pipeline
+  marked ` : Bool` together with the name (after a rename, in both click
+  directions). The reference range now covers only the accessor name: the
+  highlight matches the identifier leaf like standard declarations.
 - **The accessor declaration rename reference rewrote untyped arguments as
   a no-op** — `handleElementRename` looked up the identifier directly on
   the argument node, but for `getter? in_loop` (no type annotation) the

@@ -16,7 +16,20 @@ import de.magynhard.crystal.psi.createLeafFromText
  */
 class CrystalAccessorDeclarationRenameReference(
     element: PsiElement,
-) : PsiReferenceBase<PsiElement>(element, TextRange(0, element.textLength), true) {
+) : PsiReferenceBase<PsiElement>(element, identifierRange(element), true) {
+    companion object {
+        /**
+         * The highlight range must cover ONLY the accessor name — the whole
+         * argument composite of a typed declaration (`getter? in_loop : Bool`)
+         * would also mark the ` : Bool` annotation. Falls back to the full
+         * composite only when the identifier leaf cannot be resolved.
+         */
+        private fun identifierRange(element: PsiElement): TextRange {
+            val ident = CrystalAccessorCoupling.accessorNameIdentifier(element)?.node
+                ?: return TextRange(0, element.textLength)
+            return TextRange(ident.startOffset - element.node.startOffset, ident.textLength)
+        }
+    }
 
     override fun handleElementRename(newElementName: String): PsiElement {
         // The identifier leaf lives inside the `variable_reference` wrapper

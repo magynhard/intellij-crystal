@@ -135,6 +135,20 @@ The resolve-side promotion stays untouched — it is the IDE rename trigger
 for storage shortcuts, and the highlight fix lives entirely in the search
 targets.
 
+### Highlight range = the identifier leaf only
+
+`CrystalAccessorDeclarationRenameReference` initially declared
+`TextRange(0, element.textLength)` — the whole argument composite. For a
+typed declaration (`getter? in_loop : Bool`) the platform highlight-usages
+pipeline then marked ` : Bool` together with the name (visibly "too much"
+after a rename on both sides: clicking the variable AND clicking the
+declaration identifier). The reference range now resolves
+`CrystalAccessorCoupling.accessorNameIdentifier` and covers only the
+identifier leaf; the full composite remains the fallback when no
+identifier resolves. The other yielded references are already narrow:
+member-assignment references sit on the IDENTIFIER leaf and var-access
+references cover the sigil-prefixed access like standard variables.
+
 ### Declaration rename reference on untyped arguments
 
 `CrystalAccessorDeclarationRenameReference.handleElementRename` previously

@@ -320,6 +320,13 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
                 ref is CrystalAccessorDeclarationRenameReference && ref.element.text.contains("uses_loop")
             },
         )
+        // The highlight range must cover ONLY the accessor name — a typed
+        // declaration (`getter? uses_loop : Bool`) must not mark ` : Bool`.
+        val declarationRange = refs
+            .filterIsInstance<CrystalAccessorDeclarationRenameReference>()
+            .first { it.element.text.contains("uses_loop") }
+            .let { it.element.text.substring(it.rangeInElement.startOffset, it.rangeInElement.endOffset) }
+        assertEquals("uses_loop", declarationRange)
     }
 
     fun testDeclarationRenameReferenceRenamesUntypedArgument() {
