@@ -1,6 +1,8 @@
 package de.magynhard.crystal.refactoring
 
 import com.intellij.psi.PsiElement
+import de.magynhard.crystal.psi.CrystalParameter
+import de.magynhard.crystal.psi.parameterNameInfo
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -231,5 +233,43 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
             "coupled class accessor follows:\n$text",
             text.contains("class_getter cycled : Bool"),
         )
+    }
+
+    fun testPlainParameterKeepsInplaceRenameAvailable() {
+        // Normal parameters (no sigil) stay on the inplace path — the sigil
+        // gate must only catch storage shortcuts.
+        val file = myFixture.configureByText("plain.cr", """
+            class Greeter
+              def work(node<caret>_name : String)
+                name
+              end
+            end
+        """.trimIndent())
+        val leaf = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val parameter = PsiTreeUtil.getParentOfType(leaf, CrystalParameter::class.java)!!
+        assertTrue(parameter.parameterNameInfo().storageName == null)
+        assertTrue(
+            "Plain parameters keep the inplace rename behavior",
+            CrystalRefactoringSupportProvider().isMemberInplaceRenameAvailable(parameter, null),
+        )
+    }
+
+    fun testStorageParameterInplaceIsDisabled() {
+        myFixture.configureByText("flow.cr", """
+            class FlowExpression
+              def initialize(node, @i<caret>n_loop : Bool)
+              end
+            end
+        """.trimIndent())
+        val leaf = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val parameter = PsiTreeUtil.getParentOfType(leaf, CrystalParameter::class.java)!!
+        assertTrue(
+            "Storage shortcut joins the accessor coupling (no inplace)",
+            parameter.parameterNameInfo().storageName != null,
+        )
+        assertFalse(
+            "Inplace rename drops the sigil — storage shortcuts run the dialog",
+            CrystalRefactoringSupportProvider().isMemberInplaceRenameAvailable(parameter, null),
+            )
     }
 }

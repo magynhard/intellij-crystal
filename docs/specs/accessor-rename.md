@@ -74,14 +74,19 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
 - **Inplace rename is disabled** for the coupled symbol family on BOTH gates:
   the processor's `isInplaceRenameSupported() == false` AND
   `CrystalRefactoringSupportProvider.isMemberInplaceRenameAvailable` returning
-  false for `CrystalInstanceVarAccess`/`CrystalClassVarAccess`. The inplace
-  renamer applies only its own references and drops the `@`-sigil
-  (ameba flow_expression.cr:35 — renaming `@in_loop` in the
-  `initialize(@in_loop)` storage shortcut silently produced `in_loop`), so an
-  inplace rename would leave the chain half-renamed and sigil-less — the code
-  is then invalid. The dialog flow (prepareRenaming + ReferencesSearcher)
-  re-applies the sigil on the parameter's original token type and applies the
-  full union, so renaming stays a dialog for this family.
+  false for `CrystalInstanceVarAccess`, `CrystalClassVarAccess`, AND storage
+  shortcut parameters (`CrystalParameter` with
+  `parameterNameInfo().storageName != null` — the caret resolves the
+  `initialize(@in_loop)` leaf to the parameter composite, NOT the
+  instance-var access, so the composites-gate alone missed the user's
+  trigger). The inplace renamer applies only its own references AND writes
+  `getName()` into the buffer the moment the template starts —
+  `CrystalParameterMixin.getName()` reports the LOCAL name (`in_loop`), never
+  the sigil — so the `@` disappears as soon as rename is triggered and every
+  re-typed sigil is normalized away on Enter (ameba flow_expression.cr:35).
+  The dialog flow (prepareRenaming + ReferencesSearcher + setName sigil
+  re-apply from the original token type) applies the full union with the
+  sigil preserved; normal (sigil-less) parameters keep the inplace rename.
 - The rename verifier (`CrystalRenameVerifier`) runs the compiler check on
   the file after the rename completes as before.
 
