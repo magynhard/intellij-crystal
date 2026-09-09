@@ -25,6 +25,7 @@ import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalInstanceVarAccess
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.CrystalModuleDefinition
+import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.CrystalStructDefinition
 import de.magynhard.crystal.psi.CrystalTypes
 
@@ -73,9 +74,19 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
                 arg = CrystalAccessorCoupling.findAccessorArgForVar(target) ?: return
                 varName = target.text
             }
+            target is CrystalParameter -> {
+                // The ivar-click highlight target can be the storage-shortcut
+                // parameter (CrystalInstanceVarReference.resolve() promotes
+                // `initialize(@in_loop)` to its CrystalParameter). Route the
+                // search through the wrapped access composite so the coupled
+                // declaration argument still joins the highlight chain.
+                val access = target.instanceVarAccess ?: target.classVarAccess ?: return
+                arg = CrystalAccessorCoupling.findAccessorArgForVar(access) ?: return
+                varName = access.text
+            }
             else -> return
         }
-        if (target is CrystalInstanceVarAccess || target is CrystalClassVarAccess) {
+        if (target is CrystalInstanceVarAccess || target is CrystalClassVarAccess || target is CrystalParameter) {
             // Reverse direction: the coupled accessor argument joins the
             // rename through a declaration rename reference — the arg /
             // variable identifiers are the SAME symbol.

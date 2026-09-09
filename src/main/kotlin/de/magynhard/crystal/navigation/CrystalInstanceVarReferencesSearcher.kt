@@ -18,10 +18,15 @@ class CrystalInstanceVarReferencesSearcher : QueryExecutorBase<PsiReference, Ref
 
     override fun processQuery(queryParameters: ReferencesSearch.SearchParameters, consumer: Processor<in PsiReference>) {
         val target = queryParameters.elementToSearch
-        if (target !is CrystalInstanceVarAccess && target !is CrystalClassVarAccess) return
+        if (target !is CrystalInstanceVarAccess && target !is CrystalClassVarAccess &&
+            !(target is CrystalParameter && target.parameterNameInfo()?.storageName != null)
+        ) {
+            return
+        }
 
-        val varName = target.text  // "@name" or "@@name"
-        val enclosingClass = findEnclosingClass(target) ?: return
+        val access = target ?: return
+        val varName = (target as? CrystalParameter)?.parameterNameInfo()?.storageName ?: access.text  // "@name" or "@@name"
+        val enclosingClass = findEnclosingClass(access) ?: return
         val classBody = getClassBody(enclosingClass) ?: return
 
         // Find all matching accesses in the class
@@ -29,9 +34,9 @@ class CrystalInstanceVarReferencesSearcher : QueryExecutorBase<PsiReference, Ref
         collectVarAccesses(classBody, varName, allAccesses)
 
         // Report each one's reference (except the target itself, if it resolves to itself)
-        for (access in allAccesses) {
-            if (access === target) continue
-            val ref = access.reference ?: continue
+        for (item in allAccesses) {
+            if (item === access) continue
+            val ref = item.reference ?: continue
             consumer.process(ref)
         }
     }

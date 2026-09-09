@@ -5,7 +5,6 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReference
 import com.intellij.psi.PsiReferenceBase
-import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.psi.createLeafFromText
 
 /**
@@ -20,7 +19,10 @@ class CrystalAccessorDeclarationRenameReference(
 ) : PsiReferenceBase<PsiElement>(element, TextRange(0, element.textLength), true) {
 
     override fun handleElementRename(newElementName: String): PsiElement {
-        val identNode = element.node.findChildByType(de.magynhard.crystal.psi.CrystalTypes.IDENTIFIER)
+        // The identifier leaf lives inside the `variable_reference` wrapper
+        // for untyped arguments — resolve it through the coupling instead of
+        // a direct child lookup, which only handles the typed shape.
+        val identNode = CrystalAccessorCoupling.accessorNameIdentifier(element)?.node
             ?: return element
         val bareName = newElementName.removePrefix("@@").removePrefix("@")
         val newLeaf = createLeafFromText(element.project, bareName, identNode.elementType) ?: return element

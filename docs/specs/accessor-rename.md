@@ -108,6 +108,44 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
 - The rename verifier (`CrystalRenameVerifier`) runs the compiler check on
   the file after the rename completes as before.
 
+## Highlight usages symmetry (parameter targets)
+
+Highlight-usages (click a symbol) resolves the caret element through
+`CrystalInstanceVarReference.resolve()`, which **promotes the first offset
+occurrence to its `CrystalParameter`** when it is a storage shortcut
+(`initialize(@in_loop)`). Renames do not alter that promotion, but plain
+`else -> return` gates in the ReferencesSearchers dropped every highlight
+whenever the search target was a parameter: after renaming `@in_loop`, a
+click on the variable no longer marked the coupled `getter? in_loop`
+declaration, while clicking the declaration still marked the variable.
+
+Both searchers now accept storage-shortcut parameter targets:
+
+- `CrystalAccessorReferencesSearcher`: a `CrystalParameter` with
+  `storageName != null` routes through the wrapped access composite
+  (`instanceVarAccess ?: classVarAccess`) and yields the
+  `CrystalAccessorDeclarationRenameReference` plus the full union — the
+  declaration argument joins the highlight chain exactly as for direct
+  variable clicks.
+- `CrystalInstanceVarReferencesSearcher`: the wrapped composite supplies the
+  enclosing type and the storage name (sigil-prefixed) supplies `varName`,
+  so the intra-class var occurrences highlight from the parameter target too.
+
+The resolve-side promotion stays untouched — it is the IDE rename trigger
+for storage shortcuts, and the highlight fix lives entirely in the search
+targets.
+
+### Declaration rename reference on untyped arguments
+
+`CrystalAccessorDeclarationRenameReference.handleElementRename` previously
+located the identifier child directly on the argument node — a no-op for
+**untyped** declarations (`getter? in_loop`), whose identifier leaf lives
+inside the `variable_reference` wrapper. It now resolves the leaf through
+`CrystalAccessorCoupling.accessorNameIdentifier`, which handles both shapes
+(identically to `CrystalAccessorArgumentMixin.setName`); typed declarations
+are unaffected. Regression: a reference-level rename on an untyped argument
+rewrites the declaration.
+
 ## Unused-variable analysis on declaration-macro arguments
 
 The accessor name is a macro-call ARGUMENT that binds its default value

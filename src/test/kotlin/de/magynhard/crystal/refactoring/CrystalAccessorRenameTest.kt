@@ -1,6 +1,8 @@
 package de.magynhard.crystal.refactoring
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiReference
+import de.magynhard.crystal.navigation.CrystalAccessorDeclarationRenameReference
 import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.parameterNameInfo
 import com.intellij.psi.util.PsiTreeUtil
@@ -274,5 +276,77 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
             "Inplace rename drops the sigil — storage shortcuts run the dialog",
             CrystalRefactoringSupportProvider().isMemberInplaceRenameAvailable(parameter, null),
             )
+    }
+
+    fun testPostRenameHighlightSearchStillReachesAccessorDeclaration() {
+        // The user-reported flow: rename @in_loop once, then click it — the
+        // highlight-usages pipeline resolves the click to the storage-shortcut
+        // CrystalParameter (CrystalInstanceVarReference promotes the first
+        // offset occurrence), so both searchers must route Parameter targets
+        // through the wrapped access composite.
+        myFixture.configureByText("flow.cr", """
+            class FlowExpression
+              def initialize(node, @i<caret>n_loop : Bool)
+                loop(node, @in_loop)
+              end
+
+              getter? in_loop : Bool
+            end
+        """.trimIndent())
+        myFixture.renameElement(elementAtCaret(), "uses_loop")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "chain follows:\n$text",
+            text.contains("def initialize(node, @uses_loop : Bool)") &&
+                text.contains("loop(node, @uses_loop)") &&
+                text.contains("getter? uses_loop : Bool"),
+        )
+
+        val leaf = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val parameter = PsiTreeUtil.getParentOfType(leaf, CrystalParameter::class.java)!!
+        assertEquals("@uses_loop", parameter.parameterNameInfo().storageName)
+
+        val refs = com.intellij.openapi.application.ReadAction.compute<List<PsiReference>, RuntimeException> {
+            com.intellij.psi.search.searches.ReferencesSearch.search(parameter).findAll().filterNotNull()
+        }
+        assertTrue(
+            "parameter target reaches its var-access references:\n$refs",
+            refs.any { it.element.text.contains("@uses_loop") },
+        )
+        assertTrue(
+            "parameter target reaches the coupled accessor declaration:\n$refs",
+            refs.any { ref ->
+                ref is CrystalAccessorDeclarationRenameReference && ref.element.text.contains("uses_loop")
+            },
+        )
+    }
+
+    fun testDeclarationRenameReferenceRenamesUntypedArgument() {
+        // Untyped `getter? in_loop` wraps the identifier in a variable
+        // reference — the declaration rename reference must rewrite it via
+        // the coupling's name-identifier resolution.
+        myFixture.configureByText("flow.cr", """
+            class FlowExpression
+              def initialize(@in_l<caret>oop : Bool)
+              end
+
+              getter? in_loop
+            end
+        """.trimIndent())
+        val access = elementAtCaret()
+        val refs = com.intellij.psi.search.searches.ReferencesSearch.search(access).findAll()
+        val declarationRef = refs.mapNotNull { ref -> ref as? CrystalAccessorDeclarationRenameReference }
+            .firstOrNull() ?: error("no declaration rename reference: $refs")
+
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            declarationRef.handleElementRename("uses_loop")
+        }
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "untyped declaration follows:\n$text",
+            text.contains("getter? uses_loop") && !text.contains(" in_loop"),
+        )
     }
 }
