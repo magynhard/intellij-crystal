@@ -236,6 +236,11 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   // Whitespace and comments
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   "\\" (\r\n | \r | \n) { return TokenType.WHITE_SPACE; }
+  // Escaped macro forms: `\{% stmt %}` / `\{{ expr }}` (Crystal treats the
+  // backslash as VERBATIM data; primitives.cr:101/146). Inner states mirror
+  // the ordinary `{%`/`{{` openings; only the begin token differs.
+  "\\" "{%"           { pushState(MACRO_CONTROL); return CrystalTypes.MACRO_CONTROL_ESCAPED_BEGIN; }
+  "\\" "{{"           { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_ESCAPED_BEGIN; }
   {NEWLINE}            { PendingHeredoc ph = pendingHeredocs.pollFirst();
                          if (ph != null) { heredocId = ph.id; heredocRaw = ph.raw; yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_START; } // body opener
                          if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); }

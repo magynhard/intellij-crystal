@@ -95,6 +95,18 @@ public class CrystalStatementImpl extends ASTWrapperPsiElement implements Crysta
 
   @Override
   @Nullable
+  public CrystalMacroControlEscaped getMacroControlEscaped() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroControlEscaped.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalMacroInterpolationEscaped getMacroInterpolationEscaped() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolationEscaped.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalMultiAssignment getMultiAssignment() {
     return PsiTreeUtil.getChildOfType(this, CrystalMultiAssignment.class);
   }

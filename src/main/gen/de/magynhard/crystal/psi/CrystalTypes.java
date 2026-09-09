@@ -68,8 +68,10 @@ public interface CrystalTypes {
   IElementType LIB_UNION_DEFINITION = new CrystalElementType("LIB_UNION_DEFINITION");
   IElementType MACRO_BODY = new CrystalElementType("MACRO_BODY");
   IElementType MACRO_CONTROL = new CrystalElementType("MACRO_CONTROL");
+  IElementType MACRO_CONTROL_ESCAPED = new CrystalElementType("MACRO_CONTROL_ESCAPED");
   IElementType MACRO_DEFINITION = CrystalStubElementTypeFactory.create("MACRO_DEFINITION");
   IElementType MACRO_INTERPOLATION = new CrystalElementType("MACRO_INTERPOLATION");
+  IElementType MACRO_INTERPOLATION_ESCAPED = new CrystalElementType("MACRO_INTERPOLATION_ESCAPED");
   IElementType METHOD_BODY = new CrystalElementType("METHOD_BODY");
   IElementType METHOD_CALL_EXPRESSION = new CrystalElementType("METHOD_CALL_EXPRESSION");
   IElementType METHOD_DEFINITION = CrystalStubElementTypeFactory.create("METHOD_DEFINITION");
@@ -203,9 +205,11 @@ public interface CrystalTypes {
   IElementType MACRO_BODY_CONTENT = new CrystalTokenType("MACRO_BODY_CONTENT");
   IElementType MACRO_CONTROL_BEGIN = new CrystalTokenType("MACRO_CONTROL_BEGIN");
   IElementType MACRO_CONTROL_END = new CrystalTokenType("MACRO_CONTROL_END");
+  IElementType MACRO_CONTROL_ESCAPED_BEGIN = new CrystalTokenType("MACRO_CONTROL_ESCAPED_BEGIN");
   IElementType MACRO_FRESH_VAR = new CrystalTokenType("MACRO_FRESH_VAR");
   IElementType MACRO_INTERPOLATION_BEGIN = new CrystalTokenType("MACRO_INTERPOLATION_BEGIN");
   IElementType MACRO_INTERPOLATION_END = new CrystalTokenType("MACRO_INTERPOLATION_END");
+  IElementType MACRO_INTERPOLATION_ESCAPED_BEGIN = new CrystalTokenType("MACRO_INTERPOLATION_ESCAPED_BEGIN");
   IElementType MATCH_OP = new CrystalTokenType("MATCH_OP");
   IElementType MINUS = new CrystalTokenType("MINUS");
   IElementType MINUS_ASSIGN = new CrystalTokenType("MINUS_ASSIGN");
@@ -466,11 +470,17 @@ public interface CrystalTypes {
       else if (type == MACRO_CONTROL) {
         return new CrystalMacroControlImpl(node);
       }
+      else if (type == MACRO_CONTROL_ESCAPED) {
+        return new CrystalMacroControlEscapedImpl(node);
+      }
       else if (type == MACRO_DEFINITION) {
         return new CrystalMacroDefinitionImpl(node);
       }
       else if (type == MACRO_INTERPOLATION) {
         return new CrystalMacroInterpolationImpl(node);
+      }
+      else if (type == MACRO_INTERPOLATION_ESCAPED) {
+        return new CrystalMacroInterpolationEscapedImpl(node);
       }
       else if (type == METHOD_BODY) {
         return new CrystalMethodBodyImpl(node);

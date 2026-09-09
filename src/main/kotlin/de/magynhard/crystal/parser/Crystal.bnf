@@ -112,6 +112,10 @@
     MACRO_INTERPOLATION_END="MACRO_INTERPOLATION_END"
     MACRO_CONTROL_BEGIN="MACRO_CONTROL_BEGIN"
     MACRO_CONTROL_END="MACRO_CONTROL_END"
+    // Escaped macro forms: `\{% stmt %}` / `\{{ expr }}` carry a backslash
+    // before the opening brace (Crystal treats it as verbatim data).
+    MACRO_CONTROL_ESCAPED_BEGIN="MACRO_CONTROL_ESCAPED_BEGIN"
+    MACRO_INTERPOLATION_ESCAPED_BEGIN="MACRO_INTERPOLATION_ESCAPED_BEGIN"
 
     // Identifiers
     IDENTIFIER="IDENTIFIER"
@@ -218,6 +222,8 @@ private top_level_statement ::= NEWLINE
                               | alias_definition
                               | visibility_modifier
                               | macro_control
+                              | macro_control_escaped
+                              | macro_interpolation_escaped
                               | statement
 
 // ==================== Require / Include / Extend ====================
@@ -303,6 +309,8 @@ private class_member ::= NEWLINE
                         | visibility_modifier
                         | property_declaration
                         | macro_control
+                        | macro_control_escaped
+                        | macro_interpolation_escaped
                         | statement
 
 enum_body ::= enum_member*
@@ -405,6 +413,13 @@ private macro_fragment_suffix ::= &<<isTokenTightAfterPreviousToken>> (IDENTIFIE
 private macro_interpolation_call ::= macro_interpolation macro_fragment_suffix* [call_args | !DOT !LBRACKET !LBRACE !binary_op_lookahead !<<isHeredocBodyOpener>> bare_argument_list] [block]
 
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
+// Escaped macro forms: `\{% stmt %}` (primitives.cr:101/146) and `\{{ expr }}`
+// — the backslash suppresses the expansion (verbatim data). The lexer pushes
+// the ordinary inner states and emits the *_ESCAPED_BEGIN, so the inner token
+// set reuses macro_control_token*; the sequence is macro data with no runtime
+// value. Valid at the same statement positions as macro_control.
+macro_control_escaped ::= MACRO_CONTROL_ESCAPED_BEGIN macro_control_token* MACRO_CONTROL_END
+macro_interpolation_escaped ::= MACRO_INTERPOLATION_ESCAPED_BEGIN NLS expression [postfix_modifier] NLS MACRO_INTERPOLATION_END
 // CHAR_LITERAL and GLOBAL_VAR must stay in sync with the <MACRO_CONTROL> lexer state,
 // which can emit them anywhere inside {% ... %} (e.g. `{% if x == 'a' %}`).
 private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
@@ -491,6 +506,8 @@ statement ::= if_statement
             | assignment
             | constant_assignment
             | macro_control
+            | macro_control_escaped
+            | macro_interpolation_escaped
             | expression_statement
 
 expression_statement ::= expression [expression_assign_suffix [postfix_modifier] | postfix_modifier] [heredoc_bodies]

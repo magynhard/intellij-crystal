@@ -2700,6 +2700,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                         | visibility_modifier
   //                         | property_declaration
   //                         | macro_control
+  //                         | macro_control_escaped
+  //                         | macro_interpolation_escaped
   //                         | statement
   static boolean class_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "class_member")) return false;
@@ -2720,6 +2722,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = visibility_modifier(builder_, level_ + 1);
     if (!result_) result_ = property_declaration(builder_, level_ + 1);
     if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
     if (!result_) result_ = statement(builder_, level_ + 1);
     return result_;
   }
@@ -4803,6 +4807,31 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // MACRO_CONTROL_ESCAPED_BEGIN macro_control_token* MACRO_CONTROL_END
+  public static boolean macro_control_escaped(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_control_escaped")) return false;
+    if (!nextTokenIs(builder_, MACRO_CONTROL_ESCAPED_BEGIN)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, MACRO_CONTROL_ESCAPED_BEGIN);
+    result_ = result_ && macro_control_escaped_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, MACRO_CONTROL_END);
+    exit_section_(builder_, marker_, MACRO_CONTROL_ESCAPED, result_);
+    return result_;
+  }
+
+  // macro_control_token*
+  private static boolean macro_control_escaped_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_control_escaped_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!macro_control_token(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "macro_control_escaped_1", pos_)) break;
+    }
+    return true;
+  }
+
+  /* ********************************************************** */
   // IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
   //     | INTEGER_LITERAL | CHAR_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
   //     | SYMBOL_LITERAL | SYMBOL_COLON
@@ -5107,6 +5136,30 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean macro_interpolation_call_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_interpolation_call_3")) return false;
     block(builder_, level_ + 1);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // MACRO_INTERPOLATION_ESCAPED_BEGIN NLS expression [postfix_modifier] NLS MACRO_INTERPOLATION_END
+  public static boolean macro_interpolation_escaped(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_interpolation_escaped")) return false;
+    if (!nextTokenIs(builder_, MACRO_INTERPOLATION_ESCAPED_BEGIN)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, MACRO_INTERPOLATION_ESCAPED_BEGIN);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && macro_interpolation_escaped_3(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, MACRO_INTERPOLATION_END);
+    exit_section_(builder_, marker_, MACRO_INTERPOLATION_ESCAPED, result_);
+    return result_;
+  }
+
+  // [postfix_modifier]
+  private static boolean macro_interpolation_escaped_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_interpolation_escaped_3")) return false;
+    postfix_modifier(builder_, level_ + 1);
     return true;
   }
 
@@ -8522,6 +8575,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //             | assignment
   //             | constant_assignment
   //             | macro_control
+  //             | macro_control_escaped
+  //             | macro_interpolation_escaped
   //             | expression_statement
   public static boolean statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "statement")) return false;
@@ -8547,6 +8602,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = assignment(builder_, level_ + 1);
     if (!result_) result_ = constant_assignment(builder_, level_ + 1);
     if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
     if (!result_) result_ = expression_statement(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
@@ -8779,6 +8836,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                               | alias_definition
   //                               | visibility_modifier
   //                               | macro_control
+  //                               | macro_control_escaped
+  //                               | macro_interpolation_escaped
   //                               | statement
   static boolean top_level_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "top_level_statement")) return false;
@@ -8800,6 +8859,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = alias_definition(builder_, level_ + 1);
     if (!result_) result_ = visibility_modifier(builder_, level_ + 1);
     if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
     if (!result_) result_ = statement(builder_, level_ + 1);
     return result_;
   }

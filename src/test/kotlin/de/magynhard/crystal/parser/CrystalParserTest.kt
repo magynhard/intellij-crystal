@@ -163,6 +163,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testEscapedMacroStatements() {
+        doTest(true)
+    }
+
     fun testTypedDeclaration() {
         doTest(true)
     }

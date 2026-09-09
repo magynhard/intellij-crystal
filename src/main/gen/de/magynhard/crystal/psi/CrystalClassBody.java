@@ -32,7 +32,13 @@ public interface CrystalClassBody extends PsiElement {
   List<CrystalMacroControl> getMacroControlList();
 
   @NotNull
+  List<CrystalMacroControlEscaped> getMacroControlEscapedList();
+
+  @NotNull
   List<CrystalMacroDefinition> getMacroDefinitionList();
+
+  @NotNull
+  List<CrystalMacroInterpolationEscaped> getMacroInterpolationEscapedList();
 
   @NotNull
   List<CrystalMethodDefinition> getMethodDefinitionList();

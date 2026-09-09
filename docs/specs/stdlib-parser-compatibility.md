@@ -298,6 +298,20 @@ internal local/storage differences that do not change the callable contract.
 Rename treats local and storage uses as one symbol within a type, including
 multiple shorthand parameters that assign the same instance/class variable.
 
+## Escaped Macro Statements
+
+Crystal's escaped macro forms — `\{% stmt %}` and `\{{ expr }}` — carry a
+backslash directly before the opening brace. The compiler consumes the
+sequence as verbatim macro-body data (no expansion; see the escape note in
+`compiler/crystal/syntax/to_s.cr`); primitives.cr:101/146 use the form
+inside `{% if %}` blocks. The lexer pushes the ordinary inner states
+(`<MACRO_CONTROL>` / `<MACRO_INTERPOLATION>`) and emits
+`MACRO_CONTROL_ESCAPED_BEGIN` / `MACRO_INTERPOLATION_ESCAPED_BEGIN`; the
+grammar binds both escaped framings as macro data with no runtime value
+(`macro_control_escaped`, `macro_interpolation_escaped`), at the same
+statement positions as `macro_control` (top-level, type members,
+statements). Covered by the EscapedMacroStatements parser golden.
+
 ## Release Gates
 
 The indexed corpus reaches zero errors before work moves to the complete

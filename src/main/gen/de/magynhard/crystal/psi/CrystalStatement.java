@@ -41,6 +41,12 @@ public interface CrystalStatement extends PsiElement {
   CrystalMacroControl getMacroControl();
 
   @Nullable
+  CrystalMacroControlEscaped getMacroControlEscaped();
+
+  @Nullable
+  CrystalMacroInterpolationEscaped getMacroInterpolationEscaped();
+
+  @Nullable
   CrystalMultiAssignment getMultiAssignment();
 
   @Nullable

@@ -240,11 +240,19 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitMacroControlEscaped(@NotNull CrystalMacroControlEscaped o) {
+    visitPsiElement(o);
+  }
+
   public void visitMacroDefinition(@NotNull CrystalMacroDefinition o) {
     visitNamedElement(o);
   }
 
   public void visitMacroInterpolation(@NotNull CrystalMacroInterpolation o) {
+    visitPsiElement(o);
+  }
+
+  public void visitMacroInterpolationEscaped(@NotNull CrystalMacroInterpolationEscaped o) {
     visitPsiElement(o);
   }
 
