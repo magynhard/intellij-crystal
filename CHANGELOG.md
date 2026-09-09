@@ -12,6 +12,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
 
 ### Bug Fixes
+- **Bare implicit-self reader calls join the accessor rename** — renaming
+  a `getter? in_loop`/`getter in_loop` variable left the bare reader
+  calls (`flow_expression?(exp, in_loop?)` — no receiver, the lexer folds
+  the `?` suffix into the identifier token) untouched while declarations,
+  ivars and qualified readers followed. The accessor word-hit search
+  now binds implicit-self calls in the declaring type's body with the
+  exact reader name (only non-`!`, non-setter instance accessors; the
+  `?`-suffix rule follows the macro name) and skips occurrences that a
+  same-name local binding or parameter shadows — Crystal resolves bare
+  names to locals first, so shadowed reads keep their name.
+- **The narrowed declaration highlight range mis-scoped composite
+  offsets** — the previous range math passed the identifier length as the
+  end offset instead of `start + length`, producing invalid ranges for
+  shapes where the identifier is not at the composite start.
 - **Highlight usages stay symmetric with the accessor coupling after a
   rename** — clicking a renamed instance variable no longer marked the
   coupled accessor declaration (`getter? in_loop`): the click resolves to

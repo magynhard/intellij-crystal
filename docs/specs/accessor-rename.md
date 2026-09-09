@@ -135,6 +135,38 @@ The resolve-side promotion stays untouched — it is the IDE rename trigger
 for storage shortcuts, and the highlight fix lives entirely in the search
 targets.
 
+### Bare implicit-self reader calls
+
+The lexer folds the `?` reader suffix into the IDENTIFIER token
+(`in_loop?` is ONE identifier leaf), so bare implicit-self reader calls
+(`flow_expression?(exp, in_loop?)`) carry no receiver composite and no
+dot-call binding — the ameba `flow_expression.cr` rename left every bare
+reader while declarations, ivars and qualified readers followed. The
+accessor word-hit walker now covers the implicit-self call:
+
+- The bare hit must textually equal the reader name implied by the macro:
+  `getter`/`property` without a suffix declare the plain name reader, the
+  `?`-variants (`getter?`, `property?`, …) declare the `?`-suffixed
+  reader. `!`-variants and setter-only macros never declare an instance
+  reader, and class-var accessors skip the implicit-self surface (the
+  class method needs a class-level self — follow-up).
+- The hit must live in the declaring type's own body (implicit self).
+- CONSISTENCY GATE: a bare name resolves to a LOCAL first, and
+  distinguishing a local read from the accessor read needs full
+  reaching-definition flow — the conservative gate applies: any same-name
+  parameter or any same-name local binding (`x = …`) inside the enclosing
+  method shadows the accessor, and every bare occurrence in that method
+  keeps its name. Binding LHS shapes are identified like
+  `CrystalLocalUsageAnalyzer.localAssignmentIdentifier` (direct
+  assignment IDENTIFIER child, non-sigil assignments only).
+- `def name` method-name positions and the declaration identifier itself
+  are excluded.
+
+Renaming the bare hit goes through a transient
+`CrystalBareReaderUsageReference`: the leaf rewrite preserves the `?`
+suffix (`in_loop?` → `uses_loop?`) since the suffix lives inside the
+token.
+
 ### Highlight range = the identifier leaf only
 
 `CrystalAccessorDeclarationRenameReference` initially declared

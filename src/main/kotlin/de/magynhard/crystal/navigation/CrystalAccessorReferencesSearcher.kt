@@ -26,6 +26,7 @@ import de.magynhard.crystal.psi.CrystalInstanceVarAccess
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.CrystalModuleDefinition
 import de.magynhard.crystal.psi.CrystalParameter
+import de.magynhard.crystal.psi.parameterNameInfo
 import de.magynhard.crystal.psi.CrystalStructDefinition
 import de.magynhard.crystal.psi.CrystalTypes
 
@@ -165,15 +166,83 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
 
         // Setter member assignment: `recv.foo = v` / `recv.foo += v` —
         // IDENTIFIER with DOT before and an assignment operator after.
-        val dotNode = hit.node.treePrev ?: return
-        if (dotNode.elementType != CrystalTypes.DOT) return
-        val operator = nextSignificantNode(hit.node.treeNext) ?: return
-        if (!CrystalTokenTypes.ASSIGN_OPS.contains(operator.elementType)) return
+        val dotNode = hit.node.treePrev
+        if (dotNode != null && dotNode.elementType == CrystalTypes.DOT) {
+            val operator = nextSignificantNode(hit.node.treeNext) ?: return
+            if (CrystalTokenTypes.ASSIGN_OPS.contains(operator.elementType)) {
+                val receiver = previousSignificantPsi(dotNode.psi) ?: return
+                if (receiverTypeMatches(receiver, identity, session, hit)) {
+                    consumer.process(CrystalMemberAssignUsageReference(hit))
+                }
+            }
+            return
+        }
 
-        val receiver = previousSignificantPsi(dotNode.psi) ?: return
-        if (!receiverTypeMatches(receiver, identity, session, hit)) return
+        // Bare implicit-self reader call (`in_loop`, `in_loop?`): the lexer
+        // folds the `?` reader suffix into the IDENTIFIER token, so these
+        // calls carry no receiver composite. Gates: the method name implied
+        // by the accessor macro must match exactly (only `getter`/`property`
+        // without a suffix and the `?`-variants declare an instance reader —
+        // setter-only and `!` variants never bind), the hit must live in the
+        // declaring type's own body (implicit self — dependent types without
+        // a receiver are follow-up work), and no local binding may shadow
+        // the name — Crystal resolves bare names to locals first.
+        val call = PsiTreeUtil.getParentOfType(
+            accessorArg,
+            de.magynhard.crystal.psi.CrystalMethodCallExpression::class.java,
+            de.magynhard.crystal.psi.CrystalBareMethodCallExpression::class.java,
+        ) ?: return
+        val macroName = CrystalAccessorCoupling.accessorMacroName(call) ?: return
+        if (macroName.endsWith("!") || CrystalAccessorCoupling.isClassVarMacro(macroName)) return
+        val readerCallName = (CrystalAccessorCoupling.accessorArgName(accessorArg) ?: return) +
+            if (macroName.endsWith("?")) "?" else ""
+        if (hit.text.endsWith("!") || hit.text != readerCallName) return
+        if (bareNameShadowedLocally(hit, readerCallName)) return
+        if (hit === CrystalAccessorCoupling.accessorNameIdentifier(accessorArg)) return
+        if (previousSignificantNode(hit.node)?.elementType == CrystalTypes.DEF) return
+        val declaringType = PsiTreeUtil.getParentOfType(
+            accessorArg,
+            CrystalClassDefinition::class.java,
+            CrystalStructDefinition::class.java,
+            CrystalModuleDefinition::class.java,
+        ) ?: return
+        val hitType = PsiTreeUtil.getParentOfType(
+            hit,
+            CrystalClassDefinition::class.java,
+            CrystalStructDefinition::class.java,
+            CrystalModuleDefinition::class.java,
+        ) ?: return
+        if (hitType !== declaringType) return
+        consumer.process(CrystalBareReaderUsageReference(hit))
+    }
 
-        consumer.process(CrystalMemberAssignUsageReference(hit))
+    /**
+     * Crystal resolves a bare name to a LOCAL first. Distinguishing a local
+     * read from the accessor read requires full reaching-definition flow,
+     * so the conservative gate applies: any same-name parameter or ANY
+     * same-name local binding (`x = …`) inside the enclosing method shadows
+     * the accessor — every bare occurrence in that method keeps its name.
+     */
+    private fun bareNameShadowedLocally(hit: PsiElement, bareName: String): Boolean {
+        val method = PsiTreeUtil.getParentOfType(
+            hit,
+            de.magynhard.crystal.psi.CrystalMethodDefinition::class.java,
+        ) ?: return false
+        for (param in PsiTreeUtil.collectElementsOfType(method, CrystalParameter::class.java)) {
+            if (param.parameterNameInfo()?.localName == bareName) return true
+        }
+        return PsiTreeUtil.collectElementsOfType(method, de.magynhard.crystal.psi.CrystalAssignment::class.java)
+            .any { assignment ->
+                assignment.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi?.text == bareName
+            }
+    }
+
+    private fun previousSignificantNode(start: ASTNode?): ASTNode? {
+        var current = start
+        while (current != null && current.elementType == TokenType.WHITE_SPACE) {
+            current = current.treePrev
+        }
+        return current
     }
 
     private fun nextSignificantNode(start: ASTNode?): ASTNode? {

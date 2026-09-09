@@ -329,6 +329,72 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
         assertEquals("uses_loop", declarationRange)
     }
 
+    fun testReverseFromBodyIvarRenamesTypedDeclarationAndReaderCalls() {
+        // User-reported regression: the typed getter declaration sits BEFORE
+        // initialize, the caret is on a body ivar occurrence — the rename
+        // must still reach the typed declaration argument AND the reader
+        // call sites.
+        myFixture.configureByText("flow.cr", """
+            class FlowExpression
+              # Is true only if some of the nodes parents is a loop.
+              getter? in_loop : Bool
+
+              # Creates a new flow expression.
+              def initialize(@node, @in_loop)
+                @in_lo<caret>op = false
+              end
+
+              def walk(outer : FlowExpression)
+                run if in_loop?
+                run if outer.in_loop?
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("uses_loop")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "chain follows:\n$text",
+            text.contains("getter? uses_loop : Bool") &&
+                text.contains("@uses_loop = false") &&
+                text.contains("run if uses_loop?") &&
+                text.contains("outer.uses_loop?"),
+        )
+    }
+
+    fun testBareReaderRenameSkipsShadowedLocals() {
+        // Crystal resolves a bare name to a LOCAL first — for a no-suffix
+        // reader (`getter in_loop`) a same-name local binding inside the
+        // method shadows the accessor, so those occurrences must NOT join
+        // the rename.
+        myFixture.configureByText("flow.cr", """
+            class FlowExpression
+              def initialize(@in_loop : Bool)
+              end
+
+              getter in_loop : Bool
+
+              def check
+                in_loop = 5
+                bronze if in_loop
+              end
+            end
+        """.trimIndent())
+        val leaf = myFixture.editor.document.text.indexOf("getter in_loo") + "getter in_loo".indexOf("in_loo") + 3
+        myFixture.editor.caretModel.moveToOffset(leaf)
+        myFixture.renameElementAtCaret("uses_loop")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "declaration follows:\n$text",
+            text.contains("getter uses_loop : Bool") && text.contains("initialize(@uses_loop : Bool)"),
+        )
+        assertTrue(
+            "shadowed local and its reads keep their name:\n$text",
+            text.contains("in_loop = 5") && text.contains("bronze if in_loop"),
+        )
+    }
+
     fun testDeclarationRenameReferenceRenamesUntypedArgument() {
         // Untyped `getter? in_loop` wraps the identifier in a variable
         // reference — the declaration rename reference must rewrite it via

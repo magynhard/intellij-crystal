@@ -27,7 +27,8 @@ class CrystalAccessorDeclarationRenameReference(
         private fun identifierRange(element: PsiElement): TextRange {
             val ident = CrystalAccessorCoupling.accessorNameIdentifier(element)?.node
                 ?: return TextRange(0, element.textLength)
-            return TextRange(ident.startOffset - element.node.startOffset, ident.textLength)
+            val relStart = ident.startOffset - element.node.startOffset
+            return TextRange(relStart, relStart + ident.textLength)
         }
     }
 
