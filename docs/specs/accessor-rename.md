@@ -150,10 +150,22 @@ forms both handled). Rename plumbing (declaration rename reference
 rewrite, narrowed highlight range, arg matching) shares this resolver,
 so the default-valued shape joins every direction.
 
-Note the honest boundary: a SEPARATE method with the same name as the
-reader (`private def in_call_args(value = true, &)` next to
-`getter? in_call_args`) is a distinct symbol — its declaration and its
-bare calls never join the rename.
+### Same-name method family
+
+`assignment_in_call_argument.cr` carries BOTH `getter? in_call_args =
+false` AND a separate `private def in_call_args(value = true, &)` with
+its bare calls `in_call_args(false)`. Crystal-semantically the `?`
+reader and the same-name def are distinct methods, but the coupling
+treats them as ONE visual family (per user decision): the whole family
+renames and highlights together in every direction, and the rename
+stays valid Crystal (relative structure/arity unchanged). The
+word-hit walker binds bare `name` hits (calls AND the `def name`
+declaration leaf) beside the reader-name hits, and
+`CrystalAccessorReferencesSearcher` gained a `CrystalMethodDefinition`
+target branch: resolving the def against a same-name accessor
+argument drags `varName` (coupled `@name`) into the union. Gates
+unchanged: no same-type identity violations, no local shadowing, and a
+def with no same-name accessor arg keeps the standard method rename.
 
 ### Bare implicit-self reader calls
 

@@ -12,6 +12,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
 
 ### Bug Fixes
+- **The same-name method joins the accessor family** —
+  ameba's `assignment_in_call_argument.cr` declares BOTH
+  `getter? in_call_args` and a separate `private def in_call_args`
+  with bare calls `in_call_args(false)`. Renaming the variable or the
+  declaration left the method and its calls behind, and the highlight
+  coupling was one-sided (method click marked ivar+reader, the reverse
+  missed the method). Bare plain-name calls and the `def` declaration
+  leaf now bind as same-name family members (with the local-shadow and
+  identity gates kept), and a `CrystalMethodDefinition` search target
+  routes through the same-name accessor coupling — the whole family
+  renames and highlights in every direction while staying valid
+  Crystal.
 - **Renaming the ivar misses default-valued untyped accessor
   declarations** — `getter? in_call_args = false` parsed its name as the
   assignment LHS of the bare argument, and the coupling's name resolver

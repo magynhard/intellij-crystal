@@ -85,9 +85,25 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
                 arg = CrystalAccessorCoupling.findAccessorArgForVar(access) ?: return
                 varName = access.text
             }
+            target is de.magynhard.crystal.psi.CrystalMethodDefinition -> {
+                // Same-name family member: a `def in_call_args` beside a
+                // `getter? in_call_args` joins the coupling — the family
+                // rename keeps the code valid.
+                val name = target.name ?: return
+                val typeDef = PsiTreeUtil.getParentOfType(
+                    target,
+                    CrystalClassDefinition::class.java,
+                    CrystalStructDefinition::class.java,
+                    CrystalModuleDefinition::class.java,
+                ) ?: return
+                arg = CrystalAccessorCoupling.findAccessorArg(name, typeDef) ?: return
+                varName = CrystalAccessorCoupling.coupledVarName(arg) ?: return
+            }
             else -> return
         }
-        if (target is CrystalInstanceVarAccess || target is CrystalClassVarAccess || target is CrystalParameter) {
+        if (target is CrystalInstanceVarAccess || target is CrystalClassVarAccess || target is CrystalParameter ||
+            target is de.magynhard.crystal.psi.CrystalMethodDefinition
+        ) {
             // Reverse direction: the coupled accessor argument joins the
             // rename through a declaration rename reference — the arg /
             // variable identifiers are the SAME symbol.
@@ -187,6 +203,12 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
         // declaring type's own body (implicit self — dependent types without
         // a receiver are follow-up work), and no local binding may shadow
         // the name — Crystal resolves bare names to locals first.
+        //
+        // Same-name family members: a separate same-named method and its
+        // bare calls (`def in_call_args(value)` / `in_call_args(false)` in
+        // ameba) share the visual name and join the coupling — the family
+        // rename keeps the code valid (the `?`-reader remains a distinct
+        // method).
         val call = PsiTreeUtil.getParentOfType(
             accessorArg,
             de.magynhard.crystal.psi.CrystalMethodCallExpression::class.java,
@@ -194,12 +216,15 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
         ) ?: return
         val macroName = CrystalAccessorCoupling.accessorMacroName(call) ?: return
         if (macroName.endsWith("!") || CrystalAccessorCoupling.isClassVarMacro(macroName)) return
-        val readerCallName = (CrystalAccessorCoupling.accessorArgName(accessorArg) ?: return) +
-            if (macroName.endsWith("?")) "?" else ""
-        if (hit.text.endsWith("!") || hit.text != readerCallName) return
-        if (bareNameShadowedLocally(hit, readerCallName)) return
+        val argName = CrystalAccessorCoupling.accessorArgName(accessorArg) ?: return
+        val readerCallName = argName + if (macroName.endsWith("?")) "?" else ""
+        val sameNameFamily = hit.text == argName
+        if (hit.text.endsWith("!") || (!sameNameFamily && hit.text != readerCallName)) return
         if (hit === CrystalAccessorCoupling.accessorNameIdentifier(accessorArg)) return
-        if (previousSignificantNode(hit.node)?.elementType == CrystalTypes.DEF) return
+        // The DEF-name position is a family member for the plain name; the
+        // reader shape can never sit behind `def`.
+        if (!sameNameFamily && previousSignificantNode(hit.node)?.elementType == CrystalTypes.DEF) return
+        if (bareNameShadowedLocally(hit, if (sameNameFamily) argName else readerCallName)) return
         val declaringType = PsiTreeUtil.getParentOfType(
             accessorArg,
             CrystalClassDefinition::class.java,
