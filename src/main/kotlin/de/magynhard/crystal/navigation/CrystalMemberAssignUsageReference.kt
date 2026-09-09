@@ -23,9 +23,13 @@ class CrystalMemberAssignUsageReference(
 ) : PsiReferenceBase<PsiElement>(element, TextRange(0, element.textLength), true) {
 
     override fun handleElementRename(newElementName: String): PsiElement {
+        // The call-site leaf is a bare method name — re-type sigils never land
+        // here: a dialog name like `@@newname` collapses to the bare form the
+        // shape suffix rules expect.
+        val bareName = newElementName.removePrefix("@@").removePrefix("@")
         val newLeaf = createLeafFromText(
             element.project,
-            newElementName,
+            bareName,
             element.node.elementType,
         ) ?: return element
         element.node.treeParent.replaceChild(element.node, newLeaf)

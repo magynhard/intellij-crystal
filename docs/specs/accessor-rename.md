@@ -78,6 +78,17 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
   (`obj.on?`, `obj.on = v`) — `CrystalDotCallReference.handleElementRename`
   re-applies the call-site suffix the macro variant dictates, while the
   declaration name itself carries none.
+- **The rename dialog prefills the BARE name** for sigil-bearing variables:
+  `RenameDialog` hydrates via `UsageViewUtil.getShortName` →
+  `ElementDescriptionUtil.getElementDescription(element, UsageViewShortNameLocation)`,
+  and `CrystalElementDescriptionProvider` returns the sigil-stripped short name
+  for `CrystalInstanceVarAccess` / `CrystalClassVarAccess` / storage-shortcut
+  parameters. setNames re-apply the sigil from the token type — the user types
+  `cycled` in the dialog and the code gets `@@cycled` everywhere. Only the
+  short-name location is overridden; all other ElementDescription locations
+  fall through to the platform. getName() on the access composites stays the
+  full sigiled token (the Find-Usages word channel depends on it).
+
 - **Inplace rename is disabled** for the coupled symbol family on BOTH gates:
   the processor's `isInplaceRenameSupported() == false` AND
   `CrystalRefactoringSupportProvider.isMemberInplaceRenameAvailable` returning

@@ -524,6 +524,9 @@
                 implementation="de.magynhard.crystal.refactoring.CrystalAccessorRenamePsiElementProcessor"
                 order="last"/>
 
+        <elementDescriptionProvider
+                implementation="de.magynhard.crystal.refactoring.CrystalElementDescriptionProvider"/>
+
         <gotoClassContributor
                 implementation="de.magynhard.crystal.navigation.CrystalGoToClassContributor"/>
 
