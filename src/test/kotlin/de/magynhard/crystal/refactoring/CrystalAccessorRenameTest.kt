@@ -199,7 +199,10 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
               end
             end
         """.trimIndent())
-        myFixture.renameElement(elementAtCaret(), "uses_loop")
+        // The IDE trigger resolves the caret to the PARAMETER composite — the
+        // rename must go through the accessor coupling and rename the
+        // declaration argument too.
+        myFixture.renameElementAtCaret("uses_loop")
 
         val text = myFixture.editor.document.text
         assertTrue(

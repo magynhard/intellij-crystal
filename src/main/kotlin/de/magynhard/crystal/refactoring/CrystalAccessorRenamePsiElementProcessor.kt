@@ -3,6 +3,8 @@ package de.magynhard.crystal.refactoring
 import com.intellij.psi.PsiElement
 import com.intellij.refactoring.rename.RenamePsiElementProcessor
 import de.magynhard.crystal.psi.CrystalClassVarAccess
+import de.magynhard.crystal.psi.CrystalParameter
+import de.magynhard.crystal.psi.parameterNameInfo
 import de.magynhard.crystal.psi.CrystalInstanceVarAccess
 import de.magynhard.crystal.navigation.CrystalAccessorCoupling
 import de.magynhard.crystal.psi.CrystalBareMethodCallExpression
@@ -29,6 +31,12 @@ class CrystalAccessorRenamePsiElementProcessor : RenamePsiElementProcessor() {
 
     override fun canProcessElement(element: PsiElement): Boolean {
         if (element is CrystalInstanceVarAccess || element is CrystalClassVarAccess) return true
+        // The IDE resolves the caret on a storage shortcut (`initialize(@foo)`)
+        // to the PARAMETER composite, not the instance-var access — without
+        // this acceptance the default processor would handle the rename and
+        // the coupled accessor argument would never join (ameba
+        // flow_expression.cr:35 rename left `getter? in_loop` untouched).
+        if (element is CrystalParameter && element.parameterNameInfo().storageName != null) return true
         return isAccessorNamedArg(element)
     }
 
@@ -39,11 +47,17 @@ class CrystalAccessorRenamePsiElementProcessor : RenamePsiElementProcessor() {
      * the coupling.
      */
     override fun prepareRenaming(element: PsiElement, newName: String, allRenames: MutableMap<PsiElement, String>) {
-        val accessorArg = when (element) {
-            is CrystalInstanceVarAccess, is CrystalClassVarAccess ->
-                CrystalAccessorCoupling.findAccessorArgForVar(element)
-            else -> null
-        } ?: return
+        val varElement: PsiElement = when {
+            element is CrystalInstanceVarAccess || element is CrystalClassVarAccess -> element
+            // Storage-shortcut parameter (`initialize(@foo)`): the coupled
+            // variable is the parameter's wrapped access composite — the
+            // parameter's own text includes the type annotation, so the
+            // var-name lookup must run on the access element.
+            element is CrystalParameter && element.parameterNameInfo().storageName != null ->
+                element.instanceVarAccess ?: element.classVarAccess ?: return
+            else -> return
+        }
+        val accessorArg = CrystalAccessorCoupling.findAccessorArgForVar(varElement) ?: return
         if (accessorArg in allRenames) return
         val elementNewName = allRenames[element] ?: newName
         if (elementNewName.isEmpty()) return

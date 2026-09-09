@@ -59,7 +59,14 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
   `CrystalAccessorRenamePsiElementProcessor.prepareRenaming` pulls the
   coupled accessor argument into the rename set with the same bare name, and
   the searcher also attaches a declaration reference for the accessor
-  argument plus its call sites. There is no prompt.
+  argument plus its call sites. There is no prompt. The processor ACCEPTS
+  the storage-shortcut `CrystalParameter` composite (`canProcessElement`
+  with `parameterNameInfo().storageName != null`): the IDE resolves the
+  caret on `initialize(@in_loop)` to the PARAMETER, not the instance-var
+  access — without the acceptance the default processor handled the rename
+  and the coupled `getter? in_loop` declaration was never touched. Coupling
+  runs on the parameter's wrapped access composite (`instanceVarAccess`),
+  since the parameter text itself carries the type annotation.
 - **Setter member assignments** bind inline (`postfix_op` member assignment —
   no call PSI), so a transient `CrystalMemberAssignUsageReference` on the
   name leaf carries the rename; the `=`/compound operator's identity is
