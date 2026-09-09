@@ -182,4 +182,54 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
         }
         error("no rename target at caret")
     }
+
+    fun testReverseRenameStorageParameterKeepsSigil() {
+        // flow_expression.cr:35 — renaming the storage shortcut `@in_loop`
+        // inside `def initialize(@node, @in_loop)` must NOT lose the `@`:
+        // the inplace renamer dropped the sigil and left the code broken, so
+        // ivar renames go through the dialog flow, which re-applies the sigil
+        // and pulls the coupled accessor declaration.
+        myFixture.configureByText("flow.cr", """
+            class FlowExpression
+              getter? in_loop : Bool
+
+              def initialize(node, @i<caret>n_loop)
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElement(elementAtCaret(), "uses_loop")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "sigil retained on the storage parameter:\n$text",
+            text.contains("def initialize(node, @uses_loop)"),
+        )
+        assertTrue(
+            "coupled accessor declaration follows:\n$text",
+            text.contains("getter? uses_loop : Bool"),
+        )
+        assertFalse("original name gone:\n$text", text.contains("in_loop"))
+    }
+
+    fun testReverseRenameClassVarStorageKeepsSigil() {
+        myFixture.configureByText("flow.cr", """
+            class FlowExpression
+              class_getter looped : Bool
+
+              def initialize(@@lo<caret>oped : Bool)
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElement(elementAtCaret(), "cycled")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "class-var sigil retained:\n$text",
+            text.contains("def initialize(@@cycled : Bool)"),
+        )
+        assertTrue(
+            "coupled class accessor follows:\n$text",
+            text.contains("class_getter cycled : Bool"),
+        )
+    }
 }

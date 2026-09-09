@@ -4,6 +4,7 @@ import com.intellij.lang.refactoring.RefactoringSupportProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import de.magynhard.crystal.psi.CrystalNamedElement
+import de.magynhard.crystal.psi.CrystalClassVarAccess
 import de.magynhard.crystal.psi.CrystalInstanceVarAccess
 import de.magynhard.crystal.psi.CrystalTypes
 
@@ -28,8 +29,15 @@ import de.magynhard.crystal.psi.CrystalTypes
 class CrystalRefactoringSupportProvider : RefactoringSupportProvider() {
 
     override fun isMemberInplaceRenameAvailable(element: PsiElement, context: PsiElement?): Boolean {
+        // Instance/class variables join the accessor-macro coupling chain
+        // (getter/setter/property + @-ivar + call sites). The inplace renamer
+        // applies only its own references and drops the @-sigil — a half-rename
+        // turns the code invalid, so the renames run through the dialog flow
+        // (prepareRenaming + ReferencesSearcher) instead.
+        if (element is CrystalInstanceVarAccess || element is CrystalClassVarAccess) return false
+
         // Composites that implement PsiNameIdentifierOwner via their BNF mixins
-        if (element is CrystalNamedElement || element is CrystalInstanceVarAccess) return true
+        if (element is CrystalNamedElement) return true
 
         // Accessor-macro name arguments (`property foo` / `property? enabled` …
         // | class_ family): the arg is the declaration via

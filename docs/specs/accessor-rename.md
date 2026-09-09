@@ -71,13 +71,17 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
   (`obj.on?`, `obj.on = v`) — `CrystalDotCallReference.handleElementRename`
   re-applies the call-site suffix the macro variant dictates, while the
   declaration name itself carries none.
-- **Inplace rename is disabled** for the coupled symbol family
-  (`isInplaceRenameSupported() == false`): the inplace renamer applies only
-  the references it resolves itself and would leave the chain half-renamed
-  (variable occurrences renamed, accessor declaration and call sites untouched
-  — the code is then invalid). The dialog flow (prepareRenaming+
-  ReferencesSearcher) applies the full union, so renaming stays a dialog for
-  this family.
+- **Inplace rename is disabled** for the coupled symbol family on BOTH gates:
+  the processor's `isInplaceRenameSupported() == false` AND
+  `CrystalRefactoringSupportProvider.isMemberInplaceRenameAvailable` returning
+  false for `CrystalInstanceVarAccess`/`CrystalClassVarAccess`. The inplace
+  renamer applies only its own references and drops the `@`-sigil
+  (ameba flow_expression.cr:35 — renaming `@in_loop` in the
+  `initialize(@in_loop)` storage shortcut silently produced `in_loop`), so an
+  inplace rename would leave the chain half-renamed and sigil-less — the code
+  is then invalid. The dialog flow (prepareRenaming + ReferencesSearcher)
+  re-applies the sigil on the parameter's original token type and applies the
+  full union, so renaming stays a dialog for this family.
 - The rename verifier (`CrystalRenameVerifier`) runs the compiler check on
   the file after the rename completes as before.
 
