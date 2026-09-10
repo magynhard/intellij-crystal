@@ -105,6 +105,17 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
   The dialog flow (prepareRenaming + ReferencesSearcher + setName sigil
   re-apply from the original token type) applies the full union with the
   sigil preserved; normal (sigil-less) parameters keep the inplace rename.
+- **Family member methods** (`def in_call_args` beside
+  `getter? in_call_args`): the rename processor accepts a
+  `CrystalMethodDefinition` when a same-name accessor argument exists in
+  the same type, and the inplace gates disable inplace for it — the
+  first keystroke opens the DIALOG and the whole family follows. Without
+  the processor acceptance the IDE started an inplace templating that
+  reset itself and re-prompted with the found members after the commit
+  (the inplace renamer cannot carry the extra renames). Plain methods
+  (no same-name accessor argument) keep the standard inplace rename,
+  and a `def` named with an explicit `?` suffix never matches the
+  coupling.
 - The rename verifier (`CrystalRenameVerifier`) runs the compiler check on
   the file after the rename completes as before.
 

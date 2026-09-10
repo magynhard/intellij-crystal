@@ -12,6 +12,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
 
 ### Bug Fixes
+- **Renaming the family member method starts the rename dialog
+  directly** — a `private def in_call_args` beside
+  `getter? in_call_args` opened an inplace templating first; the commit
+  then reset the edit and re-prompted with the found member list (the
+  inplace renamer cannot carry the accessor family). The rename
+  processor now accepts same-name family methods and the inplace gates
+  disable inplacing for them, so the dialog flow with the whole family
+  runs from the first keystroke; plain methods keep inplace.
 - **A bare implicit-self reader occurrence works as the rename trigger**
   — placing the caret ON `… if in_call_args?` (ameba
   assignment_in_call_argument.cr line 116) renamed only the local leaf

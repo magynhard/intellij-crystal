@@ -240,6 +240,65 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
         )
     }
 
+    fun testSameNameFamilyMethodRenamesThroughDialogNotInplace() {
+        // The family def must route the DIALOG flow from the first keystroke:
+        // the inplace renamer cannot carry the accessor family (it resets and
+        // re-prompts only after the commit), so both gates disable inplace and
+        // the renameElementAtCaret pipeline renames the whole family.
+        myFixture.configureByText("flow.cr", """
+            module Ameba::Rule::Lint
+              private class Visitor
+                getter? in_call_args = false
+
+                private def in_ca<caret>ll_args(value = true, &)
+                  @in_call_args = value
+                  yield
+                end
+
+                def visit(node : Crystal::Block)
+                  in_call_args(false) do
+                  end
+                  false
+                end
+              end
+            end
+        """.trimIndent())
+        val leaf = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val def = PsiTreeUtil.getParentOfType(leaf, de.magynhard.crystal.psi.CrystalMethodDefinition::class.java)!!
+        assertFalse(
+            "Family member method renames through the dialog",
+            CrystalRefactoringSupportProvider().isMemberInplaceRenameAvailable(def, null),
+        )
+        myFixture.renameElementAtCaret("in_callargs")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "whole family follows from the def trigger:\n$text",
+            text.contains("getter? in_callargs = false") &&
+                text.contains("private def in_callargs(value = true, &)") &&
+                text.contains("@in_callargs = value") &&
+                text.contains("in_callargs(false) do"),
+        )
+    }
+
+    fun testPlainMethodKeepsInplaceRenameAvailable() {
+        // A method with no same-name accessor declaration keeps the standard
+        // inplace rename.
+        myFixture.configureByText("plain.cr", """
+            class Greeter
+              def work(node_name : String)
+                no<caret>de_name
+              end
+            end
+        """.trimIndent())
+        val leaf = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val def = PsiTreeUtil.getParentOfType(leaf, de.magynhard.crystal.psi.CrystalMethodDefinition::class.java)!!
+        assertTrue(
+            "Plain methods keep the inplace rename behavior",
+            CrystalRefactoringSupportProvider().isMemberInplaceRenameAvailable(def, null),
+        )
+    }
+
     fun testPlainParameterKeepsInplaceRenameAvailable() {
         // Normal parameters (no sigil) stay on the inplace path — the sigil
         // gate must only catch storage shortcuts.

@@ -3,7 +3,12 @@ package de.magynhard.crystal.refactoring
 import com.intellij.lang.refactoring.RefactoringSupportProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.CrystalNamedElement
+import de.magynhard.crystal.psi.CrystalClassDefinition
+import de.magynhard.crystal.psi.CrystalStructDefinition
+import de.magynhard.crystal.psi.CrystalModuleDefinition
+import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalClassVarAccess
 import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.parameterNameInfo
@@ -42,6 +47,23 @@ class CrystalRefactoringSupportProvider : RefactoringSupportProvider() {
         // ReferencesSearcher + setName sigil re-apply) instead.
         if (element is CrystalInstanceVarAccess || element is CrystalClassVarAccess) return false
         if (element is CrystalParameter && element.parameterNameInfo().storageName != null) return false
+        // Same-name family member method: inplace rename cannot carry the
+        // accessor family — keep the dialog flow (gates only family defs;
+        // plain methods keep inplace).
+        if (element is CrystalMethodDefinition) {
+            val typeDef = PsiTreeUtil.getParentOfType(
+                element,
+                CrystalClassDefinition::class.java,
+                CrystalStructDefinition::class.java,
+                CrystalModuleDefinition::class.java,
+            )
+            val name: String = element.name ?: return true
+            if (typeDef != null &&
+                de.magynhard.crystal.navigation.CrystalAccessorCoupling.findAccessorArg(name, typeDef) != null
+            ) {
+                return false
+            }
+        }
 
         // Composites that implement PsiNameIdentifierOwner via their BNF mixins
         if (element is CrystalNamedElement) return true

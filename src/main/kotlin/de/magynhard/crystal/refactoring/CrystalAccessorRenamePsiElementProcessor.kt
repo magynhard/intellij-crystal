@@ -37,7 +37,28 @@ class CrystalAccessorRenamePsiElementProcessor : RenamePsiElementProcessor() {
         // the coupled accessor argument would never join (ameba
         // flow_expression.cr:35 rename left `getter? in_loop` untouched).
         if (element is CrystalParameter && element.parameterNameInfo().storageName != null) return true
+        // Same-name family members: a `def in_call_args` beside
+        // `getter? in_call_args` renames together with the accessor family —
+        // taking the element here forces our processor (non-inplace), so the
+        // family runs the dialog flow from the first keystroke instead of an
+        // inplace templating that resets and re-prompts afterwards.
+        if (element is de.magynhard.crystal.psi.CrystalMethodDefinition &&
+            isSameNameFamilyMember(element)
+        ) {
+            return true
+        }
         return isAccessorNamedArg(element)
+    }
+
+    private fun isSameNameFamilyMember(def: de.magynhard.crystal.psi.CrystalMethodDefinition): Boolean {
+        val name = def.name ?: return false
+        val typeDef = PsiTreeUtil.getParentOfType(
+            def,
+            de.magynhard.crystal.psi.CrystalClassDefinition::class.java,
+            de.magynhard.crystal.psi.CrystalStructDefinition::class.java,
+            de.magynhard.crystal.psi.CrystalModuleDefinition::class.java,
+        ) ?: return false
+        return CrystalAccessorCoupling.findAccessorArg(name, typeDef) != null
     }
 
     /**
