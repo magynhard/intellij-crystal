@@ -42,7 +42,19 @@ class CrystalFindUsagesProvider : FindUsagesProvider {
         }
     }
 
-    override fun getDescriptiveName(element: PsiElement): String = element.text
+    /**
+     * The rename dialog's label hydrates via
+     * DescriptiveNameUtil.getDescriptiveName → this provider — the raw
+     * element text leaked the WHOLE method (including the body) into the
+     * dialog. Method definitions report the header line only (`private def
+     * in_call_args(value = true, &)`), named type definitions their name.
+     */
+    override fun getDescriptiveName(element: PsiElement): String = when (element) {
+        is CrystalMethodDefinition -> CrystalPsiUtils.methodHeaderText(element) ?: element.name ?: element.text
+        is CrystalClassDefinition, is CrystalStructDefinition,
+        is CrystalModuleDefinition, is CrystalEnumDefinition -> element.name ?: element.text
+        else -> element.text
+    }
 
     override fun getNodeText(element: PsiElement, useFullName: Boolean): String = element.text
 }

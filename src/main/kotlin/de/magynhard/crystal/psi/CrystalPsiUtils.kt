@@ -61,6 +61,35 @@ object CrystalPsiUtils {
             element is CrystalMethodCallExpression && recordName(element) != null &&
             element.classBody != null
 
+    /**
+     * The method header line (`private def in_call_args(value = true, &)`):
+     * from the line start through the closing bracket of the parameter list.
+     * The rename dialog target display and the descriptive name use it — the
+     * platform fallbacks render the WHOLE method text (including the body).
+     */
+    fun methodHeaderText(def: CrystalMethodDefinition): String? {
+        val fileText = def.containingFile?.text ?: return null
+        var endOffset = def.parameterList?.textRange?.endOffset
+            ?: (def.textRange.startOffset + def.text.substringBefore('\n').length)
+        // The closing `)` of the parameter list belongs to the def node, not
+        // to the parameterList element — include it (plus a trailing block
+        // param when present).
+        while (endOffset < fileText.length && fileText[endOffset].isWhitespace()) endOffset++
+        if (endOffset < fileText.length && fileText[endOffset] == ')') {
+            endOffset++
+            while (endOffset < fileText.length && fileText[endOffset].isWhitespace()) endOffset++
+        }
+        if (endOffset < fileText.length && fileText[endOffset] == '&') {
+            while (endOffset < fileText.length && fileText[endOffset] != '\n') endOffset++
+        }
+        var start = def.textRange.startOffset
+        while (start > 0 && fileText[start - 1] != '\n') start--
+        return fileText.substring(start, endOffset.coerceAtMost(fileText.length))
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .ifEmpty { null }
+    }
+
     fun buildLexicalQualifiedNameCandidates(simpleName: String, context: PsiElement): Set<String> {
         val candidates = linkedSetOf<String>()
         val enclosingParts = getEnclosingType(context)

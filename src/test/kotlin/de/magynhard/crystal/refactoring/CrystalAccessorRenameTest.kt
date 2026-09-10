@@ -601,6 +601,16 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
             described.replace(Regex("\\s+"), " ").trim(),
         )
         assertFalse("no method body leaks into the target display", described.contains("yield"))
+        // The rename dialog's label hydrates via
+        // DescriptiveNameUtil.getDescriptiveName → CrystalFindUsagesProvider
+        // getDescriptiveName — the header only, never the body.
+        val descriptive = de.magynhard.crystal.navigation.CrystalFindUsagesProvider().getDescriptiveName(def)
+        assertEquals(
+            "descriptive name carries the header only",
+            "private def in_call_args(value = true, &)",
+            descriptive,
+        )
+        assertFalse("no method body leaks into the descriptive name", descriptive.contains("yield"))
     }
 
     fun testBareReaderOccurrenceIsRenameTriggerForWholeFamily() {
