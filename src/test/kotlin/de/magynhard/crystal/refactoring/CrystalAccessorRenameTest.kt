@@ -2,6 +2,7 @@ package de.magynhard.crystal.refactoring
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReference
+import com.intellij.usageView.UsageViewUtil
 import de.magynhard.crystal.navigation.CrystalAccessorDeclarationRenameReference
 import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.parameterNameInfo
@@ -566,6 +567,27 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
                 text.contains("in_callargs(false) do"),
         )
         assertFalse("family fully renamed:\n$text", text.contains("in_call_args"))
+    }
+
+    fun testRenameDialogShortNameCarriesMethodHeaderOnly() {
+        // The rename dialog item label hydrates via
+        // UsageViewUtil.getShortName → UsageViewShortNameLocation — the
+        // platform fallback for method definitions previously delivered the
+        // WHOLE method text including the body. The description provider
+        // reports the name only.
+        myFixture.configureByText("flow.cr", """
+            module Ameba::Rule::Lint
+              private class Visitor
+                private def in_call_args(value = true, &)
+                  @in_call_args = value
+                  yield
+                end
+              end
+            end
+        """.trimIndent())
+        val def = PsiTreeUtil.collectElementsOfType(myFixture.file, de.magynhard.crystal.psi.CrystalMethodDefinition::class.java).first()
+        assertEquals("in_call_args", com.intellij.usageView.UsageViewUtil.getShortName(def))
+        assertFalse("no method body leaks into the dialog label", UsageViewUtil.getShortName(def).contains("yield"))
     }
 
     fun testBareReaderOccurrenceIsRenameTriggerForWholeFamily() {

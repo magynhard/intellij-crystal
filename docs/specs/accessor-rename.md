@@ -105,6 +105,10 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
   The dialog flow (prepareRenaming + ReferencesSearcher + setName sigil
   re-apply from the original token type) applies the full union with the
   sigil preserved; normal (sigil-less) parameters keep the inplace rename.
+- The dialog item label hydrates via `UsageViewShortNameLocation`; the
+  description provider reports method definitions by their NAME only —
+  without it the platform fallback rendered the WHOLE method text
+  including the body in the found-members list.
 - **Family member methods** (`def in_call_args` beside
   `getter? in_call_args`): the rename processor accepts a
   `CrystalMethodDefinition` when a same-name accessor argument exists in

@@ -35,6 +35,10 @@ class CrystalElementDescriptionProvider : ElementDescriptionProvider {
             is CrystalInstanceVarAccess -> element.text.removePrefix("@@").removePrefix("@")
             is CrystalClassVarAccess -> element.text.removePrefix("@@").removePrefix("@")
             is CrystalParameter -> element.parameterNameInfo().localName ?: return null
+            // Method definitions (same-name family members): the platform
+            // fallback renders the WHOLE method text including the body in
+            // the rename dialog item list — report only the name.
+            is de.magynhard.crystal.psi.CrystalMethodDefinition -> element.name ?: return null
             else -> return null
         }
         return shortName
