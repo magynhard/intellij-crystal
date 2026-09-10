@@ -39,6 +39,82 @@ class CrystalGenericIncludeCompatTest : BasePlatformTestCase() {
         )
     }
 
+    /**
+     * stdlib array.cr:1265 shape: the splat restriction `*arrays : Array` is
+     * `Array(_)` inside the body, and bare `Array(_)` reaches
+     * `Indexable(Indexable)` through the include chain because the include's
+     * type parameter is substituted by the wildcard. Single-file fixture:
+     * dot-call receiver resolution is require-effective, so the declarations
+     * and the call must share the source.
+     */
+    fun testBareGenericArrayArgumentReachesIndexableIndexable() {
+        myFixture.configureByText("product.cr", """
+            abstract struct Indexable(T)
+              def self.cartesian_product(indexables : Indexable(Indexable))
+                indexables
+              end
+            end
+
+            struct Array(T)
+              include Indexable(T)
+            end
+
+            def product(*arrays : Array)
+              Indexable.cartesian_product(arrays)
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "A bare Array reference is Array(_) and reaches Indexable(Indexable) through the include chain",
+            highlights.any { it.description?.contains("Type mismatch") == true },
+        )
+    }
+
+    fun testStringArgumentAgainstIndexableIndexableStaysReported() {
+        myFixture.configureByText("user.cr", """
+            abstract struct Indexable(T)
+              def self.cartesian_product(indexables : Indexable(Indexable))
+                indexables
+              end
+            end
+
+            def wrap
+              value = "not indexable"
+              Indexable.cartesian_product(value)
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "A String argument never reaches Indexable(Indexable)",
+            highlights.any { it.description?.contains("Type mismatch") == true },
+        )
+    }
+
+    /** Bare generic parameter (`x : Indexable` is `Indexable(_)`). */
+    fun testBareGenericParameterAcceptsInstantiatedArray() {
+        myFixture.configureByText("collection.cr", """
+            abstract struct Indexable(T)
+            end
+
+            struct Array(T)
+              include Indexable(T)
+            end
+
+            module Collection
+              def self.take(item : Indexable)
+                item
+              end
+            end
+
+            Collection.take([1, 2])
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "An Array(Int32) argument reaches the bare Indexable restriction",
+            highlights.any { it.description?.contains("Type mismatch") == true },
+        )
+    }
+
     fun testDirectEnumerableParameterStaysReportedForWrongLeafType() {
         myFixture.configureByText("handler.cr", "class HTTP::Handler\nend\n")
         myFixture.configureByText("dsl.cr", """

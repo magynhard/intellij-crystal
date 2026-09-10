@@ -238,6 +238,35 @@ The diagnostic uses `ProblemHighlightType.GENERIC_ERROR` and highlights the inne
 
 Unknown or unresolved calls do not produce argument-count diagnostics.
 
+## Bare generic restrictions (`X(_)` wildcards)
+
+Crystal models a bare generic restriction (`paragraph : Array`,
+`item : Indexable`, splat `*arrays : Array`) as its own instantiation with
+unbound type arguments — `Array(_)` etc. String-only compatibility cannot see
+that (bare `Array` is not the same base as `Indexable`, and renaming the side
+`"#Indexable"` would guess). Two mechanisms cover the "mismatch → acceptance
+only" rule (`CrystalGenericIncludeCompat`, v0.2.9):
+
+- `CrystalTypeCompatibility.isCompatible` treats the pseudo type argument
+  `_` on either side as compatible with anything. `_` is produced only by
+  the resolver below — crystal cannot spell it in source.
+- `includeEdgeCompatible` derives the arity from the base's own
+  `type_parameters` declarations (require-effective scope; ambiguous arity or
+  a declaration absence keeps the old verdict). For a bare generic side it
+  synthesizes the wildcard argument list. The include-chain walk then
+  substitutes includer type parameters as before; a wildcard element is
+  carried through the chain and accepts every other side.
+
+Consequences (compiler-verified against Crystal 1.21):
+
+- `def self.product(*arrays : Array); Indexable.cartesian_product(arrays); end`
+  — bare `Array(_)`, its include chain substitutes `Indexable(_)`, accepted
+  (array.cr:1265).
+- `def f(x : Indexable)` (bare) accepts `Array(Int32)` and friends.
+- `Indexable.cartesian_product("not indexable")` STAYS reported: `String` has
+  no resolvable generic arity, the verdict stays the string comparison's
+  definite mismatch. Definite mismatches are never weakened.
+
 ## Verification Matrix
 
 Automated tests must cover the following behavior across parenthesized, bare-argument, and argumentless syntax where each form is legal:

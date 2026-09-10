@@ -25,6 +25,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Bare generic restrictions reach family parameters again** — a bare generic
+  side in a call (`Indexable.cartesian_product(arrays)` where
+  `def self.product(*arrays : Array)` restricts `arrays` to unbound `Array`)
+  was falsely reported as "Type mismatch: expected 'Indexable(Indexable)',
+  got 'Array'". Crystal models bare generic restrictions as instantiations
+  with unbound type arguments (`Array(_)`), and Array reaches Indexable
+  through its include chain (`struct Array(T) include Indexable::Mutable(T)
+  → Indexable(T)`). `CrystalGenericIncludeCompat` now derives the arity from
+  the base's type parameters and synthesizes wildcard (`_`) arguments for
+  bare sides on the argument AND the parameter side
+  (`def f(x : Indexable)` accepts `Array(Int32)`); wildcards accept anything
+  within the include-compat comparison only. Mismatches without a resolvable
+  generic arity (`String` → `Indexable(Indexable)`) stay reported.
 - **`initialize(@major : Int)` with a typed co-declaration is no longer reported** —
   the `@x : Type` annotation on an initialize parameter is a parameter
   restriction, not the ivar declaration; abstract type sets are legal

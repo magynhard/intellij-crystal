@@ -69,6 +69,14 @@ object CrystalTypeCompatibility {
     fun isCompatible(argType: String, paramType: String, isUnsuffixedNumericLiteral: Boolean = false): Boolean {
         val normalizedParam = normalizeType(paramType)
 
+        // Unresolved generic wildcard (CrystalGenericIncludeCompat models a bare
+        // generic restriction `X` as its instantiation with `_` type arguments):
+        // an unrestricted element accepts anything and vice versa. "_" never
+        // appears in crystal source, so this cannot mask a written type.
+        if (argType == de.magynhard.crystal.analysis.CrystalGenericIncludeCompat.WILDCARD_ARG ||
+            normalizedParam == de.magynhard.crystal.analysis.CrystalGenericIncludeCompat.WILDCARD_ARG
+        ) return true
+
         // NamedTuple inference vs {k: T, ...} parameter notation (both directions):
         // crystal named tuple types are structural — same key set, compatible value types.
         val argIsNamedTuple = argType.startsWith("NamedTuple(")
