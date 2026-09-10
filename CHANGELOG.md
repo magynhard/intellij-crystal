@@ -12,6 +12,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
 
 ### Bug Fixes
+- **A bare implicit-self reader occurrence works as the rename trigger**
+  — placing the caret ON `… if in_call_args?` (ameba
+  assignment_in_call_argument.cr line 116) renamed only the local leaf
+  (dropping the `?` suffix) instead of the family: the occurrence had no
+  resolvable rename target because accessor macros declare no method
+  definition in the index. `CrystalReference.resolve()` now falls back
+  to the coupled accessor argument (as the last resolution step —
+  locals, macro context, indexed types and real methods keep
+  precedence), so the rename processor takes over and the whole family
+  follows from any member.
 - **The same-name method joins the accessor family** —
   ameba's `assignment_in_call_argument.cr` declares BOTH
   `getter? in_call_args` and a separate `private def in_call_args`

@@ -3,6 +3,7 @@ package de.magynhard.crystal.psi
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -65,7 +66,42 @@ class CrystalReference(
             .filter { sources.contains(it) }
         if (methods.isNotEmpty()) return deterministicCandidate(methods)
 
-        return null
+        // Bare implicit-self reader calls declare no method definition in
+        // the index (the reader name comes from the getter?/property macro).
+        // Resolve the occurrence to the coupled accessor argument so rename
+        // and highlight treat the bare call as a family trigger; real
+        // methods, locals and macro shapes keep their precedence above.
+        return resolveToAccessorArg()
+    }
+
+    /**
+     * Coupled accessor argument for a bare reader/same-name hit in the
+     * declaring type's own body, honoring the searcher's macro gates
+     * (`?`-suffix rule, no `!`-variants, no class-var macros) and the exact
+     * full-text name (`getter?` declares `name?`, plain `getter` declares
+     * `name`). Local shadowing is already handled by the local-first
+     * resolution above.
+     */
+    private fun resolveToAccessorArg(): PsiElement? {
+        val typeDef = PsiTreeUtil.getParentOfType(
+            element,
+            CrystalClassDefinition::class.java,
+            CrystalStructDefinition::class.java,
+            CrystalModuleDefinition::class.java,
+        ) ?: return null
+        val arg = de.magynhard.crystal.navigation.CrystalAccessorCoupling
+            .findAccessorArg(name.removeSuffix("?"), typeDef) ?: return null
+        val call = PsiTreeUtil.getParentOfType(
+            arg,
+            CrystalMethodCallExpression::class.java,
+            CrystalBareMethodCallExpression::class.java,
+        ) ?: return null
+        val macroName = de.magynhard.crystal.navigation.CrystalAccessorCoupling.accessorMacroName(call) ?: return null
+        if (macroName.endsWith("!") || de.magynhard.crystal.navigation.CrystalAccessorCoupling.isClassVarMacro(macroName)) return null
+        val readerName = (de.magynhard.crystal.navigation.CrystalAccessorCoupling.accessorArgName(arg) ?: return null) +
+            if (macroName.endsWith("?")) "?" else ""
+        if (name != readerName && name != readerName.removeSuffix("?")) return null
+        return arg
     }
 
     /**

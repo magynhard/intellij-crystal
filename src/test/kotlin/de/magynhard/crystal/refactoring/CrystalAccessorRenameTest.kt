@@ -508,4 +508,44 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
         )
         assertFalse("family fully renamed:\n$text", text.contains("in_call_args"))
     }
+
+    fun testBareReaderOccurrenceIsRenameTriggerForWholeFamily() {
+        // ameba assignment_in_call_argument.cr line 116: the rename trigger
+        // sits ON the bare implicit-self reader (`@on_assign.call(node) if
+        // in_call_args?`). The occurrence resolves to the coupled accessor
+        // argument, so the whole family follows — and the `?` suffix (part
+        // of the identifier token) is preserved.
+        myFixture.configureByText("flow.cr", """
+            module Ameba::Rule::Lint
+              private class Visitor
+                getter? in_call_args = false
+
+                private def in_call_args(value = true, &)
+                  @in_call_args = value
+                  yield
+                end
+
+                def visit(node : Crystal::Call)
+                  super unless in_ca<caret>ll_args?
+                  @on_assign.call(node) if in_call_args?
+                  in_call_args(false) { }
+                  false
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("in_callargs")
+
+        val text = myFixture.editor.document.text
+        assertTrue(
+            "whole family follows from the bare occurrence:\n$text",
+            text.contains("getter? in_callargs = false") &&
+                text.contains("private def in_callargs(value = true, &)") &&
+                text.contains("@in_callargs = value") &&
+                text.contains("super unless in_callargs?") &&
+                text.contains("if in_callargs?") &&
+                text.contains("in_callargs(false) { }"),
+        )
+        assertFalse("family fully renamed:\n$text", text.contains("in_call_args"))
+    }
 }

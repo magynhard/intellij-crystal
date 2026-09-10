@@ -251,6 +251,25 @@ families:
 Real locals in the same class keep their ordinary diagnosis; the gate is
 argument-scoped, so unrelated assignments stay tracked.
 
+### Bare occurrence as the family rename trigger (ameba line 116)
+
+`@on_assign.call(node) if in_call_args?` / `super unless in_call_args?`:
+the bare implicit-self reader is no method definition in the index, so
+the rename trigger placed ON the occurrence resolved to nothing and the
+IDE renamed only the local leaf (previously even dropping the `?`
+suffix from the identifier token). `CrystalReference.resolve()` now
+falls back to the coupled accessor argument as the LAST resolution step
+(after locals, macro context, indexed types and methods — real
+definitions keep their precedence). Gates mirror the searcher's rules:
+declaring-type body, exact full-text name (the macro-implied reader
+name for `?`-variants, the plain name for suffix-free readers and
+same-name family members), no `!` variants, no class-var macros;
+local shadowing stays handled by the local-first resolution. With the
+occurrence resolving to the `PsiNameIdentifierOwner` argument, the
+rename processor takes over and the whole family follows regardless of
+which member started the rename; Goto Definition and the highlight
+anchor of the bare occurrence locate the declaration as well.
+
 ## Known scope boundaries (follow-up)
 
 - Setter receiver chains (`obj.nested.foo = v`) participate only when the
