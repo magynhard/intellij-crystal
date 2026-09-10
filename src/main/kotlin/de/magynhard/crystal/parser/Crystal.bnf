@@ -743,6 +743,13 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
                      | &<<isTokenTightAfterPreviousToken>> QUESTION
                      | namespace_access
                      | LBRACKET argument_list RBRACKET [QUESTION]
+                     // Empty tight brackets after an expression are an EMPTY-ARGUMENT
+                     // call (`Int64[]` invokes the Number `[]` macro with zero args,
+                     // number_spec.cr:398), never an array literal — the array-literal
+                     // path would strand a standalone CrystalArrayLiteral and trigger
+                     // the "Empty array literal requires type" false positive. Tight
+                     // only: spaced `f []` stays a call with an empty array argument.
+                     | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
                      | call_args [block]
 
 // DOT-call access: the method-name + optional args part of a DOT-call (e.g. `.tanzen`,
@@ -1104,6 +1111,9 @@ private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_refere
                            | NLS dot_call_access
                           | namespace_access
                           | LBRACKET argument_list RBRACKET [QUESTION]
+                          // Empty tight brackets after a bare expression are an
+                          // empty-argument call (`Int64[]`), not an array literal.
+                          | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
                           | call_args
 
 // Bare primary: like primary but no blocks or method calls with bare args (to prevent ambiguity)

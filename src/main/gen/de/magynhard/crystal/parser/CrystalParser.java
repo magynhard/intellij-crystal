@@ -1817,6 +1817,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                            | NLS dot_call_access
   //                           | namespace_access
   //                           | LBRACKET argument_list RBRACKET [QUESTION]
+  //                           // Empty tight brackets after a bare expression are an
+  //                           // empty-argument call (`Int64[]`), not an array literal.
+  //                           | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
   //                           | call_args
   static boolean bare_postfix_op(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_postfix_op")) return false;
@@ -1826,6 +1829,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = bare_postfix_op_1(builder_, level_ + 1);
     if (!result_) result_ = namespace_access(builder_, level_ + 1);
     if (!result_) result_ = bare_postfix_op_3(builder_, level_ + 1);
+    if (!result_) result_ = bare_postfix_op_4(builder_, level_ + 1);
     if (!result_) result_ = call_args(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -1885,6 +1889,27 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "bare_postfix_op_3_3")) return false;
     consumeToken(builder_, QUESTION);
     return true;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
+  private static boolean bare_postfix_op_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_4")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = bare_postfix_op_4_0(builder_, level_ + 1);
+    result_ = result_ && consumeTokens(builder_, 0, LBRACKET, RBRACKET);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean bare_postfix_op_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_4_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
   }
 
   /* ********************************************************** */
@@ -7670,6 +7695,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                      | &<<isTokenTightAfterPreviousToken>> QUESTION
   //                      | namespace_access
   //                      | LBRACKET argument_list RBRACKET [QUESTION]
+  //                      // Empty tight brackets after an expression are an EMPTY-ARGUMENT
+  //                      // call (`Int64[]` invokes the Number `[]` macro with zero args,
+  //                      // number_spec.cr:398), never an array literal — the array-literal
+  //                      // path would strand a standalone CrystalArrayLiteral and trigger
+  //                      // the "Empty array literal requires type" false positive. Tight
+  //                      // only: spaced `f []` stays a call with an empty array argument.
+  //                      | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
   //                      | call_args [block]
   static boolean postfix_op(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op")) return false;
@@ -7682,6 +7714,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = namespace_access(builder_, level_ + 1);
     if (!result_) result_ = postfix_op_5(builder_, level_ + 1);
     if (!result_) result_ = postfix_op_6(builder_, level_ + 1);
+    if (!result_) result_ = postfix_op_7(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -7793,20 +7826,41 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // call_args [block]
+  // &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
   private static boolean postfix_op_6(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op_6")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
+    result_ = postfix_op_6_0(builder_, level_ + 1);
+    result_ = result_ && consumeTokens(builder_, 0, LBRACKET, RBRACKET);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean postfix_op_6_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_6_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // call_args [block]
+  private static boolean postfix_op_7(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_7")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
     result_ = call_args(builder_, level_ + 1);
-    result_ = result_ && postfix_op_6_1(builder_, level_ + 1);
+    result_ = result_ && postfix_op_7_1(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // [block]
-  private static boolean postfix_op_6_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "postfix_op_6_1")) return false;
+  private static boolean postfix_op_7_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_7_1")) return false;
     block(builder_, level_ + 1);
     return true;
   }

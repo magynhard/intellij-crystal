@@ -17,6 +17,29 @@ class CrystalEmptyCollectionInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("Empty array literal") == true })
     }
 
+    fun testEmptyBracketsCallNotReported() {
+        // `Int64[]` is the zero-arity Number `[]` macro call (number_spec.cr:398),
+        // not an empty array literal
+        myFixture.configureByText("test.cr", "a = Int64[]")
+        val highlights = myFixture.doHighlighting()
+        assertFalse("Empty tight brackets after a receiver are a `[]` call, not an array literal",
+            highlights.any { it.description?.contains("Empty array literal") == true })
+    }
+
+    fun testEmptyBracketsVariableCallNotReported() {
+        myFixture.configureByText("test.cr", "foo = 1\na = foo[]")
+        val highlights = myFixture.doHighlighting()
+        assertFalse("`foo[]` is a zero-argument call",
+            highlights.any { it.description?.contains("Empty array literal") == true })
+    }
+
+    fun testEmptyBracketsWithElementsNotReported() {
+        myFixture.configureByText("test.cr", "a = Int64[1, 2, 3]")
+        val highlights = myFixture.doHighlighting()
+        assertFalse("Typed array with elements is not empty",
+            highlights.any { it.description?.contains("Empty array literal") == true })
+    }
+
     fun testEmptyHashLiteralReported() {
         myFixture.configureByText("test.cr", "h = {}")
         val highlights = myFixture.doHighlighting()

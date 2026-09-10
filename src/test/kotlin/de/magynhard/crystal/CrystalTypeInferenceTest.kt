@@ -255,4 +255,58 @@ bet = bohne 22
         val type = CrystalTypeInference.inferType("bet", contextElement!!, project)
         assertEquals("Int32", type)
     }
+
+    // Hermetic fixture of the compiler-imposed primitive chain (Int64 -> Int ->
+    // Number) — see CrystalMethodHierarchy.IMPLICIT_PRIMITIVE_SUPERCLASSES. The
+    // declarations live in the SAME file because resolution filters to the
+    // require-effective source set.
+    private fun configureTypeFixture(code: String) {
+        myFixture.configureByText(
+            "test.cr",
+            """
+            struct Number
+            end
+            struct Int
+            end
+            struct Int64
+            end
+            struct Float
+            end
+            struct Float64
+            end
+            class Env
+            end
+            $code
+            """.trimIndent()
+        )
+    }
+
+    fun testInferNumberTypedBracketCallEmpty() {
+        configureTypeFixture("x = Int64[]")
+        // `Int64[]` is the Number#[] class macro with zero arguments — Array(Int64)
+        assertEquals("Array(Int64)", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testInferNumberTypedBracketCallWithElements() {
+        configureTypeFixture("x = Int64[1, 2, 3]")
+        // Elements are cast to the receiver type, so the result stays Array(Int64)
+        assertEquals("Array(Int64)", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testInferFloatTypedBracketCallEmpty() {
+        configureTypeFixture("x = Float64[]")
+        assertEquals("Array(Float64)", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testNonNumberTypedBracketCallStaysUnknown() {
+        configureTypeFixture("x = Env[]")
+        // `Env#[]` requires a key argument in real Crystal; a type object like Env
+        // with a Number-unrelated family gets no bracket-call typing.
+        assertEquals("Unknown", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testUnknownVariableTypedBracketCallStaysUnknown() {
+        configureTypeFixture("y = not_resolvable()\nx = y[]")
+        assertEquals("Unknown", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
 }

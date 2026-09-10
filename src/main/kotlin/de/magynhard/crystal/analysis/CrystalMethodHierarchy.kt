@@ -143,6 +143,19 @@ internal class CrystalMethodHierarchy(
         CrystalMethodCollection(result, true)
     }
 
+    /**
+     * Walks the type's nominal superclass chain (compiler-imposed edges included
+     * via the metadata pass, e.g. `Int64 -> Int -> Number -> Value`) and reports
+     * whether the given simple name appears anywhere in it. Bracket-call typing
+     * uses this to gate the `Number#[]` class-macro result (`Int64[]` →
+     * `Array(Int64)`), so only genuine `Number` family receivers get the typing
+     * while `Env[]`-style custom `self.[]` overloads stay unresolved.
+     */
+    internal fun reachesSuperclassName(type: CrystalTypeIdentity, targetSimpleName: String): Boolean {
+        val exposures = collectHierarchy(type, CrystalReceiverMode.INSTANCE, includeModuleEdges = false)
+        return exposures.exposures.any { it.type.simpleName == targetSimpleName }
+    }
+
     fun findExactTypeDeclarations(type: CrystalTypeIdentity): List<CrystalNamedElement> =
         declarations.getOrPut(type) {
             findTypesByName(type.simpleName).filter { CrystalPsiUtils.buildQualifiedName(it) == type.qualifiedName }

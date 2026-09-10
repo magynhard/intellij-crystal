@@ -22,9 +22,10 @@ class CrystalParserDefinition : ParserDefinition {
     companion object {
         val FILE = object : IStubFileElementType<PsiFileStub<CrystalFile>>(CrystalLanguage) {
             override fun getExternalId(): String = "crystal.FILE"
-            // v15: pointer-typed declaration-macro arguments keep later declarations parseable
-            // in unchanged stdlib files, so persisted indexes must rebuild.
-            override fun getStubVersion(): Int = 16
+            // v16: empty tight brackets after an expression parse as a zero-arity
+            // `[]` call (`Int64[]` / `foo[]`) instead of an empty array literal, so
+            // persisted indexes must rebuild.
+            override fun getStubVersion(): Int = 17
         }
     }
 

@@ -281,6 +281,26 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         }
     }
 
+    /**
+     * `Int64[]` and `Int64[1, 2, 3]` invoke the `Number#[]` class macro
+     * (`macro [](*nums)` in stdlib number.cr), which builds `Array(self)` with
+     * every element cast to the receiver type — including zero arguments
+     * (spec/std/number_spec.cr:398). Receivers inside the Number family with an
+     * exact constant type root therefore resolve to `Array(<receiver>)`;
+     * everything else (variable receivers, non-Number types with their own
+     * `def self.[]`, unresolvable roots) stays Unknown.
+     */
+    private fun bracketCallResolution(children: List<PsiElement>): CrystalTypeResolution? {
+        if (children.lastOrNull()?.node?.elementType != CrystalTypes.RBRACKET) return null
+        val openIndex = children.indexOfLast { it.node.elementType == CrystalTypes.LBRACKET }
+        if (openIndex < 0) return null
+        val receiverElements = children.take(openIndex)
+        val root = CrystalReceiverExpression.extractExactConstantTypeRoot(receiverElements) ?: return null
+        val identity = resolveTypeIdentity(root, receiverElements.first())?.toShared() ?: return null
+        if (!hierarchy.reachesSuperclassName(identity, "Number")) return null
+        return knownType("Array(${identity.qualifiedName})")
+    }
+
     private fun resolveExpression(expression: CrystalExpression): CrystalTypeResolution {
         return resolveExpressionChildren(significantChildren(expression), expression)
     }
@@ -303,6 +323,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             return knownType("Range")
         }
         if (children.any { it is CrystalDotCallAccess }) return resolvePostfix(children, expression)
+        bracketCallResolution(children)?.let { return it }
         resolveOperator(children)?.let { return it }
         return children.firstOrNull()?.let(::resolve) ?: knownType("Nil")
     }

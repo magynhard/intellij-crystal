@@ -144,12 +144,27 @@
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
   call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);
   the receiver-postfixed `::method` form needs a postfix operator or `dot_call_access` extension.
-- [ ] **Investigate flaky `CrystalIndexServiceTest` scope tests** — twice now a full-suite run failed
-  (`testExcludedScopeTypeIsFiltered` / `testProcessesTypeNameCandidatesOutsideProvidedScope`) with
-  StubIndex results missing just-added fixture types (`expected:<[ExcludedType]> but was:<[]>`), while
-  the tests passed in isolation and on immediate full-suite rerun. Suspected platform indexing race
-  (VFS refresh vs. StubIndex query) plus cross-project name bleed in the shared test index; both
-  failures predate and are unrelated to recent grammar changes.
+- [ ] **Investigate flaky `CrystalIndexServiceTest` scope tests** — recurring full-suite
+  failures (`testProcessesTypeNameCandidatesOutsideProvidedScope`) with StubIndex results
+  missing just-added fixture types (`expected:<[ExcludedType]> but was:<[]>`), while the
+  tests pass in isolation. Observed both with and without grammar changes and with/without
+  a stub-version bump (green 1/1, red 1/1 after the bump) — the bump is NOT a causal fix and
+  the failure predates the empty-brackets landing. Suspected platform indexing race
+  (VFS refresh vs. StubIndex query) plus cross-project name bleed in the shared test index.
+  Reproduction filter to keep at hand: `./gradlew test --rerun-tasks` (full suite) reproduces
+  roughly every other run; isolation always green.
+- [ ] **Wire resolution/navigation for zero-arity `X[]` empty-call expressions** — the tight
+  empty-bracket postfix (`Int64[]`, `foo[]`) now parses and infers (Number-family receivers
+  resolve to `Array(X)`; spec: docs/specs/empty-collection-inspection.md) but produces plain
+  token children without a reference composite; `X[]` does not resolve to the `Number` `[]`
+  macro / matching `def self.[]` for navigation, hover-on-call, or argument-count inspection
+  routing. Reuse the shared exact DOT-target resolver used by DOT-calls if a composite shape
+  is introduced.
+- [ ] **Infer the `Slice`/`StaticArray` `[]` families** — `Slice[1, 2]` / `StaticArray[1, 2]`
+  are their own stdlib class `[]` constructors (not `Number` receivers), so the bracket-call
+  typing gate (Number-family walk) leaves them Unknown. Add per-family gates with slice
+  element casts (Slice uses `new!`, so reading `.to_i`-style values needs care) once their
+  PSI shape is covered by navigation.
 - [ ] **Close the cold-cache stdlib window in `CrystalRequireGraphService`** — the production
   constructor wires its stdlib-root supplier to `cachedStdlibPath` only, so until some other component
   (typically the async library provider) publishes a discovered root, bare stdlib requires resolve to

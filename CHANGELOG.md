@@ -11,7 +11,30 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 - **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
 
+### Added
+- **`Number`-family bracket calls infer `Array(Type)`** — `ary = Int64[]` /
+  `ary = Int64[1, 2, 3]` now display `Array(Int64)` instead of `Unknown`:
+  the receiver in `X[...]` with a constant type root and an exact type
+  identity is checked against the compiler-imposed primitive chain
+  (`Int64 → Int → Number`, `Float64 → Float → Number` in
+  `CrystalMethodHierarchy`); members of that family type the call to
+  `Array(<receiver>)` because the Number `[]` class macro
+  (`macro [](*nums)` in number.cr) casts every element — also with zero
+  arguments (spec/std/number_spec.cr:398). Non-Number receivers
+  (`Env[]`, custom `def self.[]`) and variable receivers stay Unknown
+  (honest), covered by new `CrystalTypeInferenceTest` cases.
+
 ### Bug Fixes
+- **`Int64[]` is no longer falsely highlighted as an empty array literal** —
+  empty tight brackets after an expression are a zero-arity `[]` call, not an empty
+  array literal: Crystal parses `Int64[]` as the Number `[]` class macro with zero
+  arguments (spec/std/number_spec.cr:398, `macro [](*nums)` in number.cr). The
+  index-postfix grammar rule required a non-empty argument list, so the brackets
+  fell into the empty `array_literal` path and triggered "Empty array literal
+  requires type". Both postfix grammar positions (`postfix_op` and
+  `bare_postfix_op`) now accept empty brackets with a tight-whitespace guard, so
+  spaced `Int64 []` keeps its existing array-argument binding. Persistent
+  indexes rebuild from the bumped stub version.
 - **The rename dialog label carries the method header, not the body** —
   the dialog label text hydrates via
   `DescriptiveNameUtil.getDescriptiveName`, which routes through THIS
