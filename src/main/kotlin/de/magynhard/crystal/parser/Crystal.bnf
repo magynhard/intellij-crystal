@@ -373,6 +373,11 @@ private method_name ::= BACKTICK
               // `def Float64.new(...)` — qualified method names inside the type's
               // own scope (float.cr); optional ASSIGN covers `def Float64.round=`.
               | CONSTANT DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
+              // `def &{{op.id}}(other : {{int2.id}}) : self` — operator-headed
+              // generated names inside {% for %} bodies (primitives.cr bitwise
+              // ops). Must PRECEDE the bare operator alternative: PEG commits
+              // `operator_method_name` alone and strands the interpolation.
+              | operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
               | keyword_as_method
               | operator_method_name
               | macro_interpolation
@@ -1328,6 +1333,12 @@ private type_parameter_item ::= [STAR] CONSTANT [ASSIGN type_reference]
 // ==================== Type Names ====================
 
 private type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
+                    // `struct {{num.id}}` / `class {{name.id}} < View` —
+                    // macro-generated type names inside {% for %} bodies
+                    // (primitives.cr, compiler_rt.cr, log/format.cr,
+                    // io/byte_format.cr). Precedes nothing sensitive: PEG only
+                    // reaches the interpolation when no CONSTANT starts the name.
+                    | macro_interpolation
 
 // ==================== Typeof / Sizeof ====================
 

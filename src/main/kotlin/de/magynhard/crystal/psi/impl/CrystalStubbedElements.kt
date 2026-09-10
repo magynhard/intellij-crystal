@@ -44,7 +44,26 @@ private fun findNameIdentifierInMethodName(element: PsiElement): PsiElement? {
 }
 
 private fun getNameFromTypeName(element: PsiElement): String? {
-    return findNameIdentifierInTypeName(element)?.text
+    findNameIdentifierInTypeName(element)?.let { return it.text }
+    // `struct {{num.id}}` — macro-generated type names have no CONSTANT leaf.
+    // Report the name tokens verbatim (like macro compound method names);
+    // no real resolution is ever claimed for macro-generated names.
+    val sb = StringBuilder()
+    var child = element.node.firstChildNode
+    while (child != null) {
+        val type = child.elementType
+        if (type == CrystalTypes.LPAREN || type == CrystalTypes.CLASS_BODY) break
+        if (type != CrystalTypes.STRUCT && type != CrystalTypes.CLASS &&
+            type != CrystalTypes.MODULE && type != CrystalTypes.ENUM &&
+            type != CrystalTypes.ALIAS && type != CrystalTypes.ABSTRACT &&
+            type != CrystalTypes.ANNOTATION && type != CrystalTypes.DOUBLE_COLON &&
+            type != com.intellij.psi.TokenType.WHITE_SPACE && type != CrystalTypes.NEWLINE
+        ) {
+            sb.append(child.text)
+        }
+        child = child.treeNext
+    }
+    return sb.toString().takeIf { it.isNotEmpty() }
 }
 
 private fun getNameFromMethodName(element: PsiElement): String? {

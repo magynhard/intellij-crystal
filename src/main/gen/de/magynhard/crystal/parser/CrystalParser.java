@@ -6035,6 +6035,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //               // `def Float64.new(...)` — qualified method names inside the type's
   //               // own scope (float.cr); optional ASSIGN covers `def Float64.round=`.
   //               | CONSTANT DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
+  //               // `def &{{op.id}}(other : {{int2.id}}) : self` — operator-headed
+  //               // generated names inside {% for %} bodies (primitives.cr bitwise
+  //               // ops). Must PRECEDE the bare operator alternative: PEG commits
+  //               // `operator_method_name` alone and strands the interpolation.
+  //               | operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
   //               | keyword_as_method
   //               | operator_method_name
   //               | macro_interpolation
@@ -6051,6 +6056,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = method_name_7(builder_, level_ + 1);
     if (!result_) result_ = method_name_8(builder_, level_ + 1);
+    if (!result_) result_ = method_name_9(builder_, level_ + 1);
     if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
     if (!result_) result_ = operator_method_name(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
@@ -6192,6 +6198,39 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
     if (!result_) result_ = operator_method_name(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
+  private static boolean method_name_9(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_name_9")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = operator_method_name(builder_, level_ + 1);
+    result_ = result_ && macro_interpolation(builder_, level_ + 1);
+    result_ = result_ && method_name_9_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (IDENTIFIER | CONSTANT | macro_interpolation)*
+  private static boolean method_name_9_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_name_9_2")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!method_name_9_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "method_name_9_2", pos_)) break;
+    }
+    return true;
+  }
+
+  // IDENTIFIER | CONSTANT | macro_interpolation
+  private static boolean method_name_9_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_name_9_2_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
     return result_;
   }
 
@@ -9227,31 +9266,48 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // CONSTANT (DOUBLE_COLON CONSTANT)*
+  //                     // `struct {{num.id}}` / `class {{name.id}} < View` —
+  //                     // macro-generated type names inside {% for %} bodies
+  //                     // (primitives.cr, compiler_rt.cr, log/format.cr,
+  //                     // io/byte_format.cr). Precedes nothing sensitive: PEG only
+  //                     // reaches the interpolation when no CONSTANT starts the name.
+  //                     | macro_interpolation
   static boolean type_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "type_name")) return false;
-    if (!nextTokenIs(builder_, CONSTANT)) return false;
+    if (!nextTokenIs(builder_, "", CONSTANT, MACRO_INTERPOLATION_BEGIN)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = type_name_0(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // CONSTANT (DOUBLE_COLON CONSTANT)*
+  private static boolean type_name_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_name_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, CONSTANT);
-    result_ = result_ && type_name_1(builder_, level_ + 1);
+    result_ = result_ && type_name_0_1(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // (DOUBLE_COLON CONSTANT)*
-  private static boolean type_name_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_name_1")) return false;
+  private static boolean type_name_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_name_0_1")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!type_name_1_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "type_name_1", pos_)) break;
+      if (!type_name_0_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "type_name_0_1", pos_)) break;
     }
     return true;
   }
 
   // DOUBLE_COLON CONSTANT
-  private static boolean type_name_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "type_name_1_0")) return false;
+  private static boolean type_name_0_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "type_name_0_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeTokens(builder_, 0, DOUBLE_COLON, CONSTANT);

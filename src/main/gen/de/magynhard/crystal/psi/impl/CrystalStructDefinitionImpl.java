@@ -40,6 +40,12 @@ public class CrystalStructDefinitionImpl extends CrystalStubbedStructDefinitionI
 
   @Override
   @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalSuperclassClause getSuperclassClause() {
     return PsiTreeUtil.getChildOfType(this, CrystalSuperclassClause.class);
   }

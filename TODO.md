@@ -124,8 +124,9 @@
 ## Parser Follow-up
 
 - [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
-  `stdlibParseAudit` corpus from the current 133 errors in 97 of 461 files to zero,
-  then parse all 1,625 distribution sources without errors. Once both are green, add
+  `stdlibParseAudit` corpus (pinned 650 production-indexed sources, compiler tree
+  included) from the current 175 errors in 126 files to zero, then parse the whole
+  distribution without errors. Once both are green, add
   mandatory CI jobs that download the pinned official archive, verify SHA-256
   `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both
   scopes. Keep raw `PsiErrorElement` collection and exact file counts; do not add an

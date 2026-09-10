@@ -9,4 +9,7 @@ import de.magynhard.crystal.stubs.CrystalAnnotationDefinitionStub;
 
 public interface CrystalAnnotationDefinition extends CrystalNamedElement, StubBasedPsiElement<CrystalAnnotationDefinitionStub> {
 
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
 }

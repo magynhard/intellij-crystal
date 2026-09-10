@@ -22,10 +22,12 @@ class CrystalParserDefinition : ParserDefinition {
     companion object {
         val FILE = object : IStubFileElementType<PsiFileStub<CrystalFile>>(CrystalLanguage) {
             override fun getExternalId(): String = "crystal.FILE"
-            // v16: empty tight brackets after an expression parse as a zero-arity
+            // v17: empty tight brackets after an expression parse as a zero-arity
             // `[]` call (`Int64[]` / `foo[]`) instead of an empty array literal, so
             // persisted indexes must rebuild.
-            override fun getStubVersion(): Int = 17
+            // v18: macro-generated type names (`struct {{num.id}}`) parse as real
+            // type definitions and contribute interpolation-compound index keys.
+            override fun getStubVersion(): Int = 18
         }
     }
 

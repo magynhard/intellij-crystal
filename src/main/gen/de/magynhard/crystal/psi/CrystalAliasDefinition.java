@@ -10,6 +10,9 @@ import de.magynhard.crystal.stubs.CrystalAliasDefinitionStub;
 public interface CrystalAliasDefinition extends CrystalNamedElement, StubBasedPsiElement<CrystalAliasDefinitionStub> {
 
   @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
+  @Nullable
   CrystalTypeReference getTypeReference();
 
 }

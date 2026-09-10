@@ -261,6 +261,22 @@ tight minus stays the unary negation of the first bare argument
 replaced the plain binary-operator guard on both alternatives; the indexed
 corpus reaches 114 errors in 77 files.
 
+Macro-generated type definitions parse structurally: `type_name` (class,
+struct, module, enum, alias, annotation) accepts a bare macro interpolation
+(`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,
+log/format.cr, io/byte_format.cr, ast.cr, init.cr, macros.cr), and
+`method_name` composes operator heads with interpolations
+(`def &{{op.id}}(other : {{int2.id}}) : self` — primitives.cr bitwise
+operators; the alternative precedes the bare operator path so PEG does not
+commit `&` alone and strand the interpolation). The interpolated type name
+reports its compound text verbatim (`{{num.id}}`) the same way macro
+compound method names do — macro-generated declarations never claim real
+resolution. The indexed corpus drops from 180 errors in 127 files to 175
+errors in 126 files (compiler sources included since the 650-file index);
+`src/primitives.cr` reaches zero errors, `compiler/crystal/semantic/ast.cr`
+and `io/byte_format.cr` improve, and the external crystal-repository audit
+loses the same family (2,730 → 2,718 errors in 787 → 783 files).
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

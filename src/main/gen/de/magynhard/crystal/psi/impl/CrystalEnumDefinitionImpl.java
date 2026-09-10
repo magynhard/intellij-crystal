@@ -40,6 +40,12 @@ public class CrystalEnumDefinitionImpl extends CrystalStubbedEnumDefinitionImpl 
 
   @Override
   @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalTypeReference getTypeReference() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }

@@ -34,6 +34,12 @@ public class CrystalAliasDefinitionImpl extends CrystalStubbedAliasDefinitionImp
 
   @Override
   @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalTypeReference getTypeReference() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }

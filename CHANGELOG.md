@@ -25,6 +25,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Macro-generated type definitions and operator-headed compound methods parse** —
+  `struct {{num.id}}` in `{% for %}` bodies (primitives.cr:435/480/560,
+  compiler_rt.cr, log/format.cr, io/byte_format.cr, ast.cr, init.cr,
+  macros.cr) previously errored with "CONSTANT expected, got '{{'": the
+  type-name grammar of `class`/`struct`/`module`/`enum`/`alias`/
+  `annotation` accepted constants only. `type_name` now accepts a bare
+  macro interpolation, reporting the compound text verbatim (`{{num.id}}`)
+  like macro compound method names do. `def &{{op.id}}(other : {{int2.id}}) : self`
+  (bitwise operators in primitives.cr:508) parses through a new
+  operator-headed `method_name` composition that must precede the bare
+  operator alternative so PEG does not strand the interpolation. Indexed
+  audit: `src/primitives.cr` reaches zero errors, the corpus improves from
+  180 errors in 127 files to 175 in 126 files, and the external
+  crystal-repository audit 2,730 → 2,718 errors (787 → 783 files).
 - **Bare generic restrictions reach family parameters again** — a bare generic
   side in a call (`Indexable.cartesian_product(arrays)` where
   `def self.product(*arrays : Array)` restricts `arrays` to unbound `Array`)
