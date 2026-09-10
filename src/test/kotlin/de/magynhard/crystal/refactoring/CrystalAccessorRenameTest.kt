@@ -588,6 +588,19 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
         val def = PsiTreeUtil.collectElementsOfType(myFixture.file, de.magynhard.crystal.psi.CrystalMethodDefinition::class.java).first()
         assertEquals("in_call_args", com.intellij.usageView.UsageViewUtil.getShortName(def))
         assertFalse("no method body leaks into the dialog label", UsageViewUtil.getShortName(def).contains("yield"))
+        // The rename dialog's target display hydrates via the NODE-text
+        // location — the header only (`private def in_call_args(value =
+        // true, &)`), never the body.
+        val described = com.intellij.psi.ElementDescriptionUtil.getElementDescription(
+            def,
+            com.intellij.usageView.UsageViewNodeTextLocation.INSTANCE,
+        ) ?: error("no node-text description")
+        assertEquals(
+            "dialog target display carries the header only",
+            "private def in_call_args(value = true, &)",
+            described.replace(Regex("\\s+"), " ").trim(),
+        )
+        assertFalse("no method body leaks into the target display", described.contains("yield"))
     }
 
     fun testBareReaderOccurrenceIsRenameTriggerForWholeFamily() {

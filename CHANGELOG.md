@@ -12,6 +12,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
 
 ### Bug Fixes
+- **The rename dialog target display shows the method header only** —
+  renaming `private def in_call_args(value = true, &)` still rendered
+  the whole method (including the body) in the dialog: the target text
+  hydrates via `UsageViewNodeTextLocation`. The description provider
+  now reports the header line — everything up to the closing bracket of
+  the parameter list (`private def in_call_args(value = true, &)`) —
+  and keeps the bare name for the label route.
 - **The rename dialog item shows the method header name only** — for a
   family member method the platform fallback hydrated the whole method
   text (including the body) into the dialog label; the description

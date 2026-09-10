@@ -108,7 +108,12 @@ only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
 - The dialog item label hydrates via `UsageViewShortNameLocation`; the
   description provider reports method definitions by their NAME only —
   without it the platform fallback rendered the WHOLE method text
-  including the body in the found-members list.
+  including the body in the found-members list. The dialog's target
+  DISPLAY hydrates via `UsageViewNodeTextLocation` — the provider
+  reports the HEADER only: from the line start through the parameter
+  list (the closing `)` belongs to the def node, so it is consumed;
+  `parameters on multiple lines` squeeze to one line, operator/no-param
+  headers cut at the body start).
 - **Family member methods** (`def in_call_args` beside
   `getter? in_call_args`): the rename processor accepts a
   `CrystalMethodDefinition` when a same-name accessor argument exists in
