@@ -261,6 +261,25 @@ tight minus stays the unary negation of the first bare argument
 replaced the plain binary-operator guard on both alternatives; the indexed
 corpus reaches 114 errors in 77 files.
 
+Lib-body constant assignments parse structurally: `constant_assignment`
+(`CONSTANT ASSIGN NLS expression`, already used for top-level constants) was
+added to the `lib_member` alternatives. The compiler's
+`parse_lib_body_exp_without_location` handles `CONST` + `OP_EQ`
+(src/compiler/crystal/syntax/parser.cr:5891) as a plain `Assign`, so no new
+rule or lexer state is needed; the rule is PEG-unique among lib members because
+no other alternative starts with CONSTANT. This repairs the dominant external
+gap: the crystal-lang/crystal checkout audit drops from 2,718 errors in 783
+files to 1,029 errors in 510 files, with zero previously-clean files regressing
+(before/after file-set comparison). The pinned indexed corpus drops from 180
+errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
+parser golden. Remaining lib-body gaps, in order of remaining impact: untyped
+`fun` parameters (`fun strerror_r(Int, Char*, SizeT) : Int`), external symbol
+aliases (`fun iconv = libiconv(...)`, `fun realpath =
+"realpath$DARWIN_EXTSN"(...)`), uppercase Windows/LLVM function names
+(`fun GetConsoleScreenBufferInfo(...)`), keyword-named functions
+(`fun select(...)`), and `@[...]` annotations plus `{% ... %}` / `{{ ... }}`
+macro forms inside `lib` bodies.
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

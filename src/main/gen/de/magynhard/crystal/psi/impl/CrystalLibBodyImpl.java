@@ -29,6 +29,12 @@ public class CrystalLibBodyImpl extends ASTWrapperPsiElement implements CrystalL
 
   @Override
   @NotNull
+  public List<CrystalConstantAssignment> getConstantAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalConstantAssignment.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalEnumDefinition> getEnumDefinitionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalEnumDefinition.class);
   }

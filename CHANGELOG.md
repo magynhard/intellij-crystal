@@ -5,6 +5,21 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Lib-body constant assignments parse** — `lib LibC { F_GETFD = 1 }` style
+  constant declarations inside `lib` bodies are now structured PSI: the existing
+  tight `constant_assignment` rule joined the `lib_member` alternatives exactly
+  as the compiler's `parse_lib_body_exp_without_location` model assigns `CONST`
+  + `OP_EQ` as a plain `Assign`. This repairs the dominant external-audit gap in
+  the platform-matrix `src/lib_c/**` trees: the external crystal checkout drops
+  from 2,718 parse errors in 783 files to 1,029 errors in 510 files (zero
+  previously-clean files regressed, verified by a before/after file-set
+  comparison) and the pinned indexed corpus drops from 180 errors in 127 files
+  to 173 errors in 126 files. Covered by the LibConstants parser golden (no
+  `PsiErrorElement`, struct/fun members and the trailing top-level declaration
+  stay inside their bodies). Remaining lib-body families are tracked in
+  `TODO.md`: untyped `fun` parameters, `fun name = symbol` aliases, uppercase
+  Windows/LLVM function names, keyword-named `fun select`, and
+  annotations/macro-control inside `lib` bodies.
 - **Pinned Crystal 1.21.0 parser compatibility audit** — `stdlibParseAudit` now parses either the 461 production-indexed standard-library sources or all 1,625 distribution sources as real VFS/PSI files, validates the exact version and corpus size, and reports every raw `PsiErrorElement`, first-error tail size, and slow-file timing without an allowlist. The initial indexed baseline is tracked in `docs/specs/stdlib-parser-compatibility.md` while syntax families are reduced to the zero-error release gate. A third unpinned `crystalCorpus=external` mode audits arbitrary shard checkouts and external Crystal projects: it collects every `.cr` file below the given root without VERSION or file-count validation, so a project like kemal (including its installed shards under `lib/`) can be gated to zero parse errors with the same report format.
 - **Headless Inspect Code audit script** — `scripts/crystal-inspect-audit.sh <project>` builds the dev plugin, installs it into an isolated RubyMine 2026.2 instance, and reports Crystal inspection findings for an external project without opening the GUI. Ownership and containment checks plus locking protect the isolated home, every run uses fresh IDE indexes for deterministic results, and an atomic symlink swap publishes each successful XML report. Documented in `docs/specs/headless-inspect-audit.md`.
 - **User-defined enums join the compiler-imposed base hierarchy** — a user-defined `enum Status` is now chained to the compiler-imposed base (`Status → Enum → Value → Object`, verified against the compiler: `Status < Enum`, NOT `Struct`), completing the receiver families of the base hierarchy after classes and structs. Enum-typed parameters (`def render(s : Status)` → `s.to_json` after `require "json"`) no longer produce false argument diagnostics — `Object#to_json : String` (the zero-argument dispatch target in json/to_json.cr's reopened `class Object`) and `Enum#to_json(json : JSON::Builder)` are in the overload pool — and `Enum#to_s`, `Enum#hash`, `Enum#<=>` become reachable for completion and navigation on enum receivers. An enum's `: Type` suffix (`enum Color : UInt8`) is treated as the underlying storage type, never as a superclass; enum bodies contribute their own `def`/`def self` members; the edge degrades gracefully when `Enum`/`Value`/`Object` declarations are not in the caller's require closure. Covered by new `CrystalMethodHierarchyTest` enum cases (chain, body methods, suffix neutrality) and real-stdlib `CrystalStdlibObjectHierarchyTest` integration cases (Crystal-gated).

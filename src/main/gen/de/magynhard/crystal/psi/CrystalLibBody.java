@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalLibBody extends PsiElement {
 
   @NotNull
+  List<CrystalConstantAssignment> getConstantAssignmentList();
+
+  @NotNull
   List<CrystalEnumDefinition> getEnumDefinitionList();
 
   @NotNull
