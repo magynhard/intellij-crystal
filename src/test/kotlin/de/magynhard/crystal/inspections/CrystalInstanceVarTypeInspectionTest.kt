@@ -256,4 +256,119 @@ class CrystalInstanceVarTypeInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Typed Co-Declaration Rescues Restriction Params ====================
+    // `initialize(@x : Int)` is a restriction; the ivar type comes from a typed
+    // co-declaration. Real compiler: SemanticVersion declares `getter major :
+    // Int32` and `initialize(@major : Int)` stays legal (semantic_version.cr:71).
+    // An untyped `getter x` alone rescues nothing (verified: still an error).
+
+    fun testInitializeIntRestrictionRescuedByTypedGetter() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              getter x : Int32
+
+              def initialize(@x : Int)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionRescuedByTypedGetterQuestion() {
+        myFixture.configureByText("test.cr", """
+            struct Foo
+              getter? x : Int32
+
+              def initialize(@x : Int)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionRescuedByTypedProperty() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              property x : Int32
+
+              def initialize(@x : Int)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionRescuedByParensTypedAccessor() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              getter( x : Int32 )
+
+              def initialize(@x : Int)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionRescuedByIvarAnnotation() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              @x : Int32 = 0
+
+              def initialize(@x : Int)
+                @x = @x.to_i32
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionAfterInitializeStillRescued() {
+        // Declaration order is irrelevant: Crystal resolves the ivar type
+        // through the whole type body.
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(@x : Int)
+              end
+
+              getter x : Int32
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionStillReportedWithoutAnyDeclaration() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def initialize(@x : <error descr="'Int' cannot be used as the type of instance variable '@x', use a more specific type">Int</error>)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionStillReportedWithUntypedGetter() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              getter x
+
+              def initialize(@x : <error descr="'Int' cannot be used as the type of instance variable '@x', use a more specific type">Int</error>)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInitializeIntRestrictionStillReportedWithUnrelatedGetter() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              getter other : Int32
+
+              def initialize(@x : <error descr="'Int' cannot be used as the type of instance variable '@x', use a more specific type">Int</error>)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

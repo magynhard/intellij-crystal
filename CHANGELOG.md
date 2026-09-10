@@ -25,6 +25,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **`initialize(@major : Int)` with a typed co-declaration is no longer reported** —
+  the `@x : Type` annotation on an initialize parameter is a parameter
+  restriction, not the ivar declaration; abstract type sets are legal
+  restriction positions and the stored ivar type comes from a typed
+  co-declaration in the same type body (`getter x : Int32`, `property x : T`,
+  `@x : T = …` — declaration order irrelevant; reference implementation:
+  `SemanticVersion` in semantic_version.cr:71 with `getter major : Int32`).
+  `CrystalInstanceVarTypeInspection` now rechecks forbidden base types on
+  initialize parameters only when no such co-declaration exists — untyped
+  `getter x` alone rescues nothing, exactly like the compiler. Direct ivar
+  / property annotations (`@x : Int = …`, `property x : Int`) stay flagged
+  unconditionally.
 - **`Int64[]` is no longer falsely highlighted as an empty array literal** —
   empty tight brackets after an expression are a zero-arity `[]` call, not an empty
   array literal: Crystal parses `Int64[]` as the Number `[]` class macro with zero
