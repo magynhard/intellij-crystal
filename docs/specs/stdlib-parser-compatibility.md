@@ -302,6 +302,36 @@ from 7 to 6 errors, landing on macro-interpolated fun names (next cluster).
 The pinned indexed corpus drops from 159 errors in 117 files to 136 errors
 in 109 files (8 repaired files fully clean, zero newly failing files).
 
+Macro-spliced member names mix literal fragments with `{{ }}`:
+`fun initialize_{{name}}_target = LLVMInitialize{{target.id}}Target`
+(lib_llvm target.cr), `fun {{...}}(...)` with a body (raise.cr),
+`def {{mapping[0].id}}=(value)` (io_uring.cr),
+`def self.init_{{name}} : Nil` (llvm.cr), and
+`{{value.id}} = LibC::{{value.id}}` (errno.cr, op_code.cr). The compiler
+parses `{% for %}` bodies as opaque macro text (`parse_macro_body`), so
+these names are never validated pre-expansion; the plugin mirrors
+`method_name`'s compound alternatives with one shared private
+`macro_spliced_name` rule admitted by `lib_fun_name`,
+`lib_fun_external_symbol`, `top_level_fun_name`, and `method_name` (with
+`[ASSIGN]` for setters, mirroring `IDENTIFIER ASSIGN` leniency).
+`enum_constant` takes a leading interpolation for generated constants; the
+`!ASSIGN` guard on bare enum interpolation members keeps PEG from
+committing the prefix and stranding the `=` (errno.cr). The
+`LibC::{{value.id}}` right-hand side reuses the existing interpolated
+`type_path_piece`. Stub name fallbacks already report generated names
+verbatim without claiming resolution, so no stub change and no
+stub-version bump; generation only adds `getMacroInterpolation[List]()`
+accessors. Covered by the MacroSplicedNames parser golden (all real shapes
+plus trailing declaration), negative tests for empty/unterminated
+interpolation in names (compiler-verified), and an inspection test proving
+untyped parameters under spliced fun names stay flagged. The external
+crystal-repository audit drops from 292 errors in 236 files to 280 errors
+in 230 files — 6 repaired files fully clean (target, io_uring, raise,
+errno, op_code, llvm) — verified by before/after file-set comparison with
+zero newly failing files. The pinned indexed corpus drops from 136 errors
+in 109 files to 131 errors in 105 files (op_code, errno, llvm, raise fully
+clean, zero newly failing files).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

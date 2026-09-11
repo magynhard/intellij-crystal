@@ -7,6 +7,9 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalTopLevelFun extends PsiElement {
 
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
   @Nullable
   CrystalMethodBody getMethodBody();
 

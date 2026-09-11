@@ -113,4 +113,14 @@ class CrystalLibFunParameterTypeInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testSplicedNameParametersStillChecked() {
+        myFixture.configureByText("test.cr", """
+            lib LibLLVM
+              fun initialize_{{name}}_target = LLVMInitialize{{target.id}}Target
+              fun initialize_{{name}}_target(<error descr="Parameter in lib fun must have a type annotation">value</error>)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

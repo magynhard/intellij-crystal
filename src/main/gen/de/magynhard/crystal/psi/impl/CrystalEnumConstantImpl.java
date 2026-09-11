@@ -33,4 +33,10 @@ public class CrystalEnumConstantImpl extends ASTWrapperPsiElement implements Cry
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
 }

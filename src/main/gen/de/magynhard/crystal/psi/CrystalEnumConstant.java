@@ -10,4 +10,7 @@ public interface CrystalEnumConstant extends PsiElement {
   @Nullable
   CrystalExpression getExpression();
 
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
 }

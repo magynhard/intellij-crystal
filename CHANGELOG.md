@@ -67,6 +67,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   negative tests for unterminated `{%` and empty `{{}}`. The external audit drops from 432 errors
   in 272 files to 292 in 236 (36 repaired files fully clean, zero newly failing files); indexed
   drops from 159 in 117 to 136 in 109 (8 repaired files fully clean).
+- **Macro-spliced member names (`fun initialize_{{name}}_target`, `def {{x}}=`)** — one shared
+  private `macro_spliced_name` rule (both directions, at least one interpolation) admitted by
+  `lib_fun_name`, `lib_fun_external_symbol`, `top_level_fun_name`, and `method_name` (with setter
+  `=`); `enum_constant` takes a leading interpolation with a `!ASSIGN` PEG guard. The compiler
+  parses `{% for %}` bodies as opaque macro text, so these names are never validated pre-expansion;
+  stub fallbacks already report them verbatim. Generation only adds macro-interpolation accessors,
+  no stub change. Covered by the MacroSplicedNames golden, negative tests, and an inspection test.
+  The external audit drops from 292 errors in 236 files to 280 in 230 (6 repaired files fully
+  clean, zero newly failing files); indexed drops from 136 in 109 to 131 in 105 (4 repaired
+  files fully clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

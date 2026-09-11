@@ -115,8 +115,14 @@
   (external audit 776/306 → 432/272; indexed 161/118 → 159/117);
   `{% %}` / `{{ }}` macro-control/interpolation in `lib` and `enum` bodies are done
   (external audit 432/272 → 292/236; indexed 159/117 → 136/109);
-  next: macro-interpolated member names (`fun initialize_{{name}}_target = LLVMInitialize{{target}}_target`
-  in `src/llvm/lib_llvm/target.cr`; `def {{mapping[0].id}}=(value)` in `src/lib_c/linux/io_uring.cr:353`).
+  macro-spliced member names are done
+  (external audit 292/236 → 280/230; indexed 136/109 → 131/105).
+- [ ] **Repair macro interpolation in code positions** — after the spliced-name fix the external
+  audit keeps 280 errors in 230 files (max 3 per file, long tail); 110 of them mention macro
+  tokens, e.g. interpolated parameters (`def initialize({{` in `src/macros.cr:91`), case/when
+  conditions (`in {{member.id}}`, `when {{name}}.to_slice`), and interpolated receivers/calls.
+  Treat each position like the spliced-name fix: compiler behavior first, narrowest grammar
+  admission, golden plus boundary tests, audit file-set comparison.
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).
 - [ ] **Trace the last shard argument-count finding** — kemal's own sources (src/ + spec/, including static_file_handler_spec.etag_with_coding:135), ameba's typos.cr `as:` DSL finding, and the ameba `as_node <<-CRYSTAL` pool (variable_spec:102) are clear. The one remaining finding is `arg` in excessive_allocations_spec:10 ("expected at most 0, got 1"), needing its own trace. (Fixed along the way: extractArguments now handles the bare (parenthesis-free) argument-list form of CrystalBareMethodCallExpression — the heredoc-header marker argument of `as_node <<-CRYSTAL` used to vanish, so the def saw zero arguments and reported "Missing 'source'"; earlier: macro-invocation block bodies are macro data via CrystalMacroContext.isInsideMacroCallBlock, the tight bracket after a dot-call method name always binds as the receiver's index postfix, `Reference.new(node, scope)` resolves the sibling `Ameba::AST::Reference` through the program closure, macro-call arguments are no longer checked as runtime calls, and proc-literal parameters resolve as local declarations.)
 - [ ] **Standalone chained-call argument checks** — the resolved-env.status(...).json(...) chains are clean now (the hash-key fix); when chained-call receivers gain exact typing, wire the standalone chain forms into the same argument checks with the regression shape `env.status(:not_found).json({error: "User not found"})`.

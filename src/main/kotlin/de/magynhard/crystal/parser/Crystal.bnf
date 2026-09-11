@@ -318,9 +318,12 @@ enum_body ::= enum_member*
 // Enum bodies accept macro forms (`{% if flag?(:arm) %} FAILURE = 9 {% end %}`
 // in lib_unwind's ReasonCode); the compiler's parse_enum_body_expressions takes
 // `{% %}`, `{{ }}` and `@[...]` (parser.cr:6360-6365) just like lib bodies.
-private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | enum_constant | method_definition
+// The !ASSIGN guard keeps `{{value.id}} = LibC::{{value.id}}` (errno.cr)
+// flowing into enum_constant: without it PEG commits the bare interpolation
+// member and strands the `=`.
+private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation !ASSIGN | macro_interpolation_escaped | enum_constant | method_definition
 
-enum_constant ::= CONSTANT [ASSIGN expression]
+enum_constant ::= (CONSTANT | macro_interpolation) [ASSIGN expression]
 
 lib_body ::= lib_member*
 
@@ -356,8 +359,8 @@ private lib_external_symbol ::= IDENTIFIER | CONSTANT | keyword_identifier | str
 // operators stay invalid, so keyword_as_method is deliberately not used.
 // Newlines never match implicitly here, so a bare `fun` cannot swallow the
 // next line's `end` as its name.
-private lib_fun_name ::= IDENTIFIER | CONSTANT | keyword_identifier
-private top_level_fun_name ::= IDENTIFIER | keyword_identifier
+private lib_fun_name ::= macro_spliced_name | IDENTIFIER | CONSTANT | keyword_identifier
+private top_level_fun_name ::= macro_spliced_name | IDENTIFIER | keyword_identifier
 
 fun_definition ::= FUN lib_fun_name [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 
@@ -392,16 +395,18 @@ private method_name ::= BACKTICK
               // fragment compounds: a committed plain compound would strand the
               // receiver's DOT and fail the whole definition (PEG).
               | macro_interpolation DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
-              // Compound generated names mix interpolations with literal
-              // fragments: `def {{ type.id }}_{{ method.id }}(path)` (kemal
-              // filter DSL) and `def to_i{{ n }} : Int{{ n }}` (stdlib big_int,
-              // identifier-first). Both directions require at least one
-              // interpolation so plain `def foo bar` stays invalid, and both
-              // precede the plain forms (PEG longest-match-first).
-              | IDENTIFIER macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
-              | macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
-              | IDENTIFIER
-              | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
+               // Compound generated names mix interpolations with literal
+               // fragments: `def {{ type.id }}_{{ method.id }}(path)` (kemal
+               // filter DSL) and `def to_i{{ n }} : Int{{ n }}` (stdlib big_int,
+               // identifier-first). Both directions require at least one
+               // interpolation so plain `def foo bar` stays invalid, and both
+               // precede the plain forms (PEG longest-match-first). The
+               // trailing ASSIGN covers `def {{mapping[0].id}}=(value)`
+               // (io_uring.cr), mirroring IDENTIFIER ASSIGN leniency.
+               | macro_spliced_name [ASSIGN]
+               | IDENTIFIER
+               | SELF DOT macro_spliced_name [ASSIGN]
+               | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
               // `def Float64.new(...)` — qualified method names inside the type's
               // own scope (float.cr); optional ASSIGN covers `def Float64.round=`.
               | CONSTANT DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
@@ -410,9 +415,8 @@ private method_name ::= BACKTICK
               // ops). Must PRECEDE the bare operator alternative: PEG commits
               // `operator_method_name` alone and strands the interpolation.
               | operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
-              | keyword_as_method
-              | operator_method_name
-              | macro_interpolation
+               | keyword_as_method
+               | operator_method_name
 
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
@@ -448,6 +452,18 @@ macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifi
 private macro_fragment_suffix ::= &<<isTokenTightAfterPreviousToken>> (IDENTIFIER | CONSTANT | macro_interpolation)
 
 private macro_interpolation_call ::= macro_interpolation macro_fragment_suffix* [call_args | !DOT !LBRACKET !LBRACE !binary_op_lookahead !<<isHeredocBodyOpener>> bare_argument_list] [block]
+
+// Macro-spliced generated names: `fun initialize_{{name}}_target`
+// (lib_llvm target.cr), alias `LLVMInitialize{{target.id}}Target`, `def
+// {{mapping[0].id}}=(value)` (io_uring.cr), `def self.init_{{name}}`
+// (llvm.cr), `fun {{...}}(...)` (raise.cr). The compiler parses {% for %}
+// bodies as opaque macro text (parse_macro_body), so these names are never
+// validated pre-expansion; the rule mirrors method_name's compound
+// alternatives. Both directions require at least one interpolation, so
+// plain spaced names stay invalid; spaced fragments stay as lenient as the
+// existing def compounds.
+private macro_spliced_name ::= (IDENTIFIER | CONSTANT) macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
+                             | macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
 
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
 // Escaped macro forms: `\{% stmt %}` (primitives.cr:101/146) and `\{{ expr }}`
@@ -500,7 +516,7 @@ private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 // symbol plus the lib parameter list instead of a call. The string form
 // reuses STRING_EXPRESSION PSI without interpolation support, matching the
 // compiler's "interpolation not allowed in fun name" rejection.
-private lib_fun_external_symbol ::= IDENTIFIER | CONSTANT | keyword_identifier | lib_fun_external_string
+private lib_fun_external_symbol ::= macro_spliced_name | IDENTIFIER | CONSTANT | keyword_identifier | lib_fun_external_string
 lib_fun_external_string ::= (STRING_LITERAL | STRING_ESCAPE)+ {elementType=string_expression}
 
 // Lib fun signatures allow unnamed type-only parameters (`fun strerror_r(Int,

@@ -28,6 +28,12 @@ public class CrystalTopLevelFunImpl extends ASTWrapperPsiElement implements Crys
   }
 
   @Override
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
   @Nullable
   public CrystalMethodBody getMethodBody() {
     return PsiTreeUtil.getChildOfType(this, CrystalMethodBody.class);
