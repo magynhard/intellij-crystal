@@ -272,9 +272,8 @@ gap: the crystal-lang/crystal checkout audit drops from 2,718 errors in 783
 files to 1,029 errors in 510 files, with zero previously-clean files regressing
 (before/after file-set comparison). The pinned indexed corpus drops from 180
 errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
-parser golden. Remaining lib-body gaps, in order of remaining impact:
-`@[...]` annotations plus `{% ... %}` / `{{ ... }}` macro forms inside
-`lib` bodies.
+parser golden. Remaining lib-body gap: `{% ... %}` / `{{ ... }}`
+macro-control/interpolation inside `lib` bodies.
 
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
@@ -535,6 +534,28 @@ in 307 files to 776 errors in 306 files (`src/regex/lib_pcre.cr` fully
 clean); the pinned indexed corpus drops from 163 errors in 119 files to
 161 errors in 118 files (`regex/lib_pcre.cr` fully clean) — both verified
 by before/after file-set comparison with zero newly failing files.
+
+Annotations attach to lib members: `@[Flags] enum FlockOp` (every platform
+`c/sys/file.cr`), `@[Packed]` struct/union (epoll, io_uring),
+`@[ReturnsTwice] fun fork` (every platform `c/unistd.cr`), and `@[Raises]
+fun __crystal_main` (`src/empty.cr`, `src/crystal/main.cr`). The compiler's
+`parse_lib_body_exp_without_location` accepts `@[...]` via `parse_annotation`
+(src/compiler/crystal/syntax/parser.cr:5867-5870; parser_spec.cr:1986), so
+the existing `annotation_usage` rule joins `lib_member` exactly like class
+bodies — no new parser rule, no lexer change. Generation adds only the
+`getAnnotationUsageList()` accessor to `CrystalLibBody`/`CrystalLibBodyImpl`;
+no stub change, no stub-version bump. Covered by the LibAnnotations parser
+golden (enum/struct/fun targets plus trailing declaration) and an inspection
+test proving annotated lib fun parameters stay checked. The external
+crystal-repository audit drops from 776 errors in 306 files to 432 errors in
+272 files — 34 repaired files fully clean, with recovery cascades collapsing
+(e.g. android `unistd.cr` 27 → 13) — verified by before/after file-set
+comparison with zero newly failing files; 4 still-failing files
+(`lib_event2.cr` 7 → 1, `lib_unwind.cr` 3 → 2, android `unistd.cr`,
+`io_uring.cr` 2 → 1) advance to the next gap (`{% %}` macro control,
+`{{ }}` interpolation). The pinned indexed corpus drops from 161 errors in
+118 files to 159 errors in 117 files (`empty.cr` fully clean, `lib_unwind.cr`
+3 → 2).
 
 ## Fix Requirements
 

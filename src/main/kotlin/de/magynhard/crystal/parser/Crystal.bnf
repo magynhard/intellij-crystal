@@ -326,7 +326,11 @@ lib_body ::= lib_member*
 // plain Assign (src/compiler/crystal/syntax/parser.cr:5891). The existing tight
 // constant_assignment rule (CONSTANT ASSIGN) is PEG-unique among lib members
 // (none of the other alternatives starts with CONSTANT).
-private lib_member ::= NEWLINE | SEMICOLON | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
+// Annotations attach to lib members (`@[Flags] enum ...`, `@[Raises] fun ...`);
+// the compiler's parse_lib_body_exp_without_location accepts `@[...]` via
+// parse_annotation (src/compiler/crystal/syntax/parser.cr:5867-5870), so the
+// existing annotation_usage rule joins lib_member exactly like class bodies.
+private lib_member ::= NEWLINE | SEMICOLON | annotation_usage | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
 
 lib_field ::= IDENTIFIER COLON type_reference
 

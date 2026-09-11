@@ -97,4 +97,20 @@ class CrystalLibFunParameterTypeInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testAnnotatedFunParametersStillChecked() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              @[ReturnsTwice]
+              fun fork : PidT
+              @[Raises]
+              fun risky(<error descr="Parameter in lib fun must have a type annotation">value</error>)
+              @[Flags]
+              enum FlockOp
+                SH = 0x1
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

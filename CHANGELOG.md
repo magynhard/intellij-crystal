@@ -51,6 +51,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   negative tests. The external audit drops from 778 errors in 307 files to 776 in 306
   (`src/regex/lib_pcre.cr` fully clean); indexed drops from 163 in 119 to 161 in 118
   (`regex/lib_pcre.cr` fully clean), both with zero newly failing files.
+- **Annotations on `lib` members (`@[Flags]`, `@[Packed]`, `@[ReturnsTwice]`)** — the existing
+  `annotation_usage` rule joins `lib_member` per the compiler's `parse_annotation` branch, with no
+  new parser rule and no lexer change; generation only adds `getAnnotationUsageList()` to
+  `CrystalLibBody`, no stub change. Covered by the LibAnnotations golden and an inspection test
+  proving annotated lib fun parameters stay checked. The external audit drops from 776 errors in
+  306 files to 432 in 272 (34 repaired files fully clean, zero newly failing files; remaining
+  files advance to `{% %}`/`{{ }}` macro forms); indexed drops from 161 in 118 to 159 in 117
+  (`empty.cr` fully clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

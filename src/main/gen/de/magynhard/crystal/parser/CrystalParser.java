@@ -4898,12 +4898,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // NEWLINE | SEMICOLON | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
+  // NEWLINE | SEMICOLON | annotation_usage | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
   static boolean lib_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_member")) return false;
     boolean result_;
     result_ = consumeToken(builder_, NEWLINE);
     if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = annotation_usage(builder_, level_ + 1);
     if (!result_) result_ = constant_assignment(builder_, level_ + 1);
     if (!result_) result_ = fun_definition(builder_, level_ + 1);
     if (!result_) result_ = type_alias_lib(builder_, level_ + 1);
