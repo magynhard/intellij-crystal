@@ -10,12 +10,17 @@ scripts/crystal-inspect-audit.sh /path/to/project
 
 ## Mechanism
 
-- `./gradlew buildPlugin` builds the dev plugin zip; it is installed into an
-  ISOLATED RubyMine instance (`AUDIT_HOME`, default `/tmp/opencode/rm-audit`)
+- A preflight requires GNU-compatible `flock`, `git`, `install`, `readlink`,
+  `stat`, and `unzip`, plus Python 3, an executable Gradle wrapper, RubyMine
+  build 262 or newer, and a readable non-symlinked license key. Override the
+  default key path with `RUBYMINE_KEY=/path/to/rubymine.key`.
+- `./gradlew buildPlugin` builds the dev plugin zip; the Gradle wrapper
+  verifies its pinned distribution checksum. The plugin is installed into an
+  isolated RubyMine instance (`AUDIT_HOME`, default `/tmp/opencode/rm-audit`)
   via `-Didea.{config,system,plugins,log}.path` set through
-  `RUBYMINE_VM_OPTIONS`. The user's real IDE settings are never touched; only
-  the license key (`rubymine.key`) is copied so headless mode can start a
-  licensed RubyMine.
+  `RUBYMINE_VM_OPTIONS`. The user's real IDE settings are never modified. The
+  license key is copied into the isolated config with mode `0600` and removed
+  by an exit trap after success, failure, or interruption.
 - The inspection run uses the **classic `inspect` command**
   (`rubymine.sh inspect <project> <profile.xml> <output>`), NOT RubyMine's
   Ruby-oriented `rinspect` variant: against kemal in RM-262, `rinspect` exits
@@ -48,7 +53,39 @@ scripts/crystal-inspect-audit.sh /path/to/project
   problem as `file:line: description` plus a total. Findings inside non-`.cr`
   files (injected Crystal fragments in markdown fences etc.) are counted
   separately as `NOISE` and excluded from the `.cr` total. Each invocation gets
-  a separate IDE log under `$AUDIT_HOME/logs/<run-id>/idea.log`.
+  a separate IDE log under `$AUDIT_HOME/logs/<run-id>/idea.log` and records the
+  target revision, plugin version, and RubyMine build in `audit-metadata.txt`.
+
+## Target preparation and trust boundary
+
+- Use a trusted, disposable checkout. Install its locked runtime and
+  development dependencies before starting; dependency installation can run
+  third-party hooks and must not happen for an untrusted target or in an
+  environment exposing unrelated credentials.
+- Git targets must have a `HEAD` revision and a clean worktree. Non-Git
+  directories are rejected unless the caller explicitly sets
+  `ALLOW_NON_GIT_AUDIT_TARGET=1`. Do not modify the target concurrently.
+- Run the external parse preflight before interpreting inspection output:
+
+  ```bash
+  ./gradlew stdlibParseAudit -PcrystalCorpus=external -PcrystalStdlibRoot=/path/to/project
+  ```
+
+  Require zero `PsiErrorElement`, or record an explicit known baseline when
+  zero is not yet achievable.
+- The audit isolates RubyMine config, system, plugins, and logs. It is not an
+  operating-system sandbox: RubyMine, the development plugin, and target code
+  visible to the IDE run with the invoking user's filesystem and network
+  access. The RubyMine license is an intentional credential exception; no
+  unrelated credentials should be available to the process.
+- The script hashes every target file except `.git`, including ignored and
+  dependency files, before and after inspection. It refuses to publish a
+  report if that snapshot changes. Internal symlinks contribute both their
+  link and resolved contents; symlinks that escape the target root or create a
+  directory cycle are rejected. For Git worktrees it additionally checks that
+  `HEAD` remains the recorded revision and the worktree remains clean.
+  This detects persistent changes, not a concurrent transient modification
+  restored before the final snapshot; the target must remain quiescent.
 
 ## Semantics and limits
 
@@ -56,13 +93,17 @@ scripts/crystal-inspect-audit.sh /path/to/project
   fresh `$AUDIT_HOME/system` directory. Reusing that directory produced
   duplicate offline-inspection findings even with a byte-identical plugin, so
   deterministic reports take precedence over a faster warm-cache run.
-- An ownership marker and exclusive lock protect `AUDIT_HOME`: the script
-  rejects pre-existing unowned directories, any overlap with the inspected
-  project or plugin repository, and concurrent runs. Inspection output is
+- An ownership marker, current-UID check, mode `0700`, and exclusive lock
+  protect `AUDIT_HOME`; retained report and log trees have group/other access
+  removed. The script rejects symlinked or pre-existing unowned directories,
+  any overlap with the inspected project or plugin repository, and concurrent
+  runs. Inspection output is
   staged under `$AUDIT_HOME/reports`; after the IDE exits successfully and its
   log confirms that the expected plugin version loaded, an atomic symlink swap
   publishes it at `$AUDIT_HOME/out` without hiding the previous report first.
-  Earlier successful run directories remain available under `reports/`.
+  Earlier successful run directories remain available under `reports/`; they
+  can contain source paths and diagnostics and should be retained only as long
+  as needed.
 - Inspect Code runs inspections, not raw parser errors: since the
   `CrystalParseError` inspection exists, `PsiErrorElement` parse failures ARE
   exported as `CrystalParseError.xml` findings. For pure parse auditing of
