@@ -15,6 +15,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   MultiAssignMemberTargets golden and negative tests. The external audit drops from 1,015 errors
   in 499 files to 1,005 in 494 (zero newly failing files); indexed drops from 168 in 123 to 163
   in 120.
+- **Unnamed `lib fun` parameters (`fun strerror_r(Int, Char*, SizeT)`)** — only `fun_definition`
+  uses the new `lib_fun_parameter_list`, which reuses the `PARAMETER_LIST` element type so the
+  `CrystalParameter` PSI is unchanged; named items still bind through `parameter` (untyped names
+  stay inspection-flagged), while type-only items — pointers, mixed named/unnamed, parenthesized
+  proc types, varargs — parse per the compiler. Covered by the LibUntypedFunParameters golden,
+  negative tests, and inspection tests. The external audit drops from 1,005 errors in 494 files
+  to 900 in 397 (all 97 repaired files are the lib_c platform family, zero newly failing files);
+  indexed is unchanged at 163 in 120.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

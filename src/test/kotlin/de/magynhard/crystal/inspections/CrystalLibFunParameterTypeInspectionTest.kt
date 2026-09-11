@@ -44,4 +44,24 @@ class CrystalLibFunParameterTypeInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testUnnamedTypeOnlyParametersNoError() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun strerror_r(Int, Char*, SizeT) : Int
+              fun mixed(Int32, output : Char*, LibC::Timeval*)
+              fun callback(BioMethod*, (Bio*, Char*, Int) -> Int)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMixedNamedUntypedParameterStillReported() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun mixed(Int32, <error descr="Parameter in lib fun must have a type annotation">output</error>)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

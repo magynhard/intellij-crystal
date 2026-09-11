@@ -436,6 +436,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testLibUntypedFunParameters() {
+        doTest(true)
+    }
+
     fun testNamespaceAccess() {
         doTest(true)
     }

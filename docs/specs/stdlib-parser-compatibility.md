@@ -272,9 +272,8 @@ gap: the crystal-lang/crystal checkout audit drops from 2,718 errors in 783
 files to 1,029 errors in 510 files, with zero previously-clean files regressing
 (before/after file-set comparison). The pinned indexed corpus drops from 180
 errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
-parser golden. Remaining lib-body gaps, in order of remaining impact: untyped
-`fun` parameters (`fun strerror_r(Int, Char*, SizeT) : Int`), external symbol
-aliases (`fun iconv = libiconv(...)`, `fun realpath =
+parser golden. Remaining lib-body gaps, in order of remaining impact:
+external symbol aliases (`fun iconv = libiconv(...)`, `fun realpath =
 "realpath$DARWIN_EXTSN"(...)`), uppercase Windows/LLVM function names
 (`fun GetConsoleScreenBufferInfo(...)`), keyword-named functions
 (`fun select(...)`), and `@[...]` annotations plus `{% ... %}` / `{{ ... }}`
@@ -411,6 +410,33 @@ now becomes the next isolated family. Verified by before/after file-set
 comparison with zero newly failing files; the pinned indexed corpus drops
 from 168 errors in 123 files to 163 errors in 120 files
 (`semantic_visitor.cr`, `formatter.cr`, `csv/builder.cr`).
+
+Unnamed `lib fun` parameters parse as type-only items:
+`fun strerror_r(Int, Char*, SizeT) : Int` (lib_c platform sources), mixed
+`fun mixed(Int32, output : Char*, LibC::Timeval*)`, parenthesized proc types
+`fun BIO_meth_set_read(BioMethod*, (Bio*, Char*, Int) -> Int)` (openssl
+lib_crypto.cr), and trailing `...`. The compiler parses a non-identifier
+start as `parse_union_type` with an empty name
+(src/compiler/crystal/syntax/parser.cr:5997-6002) and rejects the same shape
+for top-level fun (parser_spec.cr:1327); only `fun_definition` uses the new
+`lib_fun_parameter_list`, so `def`, `macro`, and top-level `fun` keep the
+named `parameter_list`. The list reuses the PARAMETER_LIST element type
+(`elementType=parameter_list`), so `CrystalFunDefinition.parameterList` and
+the `CrystalParameter` PSI are unchanged; the type-only item is private, and
+the lib-fun inspection still flags named untyped parameters
+(`fun exit(status)`) while skipping type-only items. One union type per item
+mirrors the compiler: proc commas stay list separators, so `Int, Float`
+remains two parameters; the parenthesized-proc alternative carries its output
+arrow outside the parens per the compiler's paren branch. Covered by the
+LibUntypedFunParameters parser golden (real lib_c/openssl shapes, mixed
+named/unnamed, varargs, trailing declaration), negative tests for defaults
+on unnamed items (`Int32 = 1`) and unnamed items in `def`, and inspection
+tests proving type-only items are clean while `output` is still flagged.
+The external crystal-repository audit drops from 1,005 errors in 494 files
+to 900 errors in 397 files — all 97 repaired files are the lib_c platform
+family — verified by before/after file-set comparison with zero newly
+failing files; the pinned indexed corpus is unchanged at 163 errors in 120
+files (those platform sources sit outside the 650-file index).
 
 ## Fix Requirements
 

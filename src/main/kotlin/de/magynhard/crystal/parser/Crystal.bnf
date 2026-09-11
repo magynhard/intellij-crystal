@@ -332,7 +332,7 @@ lib_field ::= IDENTIFIER COLON type_reference
 
 lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
 
-fun_definition ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+fun_definition ::= FUN IDENTIFIER [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 
 top_level_fun ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
 
@@ -459,6 +459,25 @@ macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] ma
 
 parameter_list ::= [parameter_item (COMMA NLS parameter_item)* [COMMA]]
 private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
+
+// Lib fun signatures allow unnamed type-only parameters (`fun strerror_r(Int,
+// Char*, SizeT)`, compiler parser.cr `parse_lib_body_exp` unnamed branch).
+// The list reuses the PARAMETER_LIST element type so CrystalFunDefinition's
+// PSI is unchanged; the type-only item is private so its type children land
+// directly in the list without inventing a CrystalParameter. Named items bind
+// through `parameter` first, so `status` stays an untyped named parameter
+// (still flagged by the lib-fun inspection) while `Int` binds as a type.
+// A single union type per item mirrors the compiler — proc commas stay list
+// separators, so `Int, Float` remains two parameters.
+// Only fun_definition uses this list; def/macro/top-level fun keep the named
+// parameter_list, so top-level `fun foo(Int32)` stays a syntax error.
+lib_fun_parameter_list ::= [lib_fun_parameter_item (COMMA NLS lib_fun_parameter_item)* [COMMA]] {elementType=parameter_list}
+private lib_fun_parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter | lib_fun_unnamed_parameter
+// Parenthesized proc types carry their output arrow outside the parens
+// (`(Bio*, Char*, Int) -> Int`, compiler parse_atomic_type paren branch).
+// A bare union never takes an arrow here, so `Int, Float` stays two items.
+private lib_fun_unnamed_parameter ::= LPAREN type_reference (COMMA type_reference)* RPAREN ARROW [type_union]
+                                    | type_union
 
 private param_prefix ::= annotation_usage
                        | macro_control
