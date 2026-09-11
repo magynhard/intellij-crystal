@@ -1980,6 +1980,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                                   | uninitialized_expression
   //                                   | asm_expression
   //                                   | macro_interpolation_call
+  //                                   // After the interpolation-call form (PEG longest-match-first):
+  //                                   // the bare `{{method.id}}` callee must keep binding its
+  //                                   // arguments through macro_interpolation_call.
+  //                                   | macro_content_expression
   //                                   | SELF
   static boolean bare_primary_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_primary_expression")) return false;
@@ -2007,6 +2011,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = uninitialized_expression(builder_, level_ + 1);
     if (!result_) result_ = asm_expression(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation_call(builder_, level_ + 1);
+    if (!result_) result_ = macro_content_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, SELF);
     return result_;
   }
@@ -5092,6 +5097,18 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped
+  static boolean macro_content_expression(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_content_expression")) return false;
+    boolean result_;
+    result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
   public static boolean macro_control(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_control")) return false;
@@ -5159,8 +5176,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //     | DEF | MACRO | FUN | ALIAS | STRUCT | UNION | ENUM | LIB | MODULE | CLASS
   //     | INCLUDE | EXTEND | ABSTRACT | PRIVATE | PROTECTED
   //     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
-  //     | EQ | NEQ | LT | GT | LTE | GTE | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND
-  //     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
+  //     | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND | CARET | TILDE
+  //     | ASSIGN | PLUS | MINUS | STAR | DOUBLE_STAR | SLASH | DOUBLE_SLASH | DOUBLE_SLASH_ASSIGN | LSHIFT | RSHIFT | QUESTION | BANG | DOTDOT | DOTDOTDOT
   //     | DOUBLE_COLON | PERCENT
   //     | NEWLINE | SEMICOLON | HASH | AT | ARROW | DOUBLE_ARROW | ANNOTATION
   static boolean macro_control_token(PsiBuilder builder_, int level_) {
@@ -5233,17 +5250,25 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, GT);
     if (!result_) result_ = consumeToken(builder_, LTE);
     if (!result_) result_ = consumeToken(builder_, GTE);
+    if (!result_) result_ = consumeToken(builder_, SPACESHIP);
     if (!result_) result_ = consumeToken(builder_, MATCH_OP);
     if (!result_) result_ = consumeToken(builder_, BANG_TILDE);
     if (!result_) result_ = consumeToken(builder_, OR_OR);
     if (!result_) result_ = consumeToken(builder_, AND_AND);
     if (!result_) result_ = consumeToken(builder_, PIPE);
     if (!result_) result_ = consumeToken(builder_, AMPERSAND);
+    if (!result_) result_ = consumeToken(builder_, CARET);
+    if (!result_) result_ = consumeToken(builder_, TILDE);
     if (!result_) result_ = consumeToken(builder_, ASSIGN);
     if (!result_) result_ = consumeToken(builder_, PLUS);
     if (!result_) result_ = consumeToken(builder_, MINUS);
     if (!result_) result_ = consumeToken(builder_, STAR);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
     if (!result_) result_ = consumeToken(builder_, SLASH);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH_ASSIGN);
+    if (!result_) result_ = consumeToken(builder_, LSHIFT);
+    if (!result_) result_ = consumeToken(builder_, RSHIFT);
     if (!result_) result_ = consumeToken(builder_, QUESTION);
     if (!result_) result_ = consumeToken(builder_, BANG);
     if (!result_) result_ = consumeToken(builder_, DOTDOT);
@@ -8406,7 +8431,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                                    | uninitialized_expression
   //                                    | asm_expression
   //                                    | macro_interpolation_call
-  //                               | yield_expression
+  //                               | macro_content_expression
+  //                                | yield_expression
   //                               | if_statement
   //                               | unless_statement
   //                               | while_statement
@@ -8440,6 +8466,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = uninitialized_expression(builder_, level_ + 1);
     if (!result_) result_ = asm_expression(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation_call(builder_, level_ + 1);
+    if (!result_) result_ = macro_content_expression(builder_, level_ + 1);
     if (!result_) result_ = yield_expression(builder_, level_ + 1);
     if (!result_) result_ = if_statement(builder_, level_ + 1);
     if (!result_) result_ = unless_statement(builder_, level_ + 1);

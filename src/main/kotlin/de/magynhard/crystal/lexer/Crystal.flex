@@ -856,9 +856,21 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   ","                  { return CrystalTypes.COMMA; }
   ";"                  { return CrystalTypes.SEMICOLON; }
   "#"                  { return CrystalTypes.HASH; }
+  "<=>"                { return CrystalTypes.SPACESHIP; }
+  "<="                 { return CrystalTypes.LTE; }
+  ">="                 { return CrystalTypes.GTE; }
+  "**"                 { return CrystalTypes.DOUBLE_STAR; }
+  "<<"                 { return CrystalTypes.LSHIFT; }
+  ">>"                 { return CrystalTypes.RSHIFT; }
+  "^"                  { return CrystalTypes.CARET; }
+  "~"                  { return CrystalTypes.TILDE; }
+  "%"                  { return CrystalTypes.PERCENT; }
+  "="                  { return CrystalTypes.ASSIGN; }
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
+  "//="                { return CrystalTypes.DOUBLE_SLASH_ASSIGN; }
+  "//"                 { return CrystalTypes.DOUBLE_SLASH; }
    "/"                  { return CrystalTypes.SLASH; }
    "::"                 { return CrystalTypes.DOUBLE_COLON; }
    ":"                  { return CrystalTypes.COLON; }
@@ -910,6 +922,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
   "`"                  { pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
+  "//="                { return CrystalTypes.DOUBLE_SLASH_ASSIGN; }
+  "//"                 { return CrystalTypes.DOUBLE_SLASH; }
   "/"                  { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.SLASH; }
   "->"                 { return CrystalTypes.ARROW; }
   "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
@@ -938,10 +952,21 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "&&"                 { return CrystalTypes.AND_AND; }
   "|"                  { return CrystalTypes.PIPE; }
   "&"                  { return CrystalTypes.AMPERSAND; }
+  "<=>"                { return CrystalTypes.SPACESHIP; }
+  "<="                 { return CrystalTypes.LTE; }
+  ">="                 { return CrystalTypes.GTE; }
+  "**"                 { return CrystalTypes.DOUBLE_STAR; }
+  "<<"                 { return CrystalTypes.LSHIFT; }
+  ">>"                 { return CrystalTypes.RSHIFT; }
+  "^"                  { return CrystalTypes.CARET; }
+  "~"                  { return CrystalTypes.TILDE; }
+  "%"                  { return CrystalTypes.PERCENT; }
   "="                  { return CrystalTypes.ASSIGN; }
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
+  "//="                { return CrystalTypes.DOUBLE_SLASH_ASSIGN; }
+  "//"                 { return CrystalTypes.DOUBLE_SLASH; }
   "/"                  { return CrystalTypes.SLASH; }
   "?"                  { return CrystalTypes.QUESTION; }
   "!"                  { return CrystalTypes.BANG; }

@@ -143,8 +143,26 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalMacroControl> getMacroControlList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalMacroControlEscaped> getMacroControlEscapedList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControlEscaped.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalMacroInterpolation> getMacroInterpolationList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalMacroInterpolationEscaped> getMacroInterpolationEscapedList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolationEscaped.class);
   }
 
   @Override

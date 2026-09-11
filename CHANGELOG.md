@@ -77,6 +77,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   The external audit drops from 292 errors in 236 files to 280 in 230 (6 repaired files fully
   clean, zero newly failing files); indexed drops from 136 in 109 to 131 in 105 (4 repaired
   files fully clean).
+- **Macro forms in expression positions (`x = {% if %} …`, `when {{ i }}`)** — private
+  `macro_content_expression` joins both primary rules after `macro_interpolation_call`, per the
+  compiler's atomic-expression handling; the `MACRO_INTERPOLATION`/`MACRO_CONTROL` lexer states
+  gain the missing operators (`//`, `=`, `<=`, `**`, `<<`, …) with matching `macro_control_token`
+  additions. Generation only adds macro-list accessors, no stub change. Covered by the
+  MacroExpressions golden and negative tests. The external audit drops from 280 errors in 230
+  files to 211 in 183 (47 repaired files fully clean, zero newly failing files); indexed drops
+  from 131 in 105 to 100 in 87 (18 repaired files fully clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

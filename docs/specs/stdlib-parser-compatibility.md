@@ -332,6 +332,35 @@ zero newly failing files. The pinned indexed corpus drops from 136 errors
 in 109 files to 131 errors in 105 files (op_code, errno, llvm, raise fully
 clean, zero newly failing files).
 
+Macro forms work in expression positions: `clock = {% if flag?(:darwin) %}
+1 {% else %} 2 {% end %}` right-hand sides, `BIGINT_LIMBS = {{ ... }}`
+constants, `property n_threads : Int32 = {% ... %}` defaults,
+`when {{ i }}, ...` / `in .{{name.id}}?` case conditions, and
+`{{ @type <= T }}` statements. The compiler accepts `{% %}` and `{{ }}`
+as atomic expressions (src/compiler/crystal/syntax/parser.cr:1015-1024),
+so a private `macro_content_expression` rule joins `primary_expression`
+and `bare_primary_expression` after `macro_interpolation_call` (PEG
+longest-match-first keeps `{{method.id}} path` binding its arguments).
+Two lexer states were missing operators the compiler accepts everywhere:
+`//` and `//=` (floor division, `{{ BIGINT_BITS // LIMB_BITS }}`) plus
+`=`, `<=`, `>=`, `<=>`, `**`, `<<`, `>>`, `^`, `~` in `MACRO_INTERPOLATION`
+(`{{ @type <= T }}`, `{{(value = flag?(...))...}}`), mirrored in
+`MACRO_CONTROL` with the matching `macro_control_token` additions.
+Generation only adds macro-list accessors to `CrystalExpression` and
+`CrystalBareArgument`; no stub change, no stub-version bump. Covered by the
+MacroExpressions parser golden (RHS control/interpolation, property
+default, case/in conditions, trailing declaration) and negative tests for
+empty/unterminated `{{ }}` (compiler-verified; a lone `{% if %}` tag is
+complete token soup, so it stays unflagged by design). The external
+crystal-repository audit drops from 280 errors in 230 files to 211 errors
+in 183 files — 47 repaired files fully clean — verified by before/after
+file-set comparison with zero newly failing files; one still-failing file
+(`thread_pool.cr`, 1 → 2 errors) advances past its macro gap onto the
+receiver-qualified ivar gap (`pointerof(fiber.@context)`, same family as
+`scheduler.cr`, `pthread.cr`, `empty-hello-world.cr`). The pinned indexed
+corpus drops from 131 errors in 105 files to 100 errors in 87 files (18
+repaired files fully clean, zero newly failing files).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

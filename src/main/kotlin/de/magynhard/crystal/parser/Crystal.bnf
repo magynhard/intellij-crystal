@@ -436,6 +436,13 @@ private macro_body_element ::= MACRO_BODY_CONTENT
 // (Enumerable::Reflect#type spans `{{\n raise(...)\n }}` across lines).
 macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifier] NLS MACRO_INTERPOLATION_END
 
+// Macro forms in expression positions: `x = {% if %} 1 {% else %} 2 {% end %}`
+// (compiler parse_atomic_without_location accepts `{% %}` and `{{ }}` as
+// atomic expressions, parser.cr:1015-1024), `when {{ i }}, ...` conditions,
+// and `a = {{ expr }}` right-hand sides. Token starts are disjoint from every
+// other primary, so no PEG ordering hazard.
+private macro_content_expression ::= macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped
+
 // Macro-interpolated callee: `def {{method.id}}(path)` plus call forms like
 // `{{method.id}} path, form: body` (stdlib http/client.cr generates these inside
 // {% for %} loops). Without the bare-argument alternative the tail after the
@@ -492,8 +499,8 @@ private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | DEF | MACRO | FUN | ALIAS | STRUCT | UNION | ENUM | LIB | MODULE | CLASS
     | INCLUDE | EXTEND | ABSTRACT | PRIVATE | PROTECTED
     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
-    | EQ | NEQ | LT | GT | LTE | GTE | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND
-    | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
+    | EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND | CARET | TILDE
+    | ASSIGN | PLUS | MINUS | STAR | DOUBLE_STAR | SLASH | DOUBLE_SLASH | DOUBLE_SLASH_ASSIGN | LSHIFT | RSHIFT | QUESTION | BANG | DOTDOT | DOTDOTDOT
     | DOUBLE_COLON | PERCENT
     | NEWLINE | SEMICOLON | HASH | AT | ARROW | DOUBLE_ARROW | ANNOTATION
 
@@ -1002,7 +1009,8 @@ private primary_expression ::= grouped_expression
                                    | uninitialized_expression
                                    | asm_expression
                                    | macro_interpolation_call
-                              | yield_expression
+                              | macro_content_expression
+                               | yield_expression
                               | if_statement
                               | unless_statement
                               | while_statement
@@ -1260,6 +1268,10 @@ private bare_primary_expression ::= grouped_expression
                                   | uninitialized_expression
                                   | asm_expression
                                   | macro_interpolation_call
+                                  // After the interpolation-call form (PEG longest-match-first):
+                                  // the bare `{{method.id}}` callee must keep binding its
+                                  // arguments through macro_interpolation_call.
+                                  | macro_content_expression
                                   | SELF
 
 // Bare calls nest inside argument lists exactly like Crystal: `exec new_request method,
