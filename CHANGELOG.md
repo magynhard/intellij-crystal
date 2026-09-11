@@ -5,6 +5,25 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Bare `yield` keeps trailing `if`/`unless` on the outer statement** — `return yield unless ready`
+  (markd `Utils.timer`) no longer swallows the enclosing method's `end` into yield's argument list:
+  the leading bare yield argument refuses `if`/`unless`-headed control-flow statements, so the
+  modifier binds outside (`If(Yield)`, matching the compiler's own parser spec) and every later
+  declaration stays structured. Parenthesized statement arguments (`yield(if ready then 1 end)`),
+  comma-separated tails, `break`/`next` abrupt values, and assignment right-hand sides
+  (`items = yield if flag`) are covered by the new YieldPostfixModifier parser golden. The external
+  crystal-repository audit drops from 1,029 errors in 510 files to 1,028 in 509
+  (`lib/markd/src/markd/utils.cr` parses cleanly); the pinned indexed corpus is unchanged.
+- **Headless audit hardens its trust and credential boundaries** — the external-project audit now
+  preflights its GNU tools, Gradle wrapper, RubyMine build, and non-symlinked license key before doing
+  expensive work; creates its audit root with private permissions and verifies existing-root ownership;
+  removes group/other access from retained logs and reports; copies `rubymine.key` with mode `0600` and
+  removes it on ordinary exit paths; requires a clean Git target (or explicit non-Git opt-in); records
+  target/plugin/IDE metadata plus a content hash; and refuses to publish results if the inspected
+  revision or any target file, including ignored dependencies, changes during the run. The Gradle 9.4.1
+  distribution is now SHA-256 pinned. Documentation distinguishes isolated IDE state from an OS
+  sandbox and requires trusted disposable targets because dependency installation can execute
+  third-party hooks.
 - **Binary operators dispatch like method calls** — `diff = Time.utc - date.to_utc`
   now types as `Time::Span` (the compiler-annotated `Time#-(other : Time) :
   Time::Span` return), not Unknown, and the right operand's postfix chain

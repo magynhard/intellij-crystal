@@ -239,6 +239,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testYieldPostfixModifier() {
+        doTest(true)
+    }
+
     fun testMultiParamBlock() {
         doTest(true)
     }

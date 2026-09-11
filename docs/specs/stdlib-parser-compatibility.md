@@ -296,6 +296,25 @@ errors in 126 files (compiler sources included since the 650-file index);
 and `io/byte_format.cr` improve, and the external crystal-repository audit
 loses the same family (2,730 → 2,718 errors in 787 → 783 files).
 
+Bare `yield` with a trailing `if`/`unless` keeps the modifier on the outer
+statement: the leading optional expression of `yield_expression_args` no
+longer accepts an `if`/`unless`-headed control-flow statement
+(`yield_leading_argument` with `!IF !UNLESS`). Previously `return yield
+unless ready` (markd `Utils.timer`) parsed the modifier and everything
+through the enclosing method's `end` as yield's argument, orphaning every
+later declaration with a single error on the next `def`. The compiler parses
+`yield if true` the same way (`If(Yield)`, parser_spec.cr:1228), and only
+`if`/`unless` are ambiguous — they are the expression-starting postfix
+modifier keywords. Parenthesized statement arguments are unaffected
+(`yield(if ready then 1 end)` still binds through `argument_list`), as are
+comma-separated tails and non-leading positions. The same shape covers
+`break`/`next` abrupt values and assignment right-hand sides
+(`items = yield if flag`). Covered by the YieldPostfixModifier parser
+golden, which shows the trailing declaration as structured PSI. The
+external crystal-repository audit drops from 1,029 errors in 510 files to
+1,028 errors in 509 files (`lib/markd/src/markd/utils.cr` parses cleanly);
+the pinned indexed corpus is unchanged at 173 errors in 126 files.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

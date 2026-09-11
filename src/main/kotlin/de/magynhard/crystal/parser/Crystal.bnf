@@ -650,8 +650,19 @@ yield_expression ::= YIELD yield_expression_args {pin=1}
 
 // Leading expression is optional so bare `return yield` / assignment RHS `x = yield`
 // parse; comma-list mirrors yield_statement's multi-value form.
-private yield_expression_args ::= [expression] (COMMA NLS expression)*
+private yield_expression_args ::= [yield_leading_argument] (COMMA NLS expression)*
                                 | LPAREN argument_list RPAREN
+
+// The leading bare yield argument must not start with `if` or `unless`
+// (`return yield unless ready`, markd timer): those open a control-flow
+// statement that would swallow the enclosing method's `end` as its own body
+// terminator, while the trailing modifier belongs to the outer abrupt
+// statement or assignment as a postfix modifier (Crystal parses
+// `yield if true` as `If(Yield)`). Parenthesized statement arguments keep
+// working through the argument_list alternative (`yield(if ready then 1 end)`).
+// Only `if`/`unless` are ambiguous: they are the expression-starting postfix
+// modifier keywords, so no other leading token can be misread this way.
+private yield_leading_argument ::= !IF !UNLESS expression
 
 with_yield_statement ::= WITH expression YIELD {pin=1}
 

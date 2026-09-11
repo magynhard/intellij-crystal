@@ -10220,7 +10220,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // [expression] (COMMA NLS expression)*
+  // [yield_leading_argument] (COMMA NLS expression)*
   //                                 | LPAREN argument_list RPAREN
   static boolean yield_expression_args(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "yield_expression_args")) return false;
@@ -10232,7 +10232,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [expression] (COMMA NLS expression)*
+  // [yield_leading_argument] (COMMA NLS expression)*
   private static boolean yield_expression_args_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "yield_expression_args_0")) return false;
     boolean result_;
@@ -10243,10 +10243,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [expression]
+  // [yield_leading_argument]
   private static boolean yield_expression_args_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "yield_expression_args_0_0")) return false;
-    expression(builder_, level_ + 1);
+    yield_leading_argument(builder_, level_ + 1);
     return true;
   }
 
@@ -10282,6 +10282,39 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && argument_list(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RPAREN);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // !IF !UNLESS expression
+  static boolean yield_leading_argument(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "yield_leading_argument")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = yield_leading_argument_0(builder_, level_ + 1);
+    result_ = result_ && yield_leading_argument_1(builder_, level_ + 1);
+    result_ = result_ && expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // !IF
+  private static boolean yield_leading_argument_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "yield_leading_argument_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !consumeToken(builder_, IF);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // !UNLESS
+  private static boolean yield_leading_argument_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "yield_leading_argument_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !consumeToken(builder_, UNLESS);
+    exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 
