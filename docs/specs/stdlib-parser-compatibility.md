@@ -273,9 +273,7 @@ files to 1,029 errors in 510 files, with zero previously-clean files regressing
 (before/after file-set comparison). The pinned indexed corpus drops from 180
 errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
 parser golden. Remaining lib-body gaps, in order of remaining impact:
-uppercase Windows/LLVM function names
-(`fun GetConsoleScreenBufferInfo(...)`), keyword-named functions
-(`fun select(...)`), `$var = symbol` external vars
+keyword-named functions (`fun select(...)`), `$var = symbol` external vars
 (`$free = pcre_free : Void* -> ...`), and `@[...]` annotations plus
 `{% ... %}` / `{{ ... }}` macro forms inside `lib` bodies.
 
@@ -466,6 +464,33 @@ advances them to the next gap (`@[...]` annotations, `{% %}` macro control,
 `$var = symbol` external vars). The pinned indexed corpus drops from 163
 errors in 120 files to 163 errors in 119 files (`regex/lib_pcre2.cr` parses
 cleanly; `regex/lib_pcre.cr` advances to its `$free = pcre_free` line).
+
+Uppercase `lib fun` names parse through `fun_definition`:
+`fun GetConsoleMode(handle : HANDLE, mode : DWORD*) : BOOL` (Windows-MSVC
+lib_c), `fun BIO_new(BioMethod*) : Bio*` (openssl, reusing the unnamed
+parameter rule), paren-less `fun BIO_get_new_index : Int`, and the combined
+shape `fun RtlGenRandom = SystemFunction036(...) : BOOLEAN` (ntsecapi,
+reusing the alias rule). The compiler accepts `IdentOrConst` for lib fun
+names (src/compiler/crystal/syntax/parser.cr:5940-5945; parser_spec.cr:1322)
+while top-level `fun` requires an identifier (parser_spec.cr:1328), so only
+`fun_definition` gains the `CONSTANT` alternative — `top_level_fun`, `def`,
+and `macro` are untouched, and no lexer, PSI, or stub change results (the
+name stays a plain leaf; `CrystalFunDefinition` has no name accessor).
+Keyword spellings (`fun select(...)`) stay a separate family: that token set
+includes block delimiters like `END` and needs its own negative boundaries.
+Covered by the LibFunUppercaseNames parser golden (named/unnamed/paren-less/
+alias shapes plus trailing declaration), negative tests for top-level
+`fun Foo`, qualified `fun Foo::Bar`, and absolute `fun ::Foo`, and an
+inspection test proving unnamed items stay clean while an untyped named
+parameter under an uppercase name is still flagged. The external
+crystal-repository audit drops from 881 errors in 358 files to 810 errors
+in 323 files — 35 repaired files, all Windows-MSVC plus the ntsecapi alias
+combo — verified by before/after file-set comparison with zero newly
+failing files; one still-failing file (`processthreadsapi.cr`, 2 → 3
+errors) advances past three newly parsed declarations to its `{% if %}`
+macro-control gap. The pinned indexed corpus is unchanged at 163 errors in
+119 files (the Windows sources sit outside the 650-file index; its OpenSSL
+copies stop earlier at macro control).
 
 ## Fix Requirements
 

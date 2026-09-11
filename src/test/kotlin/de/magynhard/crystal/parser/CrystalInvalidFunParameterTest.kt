@@ -39,6 +39,30 @@ class CrystalInvalidFunParameterTest : BasePlatformTestCase() {
         )
     }
 
+    fun testRejectsTopLevelUppercaseFunName() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "fun Foo : Int64\nend"
+        )
+        assertTrue(
+            "Expected parse error for uppercase top-level fun name",
+            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+        )
+    }
+
+    fun testRejectsQualifiedLibFunName() {
+        listOf(
+            "lib LibC\n  fun Foo::Bar\nend",
+            "lib LibC\n  fun ::Foo\nend",
+        ).forEach { source ->
+            val file = myFixture.configureByText("test.cr", source)
+            assertTrue(
+                "Expected parse error for '$source'",
+                PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+            )
+        }
+    }
+
     fun testRejectsInvalidLibFunAliasTargets() {
         listOf(
             "lib LibC\n  fun interpolated = \"bar#{suffix}\"\nend",

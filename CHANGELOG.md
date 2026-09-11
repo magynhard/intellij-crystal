@@ -31,6 +31,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   LibFunExternalAliases golden, negative tests, and an alias-parameter inspection test. The
   external audit drops from 900 errors in 397 files to 881 in 358 (39 repaired files, zero newly
   failing files); indexed drops from 163 in 120 to 163 in 119 (`regex/lib_pcre2.cr` clean).
+- **Uppercase `lib fun` names (`fun GetConsoleMode(...)`)** — only `fun_definition` accepts a
+  `CONSTANT` local name per the compiler's `IdentOrConst`; `top_level_fun`, `def`, and `macro` stay
+  identifier-only, with no lexer, PSI, or stub change. Reuses the unnamed-parameter and alias rules
+  (`fun BIO_new(BioMethod*)`, `fun RtlGenRandom = SystemFunction036(...)`). Covered by the
+  LibFunUppercaseNames golden, negative tests, and an inspection test. The external audit drops
+  from 881 errors in 358 files to 810 in 323 (35 repaired files, zero newly failing files);
+  indexed is unchanged at 163 in 119.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

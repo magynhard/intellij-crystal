@@ -75,4 +75,15 @@ class CrystalLibFunParameterTypeInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testUppercaseNameParametersStillChecked() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun BIO_new(BioMethod*) : Bio*
+              fun Upper(<error descr="Parameter in lib fun must have a type annotation">value</error>)
+              fun Foo = Bar(Int32)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

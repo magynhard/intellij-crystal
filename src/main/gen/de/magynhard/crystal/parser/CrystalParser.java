@@ -3720,19 +3720,29 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // FUN IDENTIFIER [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference]
+  // FUN (IDENTIFIER | CONSTANT) [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference]
   public static boolean fun_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "fun_definition")) return false;
     if (!nextTokenIs(builder_, FUN)) return false;
     boolean result_, pinned_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, FUN_DEFINITION, null);
-    result_ = consumeTokens(builder_, 1, FUN, IDENTIFIER);
+    result_ = consumeToken(builder_, FUN);
     pinned_ = result_; // pin = 1
-    result_ = result_ && report_error_(builder_, fun_definition_2(builder_, level_ + 1));
+    result_ = result_ && report_error_(builder_, fun_definition_1(builder_, level_ + 1));
+    result_ = pinned_ && report_error_(builder_, fun_definition_2(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, fun_definition_3(builder_, level_ + 1)) && result_;
     result_ = pinned_ && fun_definition_4(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
+  }
+
+  // IDENTIFIER | CONSTANT
+  private static boolean fun_definition_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_1")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    return result_;
   }
 
   // [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]]

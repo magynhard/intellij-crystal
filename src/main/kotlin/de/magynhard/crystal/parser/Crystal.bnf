@@ -332,7 +332,9 @@ lib_field ::= IDENTIFIER COLON type_reference
 
 lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
 
-fun_definition ::= FUN IDENTIFIER [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+// Lib fun names accept IDENTIFIER or CONSTANT (compiler IdentOrConst);
+// top_level_fun stays IDENTIFIER-only.
+fun_definition ::= FUN (IDENTIFIER | CONSTANT) [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 
 top_level_fun ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
 
