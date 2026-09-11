@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Raw `%q` literals no longer swallow their own closer** — the lexer folded every backslash
+  pair into one escape token, so `%q(\)` consumed its `)` and the literal ran past the enclosing
+  block (reply `history_spec.cr`, reported at the block's `do`). The lexer now tracks
+  `percentAllowEscapes` per opener (compiler `allow_escapes` semantics): raw `%q` consumes only
+  the backslash and re-lexes the next char, while `%w`/`%i` keep the pair escape and
+  `%Q`/`%()`/`%r`/`%x` keep escape semantics. Covered by lexer token tests and the
+  PercentLiteralRawBackslash parser golden. The external crystal-repository audit drops from
+  1,028 errors in 509 files to 1,023 in 504 (five files parse cleanly); the pinned indexed
+  corpus is unchanged.
 - **Bare `yield` keeps trailing `if`/`unless` on the outer statement** — `return yield unless ready`
   (markd `Utils.timer`) no longer swallows the enclosing method's `end` into yield's argument list:
   the leading bare yield argument refuses `if`/`unless`-headed control-flow statements, so the

@@ -315,6 +315,26 @@ external crystal-repository audit drops from 1,029 errors in 510 files to
 1,028 errors in 509 files (`lib/markd/src/markd/utils.cr` parses cleanly);
 the pinned indexed corpus is unchanged at 173 errors in 126 files.
 
+Raw `%q` literals have no escape sequences: the compiler creates `%q`
+(and `%w`, `%i`) with `allow_escapes: false`, so a backslash is literal
+content and the char after it lexes normally. The plugin lexer previously
+folded every backslash pair into one escape token, so `%q(\)` (reply
+`history_spec.cr:103`) consumed its own closer and the literal ran past the
+enclosing `describe History do ... end` block; the unpinned `do`-block
+alternative then rolled back and reported the error at the block's `do`.
+The lexer now tracks `percentAllowEscapes` per opener and, for raw string
+literals only, consumes just the backslash and re-lexes the next char — the
+`)` still closes and `(` still nests. `%w`/`%i` keep consuming the pair,
+matching the compiler's array escape branch, and `%Q`/`%()`/`%r`/`%x` keep
+escape semantics. Covered by lexer token tests plus the
+PercentLiteralRawBackslash parser golden (raw delimiter shapes with a
+trailing declaration). The external crystal-repository audit drops from
+1,028 errors in 509 files to 1,023 errors in 504 files
+(`lib/reply/spec/history_spec.cr`, `spec/std/http/formdata_spec.cr`,
+`spec/std/http/http_spec.cr`, `spec/std/process/utils_spec.cr`, and
+`src/crystal/system/win32/file.cr` parse cleanly); the pinned indexed
+corpus is unchanged at 173 errors in 126 files.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

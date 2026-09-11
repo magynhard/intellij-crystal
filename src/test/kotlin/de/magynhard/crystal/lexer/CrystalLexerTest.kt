@@ -351,6 +351,46 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testRawPercentLiteralBackslashDoesNotEscapeCloser() {
+        // %q is raw (compiler allow_escapes: false): the backslash is literal
+        // content and the `)` after it still closes the literal.
+        val tokens = nonWhitespaceTokens("%q(\\)")
+        assertEquals(CrystalTypes.PERCENT_LITERAL_BEGIN, tokens[0].first)
+        assertEquals("%q(", tokens[0].second)
+        assertEquals(CrystalTypes.PERCENT_LITERAL_END, tokens.last().first)
+        assertEquals(")", tokens.last().second)
+        val middle = tokens.subList(1, tokens.size - 1)
+        assertEquals(listOf("\\"), middle.map { it.second })
+        assertTrue(middle.all { it.first == CrystalTypes.STRING_LITERAL })
+    }
+
+    @Test
+    fun testRawPercentLiteralBackslashBeforeOpenerStillNests() {
+        // `%q(a\(b)` is `a\(b)`: the `\` is content, the `(` still nests, so
+        // the first `)` is content and the second one closes.
+        val tokens = nonWhitespaceTokens("%q(a\\(b))")
+        assertEquals(CrystalTypes.PERCENT_LITERAL_BEGIN, tokens[0].first)
+        assertEquals(CrystalTypes.PERCENT_LITERAL_END, tokens.last().first)
+        assertEquals(")", tokens.last().second)
+        val middle = tokens.subList(1, tokens.size - 1).map { it.second }.joinToString("")
+        assertEquals("a\\(b)", middle)
+    }
+
+    @Test
+    fun testInterpolatingPercentLiteralBackslashStillEscapes() {
+        // %Q keeps escape semantics: `\\` is one escape token and does not
+        // close the literal, which stays open until the final `)`.
+        val tokens = nonWhitespaceTokens("%Q(\\\\a)")
+        assertEquals(CrystalTypes.PERCENT_LITERAL_BEGIN, tokens[0].first)
+        assertEquals(CrystalTypes.PERCENT_LITERAL_END, tokens.last().first)
+        val middle = tokens.subList(1, tokens.size - 1)
+        assertEquals(
+            listOf(CrystalTypes.STRING_ESCAPE to "\\\\", CrystalTypes.STRING_LITERAL to "a"),
+            middle.map { it.first to it.second }
+        )
+    }
+
+    @Test
     fun testHeredoc() {
         val text = "<<-HEREDOC\n  hello\n  world\n  HEREDOC"
         val tokens = nonWhitespaceTokens(text)

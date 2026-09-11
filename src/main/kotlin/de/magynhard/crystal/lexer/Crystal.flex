@@ -21,6 +21,11 @@ import com.intellij.psi.TokenType;
   private IElementType percentTokenType = null;
   private boolean percentWordArray = false;
   private boolean percentInterpolation = false;
+  // Raw percent literals (%q, %w, %i) have no escape sequences: the compiler
+  // creates them with allow_escapes: false, so a backslash is literal content
+  // and the char after it lexes normally (a `)` still closes, a `(` still
+  // nests). Set at each percent-literal opener alongside the other percent* flags.
+  private boolean percentAllowEscapes = true;
   private String heredocId = "";
   private boolean heredocIndented = false;
   private boolean heredocRaw = false;
@@ -355,6 +360,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           percentTokenType = CrystalTypes.STRING_LITERAL;
                           percentInterpolation = false;
                           percentWordArray = true;
+                          percentAllowEscapes = false;
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_WORD_ARRAY_BEGIN;
                         }
@@ -366,6 +372,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           percentTokenType = CrystalTypes.STRING_LITERAL;
                           percentInterpolation = true;
                           percentWordArray = true;
+                          percentAllowEscapes = true;
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_WORD_ARRAY_BEGIN;
                         }
@@ -377,6 +384,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                            percentTokenType = CrystalTypes.SYMBOL_LITERAL;
                            percentInterpolation = false;
                            percentWordArray = false;
+                           percentAllowEscapes = false;
                            yybegin(PERCENT_LITERAL);
                            return CrystalTypes.PERCENT_SYMBOL_BEGIN;
                          }
@@ -388,6 +396,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                            percentTokenType = CrystalTypes.SYMBOL_LITERAL;
                            percentInterpolation = true;
                            percentWordArray = false;
+                           percentAllowEscapes = true;
                            yybegin(PERCENT_LITERAL);
                            return CrystalTypes.PERCENT_SYMBOL_BEGIN;
                          }
@@ -399,6 +408,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           percentTokenType = CrystalTypes.STRING_LITERAL;
                           percentInterpolation = false;
                           percentWordArray = false;
+                          percentAllowEscapes = false;
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
                         }
@@ -410,6 +420,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           percentTokenType = CrystalTypes.STRING_LITERAL;
                           percentInterpolation = true;
                           percentWordArray = false;
+                          percentAllowEscapes = true;
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
                         }
@@ -421,6 +432,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           percentTokenType = CrystalTypes.REGEX_LITERAL;
                           percentInterpolation = true;
                           percentWordArray = false;
+                          percentAllowEscapes = true;
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
                         }
@@ -432,6 +444,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           percentTokenType = CrystalTypes.COMMAND_LITERAL;
                           percentInterpolation = true;
                           percentWordArray = false;
+                          percentAllowEscapes = true;
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
                         }
@@ -447,6 +460,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           percentTokenType = CrystalTypes.STRING_LITERAL;
                           percentInterpolation = true;
                           percentWordArray = false;
+                          percentAllowEscapes = true;
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
                         }
@@ -685,7 +699,17 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
                           }
                           return percentTokenType;
                         }
-  "\\" .               { if (percentTokenType == CrystalTypes.STRING_LITERAL || percentTokenType == CrystalTypes.COMMAND_LITERAL) { return CrystalTypes.STRING_ESCAPE; } return percentTokenType; }
+  "\\" .               {
+                           if (!percentAllowEscapes && !percentWordArray && percentTokenType == CrystalTypes.STRING_LITERAL) {
+                             // Raw %q literal: the backslash is literal content and the
+                             // char after it lexes normally, so `)` still closes the
+                             // literal and `(` still nests (compiler allow_escapes:
+                             // false). Push back the second char to re-lex it.
+                             yypushback(1);
+                             return percentTokenType;
+                           }
+                           if (percentTokenType == CrystalTypes.STRING_LITERAL || percentTokenType == CrystalTypes.COMMAND_LITERAL) { return CrystalTypes.STRING_ESCAPE; } return percentTokenType;
+                         }
   {NEWLINE}            { return percentTokenType; }
 }
 

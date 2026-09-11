@@ -103,6 +103,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPercentLiteralRawBackslash() {
+        doTest(true)
+    }
+
     fun testClassDefinition() {
         doTest(true)
     }
