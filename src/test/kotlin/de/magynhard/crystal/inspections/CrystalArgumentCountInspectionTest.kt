@@ -2132,6 +2132,32 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testSpacedBinaryMinusAfterZeroArgumentDotCallIsNotAnArgument() {
+        // WhenRangeEntries.cr:1 — `diff = Time.utc - date.to_utc`: the MINUS is
+        // the spaced binary operator, never a negated bare argument of the
+        // zero-argument `Time.utc` dot-call. Regression protects the full
+        // chain parser → extractor → DOT resolver → argument count.
+        myFixture.configureByText("test.cr", """
+            class Time
+              def self.utc : Time
+                new
+              end
+
+              def to_utc : Time
+                self
+              end
+            end
+
+            date = Time.utc
+            diff = Time.utc - date.to_utc
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "The spaced binary minus must not be flagged as an argument of the zero-arg dot-call",
+            highlights.any { it.description?.contains("Too many arguments") == true },
+        )
+    }
+
     fun testAnnotatedSourceArrayCommaBareCallCountsBothArguments() {
         // ameba annotated_source_spec.cr:146 — `AnnotatedSource.new [] of String,
         // [...]`: the grammar's array-comma alternative keeps the leading array

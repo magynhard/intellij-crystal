@@ -716,6 +716,83 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBinaryOperatorDispatchesExactValueAndReturnsTheOnlyApplicableOverload() {
+        // Time-like shape: Time - Time -> Time::Span while Time#-(Time::Span)
+        // returns Time — the argument types, not the receiver alone, pick the
+        // overload. WhenRangeEntries.cr:1 (`diff = Time.utc - date.to_utc`).
+        assertTypes(
+            "class Time\nend\n" +
+                "class Time::Span\nend\n" +
+                "class Time\ndef self.utc : Time\n  new\nend\ndef to_utc : Time\n  self\nend\n" +
+                "def -(other : Time::Span) : Time\n  self\nend\n" +
+                "def -(other : Time) : Time::Span\n  Time::Span.new\nend\nend\n" +
+                "date = Time.utc\n" +
+                "diff = Time.utc - date.to_utc\n<caret>diff",
+            "Time::Span"
+        )
+    }
+
+    fun testBinaryOperatorPostfixStaysOnItsOwnOperand() {
+        // The postfix chain on the right operand must not be swallowed by the
+        // operator: `left - source.to_moment` calls Moment#-(Moment), not a
+        // `to_moment` on the operator result.
+        assertTypes(
+            "class Moment\nend\nclass Source\ndef to_moment : Moment\n  Moment.new\nend\nend\n" +
+                "class Moment\ndef -(other : Moment) : Moment\n  self\nend\nend\n" +
+                "left = Moment.new\nsource = Source.new\n" +
+                "diff = left - source.to_moment\n<caret>diff",
+            "Moment"
+        )
+    }
+
+    fun testBinaryOperatorWithUnknownRightOperandStaysUnknown() {
+        assertUnknown("class Moment\ndef -(other : Moment) : Moment\n  self\nend\nend\n" +
+            "left = Moment.new\ndiff = left - missing\n<caret>diff")
+    }
+
+    fun testBinaryOperatorWithConflictingOverloadReturnsStaysUnknown() {
+        // Moment - Offset has no applicable overload (Moment#-(Offset)
+        // returns Offset, so the conflicting pair stays resolvable through
+        // exact argument matching — the verdict is Moment).
+        assertTypes(
+            "class Moment\nend\nclass Offset\nend\n" +
+                "class Moment\n" +
+                "  def -(other : Moment) : Moment\n    self\n  end\n" +
+                "  def -(other : Offset) : Offset\n    Offset.new\n  end\n" +
+                "end\n" +
+                "diff = Moment.new - Moment.new\n<caret>diff",
+            "Moment"
+        )
+    }
+
+    fun testBinaryOperatorWithoutApplicableOverloadStaysUnknown() {
+        assertUnknown(
+            "class Moment\nend\nclass Offset\nend\n" +
+                "class Moment\n" +
+                "  def -(other : Offset) : Offset\n    Offset.new\n  end\n" +
+                "end\n" +
+                "diff = Moment.new - Moment.new\n<caret>diff"
+        )
+    }
+
+    fun testBinaryOperatorPrecedenceSelectsAppliedOverloads() {
+        // `a - b * c` dispatches the * first: with Moment#*(Int32) returning
+        // Offset, subtraction receives the Offset-typed intermediate result —
+        // Moment#-(Offset) : Moment decides the chain, proving the
+        // multiplication dispatched before the subtraction.
+        assertTypes(
+            "class Moment\nend\nclass Offset\nend\n" +
+                "class Moment\n" +
+                "  def -(other : Moment) : Moment\n    self\n  end\n" +
+                "  def -(other : Offset) : Moment\n    self\n  end\n" +
+                "  def *(other : Int32) : Offset\n    Offset.new\n  end\n" +
+                "end\n" +
+                "a = Moment.new\nb = Moment.new\nc = 2\n" +
+                "diff = a - b * c\n<caret>diff",
+            "Moment"
+        )
+    }
+
     fun testUnannotatedMethodMergesExplicitAndImplicitReturns() {
         assertTypes(
             "def value(flag)\n  return 1 if flag\n  return true unless flag\n  \"text\"\nend\n" +

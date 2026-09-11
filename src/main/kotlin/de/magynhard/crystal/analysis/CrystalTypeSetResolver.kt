@@ -5,6 +5,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -322,11 +323,299 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             }) {
             return knownType("Range")
         }
-        if (children.any { it is CrystalDotCallAccess }) return resolvePostfix(children, expression)
-        bracketCallResolution(children)?.let { return it }
-        resolveOperator(children)?.let { return it }
-        return children.firstOrNull()?.let(::resolve) ?: knownType("Nil")
+        // Binary operators must bind their postfix chains to each side's own
+        // operand BEFORE any operator dispatch happens. Previously any
+        // dot-call access anywhere in the expression made the whole expression
+        // a postfix chain (the DOT access took priority over the operator),
+        // leaving the operator in the middle dangling — the operand on the
+        // other side of `Time.utc - date.to_utc` was silently assigned to the
+        // left-side receiver and the expression degraded to Unknown/false call
+        // counting.
+        val segments = segmentFlatBinary(children) ?: return CrystalTypeResolution.Unknown
+        if (segments.size == 1) {
+            val operand = segments.single()
+            if (operand.any { it is CrystalDotCallAccess }) return resolvePostfix(operand, expression)
+            bracketCallResolution(operand)?.let { return it }
+            return operand.firstOrNull()?.let(::resolve) ?: knownType("Nil")
+        }
+        return resolveFlattenedBinary(segments)
     }
+
+    private fun isOperandSegmentType(elementType: IElementType?): Boolean = elementType in BINARY_OPERATOR_TYPES
+
+    /**
+     * Splits the flat PSI children of an expression into an alternating chain
+     * of operand segments and operator tokens: element 0 is operand0, element
+     * 1 is operator0, element 2 is operand1, and so on. A postfix chain (dot
+     * calls, index brackets, nil-safe questions) belongs to the operand it
+     * follows. Malformed shapes (leading/trailing operator, two operators in
+     * a row) return null — the resolution stays honest instead of guessing.
+     */
+    private fun segmentFlatBinary(children: List<PsiElement>): List<List<PsiElement>>? {
+        val items = ArrayList<List<PsiElement>>()
+        var operand = ArrayList<PsiElement>()
+        for (child in children) {
+            if (child.node.elementType in BINARY_OPERATOR_TYPES) {
+                // Binary position requires an operand on both sides (`a + b`);
+                // a leading, doubled, or trailing operator cannot be resolved
+                // through the flattened caller model — the PEG grammar binds
+                // prefixed MINUS as unary elsewhere.
+                if (operand.isEmpty()) return null
+                items.add(operand)
+                items.add(listOf(child))
+                operand = ArrayList()
+            } else {
+                operand.add(child)
+            }
+        }
+        if (operand.isEmpty()) return null
+        if (items.isEmpty()) {
+            // A plain operand without any operator: the caller's single-operand
+            // fallback covers postfix/bracket resolution.
+            items.add(operand)
+            return items
+        }
+        items.add(operand)
+        return items
+    }
+
+    private fun binaryOperatorPrecedence(operatorType: IElementType): Int = when (operatorType) {
+        CrystalTypes.OR_OR -> 0
+        CrystalTypes.AND_AND -> 1
+        CrystalTypes.PIPE, CrystalTypes.CARET -> 2
+        CrystalTypes.EQ, CrystalTypes.NEQ, CrystalTypes.LTE, CrystalTypes.LT,
+        CrystalTypes.GT, CrystalTypes.GTE, CrystalTypes.SPACESHIP,
+        CrystalTypes.CASE_EQ, CrystalTypes.MATCH_OP, CrystalTypes.BANG_TILDE,
+        -> 3
+        CrystalTypes.AMPERSAND -> 4
+        CrystalTypes.LSHIFT, CrystalTypes.RSHIFT -> 5
+        CrystalTypes.PLUS, CrystalTypes.MINUS, CrystalTypes.WRAP_PLUS, CrystalTypes.WRAP_MINUS -> 6
+        CrystalTypes.STAR, CrystalTypes.SLASH, CrystalTypes.DOUBLE_SLASH,
+        CrystalTypes.PERCENT, CrystalTypes.WRAP_STAR,
+        -> 7
+        CrystalTypes.DOUBLE_STAR, CrystalTypes.WRAP_DOUBLE_STAR -> 8
+        else -> -1
+    }
+
+    /**
+     * Pratt-style evaluation of the segmented chain. postfix chains bind to
+     * their own operand BEFORE any operator dispatch happened
+     * (`Time.utc - date.to_utc` never misshapes `to_utc` into the receiver of
+     * the whole chain). `&&`/`||` keep the existing lazy truthiness
+     * semantics; over-loadable arithmetic/bitwise operators dispatch through
+     * [dispatchBinaryOperator] with the exact receiver/argument types.
+     */
+    private fun resolveFlattenedBinary(chain: List<List<PsiElement>>): CrystalTypeResolution =
+        resolveBinaryPrecedenceLevel(chain, intArrayOf(0), 0)
+
+    /** precedence-driven recursive descent over the flattened chain. */
+    private fun resolveBinaryPrecedenceLevel(
+        chain: List<List<PsiElement>>,
+        cursor: IntArray,
+        minPrecedence: Int
+    ): CrystalTypeResolution {
+        var left = resolveFlattenedOperand(chain[cursor[0]].also { cursor[0] += 1 })
+        while (cursor[0] < chain.size) {
+            val operatorPsi = chain[cursor[0]].singleOrNull()
+                ?: return CrystalTypeResolution.Unknown
+            val operator = operatorPsi.node.elementType
+            val precedence = binaryOperatorPrecedence(operator)
+            if (precedence < minPrecedence) return left
+            cursor[0] += 1
+            left = when (operator) {
+                CrystalTypes.AND_AND, CrystalTypes.OR_OR -> {
+                    val leftIndex = cursor[0] - 2
+                    val rightIndex = cursor[0]
+                    resolveLogicalFlattened(chain, leftIndex, rightIndex, operator == CrystalTypes.AND_AND)
+                        .also { cursor[0] += 1 }
+                }
+                CrystalTypes.EQ, CrystalTypes.NEQ, CrystalTypes.LTE, CrystalTypes.LT,
+                CrystalTypes.GT, CrystalTypes.GTE, CrystalTypes.CASE_EQ,
+                -> {
+                    // Equality/comparison operators are language constructs,
+                    // not over-loadable method dispatch: consume the right
+                    // operand at this level (left-assoc) and report Bool like
+                    // the existing precedence lanes did.
+                    resolveFlattenedOperand(chain[cursor[0]].also { cursor[0] += 1 })
+                    knownType("Bool")
+                }
+                CrystalTypes.SPACESHIP, CrystalTypes.MATCH_OP, CrystalTypes.BANG_TILDE,
+                -> {
+                    // These comparison operators return custom types; with an
+                    // unresolvable overload the honest result stays Unknown
+                    // (matching the old precedence lanes).
+                    resolveFlattenedOperand(chain[cursor[0]].also { cursor[0] += 1 })
+                    CrystalTypeResolution.Unknown
+                }
+                else -> {
+                    val right = resolveBinaryPrecedenceLevel(chain, cursor, precedence + 1)
+                    if (right is CrystalTypeResolution.Unknown) return CrystalTypeResolution.Unknown
+                    val leftKnown = left as? CrystalTypeResolution.Known
+                        ?: return CrystalTypeResolution.Unknown
+                    val rightKnown = right as? CrystalTypeResolution.Known
+                        ?: return CrystalTypeResolution.Unknown
+                    val result = dispatchBinaryOperator(
+                        leftKnown,
+                        rightKnown,
+                        operatorMethodName(operator) ?: return CrystalTypeResolution.Unknown
+                    )
+                    if (result is CrystalTypeResolution.Unknown) return CrystalTypeResolution.Unknown
+                    result
+                }
+            }
+        }
+        return left
+    }
+
+    /**
+     * Lazy `&&`/`||` on flattened operands: mirrors [resolveLogical]'s
+     * truthiness semantics but resolves each side through the operand's own
+     * postfix chain instead of a bare element.
+     */
+    private fun resolveLogicalFlattened(
+        chain: List<List<PsiElement>>,
+        leftIndex: Int,
+        rightIndex: Int,
+        andOperator: Boolean
+    ): CrystalTypeResolution {
+        // Token-level truthiness first: literal `false`/`nil`/`true` operands
+        // keep the deterministic branch selection of [truthiness] instead of
+        // becoming MIXED through their Bool/Nil value types.
+        val normalizedElement = CrystalReceiverExpression.normalize(chain[leftIndex].first())
+        val tokenTruthiness = when (normalizedElement.node.elementType) {
+            CrystalTypes.TRUE -> Truthiness.ALWAYS_TRUTHY
+            CrystalTypes.FALSE, CrystalTypes.NIL -> Truthiness.ALWAYS_FALSY
+            else -> null
+        }
+        val left = resolveFlattenedOperand(chain[leftIndex])
+        val leftKnown = left as? CrystalTypeResolution.Known
+        val truthiness = tokenTruthiness ?: run {
+            val known = leftKnown ?: return CrystalTypeResolution.Unknown
+            val canBeFalsy = leftKnown.types.any { it.name == "Nil" || it.name == "Bool" }
+            val canBeTruthy = leftKnown.types.any { it.name != "Nil" }
+            when {
+                canBeFalsy && canBeTruthy -> Truthiness.MIXED
+                canBeFalsy -> Truthiness.ALWAYS_FALSY
+                else -> Truthiness.ALWAYS_TRUTHY
+            }
+        }
+        val right by lazy { resolveFlattenedOperand(chain[rightIndex]) }
+        return when (truthiness) {
+            Truthiness.ALWAYS_TRUTHY -> if (andOperator) right else left
+            Truthiness.ALWAYS_FALSY -> if (andOperator) left else right
+            Truthiness.MIXED -> {
+                val known = leftKnown ?: return CrystalTypeResolution.Unknown
+                val returnedLeft = known.types.filter { type ->
+                    if (andOperator) type.name == "Nil" || type.name == "Bool"
+                    else type.name != "Nil"
+                }
+                val rightReachable = known.types.any {
+                    it.name == "Bool" || if (andOperator) it.name != "Nil" else it.name == "Nil"
+                }
+                mergeKnown(listOfNotNull(
+                    returnedLeft.takeIf { it.isNotEmpty() }?.let(CrystalTypeResolution::Known),
+                    right.takeIf { rightReachable }
+                ))
+            }
+        }
+    }
+
+    private fun resolveFlattenedOperand(elements: List<PsiElement>): CrystalTypeResolution {
+        if (elements.isEmpty()) return CrystalTypeResolution.Unknown
+        if (elements.any { it is CrystalDotCallAccess }) {
+            var context: PsiElement = elements.first()
+            return resolvePostfix(elements, context)
+        }
+        return elements.firstOrNull()?.let(::resolve) ?: CrystalTypeResolution.Unknown
+    }
+
+    /**
+     * Overload dispatch for over-loadable binary operators: `left op right`
+     * binds exactly like `left.op(right)` — the left operand type is the
+     * receiver, applicable overloads are those whose annotated parameter
+     * type set intersects the right operand's type set, and the merged
+     * return annotations decide the result. Unannotated or unknown parameter
+     * returns keep the verdict honest (Unknown); hardcoding `Time` (or any
+     * other family) is never needed.
+     */
+    private fun dispatchBinaryOperator(
+        left: CrystalTypeResolution.Known,
+        right: CrystalTypeResolution.Known,
+        methodName: String
+    ): CrystalTypeResolution {
+        val rightNames = right.types.map { it.name }.toSet()
+        val leftNames = left.types.map { it.name }.toSet()
+        // The plain-merging shortcut stays as the fallback for the numeric
+        // family only (compiler-imposed primitive chain re Number): identical
+        // left/right operand types make the return type known even when the
+        // callee hierarchy cannot dispatch an annotated overload. User types
+        // without applicable overload must degrade to Unknown, exactly like
+        // a crystal compile error, so a mis-declared overload pair never
+        // produces a guessed type.
+        val sameTypesFallback: CrystalTypeResolution? = run {
+            if (leftNames != rightNames) return@run null
+            // Only the compiler-imposed numeric primitive family keeps the
+            // plain-merging semantics; a user type (e.g. Moment) without an
+            // applicable overload must degrade to Unknown exactly like a
+            // crystal compile error.
+            if (!leftNames.all { it in PRIMITIVE_NUMBER_FAMILY_NAMES }) return@run null
+            mergeKnown(listOf(left))
+        }
+        val results = left.types.map { leftName ->
+            val identity = resolveTypeIdentity(leftName.name, context)
+            if (identity != null) {
+                val collection = hierarchy.collectNamedMethods(
+                    identity.toShared(),
+                    CrystalReceiverMode.INSTANCE,
+                    methodName
+                )
+                if (collection.complete && collection.methods.isNotEmpty()) {
+                    val candidates = collection.methods.filter { method ->
+                        method.parameterList?.parameterList.orEmpty().any { parameter ->
+                            val parameterText = parameter.typeReference?.text ?: return@any false
+                            val parameterTypes = parseTypeSet(parameterText) as? CrystalTypeResolution.Known
+                                ?: return@any false
+                            parameterTypes.types.any { parameterType -> parameterType.name in rightNames }
+                        }
+                    }
+                    if (candidates.isNotEmpty() || sameTypesFallback == null) {
+                        val returns = candidates.map { method ->
+                            method.typeReference?.text?.filterNot(Char::isWhitespace)
+                        }
+                        if (candidates.isEmpty() || returns.any { it == null }) {
+                            return CrystalTypeResolution.Unknown
+                        }
+                        val parsed = returns.mapNotNull { it?.let(::parseTypeSet) }
+                        if (parsed.distinct().size != 1) return CrystalTypeResolution.Unknown
+                        return@map parsed.single()
+                    }
+                }
+            }
+            return sameTypesFallback ?: CrystalTypeResolution.Unknown
+        }
+        return mergeKnown(results)
+    }
+
+    private fun operatorMethodName(operatorType: IElementType): String? = when (operatorType) {
+        CrystalTypes.PLUS -> "+"
+        CrystalTypes.MINUS -> "-"
+        CrystalTypes.STAR -> "*"
+        CrystalTypes.SLASH -> "/"
+        CrystalTypes.DOUBLE_SLASH -> "//"
+        CrystalTypes.PERCENT -> "%"
+        CrystalTypes.DOUBLE_STAR -> "**"
+        CrystalTypes.WRAP_PLUS -> "&+"
+        CrystalTypes.WRAP_MINUS -> "&-"
+        CrystalTypes.WRAP_STAR -> "&*"
+        CrystalTypes.WRAP_DOUBLE_STAR -> "&**"
+        CrystalTypes.LSHIFT -> "<<"
+        CrystalTypes.RSHIFT -> ">>"
+        CrystalTypes.AMPERSAND -> "&"
+        CrystalTypes.PIPE -> "|"
+        CrystalTypes.CARET -> "^"
+        else -> null
+    }
+
 
     private fun resolvePostfix(children: List<PsiElement>, callContext: PsiElement): CrystalTypeResolution {
         val firstAccess = children.indexOfFirst { it is CrystalDotCallAccess }
@@ -1753,4 +2042,22 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 private val INTEGER_SUFFIXES = listOf(
     "i8", "i16", "i32", "i64", "i128",
     "u8", "u16", "u32", "u64", "u128"
+)
+
+private val BINARY_OPERATOR_TYPES = setOf(
+    CrystalTypes.PLUS, CrystalTypes.MINUS, CrystalTypes.STAR, CrystalTypes.SLASH,
+    CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT, CrystalTypes.DOUBLE_STAR,
+    CrystalTypes.WRAP_PLUS, CrystalTypes.WRAP_MINUS, CrystalTypes.WRAP_STAR,
+    CrystalTypes.WRAP_DOUBLE_STAR, CrystalTypes.LSHIFT, CrystalTypes.RSHIFT,
+    CrystalTypes.AMPERSAND, CrystalTypes.PIPE, CrystalTypes.CARET,
+    CrystalTypes.EQ, CrystalTypes.NEQ, CrystalTypes.LTE, CrystalTypes.LT,
+    CrystalTypes.GT, CrystalTypes.GTE, CrystalTypes.SPACESHIP,
+    CrystalTypes.CASE_EQ, CrystalTypes.MATCH_OP, CrystalTypes.BANG_TILDE,
+    CrystalTypes.AND_AND, CrystalTypes.OR_OR,
+)
+
+private val PRIMITIVE_NUMBER_FAMILY_NAMES = setOf(
+    "Int8", "Int16", "Int32", "Int64", "Int128",
+    "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
+    "Float32", "Float64", "Float", "Int", "Number"
 )

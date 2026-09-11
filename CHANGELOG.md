@@ -5,6 +5,25 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Binary operators dispatch like method calls** — `diff = Time.utc - date.to_utc`
+  now types as `Time::Span` (the compiler-annotated `Time#-(other : Time) :
+  Time::Span` return), not Unknown, and the right operand's postfix chain
+  binds to its own operand instead of being swallowed by the operator. The
+  resolver segments the flattened PSI expression into operands and operators
+  with a Pratt-style precedence reduction, so overloaded arithmetic and
+  bitwise operators (`a - b * c`, `x << y & z`) apply the annotated
+  overloads in compilation order: an overload is applicable when one of its
+  annotated parameter type sets intersects the right operand's type set and
+  the distinct merged return annotations decide the result. Receivers
+  without any applicable overload degrade to `Unknown` exactly like a crystal
+  compile error, while the compiler-imposed numeric primitive family keeps
+  the plain-merging semantics for same-typed operands without annotated
+  overloads. Hover, completion, and type-inspection consumers all benefit.
+  Covered by focused `CrystalTypeSetResolverTest` cases (argument-shaped
+  overload selection, right-operand postfix ownership, unknown operands,
+  precedence ordering) and a regression test pinning the spaced binary minus
+  after a zero-argument dot-call (`Time.utc - date.to_utc`) as not an
+  argument of the call.
 - **Headless audit reports parse errors and runs only Crystal inspections** — the offline
   audit runs in two phases: a scratch-project run enumerates every tool the IDE knows, and
   the generated `crystal-audit.xml` profile explicitly disables all ~670 non-Crystal tools

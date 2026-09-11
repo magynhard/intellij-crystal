@@ -86,9 +86,21 @@ Logical operators return values, not a fixed `Bool`:
 Equality and relational comparisons resolve to `Bool`. Spaceship `<=>`, regex
 match `=~`, and not-match `!~` remain unknown without exact overload resolution:
 their standard implementations can return ordering values or `Int32 | Nil`, and
-Crystal permits custom implementations with arbitrary return types. Arithmetic
-is supported only when both operand sets are the same known type; unsupported
-promotion or overload cases remain unknown.
+Crystal permits custom implementations with arbitrary return types.
+
+Overloadable arithmetic and bitwise operators dispatch exactly like method
+calls (`left op right` binds as `left.op(right)`) with the flattened operand's
+own postfix chain resolved before the dispatch (`Time.utc - date.to_utc` calls
+`Time#-(Time) : Time::Span`, never a `to_utc` on the operator result). An
+overload is applicable when one of its annotated parameter type sets
+intersects the right operand's type set; the distinct merged return
+annotations of all applicable overloads decide the result. Crystal's
+precedence hierarchy selects the applied dispatch order, so
+`a - b * c` types as `Moment#-(Offset)` when the multiplication returns
+`Offset`. Receivers without any applicable overload degrade to `Unknown`
+exactly like a crystal compile error; the compiler-imposed numeric primitive
+family retains the plain-merging semantics for same-typed operands without
+annotated overloads. Union-mixed or unresolvable operands stay unknown.
 
 ## Reachability And Returns
 
@@ -191,7 +203,7 @@ type.
 - Completed-call overload selection is not argument-aware; multiple exact candidates are unknown.
 - Generic type parameters are not substituted through method signatures.
 - Nil/type narrowing from conditions is not modeled.
-- Proc result inference and custom operator overload resolution are not modeled.
+- Proc result inference is not modeled.
 - Cross-file reopening precedence remains strict and incomplete when multiple relevant declarations
   inside the effective source snapshot have an order that the index cannot prove. Reopenings outside
   the current file's prelude-plus-forward-require boundary do not participate at all.
