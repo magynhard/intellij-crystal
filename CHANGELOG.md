@@ -5,6 +5,21 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Headless audit reports parse errors and runs only Crystal inspections** — the offline
+  audit runs in two phases: a scratch-project run enumerates every tool the IDE knows, and
+  the generated `crystal-audit.xml` profile explicitly disables all ~670 non-Crystal tools
+  while enabling exactly the ten Crystal inspections. Previously the platform's
+  default-enabled tools (spell checker, RegExp host, database SQL, javadoc) executed their
+  own machinery, smearing unrelated findings across reports and crashing one run outright
+  (RegExp inspection on an external repo's bundled JavaScript). The new
+  `CrystalParseError` inspection (`enabledByDefault="false"`; the editor error highlighter
+  is unaffected) exports each `PsiErrorElement` as a discrete
+  "Crystal parse error: ..." problem, so offline XML reports finally carry raw parser
+  diagnostics directly. The summary counts findings inside non-`cr` files (injected
+  markdown fences etc.) separately as `NOISE` and keeps the total to real `.cr` files.
+  Verified end-to-end against a crash-shaped fixture (unbalanced parenthesis yields the
+  parse-error finding plus unused-variable warnings, nothing else) and the full suite
+  stays green.
 - **Lib-body constant assignments parse** — `lib LibC { F_GETFD = 1 }` style
   constant declarations inside `lib` bodies are now structured PSI: the existing
   tight `constant_assignment` rule joined the `lib_member` alternatives exactly

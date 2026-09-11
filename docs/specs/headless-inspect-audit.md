@@ -22,16 +22,33 @@ scripts/crystal-inspect-audit.sh /path/to/project
   after reporting that no Gemfile exists, and its `--profile` option rejects
   both file paths and names. The legacy command is language-neutral, accepts a
   profile file, and writes per-inspection XML.
-- The profile file explicitly enables all nine Crystal inspections
+- The inspection run itself happens in two phases. **Phase A** runs the
+  offline `inspect` command against a one-file scratch project (inside the
+  isolated `AUDIT_HOME`) with the base profile; the run's `.descriptions.xml`
+  enumerates every tool class the IDE knows. **Phase B** generates
+  `crystal-audit.xml` from that list: every non-Crystal tool is explicitly
+  disabled, the ten Crystal inspections (including `CrystalParseError`) are
+  explicitly enabled, and the real project is inspected with that generated
+  profile. Default-enabled platform tools previously executed their own heavy
+  machinery (spell checker, RegExp host, javadoc, database SQL tools), poured
+  dozens of noise findings into reports, and crashed the run once (RegExp
+  inspection on a bundled `_search.js` of an external repo); the generated
+  profile makes Crystal the only executed family and keeps runs deterministic.
+- The profile enables all ten Crystal inspections
   (`CrystalTypeMismatch`, `CrystalArgumentCount`, `CrystalUnusedVariable`,
   `CrystalEmptyCollection`, `CrystalLibFunParameterType`,
   `CrystalSingleQuoteString`, `CrystalColonSpacing`, `CrystalInstanceVarType`,
-  `CrystalRequireContext`). RubyMine also runs tools enabled by default; the
-  summary deliberately filters their result files and prints only
-  `Crystal*.xml` findings.
+  `CrystalRequireContext`, `CrystalParseError`). `CrystalParseError`
+  (`enabledByDefault="false"` in `plugin.xml`) exports raw parser
+  diagnostics as inspection problems, so offline reports finally show
+  `PsiErrorElement` line/description directly instead of only knock-on
+  inspection results; the editor error highlighter is unaffected because the
+  inspection is opt-in.
 - Results land in `$AUDIT_HOME/out/*.xml`; the script prints every Crystal
-  problem as `file:line: description` plus a total. Each invocation gets a
-  separate IDE log under `$AUDIT_HOME/logs/<run-id>/idea.log`.
+  problem as `file:line: description` plus a total. Findings inside non-`.cr`
+  files (injected Crystal fragments in markdown fences etc.) are counted
+  separately as `NOISE` and excluded from the `.cr` total. Each invocation gets
+  a separate IDE log under `$AUDIT_HOME/logs/<run-id>/idea.log`.
 
 ## Semantics and limits
 
@@ -46,10 +63,11 @@ scripts/crystal-inspect-audit.sh /path/to/project
   log confirms that the expected plugin version loaded, an atomic symlink swap
   publishes it at `$AUDIT_HOME/out` without hiding the previous report first.
   Earlier successful run directories remain available under `reports/`.
-- Inspect Code runs inspections, not raw parser errors: `PsiErrorElement`
-  parse failures surface only indirectly (through their knock-on inspection
-  results). For pure parse auditing of stdlib files the
-  `CrystalStdlibSourceParseTest` canary remains the tool of choice.
+- Inspect Code runs inspections, not raw parser errors: since the
+  `CrystalParseError` inspection exists, `PsiErrorElement` parse failures ARE
+  exported as `CrystalParseError.xml` findings. For pure parse auditing of
+  stdlib files the `CrystalStdlibSourceParseTest` canary remains the tool of
+  choice.
 - Injections are in scope of the platform inspection sweep: Crystal
   inspections can fire inside injected fragments of foreign files (observed:
   `CrystalUnusedVariable` inside `.github/**/*.md` markdown code fences).

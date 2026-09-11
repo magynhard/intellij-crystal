@@ -135,7 +135,7 @@ if [ -f "$USER_KEY" ]; then
   cp "$USER_KEY" "$AUDIT_HOME/config/"
 fi
 
-echo "==> Writing Crystal inspection profile"
+echo "==> Writing base Crystal inspection profile"
 rm -f -- "$AUDIT_HOME/crystal-profile.xml"
 cat > "$AUDIT_HOME/crystal-profile.xml" <<'EOF'
 <component name="InspectionProjectProfileManager">
@@ -149,6 +149,7 @@ cat > "$AUDIT_HOME/crystal-profile.xml" <<'EOF'
     <inspection_tool class="CrystalSingleQuoteString" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="CrystalColonSpacing" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="CrystalInstanceVarType" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="CrystalParseError" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="CrystalRequireContext" enabled="true" level="ERROR" enabled_by_default="true" />
   </profile>
 </component>
@@ -163,6 +164,92 @@ if [[ -e "$AUDIT_HOME/out" && ! -L "$AUDIT_HOME/out" ]]; then
   echo "Refusing legacy non-symlink report path: $AUDIT_HOME/out" >&2
   exit 2
 fi
+
+SCRATCH_PROJECT="$AUDIT_HOME/scratch"
+SCRATCH_LOG_DIR="$AUDIT_HOME/logs/$RUN_ID-scratch"
+mkdir -p "$SCRATCH_PROJECT" "$SCRATCH_LOG_DIR"
+
+rm -f -- "$AUDIT_HOME/rm-audit.vmoptions"
+cat > "$AUDIT_HOME/rm-audit.vmoptions" <<EOF
+-Didea.config.path=$AUDIT_HOME/config
+-Didea.system.path=$AUDIT_HOME/system
+-Didea.plugins.path=$AUDIT_HOME/plugins
+-Didea.log.path=$SCRATCH_LOG_DIR
+-Didea.trust.all.projects=true
+EOF
+
+# Phase A: enumerate every inspection tool the IDE knows. A scratch project
+# (one tiny .cr file) is fast to index and produces .descriptions.xml, which
+# lists every registered tool class. Default-enabled platform tools spin up
+# their own index/heavy machinery (spell checker, RegExp host, javadoc...),
+# produced dozens of noise findings at a prior run, crashers included, so the
+# real run must only execute the Crystal tools.
+if [[ ! -f "$SCRATCH_PROJECT/scratch.cr" ]]; then
+  printf 'x = Scratch::CONSTANT + 1\n' > "$SCRATCH_PROJECT/scratch.cr"
+fi
+SCRATCH_OUTPUT="$AUDIT_HOME/scratch-out"
+rm -rf -- "$SCRATCH_OUTPUT"
+echo "==> Enumerating inspections on scratch project"
+RUBYMINE_VM_OPTIONS="$AUDIT_HOME/rm-audit.vmoptions" \
+  "$RUBYMINE_HOME/bin/rubymine.sh" inspect \
+  "$SCRATCH_PROJECT" \
+  "$AUDIT_HOME/crystal-profile.xml" \
+  "$SCRATCH_OUTPUT" > /dev/null 2>&1 || true
+if [[ ! -f "$SCRATCH_OUTPUT/.descriptions.xml" ]]; then
+  echo "Inspection enumeration failed; no .descriptions.xml in $SCRATCH_OUTPUT" >&2
+  echo "IDE log: $SCRATCH_LOG_DIR/idea.log" >&2
+  exit 1
+fi
+rm -rf -- "$SCRATCH_PROJECT" "$SCRATCH_LOG_DIR"
+
+echo "==> Generating Crystal-only profile"
+CRITICAL_AUDIT_PROFILE="$AUDIT_HOME/crystal-audit.xml"
+python3 - "$SCRATCH_OUTPUT/.descriptions.xml" "$CRITICAL_AUDIT_PROFILE" <<'EOF'
+import os
+import sys
+import xml.etree.ElementTree as ET
+
+desc_path, target_path = sys.argv[1], sys.argv[2]
+tree = ET.parse(desc_path)
+if tree.getroot().tag != "inspections":
+    sys.exit(".descriptions.xml root must be <inspections>")
+
+root = ET.Element("component", {"name": "InspectionProjectProfileManager"})
+new_profile = ET.SubElement(root, "profile", {"version": "1.0"})
+ET.SubElement(new_profile, "option", {"name": "myName", "value": "CrystalAudit"})
+for inspection in tree.getroot().iter("inspection"):
+    cls = inspection.get("shortName") or ""
+    if cls.startswith("Crystal"):
+        continue
+    ET.SubElement(new_profile, "inspection_tool", {
+        "class": cls,
+        "enabled": "false",
+        "level": inspection.get("defaultSeverity", "ERROR"),
+        "enabled_by_default": "false",
+    })
+for cls, level in [
+    ("CrystalArgumentCount", "WARNING"),
+    ("CrystalTypeMismatch", "ERROR"),
+    ("CrystalUnusedVariable", "WEAK WARNING"),
+    ("CrystalEmptyCollection", "ERROR"),
+    ("CrystalLibFunParameterType", "ERROR"),
+    ("CrystalSingleQuoteString", "ERROR"),
+    ("CrystalColonSpacing", "ERROR"),
+    ("CrystalInstanceVarType", "ERROR"),
+    ("CrystalParseError", "ERROR"),
+    ("CrystalRequireContext", "ERROR"),
+]:
+    ET.SubElement(new_profile, "inspection_tool", {
+        "class": cls,
+        "enabled": "true",
+        "level": level,
+        "enabled_by_default": "true",
+    })
+ET.indent(root, space="  ")
+ET.ElementTree(root).write(target_path, encoding="unicode", xml_declaration=False)
+EOF
+rm -rf -- "$SCRATCH_OUTPUT"
+
 if [[ -e "$RUN_LOG_DIR" || -L "$RUN_LOG_DIR" || -e "$RUN_OUTPUT" || -L "$RUN_OUTPUT" ]]; then
   echo "Refusing pre-existing per-run audit path for $RUN_ID" >&2
   exit 2
@@ -173,8 +260,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-rm -f -- "$AUDIT_HOME/rm-audit.vmoptions"
-cat > "$AUDIT_HOME/rm-audit.vmoptions" <<EOF
+rm -f -- "$AUDIT_HOME/rm-audit-main.vmoptions"
+cat > "$AUDIT_HOME/rm-audit-main.vmoptions" <<EOF
 -Didea.config.path=$AUDIT_HOME/config
 -Didea.system.path=$AUDIT_HOME/system
 -Didea.plugins.path=$AUDIT_HOME/plugins
@@ -183,10 +270,10 @@ cat > "$AUDIT_HOME/rm-audit.vmoptions" <<EOF
 EOF
 
 echo "==> Running offline inspections on $PROJECT_DIR (fresh indexing, be patient)"
-RUBYMINE_VM_OPTIONS="$AUDIT_HOME/rm-audit.vmoptions" \
+RUBYMINE_VM_OPTIONS="$AUDIT_HOME/rm-audit-main.vmoptions" \
   "$RUBYMINE_HOME/bin/rubymine.sh" inspect \
   "$PROJECT_DIR" \
-  "$AUDIT_HOME/crystal-profile.xml" \
+  "$CRITICAL_AUDIT_PROFILE" \
   "$RUN_OUTPUT"
 
 if ! grep -Fq "Loaded custom plugins: Crystal Language ($VERSION)" "$RUN_LOG_DIR/idea.log"; then
@@ -209,19 +296,28 @@ import xml.etree.ElementTree as ET
 
 out_dir = sys.argv[1]
 total = 0
+noise = 0
 for path in sorted(glob.glob(os.path.join(out_dir, "Crystal*.xml"))):
     name = os.path.basename(path)[:-4]
-    problems = list(ET.parse(path).iter("problem"))
-    print(f"--- {name}: {len(problems)}")
-    for prob in problems:
+    print(f"--- {name}")
+    for prob in ET.parse(path).iter("problem"):
         file_el = prob.find(".//file")
         line_el = prob.find(".//line")
         desc_el = prob.find(".//description")
         file_text = (file_el.text or "?") if file_el is not None else "?"
         file_text = file_text.replace("file://$PROJECT_DIR$/", "")
+        file_text = file_text.replace("file://", "")
         line = line_el.text if line_el is not None else "?"
         desc = desc_el.text if desc_el is not None else "?"
+        # Crystal inspections can fire inside injected fragments of foreign
+        # files (markdown fences, heredoc-hosting scripts). Those findings are
+        # not ours; keep only real .cr problems in the summary.
+        if not file_text.endswith(".cr"):
+            noise += 1
+            continue
+        total += 1
         print(f"  {file_text}:{line}: {desc}")
-    total += len(problems)
-print(f"TOTAL: {total} Crystal problems")
+print(f"TOTAL: {total} Crystal problems in .cr files")
+if noise:
+    print(f"NOISE: {noise} Crystal findings in non-Crystal files (filtered)")
 EOF

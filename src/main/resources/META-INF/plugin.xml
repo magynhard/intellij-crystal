@@ -437,6 +437,15 @@
         <localInspection
                 language="Crystal"
                 groupName="Crystal"
+                displayName="Crystal parse error (headless audit)"
+                shortName="CrystalParseError"
+                enabledByDefault="false"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalParseErrorInspection"/>
+
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
                 displayName="Invalid require context"
                 shortName="CrystalRequireContext"
                 enabledByDefault="true"
