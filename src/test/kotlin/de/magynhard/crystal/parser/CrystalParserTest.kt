@@ -492,6 +492,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testLibMacroForms() {
+        doTest(true)
+    }
+
     fun testAnnotationDefinitionWithStub() {
         doTest(true)
     }

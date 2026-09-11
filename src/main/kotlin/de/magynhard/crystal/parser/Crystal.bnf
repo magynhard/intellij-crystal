@@ -315,7 +315,10 @@ private class_member ::= NEWLINE
 
 enum_body ::= enum_member*
 
-private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | enum_constant | method_definition
+// Enum bodies accept macro forms (`{% if flag?(:arm) %} FAILURE = 9 {% end %}`
+// in lib_unwind's ReasonCode); the compiler's parse_enum_body_expressions takes
+// `{% %}`, `{{ }}` and `@[...]` (parser.cr:6360-6365) just like lib bodies.
+private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | enum_constant | method_definition
 
 enum_constant ::= CONSTANT [ASSIGN expression]
 
@@ -330,7 +333,12 @@ lib_body ::= lib_member*
 // the compiler's parse_lib_body_exp_without_location accepts `@[...]` via
 // parse_annotation (src/compiler/crystal/syntax/parser.cr:5867-5870), so the
 // existing annotation_usage rule joins lib_member exactly like class bodies.
-private lib_member ::= NEWLINE | SEMICOLON | annotation_usage | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
+// Macro forms generate lib members (`{% if flag?(:win32) %} ... {% end %}`
+// headers, `{% if %} fun ... {% end %}` single-liners); the compiler's
+// parse_lib_body_exp_without_location accepts both (parser.cr:5921-5924,
+// parser_spec.cr:1330-1331), so macro_control and macro_interpolation join
+// lib_member exactly like class bodies and statements.
+private lib_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
 
 lib_field ::= IDENTIFIER COLON type_reference
 
@@ -461,6 +469,12 @@ private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | REGEX_BEGIN | REGEX_LITERAL | REGEX_END
     | TRUE | FALSE | NIL
     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM
+    // Declaration keywords appear inside macro control blocks: single-line
+    // `{% if %} fun ... {% end %}` (lib_llvm initialization.cr) and generated
+    // members. macro_control only consumes tokens without reconstructing PSI,
+    // so widening the token set cannot change existing successful parses.
+    | DEF | MACRO | FUN | ALIAS | STRUCT | UNION | ENUM | LIB | MODULE | CLASS
+    | INCLUDE | EXTEND | ABSTRACT | PRIVATE | PROTECTED
     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
     | EQ | NEQ | LT | GT | LTE | GTE | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND
     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT

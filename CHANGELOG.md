@@ -59,6 +59,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   306 files to 432 in 272 (34 repaired files fully clean, zero newly failing files; remaining
   files advance to `{% %}`/`{{ }}` macro forms); indexed drops from 161 in 118 to 159 in 117
   (`empty.cr` fully clean).
+- **Macro forms as `lib`/`enum` members (`{% if %} ... {% end %}`, `{{ }}`)** — all four macro rules
+  join `lib_member` and `enum_member` per the compiler's lib/enum body parsers, and
+  `macro_control_token` admits declaration keywords (`FUN`, `DEF`, `STRUCT`, …) since macro control
+  only consumes tokens without reconstructing PSI. Generation only adds macro-list accessors to
+  `CrystalLibBody`/`CrystalEnumBody`, no stub change. Covered by the LibMacroForms golden and
+  negative tests for unterminated `{%` and empty `{{}}`. The external audit drops from 432 errors
+  in 272 files to 292 in 236 (36 repaired files fully clean, zero newly failing files); indexed
+  drops from 159 in 117 to 136 in 109 (8 repaired files fully clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

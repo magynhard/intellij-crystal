@@ -35,6 +35,18 @@ public interface CrystalLibBody extends PsiElement {
   List<CrystalLibUnionDefinition> getLibUnionDefinitionList();
 
   @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
+  @NotNull
+  List<CrystalMacroControlEscaped> getMacroControlEscapedList();
+
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
+  @NotNull
+  List<CrystalMacroInterpolationEscaped> getMacroInterpolationEscapedList();
+
+  @NotNull
   List<CrystalTypeAliasLib> getTypeAliasLibList();
 
 }

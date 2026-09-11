@@ -272,8 +272,35 @@ gap: the crystal-lang/crystal checkout audit drops from 2,718 errors in 783
 files to 1,029 errors in 510 files, with zero previously-clean files regressing
 (before/after file-set comparison). The pinned indexed corpus drops from 180
 errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
-parser golden. Remaining lib-body gap: `{% ... %}` / `{{ ... }}`
-macro-control/interpolation inside `lib` bodies.
+parser golden. The lib-body member families are complete; the remaining
+macro follow-up is macro-interpolated member names (see below).
+
+Macro forms generate lib members: `{% if flag?(:win32) %} ... {% end %}`
+header blocks (Android matrix, OpenSSL, LLVM, libyaml, libxml2),
+`{% if %} fun ... {% end %}` single-liners (lib_llvm initialization.cr),
+`{% if %} @[Primitive(...)] {% end %}` annotation single-liners
+(intrinsics.cr, libm.cr), and `{% if flag?(:arm) %} ... {% end %}` inside
+enum bodies (lib_unwind's ReasonCode). The compiler's
+`parse_lib_body_exp_without_location` accepts `{% %}` and `{{ }}`
+(src/compiler/crystal/syntax/parser.cr:5921-5924; parser_spec.cr:1330-1331)
+and `parse_enum_body_expressions` takes both plus `@[...]`
+(parser.cr:6360-6365), so all four macro rules join `lib_member` and
+`enum_member` exactly like class bodies and statements. `macro_control`
+only consumes tokens without reconstructing PSI, so `macro_control_token`
+additionally admits declaration keywords (`DEF MACRO FUN ALIAS STRUCT UNION
+ENUM LIB MODULE CLASS INCLUDE EXTEND ABSTRACT PRIVATE PROTECTED`) — this
+widens consumption only and cannot change existing successful parses.
+Generation adds only the four macro-list accessors to `CrystalLibBody` and
+`CrystalEnumBody`; no stub change, no stub-version bump. Covered by the
+LibMacroForms parser golden (header block, annotation single-liner, enum
+block, trailing declaration) and negative tests for unterminated `{%` and
+empty `{{}}` (both compiler-verified syntax errors). The external
+crystal-repository audit drops from 432 errors in 272 files to 292 errors in
+236 files — 36 repaired files fully clean — verified by before/after
+file-set comparison with zero newly failing files; `target.cr` advances
+from 7 to 6 errors, landing on macro-interpolated fun names (next cluster).
+The pinned indexed corpus drops from 159 errors in 117 files to 136 errors
+in 109 files (8 repaired files fully clean, zero newly failing files).
 
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation

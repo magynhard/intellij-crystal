@@ -3493,13 +3493,17 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // NEWLINE | SEMICOLON | annotation_usage | enum_constant | method_definition
+  // NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | enum_constant | method_definition
   static boolean enum_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "enum_member")) return false;
     boolean result_;
     result_ = consumeToken(builder_, NEWLINE);
     if (!result_) result_ = consumeToken(builder_, SEMICOLON);
     if (!result_) result_ = annotation_usage(builder_, level_ + 1);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
     if (!result_) result_ = enum_constant(builder_, level_ + 1);
     if (!result_) result_ = method_definition(builder_, level_ + 1);
     return result_;
@@ -4898,13 +4902,17 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // NEWLINE | SEMICOLON | annotation_usage | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
+  // NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
   static boolean lib_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_member")) return false;
     boolean result_;
     result_ = consumeToken(builder_, NEWLINE);
     if (!result_) result_ = consumeToken(builder_, SEMICOLON);
     if (!result_) result_ = annotation_usage(builder_, level_ + 1);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
     if (!result_) result_ = constant_assignment(builder_, level_ + 1);
     if (!result_) result_ = fun_definition(builder_, level_ + 1);
     if (!result_) result_ = type_alias_lib(builder_, level_ + 1);
@@ -5110,6 +5118,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //     | REGEX_BEGIN | REGEX_LITERAL | REGEX_END
   //     | TRUE | FALSE | NIL
   //     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM
+  //     // Declaration keywords appear inside macro control blocks: single-line
+  //     // `{% if %} fun ... {% end %}` (lib_llvm initialization.cr) and generated
+  //     // members. macro_control only consumes tokens without reconstructing PSI,
+  //     // so widening the token set cannot change existing successful parses.
+  //     | DEF | MACRO | FUN | ALIAS | STRUCT | UNION | ENUM | LIB | MODULE | CLASS
+  //     | INCLUDE | EXTEND | ABSTRACT | PRIVATE | PROTECTED
   //     | LPAREN | RPAREN | LBRACKET | RBRACKET | LBRACE | RBRACE | COMMA | DOT | COLON
   //     | EQ | NEQ | LT | GT | LTE | GTE | MATCH_OP | BANG_TILDE | OR_OR | AND_AND | PIPE | AMPERSAND
   //     | ASSIGN | PLUS | MINUS | STAR | SLASH | QUESTION | BANG | DOTDOT | DOTDOTDOT
@@ -5155,6 +5169,21 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, YIELD);
     if (!result_) result_ = consumeToken(builder_, REQUIRE);
     if (!result_) result_ = consumeToken(builder_, VERBATIM);
+    if (!result_) result_ = consumeToken(builder_, DEF);
+    if (!result_) result_ = consumeToken(builder_, MACRO);
+    if (!result_) result_ = consumeToken(builder_, FUN);
+    if (!result_) result_ = consumeToken(builder_, ALIAS);
+    if (!result_) result_ = consumeToken(builder_, STRUCT);
+    if (!result_) result_ = consumeToken(builder_, UNION);
+    if (!result_) result_ = consumeToken(builder_, ENUM);
+    if (!result_) result_ = consumeToken(builder_, LIB);
+    if (!result_) result_ = consumeToken(builder_, MODULE);
+    if (!result_) result_ = consumeToken(builder_, CLASS);
+    if (!result_) result_ = consumeToken(builder_, INCLUDE);
+    if (!result_) result_ = consumeToken(builder_, EXTEND);
+    if (!result_) result_ = consumeToken(builder_, ABSTRACT);
+    if (!result_) result_ = consumeToken(builder_, PRIVATE);
+    if (!result_) result_ = consumeToken(builder_, PROTECTED);
     if (!result_) result_ = consumeToken(builder_, LPAREN);
     if (!result_) result_ = consumeToken(builder_, RPAREN);
     if (!result_) result_ = consumeToken(builder_, LBRACKET);

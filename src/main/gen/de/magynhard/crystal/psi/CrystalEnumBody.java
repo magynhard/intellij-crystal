@@ -14,6 +14,18 @@ public interface CrystalEnumBody extends PsiElement {
   List<CrystalEnumConstant> getEnumConstantList();
 
   @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
+  @NotNull
+  List<CrystalMacroControlEscaped> getMacroControlEscapedList();
+
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
+  @NotNull
+  List<CrystalMacroInterpolationEscaped> getMacroInterpolationEscapedList();
+
+  @NotNull
   List<CrystalMethodDefinition> getMethodDefinitionList();
 
 }
