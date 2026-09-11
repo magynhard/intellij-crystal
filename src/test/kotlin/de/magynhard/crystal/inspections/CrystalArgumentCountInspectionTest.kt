@@ -1633,6 +1633,17 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testKeywordExternalParameterUsesCallSiteNameForNamedArguments() {
+        myFixture.configureByText("test.cr", """
+            def history(with entries = [] of Array(String))
+            end
+
+            history(with: ["a"])
+            history(<error descr="Unknown named argument 'entries'">entries: ["a"]</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Record macro support ====================
 
     fun testRecordNewWithValidNamedArgs() {

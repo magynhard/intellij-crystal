@@ -5,6 +5,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Any keyword works as an external parameter name** — the parameter rule accepted only
+  identifiers (plus a special-cased `end`), so `def self.history(with entries = ...)` (reply
+  `spec_helper.cr`) and `exec_stdio_to_fd(stdio, for dst_io : ...)` (`src/process.cr:362`) failed
+  to parse. The leading position now accepts `keyword_identifier`, matching the compiler (which
+  lexes keywords as identifier tokens and consumes the first as the call-site label); a lone
+  keyword is still rejected. `parameterNameInfo` recognizes the same leading keyword — including
+  `out` in `def foo(out x)` — while keywords in type position (`x : self`) never count. Covered
+  by the KeywordExternalParameter parser golden, parameter-name unit tests, and an inspection
+  test (`with:` accepted, `entries:` still flagged). The external crystal-repository audit drops
+  from 1,023 errors in 504 files to 1,019 in 502 (zero newly failing files); the pinned indexed
+  corpus drops from 173 in 126 to 171 in 125.
 - **Raw `%q` literals no longer swallow their own closer** — the lexer folded every backslash
   pair into one escape token, so `%q(\)` consumed its `)` and the literal ran past the enclosing
   block (reply `history_spec.cr`, reported at the block's `do`). The lexer now tracks

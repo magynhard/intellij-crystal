@@ -335,6 +335,29 @@ trailing declaration). The external crystal-repository audit drops from
 `src/crystal/system/win32/file.cr` parse cleanly); the pinned indexed
 corpus is unchanged at 173 errors in 126 files.
 
+Any keyword is a valid external parameter name as long as a valid internal
+name follows: the compiler lexes keywords as identifier tokens and consumes
+the first as the call-site label (`def foo(with foo)` → `Arg(foo,
+external_name: "with")`, parser_spec "external names"; verified against
+Crystal 1.21.0 for `with`, `end`, and `out`). The parameter rule's leading
+position therefore accepts `keyword_identifier` instead of only `IDENTIFIER`
+or the special-cased `END`, so `def self.history(with entries = ...)`
+(reply `spec_helper.cr`) and `exec_stdio_to_fd(stdio, for dst_io : ...)`
+(`src/process.cr:362`) parse; a lone keyword is still rejected because the
+second name is mandatory. `parameterNameInfo` recognizes the same leading
+keyword as the explicit external name — including `out` in
+`def foo(out x)`, matching the compiler — while keywords in type position
+(`x : self`) never count because only a leaf preceding the internal-name or
+storage leaf qualifies. No stub format changes, so the stub version is
+untouched. Covered by the KeywordExternalParameter parser golden, parameter
+name unit tests, and an argument-count inspection test proving `with:` is
+accepted while `entries:` is still flagged unknown. The external
+crystal-repository audit drops from 1,023 errors in 504 files to 1,019
+errors in 502 files (`lib/reply/spec/spec_helper.cr` and `src/process.cr`
+parse cleanly, verified by before/after file-set comparison with zero newly
+failing files); the pinned indexed corpus drops from 173 errors in 126
+files to 171 errors in 125 files (its own `process.cr` copy).
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

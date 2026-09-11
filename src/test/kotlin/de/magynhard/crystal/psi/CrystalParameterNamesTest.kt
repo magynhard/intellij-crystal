@@ -32,6 +32,21 @@ class CrystalParameterNamesTest : BasePlatformTestCase() {
         assertNames(parameters[2], "double_splat", "double_splat", "@@double_splat", null, "@@double_splat")
     }
 
+    fun testSeparatesKeywordExternalNames() {
+        val file = myFixture.configureByText("test.cr", """
+            def names(with entries, module mod, end pos, with @cache, out value, typed : self)
+            end
+        """.trimIndent())
+        val parameters = PsiTreeUtil.findChildrenOfType(file, CrystalParameter::class.java).toList()
+
+        assertNames(parameters[0], "with", "entries", null, "with", "with entries")
+        assertNames(parameters[1], "module", "mod", null, "module", "module mod")
+        assertNames(parameters[2], "end", "pos", null, "end", "end pos")
+        assertNames(parameters[3], "with", "cache", "@cache", "with", "with @cache")
+        assertNames(parameters[4], "out", "value", null, "out", "out value")
+        assertNames(parameters[5], "typed", "typed", null, null, "typed")
+    }
+
     private fun assertNames(
         parameter: CrystalParameter,
         callSiteName: String,

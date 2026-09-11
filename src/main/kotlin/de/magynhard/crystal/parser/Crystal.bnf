@@ -464,10 +464,14 @@ private param_prefix ::= annotation_usage
                        | macro_control
 // Explicit call-site name plus internal binding/storage target. This longer
 // IDENTIFIER-prefixed form must precede the single-name alternative (PEG).
-// `end` is a valid call-site label (`def pos(location, end end_pos = false)`
-// in ameba's source.cr, called as `pos(location, end: true)`); the keyword
-// stays a token and only this rule accepts it as a label.
-parameter ::= param_prefix* (IDENTIFIER | END) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+// Any keyword is a valid call-site label (`def pos(location, end end_pos =
+// false)` in ameba's source.cr, called as `pos(location, end: true)`;
+// `def self.history(with entries = ...)` in reply's spec_helper.cr) — the
+// compiler accepts every keyword as the external name as long as a valid
+// internal name follows (parser_spec "external names"). The keyword stays a
+// token and only this rule accepts it as a label; a lone keyword is still
+// rejected because the second name is mandatory.
+parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND IDENTIFIER COLON type_union COMMA type_union (COMMA type_union)* ARROW [type_reference]
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
