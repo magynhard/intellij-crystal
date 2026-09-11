@@ -120,8 +120,9 @@ Pull requests are welcome! Before starting work on a larger change:
 2. **Read [AGENTS.md](AGENTS.md)** — it contains the project's coding
    conventions, build commands, architecture rules, and critical design
    decisions. All code contributions must follow these rules.
-3. **Build and test** — `./gradlew build` (compile + tests). Every
-   implementation must have unit tests (see AGENTS.md → Testing Conventions).
+3. **Build and test** — `./gradlew build` (compile + tests). Bug fixes and
+   behavior changes require a regression test at the lowest suitable level;
+   see the risk-based verification policy in [AGENTS.md](AGENTS.md).
 
 ### Build from source
 

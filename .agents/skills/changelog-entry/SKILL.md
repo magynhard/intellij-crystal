@@ -1,6 +1,8 @@
 # Skill: CHANGELOG Entry
 
-Before EVERY commit, ensure CHANGELOG.md has an entry for the current change.
+Use this workflow when the documentation policy in `AGENTS.md` requires a changelog entry. Do not
+create entries for excluded changes such as typo, formatting, generated-only, or behavior-neutral
+work.
 
 ## Workflow
 
