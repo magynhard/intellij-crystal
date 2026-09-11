@@ -86,4 +86,15 @@ class CrystalLibFunParameterTypeInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testKeywordNameParametersStillChecked() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun select(nfds : Int, readfds : FdSet*) : Int
+              fun select(<error descr="Parameter in lib fun must have a type annotation">value</error>)
+              fun select = c_select(Int32) : Int
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

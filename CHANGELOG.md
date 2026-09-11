@@ -38,6 +38,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   LibFunUppercaseNames golden, negative tests, and an inspection test. The external audit drops
   from 881 errors in 358 files to 810 in 323 (35 repaired files, zero newly failing files);
   indexed is unchanged at 163 in 119.
+- **Keyword `fun` names (`fun select(...)`)** — private `lib_fun_name`/`top_level_fun_name` rules admit
+  `keyword_identifier` per the compiler's IDENT-based name checks, covering lib names, alias targets,
+  and top-level `fun`; operators stay rejected and a bare `fun` cannot swallow the next line's `end`.
+  Covered by the FunKeywordNames golden, boundary tests, and an inspection test. The external audit
+  drops from 810 errors in 323 files to 778 in 307 (16 repaired platform files, zero newly failing
+  files); indexed is unchanged at 163 in 119.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

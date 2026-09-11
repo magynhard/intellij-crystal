@@ -78,4 +78,39 @@ class CrystalInvalidFunParameterTest : BasePlatformTestCase() {
             )
         }
     }
+
+    fun testFunDoesNotSwallowNextLineEnd() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "lib LibC\n  fun\n  end\nend"
+        )
+        assertTrue(
+            "Expected parse error: bare fun must not swallow the next line's end",
+            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+        )
+    }
+
+    fun testRejectsQualifiedKeywordLibFunName() {
+        listOf(
+            "lib LibC\n  fun ::select\nend",
+            "lib LibC\n  fun Foo::select\nend",
+        ).forEach { source ->
+            val file = myFixture.configureByText("test.cr", source)
+            assertTrue(
+                "Expected parse error for '$source'",
+                PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+            )
+        }
+    }
+
+    fun testRejectsOperatorLibFunName() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "lib LibC\n  fun +\nend"
+        )
+        assertTrue(
+            "Expected parse error for operator lib fun name",
+            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+        )
+    }
 }

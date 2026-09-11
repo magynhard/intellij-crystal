@@ -273,9 +273,9 @@ files to 1,029 errors in 510 files, with zero previously-clean files regressing
 (before/after file-set comparison). The pinned indexed corpus drops from 180
 errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
 parser golden. Remaining lib-body gaps, in order of remaining impact:
-keyword-named functions (`fun select(...)`), `$var = symbol` external vars
-(`$free = pcre_free : Void* -> ...`), and `@[...]` annotations plus
-`{% ... %}` / `{{ ... }}` macro forms inside `lib` bodies.
+`$var = symbol` external vars (`$free = pcre_free : Void* -> ...`), and
+`@[...]` annotations plus `{% ... %}` / `{{ ... }}` macro forms inside
+`lib` bodies.
 
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
@@ -491,6 +491,29 @@ errors) advances past three newly parsed declarations to its `{% if %}`
 macro-control gap. The pinned indexed corpus is unchanged at 163 errors in
 119 files (the Windows sources sit outside the 650-file index; its OpenSSL
 copies stop earlier at macro control).
+
+Keyword spellings work as `fun` names: `fun select(nfds : Int, ...) : Int`
+(real shape in every platform `lib_c/.../sys/select.cr`), alias targets
+(`fun select = c_select(...)`), delimiter-critical `fun end`, and top-level
+`fun select`. The compiler keeps word keywords as IDENT tokens, so its
+`IdentOrConst`/`check_ident` name checks accept them at all three fun-name
+positions (src/compiler/crystal/syntax/parser.cr:5930-5945, 6548-6551);
+the plugin lexes them as separate tokens, so private `lib_fun_name` and
+`top_level_fun_name` rules admit `keyword_identifier` alongside IDENTIFIER
+(and CONSTANT in lib). Operators stay rejected — `keyword_as_method` is
+deliberately not used. The alternative is safe against delimiter swallowing
+because newlines never match implicitly in the name position: a bare `fun`
+cannot consume the next line's `end` as its name (boundary-tested), and
+`SELECT` starts no other `lib_member`. Covered by the FunKeywordNames
+parser golden (real select shape, alias, `fun end`, top-level select with
+body, trailing declaration), boundary tests for next-line `end`,
+qualified/absolute names, and operator names, and an inspection test
+proving select parameters stay checked. The external crystal-repository
+audit drops from 810 errors in 323 files to 778 errors in 307 files — all
+16 repaired files are the platform `select` family, each now fully clean —
+verified by before/after file-set comparison with zero newly failing files;
+the pinned indexed corpus is unchanged at 163 errors in 119 files (no
+select source inside the 650-file index).
 
 ## Fix Requirements
 

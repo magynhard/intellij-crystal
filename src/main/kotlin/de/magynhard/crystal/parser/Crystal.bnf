@@ -332,11 +332,17 @@ lib_field ::= IDENTIFIER COLON type_reference
 
 lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
 
-// Lib fun names accept IDENTIFIER or CONSTANT (compiler IdentOrConst);
-// top_level_fun stays IDENTIFIER-only.
-fun_definition ::= FUN (IDENTIFIER | CONSTANT) [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+// Lib and top-level fun names accept word keywords because the compiler
+// keeps them as IDENT tokens (parser.cr IdentOrConst / check_ident);
+// operators stay invalid, so keyword_as_method is deliberately not used.
+// Newlines never match implicitly here, so a bare `fun` cannot swallow the
+// next line's `end` as its name.
+private lib_fun_name ::= IDENTIFIER | CONSTANT | keyword_identifier
+private top_level_fun_name ::= IDENTIFIER | keyword_identifier
 
-top_level_fun ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
+fun_definition ::= FUN lib_fun_name [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+
+top_level_fun ::= FUN top_level_fun_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
 
 type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
 
@@ -469,7 +475,7 @@ private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
 // symbol plus the lib parameter list instead of a call. The string form
 // reuses STRING_EXPRESSION PSI without interpolation support, matching the
 // compiler's "interpolation not allowed in fun name" rejection.
-private lib_fun_external_symbol ::= IDENTIFIER | CONSTANT | lib_fun_external_string
+private lib_fun_external_symbol ::= IDENTIFIER | CONSTANT | keyword_identifier | lib_fun_external_string
 lib_fun_external_string ::= (STRING_LITERAL | STRING_ESCAPE)+ {elementType=string_expression}
 
 // Lib fun signatures allow unnamed type-only parameters (`fun strerror_r(Int,
