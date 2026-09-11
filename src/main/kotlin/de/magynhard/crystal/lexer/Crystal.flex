@@ -196,6 +196,21 @@ import com.intellij.psi.TokenType;
     String word = zzBuffer.subSequence(i + 1, end).toString();
     return word.equals("def");
   }
+
+  /**
+   * Emits the `{SYMBOL}` match as a single SYMBOL_LITERAL, except that the
+   * trailing `=` belongs to a following `==` operator (`:foo==` is `:foo` +
+   * `==`, never the symbol `:foo=`). Crystal's consume_symbol only folds the
+   * `=` into the symbol when no further `=` follows.
+   */
+  private IElementType symbolLiteral() {
+    int len = yylength();
+    if (len >= 1 && yycharat(len - 1) == '=' &&
+        zzMarkedPos < zzBuffer.length() && zzBuffer.charAt(zzMarkedPos) == '=') {
+      yypushback(1);
+    }
+    return CrystalTypes.SYMBOL_LITERAL;
+  }
 %}
 
 // Macros
@@ -231,7 +246,11 @@ CHAR_ESCAPE = "\\" ( [abefnrtv\\'0] | "x" {HEX_DIGIT}{2} | "u" "{" {HEX_DIGIT}+ 
 CHAR_LITERAL = "'" ( [^'\\] | {CHAR_ESCAPE} ) "'"
 
 // Symbol (simple forms only — :"string" handled separately for interpolation support)
-SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
+// A trailing `=` is part of the symbol (`:color=`); `==` is not (`:foo==`
+// is `:foo` + `==`, see consume_symbol in the compiler lexer). The optional
+// `=` therefore always matches greedily and symbolLiteral() pushes it back
+// when another `=` follows immediately.
+SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
 
 %state STRING INTERPOLATION REGEX BACKTICK PERCENT_LITERAL HEREDOC_BODY HEREDOC_PREAMBLE MACRO_BODY MACRO_INTERPOLATION MACRO_CONTROL
 
@@ -323,7 +342,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   // Literals
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
-  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
+  {SYMBOL}             { return symbolLiteral(); }
 
   // Numbers (float before int since float is more specific with dot)
   {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
@@ -621,7 +640,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   {NEWLINE}            { return CrystalTypes.NEWLINE; }
   {LINE_COMMENT}       { return CrystalTypes.LINE_COMMENT; }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
-  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
+  {SYMBOL}             { return symbolLiteral(); }
   "if"                 { return CrystalTypes.IF; }
   "unless"             { return CrystalTypes.UNLESS; }
   "while"              { return CrystalTypes.WHILE; }
@@ -799,7 +818,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "}}"                 { popState(); return CrystalTypes.MACRO_INTERPOLATION_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {NEWLINE}            { return CrystalTypes.NEWLINE; }
-  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
+  {SYMBOL}             { return symbolLiteral(); }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   "if"                 { return CrystalTypes.IF; }
   "unless"             { return CrystalTypes.UNLESS; }
@@ -862,7 +881,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} )
   "%}"                 { popState(); return CrystalTypes.MACRO_CONTROL_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {NEWLINE}            { return CrystalTypes.NEWLINE; }
-  {SYMBOL}             { return CrystalTypes.SYMBOL_LITERAL; }
+  {SYMBOL}             { return symbolLiteral(); }
   ":\"" / [^]          { pushState(STRING); return CrystalTypes.SYMBOL_COLON; }
   "verbatim"           { return CrystalTypes.VERBATIM; }
   "if"                 { return CrystalTypes.IF; }

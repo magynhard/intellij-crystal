@@ -358,6 +358,28 @@ parse cleanly, verified by before/after file-set comparison with zero newly
 failing files); the pinned indexed corpus drops from 173 errors in 126
 files to 171 errors in 125 files (its own `process.cr` copy).
 
+Named symbols carry `?`, `!`, and `=` suffixes: the compiler's
+consume_symbol folds one trailing `=` into the symbol unless another `=`
+follows (`:color=` is `"color="`, `:foo==` is `:foo` + `==`). The plugin
+lexer only allowed `?`/`!`, so `:color=` split into `:color` + `=` and
+`delegate :color?, :color=, ..., to: @editor` (reply `reader.cr:59`) broke
+the bare-argument list at the `=`. The `SYMBOL` macro now takes an optional
+trailing `=` in every lexer state that lexes plain symbols, and a shared
+helper pushes the `=` back when another `=` follows immediately. Operator
+symbols (`:+`, `:[]`, `:==`) stay out of scope: the compiler only produces
+them with `wants_symbol` lookahead, which needs its own analysis. Covered
+by lexer token tests (`:color=`, `:Constant=`, `:foo==` stays symbol + `EQ`,
+`?`/`!` unchanged) and the SetterSymbolArgument parser golden (both real
+`delegate` shapes with a trailing definition). The external
+crystal-repository audit drops from 1,019 errors in 502 files to 1,015
+errors in 499 files (`spec/std/object_spec.cr`, `src/io/hexdump.cr`, and
+`src/log/log.cr` parse cleanly; reply `reader.cr` advances past both
+`delegate` lines and now fails later at an unrelated `case`/`in`/`then`
+shape), verified by before/after file-set comparison with zero newly
+failing files; the pinned indexed corpus drops from 171 errors in 125
+files to 168 errors in 123 files (its own `io/hexdump.cr` and `log/log.cr`
+copies).
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

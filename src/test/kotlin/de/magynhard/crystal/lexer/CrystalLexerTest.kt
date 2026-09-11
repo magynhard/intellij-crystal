@@ -219,6 +219,41 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testSetterSymbolIsSingleToken() {
+        // `:color=` is one symbol (delegate :color=, ...), not `:color` + `=`.
+        val tokens = nonWhitespaceTokens(":color=")
+        assertEquals(1, tokens.size)
+        assertEquals(CrystalTypes.SYMBOL_LITERAL, tokens[0].first)
+        assertEquals(":color=", tokens[0].second)
+    }
+
+    @Test
+    fun testConstantSetterSymbolIsSingleToken() {
+        val tokens = nonWhitespaceTokens(":Constant=")
+        assertEquals(1, tokens.size)
+        assertEquals(CrystalTypes.SYMBOL_LITERAL, tokens[0].first)
+        assertEquals(":Constant=", tokens[0].second)
+    }
+
+    @Test
+    fun testSymbolBeforeDoubleEqualsKeepsOperator() {
+        // `:foo==` is `:foo` + `==`, never the symbol `:foo=`.
+        val tokens = nonWhitespaceTokens(":foo==")
+        assertEquals(2, tokens.size)
+        assertEquals(CrystalTypes.SYMBOL_LITERAL, tokens[0].first)
+        assertEquals(":foo", tokens[0].second)
+        assertEquals(CrystalTypes.EQ, tokens[1].first)
+    }
+
+    @Test
+    fun testQuestionAndBangSymbolsUnchanged() {
+        val question = nonWhitespaceTokens(":color?")
+        assertEquals(listOf(CrystalTypes.SYMBOL_LITERAL to ":color?"), question.map { it.first to it.second })
+        val bang = nonWhitespaceTokens(":color!")
+        assertEquals(listOf(CrystalTypes.SYMBOL_LITERAL to ":color!"), bang.map { it.first to it.second })
+    }
+
+    @Test
     fun testCharLiteral() {
         val tokens = nonWhitespaceTokens("'a'")
         assertEquals(1, tokens.size)

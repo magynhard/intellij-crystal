@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
+  `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
+  reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the
+  compiler's `consume_symbol`), with a pushback when another `=` follows (`:foo==` stays symbol
+  + `==`). Operator symbols (`:+`, `:[]`) remain out of scope. Covered by lexer token tests and
+  the SetterSymbolArgument parser golden. The external crystal-repository audit drops from 1,019
+  errors in 502 files to 1,015 in 499 (zero newly failing files); the pinned indexed corpus drops
+  from 171 in 125 to 168 in 123.
 - **Any keyword works as an external parameter name** — the parameter rule accepted only
   identifiers (plus a special-cased `end`), so `def self.history(with entries = ...)` (reply
   `spec_helper.cr`) and `exec_stdio_to_fd(stdio, for dst_io : ...)` (`src/process.cr:362`) failed
