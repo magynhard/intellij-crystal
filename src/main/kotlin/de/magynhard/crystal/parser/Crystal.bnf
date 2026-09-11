@@ -332,7 +332,7 @@ lib_field ::= IDENTIFIER COLON type_reference
 
 lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
 
-fun_definition ::= FUN IDENTIFIER [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+fun_definition ::= FUN IDENTIFIER [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
 
 top_level_fun ::= FUN IDENTIFIER [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
 
@@ -459,6 +459,16 @@ macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] ma
 
 parameter_list ::= [parameter_item (COMMA NLS parameter_item)* [COMMA]]
 private parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter
+
+// External FFI symbol of a lib fun (`fun iconv = libiconv(...)`,
+// `fun realpath = "realpath$DARWIN_EXTSN"(...)`, compiler parse_fun_def).
+// Only bare identifiers, constants, and non-interpolated strings qualify —
+// never a general expression, so `bar(Int32)` keeps binding as the external
+// symbol plus the lib parameter list instead of a call. The string form
+// reuses STRING_EXPRESSION PSI without interpolation support, matching the
+// compiler's "interpolation not allowed in fun name" rejection.
+private lib_fun_external_symbol ::= IDENTIFIER | CONSTANT | lib_fun_external_string
+lib_fun_external_string ::= (STRING_LITERAL | STRING_ESCAPE)+ {elementType=string_expression}
 
 // Lib fun signatures allow unnamed type-only parameters (`fun strerror_r(Int,
 // Char*, SizeT)`, compiler parser.cr `parse_lib_body_exp` unnamed branch).

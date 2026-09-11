@@ -64,4 +64,15 @@ class CrystalLibFunParameterTypeInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testAliasParametersStillChecked() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun native = Native(<error descr="Parameter in lib fun must have a type annotation">value</error>)
+              fun typed = Native2(value : Int32)
+              fun untyped = "native3"(Int32)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

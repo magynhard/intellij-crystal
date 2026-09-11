@@ -27,4 +27,31 @@ class CrystalInvalidFunParameterTest : BasePlatformTestCase() {
             PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
         )
     }
+
+    fun testRejectsTopLevelFunAlias() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "fun foo = bar\nend"
+        )
+        assertTrue(
+            "Expected parse error for fun alias outside lib",
+            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+        )
+    }
+
+    fun testRejectsInvalidLibFunAliasTargets() {
+        listOf(
+            "lib LibC\n  fun interpolated = \"bar#{suffix}\"\nend",
+            "lib LibC\n  fun numeric = 1\nend",
+            "lib LibC\n  fun symbolic = :bar\nend",
+            "lib LibC\n  fun qualified = LibC::bar\nend",
+            "lib LibC\n  fun incomplete =\nend",
+        ).forEach { source ->
+            val file = myFixture.configureByText("test.cr", source)
+            assertTrue(
+                "Expected parse error for '$source'",
+                PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+            )
+        }
+    }
 }

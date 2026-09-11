@@ -3720,7 +3720,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // FUN IDENTIFIER [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference]
+  // FUN IDENTIFIER [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference]
   public static boolean fun_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "fun_definition")) return false;
     if (!nextTokenIs(builder_, FUN)) return false;
@@ -3729,21 +3729,80 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeTokens(builder_, 1, FUN, IDENTIFIER);
     pinned_ = result_; // pin = 1
     result_ = result_ && report_error_(builder_, fun_definition_2(builder_, level_ + 1));
-    result_ = pinned_ && fun_definition_3(builder_, level_ + 1) && result_;
+    result_ = pinned_ && report_error_(builder_, fun_definition_3(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && fun_definition_4(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
 
-  // [LPAREN NLS lib_fun_parameter_list NLS RPAREN]
+  // [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]]
   private static boolean fun_definition_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "fun_definition_2")) return false;
     fun_definition_2_0(builder_, level_ + 1);
     return true;
   }
 
-  // LPAREN NLS lib_fun_parameter_list NLS RPAREN
+  // NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]
   private static boolean fun_definition_2_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "fun_definition_2_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, ASSIGN);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && lib_fun_external_symbol(builder_, level_ + 1);
+    result_ = result_ && fun_definition_2_0_4(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [NLS &(LPAREN | COLON)]
+  private static boolean fun_definition_2_0_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_2_0_4")) return false;
+    fun_definition_2_0_4_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS &(LPAREN | COLON)
+  private static boolean fun_definition_2_0_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_2_0_4_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && fun_definition_2_0_4_0_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &(LPAREN | COLON)
+  private static boolean fun_definition_2_0_4_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_2_0_4_0_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = fun_definition_2_0_4_0_1_0(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // LPAREN | COLON
+  private static boolean fun_definition_2_0_4_0_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_2_0_4_0_1_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, LPAREN);
+    if (!result_) result_ = consumeToken(builder_, COLON);
+    return result_;
+  }
+
+  // [LPAREN NLS lib_fun_parameter_list NLS RPAREN]
+  private static boolean fun_definition_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_3")) return false;
+    fun_definition_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // LPAREN NLS lib_fun_parameter_list NLS RPAREN
+  private static boolean fun_definition_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LPAREN);
@@ -3756,15 +3815,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [COLON type_reference]
-  private static boolean fun_definition_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "fun_definition_3")) return false;
-    fun_definition_3_0(builder_, level_ + 1);
+  private static boolean fun_definition_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_4")) return false;
+    fun_definition_4_0(builder_, level_ + 1);
     return true;
   }
 
   // COLON type_reference
-  private static boolean fun_definition_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "fun_definition_3_0")) return false;
+  private static boolean fun_definition_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "fun_definition_4_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, COLON);
@@ -4653,6 +4712,43 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeTokens(builder_, 0, IDENTIFIER, COLON);
     result_ = result_ && type_reference(builder_, level_ + 1);
     exit_section_(builder_, marker_, LIB_FIELD, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // (STRING_LITERAL | STRING_ESCAPE)+
+  public static boolean lib_fun_external_string(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_fun_external_string")) return false;
+    if (!nextTokenIs(builder_, "<lib fun external string>", STRING_ESCAPE, STRING_LITERAL)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, STRING_EXPRESSION, "<lib fun external string>");
+    result_ = lib_fun_external_string_0(builder_, level_ + 1);
+    while (result_) {
+      int pos_ = current_position_(builder_);
+      if (!lib_fun_external_string_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "lib_fun_external_string", pos_)) break;
+    }
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // STRING_LITERAL | STRING_ESCAPE
+  private static boolean lib_fun_external_string_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_fun_external_string_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // IDENTIFIER | CONSTANT | lib_fun_external_string
+  static boolean lib_fun_external_symbol(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_fun_external_symbol")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = lib_fun_external_string(builder_, level_ + 1);
     return result_;
   }
 

@@ -440,6 +440,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testLibFunExternalAliases() {
+        doTest(true)
+    }
+
     fun testNamespaceAccess() {
         doTest(true)
     }

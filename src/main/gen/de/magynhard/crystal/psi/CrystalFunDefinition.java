@@ -11,6 +11,9 @@ public interface CrystalFunDefinition extends PsiElement {
   CrystalParameterList getParameterList();
 
   @Nullable
+  CrystalStringExpression getStringExpression();
+
+  @Nullable
   CrystalTypeReference getTypeReference();
 
 }

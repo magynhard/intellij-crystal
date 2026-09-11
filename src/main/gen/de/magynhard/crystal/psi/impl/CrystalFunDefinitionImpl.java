@@ -35,6 +35,12 @@ public class CrystalFunDefinitionImpl extends ASTWrapperPsiElement implements Cr
 
   @Override
   @Nullable
+  public CrystalStringExpression getStringExpression() {
+    return PsiTreeUtil.getChildOfType(this, CrystalStringExpression.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalTypeReference getTypeReference() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypeReference.class);
   }

@@ -23,6 +23,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   negative tests, and inspection tests. The external audit drops from 1,005 errors in 494 files
   to 900 in 397 (all 97 repaired files are the lib_c platform family, zero newly failing files);
   indexed is unchanged at 163 in 120.
+- **External `lib fun` symbol aliases (`fun iconv = libiconv(...)`)** — an optional alias segment
+  scoped to `fun_definition` accepts identifiers, constants, and non-interpolated strings (reusing
+  `STRING_EXPRESSION` PSI; interpolated, numeric, symbol, and qualified targets stay invalid, as do
+  top-level aliases). Newlines bind only to a following `(`/`:`, and no general expression is
+  admitted, so `bar(Int32)` keeps binding as symbol plus parameter list. Covered by the
+  LibFunExternalAliases golden, negative tests, and an alias-parameter inspection test. The
+  external audit drops from 900 errors in 397 files to 881 in 358 (39 repaired files, zero newly
+  failing files); indexed drops from 163 in 120 to 163 in 119 (`regex/lib_pcre2.cr` clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

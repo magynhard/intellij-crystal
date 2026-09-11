@@ -273,11 +273,11 @@ files to 1,029 errors in 510 files, with zero previously-clean files regressing
 (before/after file-set comparison). The pinned indexed corpus drops from 180
 errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
 parser golden. Remaining lib-body gaps, in order of remaining impact:
-external symbol aliases (`fun iconv = libiconv(...)`, `fun realpath =
-"realpath$DARWIN_EXTSN"(...)`), uppercase Windows/LLVM function names
+uppercase Windows/LLVM function names
 (`fun GetConsoleScreenBufferInfo(...)`), keyword-named functions
-(`fun select(...)`), and `@[...]` annotations plus `{% ... %}` / `{{ ... }}`
-macro forms inside `lib` bodies.
+(`fun select(...)`), `$var = symbol` external vars
+(`$free = pcre_free : Void* -> ...`), and `@[...]` annotations plus
+`{% ... %}` / `{{ ... }}` macro forms inside `lib` bodies.
 
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
@@ -437,6 +437,35 @@ to 900 errors in 397 files — all 97 repaired files are the lib_c platform
 family — verified by before/after file-set comparison with zero newly
 failing files; the pinned indexed corpus is unchanged at 163 errors in 120
 files (those platform sources sit outside the 650-file index).
+
+External FFI symbol aliases bind through `fun_definition`:
+`fun iconv = libiconv(...)` (crystal/lib_iconv.cr), string symbols
+`fun realpath = "realpath$DARWIN_EXTSN"(...)`, constant symbols
+`fun tlsv1_method = TLSv1_method : SSLMethod` (openssl), and multiline
+aliases whose newline binds to the following `(` or `:` per the formatter
+spec. The compiler reads the real name after `=` as identifier, constant,
+or non-interpolated string
+(src/compiler/crystal/syntax/parser.cr:5949-5960; parser_spec.cr:1312-1315)
+and rejects interpolation ("interpolation not allowed in fun name"). The
+alias segment is optional and scoped to `fun_definition`, so top-level
+`fun foo = bar` stays invalid; the symbol rule admits no general
+expression, so `bar(Int32)` still binds as the external symbol plus the lib
+parameter list. The string target reuses STRING_EXPRESSION PSI without
+interpolation support (GrammarKit adds a `getStringExpression` accessor to
+`CrystalFunDefinition`; no new node type, no stub change). Uppercase and
+keyword local names stay separate families. Covered by the
+LibFunExternalAliases parser golden (identifier/constant/string/multiline
+targets, named/unnamed params, return type, trailing declaration), negative
+tests for interpolated/numeric/symbol/qualified/incomplete targets and
+top-level aliases, and an inspection test proving alias parameters stay
+checked. The external crystal-repository audit drops from 900 errors in 397
+files to 881 errors in 358 files — 39 repaired files, all alias-led —
+verified by before/after file-set comparison with zero newly failing files;
+8 still-failing files report more localized errors because the alias repair
+advances them to the next gap (`@[...]` annotations, `{% %}` macro control,
+`$var = symbol` external vars). The pinned indexed corpus drops from 163
+errors in 120 files to 163 errors in 119 files (`regex/lib_pcre2.cr` parses
+cleanly; `regex/lib_pcre.cr` advances to its `$free = pcre_free` line).
 
 ## Fix Requirements
 
