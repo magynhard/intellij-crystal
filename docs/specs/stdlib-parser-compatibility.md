@@ -273,7 +273,6 @@ files to 1,029 errors in 510 files, with zero previously-clean files regressing
 (before/after file-set comparison). The pinned indexed corpus drops from 180
 errors in 127 files to 173 errors in 126 files. Covered by the LibConstants
 parser golden. Remaining lib-body gaps, in order of remaining impact:
-`$var = symbol` external vars (`$free = pcre_free : Void* -> ...`), and
 `@[...]` annotations plus `{% ... %}` / `{{ ... }}` macro forms inside
 `lib` bodies.
 
@@ -514,6 +513,28 @@ audit drops from 810 errors in 323 files to 778 errors in 307 files — all
 verified by before/after file-set comparison with zero newly failing files;
 the pinned indexed corpus is unchanged at 163 errors in 119 files (no
 select source inside the 650-file index).
+
+External vars take plain symbols after `=`: `$free = pcre_free : Void* ->`
+(`src/regex/lib_pcre.cr:113`), `$stackbottom = GC_stackbottom : Void*`
+(`src/gc/boehm.cr:128`), and keyword spellings (`$select_alias = select`).
+The compiler reads the real name as identifier or constant
+(`check IdentOrConst`, src/compiler/crystal/syntax/parser.cr:5904-5909;
+parser_spec.cr:1318) and rejects anything else — including a newline after
+`=` (`next_token_skip_space`, verified against the 1.21.0 compiler) — so
+the private `lib_external_symbol` rule admits exactly `IDENTIFIER`,
+`CONSTANT`, and `keyword_identifier` next to the legacy string form, with
+no `NLS` after `ASSIGN`. The bare-proc type after `:` stays
+`type_reference` (its `ARROW` branch already covers `Void* ->`). No lexer,
+PSI, or stub change (alias targets stay plain leaves; `CrystalLibExternalVar`
+gains no accessor), and no inspection consumes the node yet. Covered by the
+extended LibExternalVar parser golden (real pcre/boehm shapes, keyword
+alias, legacy string alias, trailing declaration) and negative tests for
+numeric/symbol/qualified/incomplete targets, newline after `=`, and a
+missing type. The external crystal-repository audit drops from 778 errors
+in 307 files to 776 errors in 306 files (`src/regex/lib_pcre.cr` fully
+clean); the pinned indexed corpus drops from 163 errors in 119 files to
+161 errors in 118 files (`regex/lib_pcre.cr` fully clean) — both verified
+by before/after file-set comparison with zero newly failing files.
 
 ## Fix Requirements
 

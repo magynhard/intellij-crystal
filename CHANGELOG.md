@@ -44,6 +44,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   Covered by the FunKeywordNames golden, boundary tests, and an inspection test. The external audit
   drops from 810 errors in 323 files to 778 in 307 (16 repaired platform files, zero newly failing
   files); indexed is unchanged at 163 in 119.
+- **`$var = symbol` external vars (`$free = pcre_free : Void* ->`)** — private `lib_external_symbol`
+  rule admits `IDENTIFIER`, `CONSTANT`, and `keyword_identifier` per the compiler's `IdentOrConst`
+  check, next to the legacy string form and with no newline after `=`; the `Void* ->` type reuses
+  `type_reference`. No lexer, PSI, or stub change. Covered by the extended LibExternalVar golden and
+  negative tests. The external audit drops from 778 errors in 307 files to 776 in 306
+  (`src/regex/lib_pcre.cr` fully clean); indexed drops from 163 in 119 to 161 in 118
+  (`regex/lib_pcre.cr` fully clean), both with zero newly failing files.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

@@ -330,7 +330,14 @@ private lib_member ::= NEWLINE | SEMICOLON | constant_assignment | fun_definitio
 
 lib_field ::= IDENTIFIER COLON type_reference
 
-lib_external_var ::= GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
+// External vars take a plain symbol after `=` (compiler IdentOrConst:
+// parser.cr:5904-5909 reads the real name as identifier or constant), so
+// `lib_external_var` accepts the fun-style symbol rule next to the legacy
+// string form. The bare-proc type after `:` stays `type_reference`
+// (its ARROW branch already covers `Void* ->`).
+lib_external_var ::= GLOBAL_VAR [ASSIGN lib_external_symbol] COLON type_reference
+
+private lib_external_symbol ::= IDENTIFIER | CONSTANT | keyword_identifier | string_expression
 
 // Lib and top-level fun names accept word keywords because the compiler
 // keeps them as IDENT tokens (parser.cr IdentOrConst / check_ident);

@@ -4671,7 +4671,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // GLOBAL_VAR [ASSIGN string_expression] COLON type_reference
+  // IDENTIFIER | CONSTANT | keyword_identifier | string_expression
+  static boolean lib_external_symbol(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_external_symbol")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
+    if (!result_) result_ = string_expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // GLOBAL_VAR [ASSIGN lib_external_symbol] COLON type_reference
   public static boolean lib_external_var(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_external_var")) return false;
     if (!nextTokenIs(builder_, GLOBAL_VAR)) return false;
@@ -4685,20 +4697,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [ASSIGN string_expression]
+  // [ASSIGN lib_external_symbol]
   private static boolean lib_external_var_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_external_var_1")) return false;
     lib_external_var_1_0(builder_, level_ + 1);
     return true;
   }
 
-  // ASSIGN string_expression
+  // ASSIGN lib_external_symbol
   private static boolean lib_external_var_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_external_var_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, ASSIGN);
-    result_ = result_ && string_expression(builder_, level_ + 1);
+    result_ = result_ && lib_external_symbol(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }

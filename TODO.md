@@ -108,12 +108,11 @@
   untyped positional fun parameters (`fun strerror_r(Int, Char*, SizeT) : Int`) are done
   (external audit 1,005/494 → 900/397) and external `fun name = symbol` aliases are done
   (external audit 900/397 → 881/358); uppercase `lib fun` names are done
-  (external audit 881/358 → 810/323);
   (external audit 881/358 → 810/323); keyword `fun` names are done
-  (external audit 810/323 → 778/307);
-  next: (a) `$var = symbol` external vars (`$free = pcre_free : Void* -> ...`),
-  (b) `@[Flags]`-style annotations inside `lib` bodies,
-  (c) `{% %}` / `{{ }}` macro-control/interpolation in `lib` bodies.
+  (external audit 810/323 → 778/307); `$var = symbol` external vars are done
+  (external audit 778/307 → 776/306; indexed 163/119 → 161/118);
+  next: (a) `@[Flags]`-style annotations inside `lib` bodies,
+  (b) `{% %}` / `{{ }}` macro-control/interpolation in `lib` bodies.
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).
 - [ ] **Trace the last shard argument-count finding** — kemal's own sources (src/ + spec/, including static_file_handler_spec.etag_with_coding:135), ameba's typos.cr `as:` DSL finding, and the ameba `as_node <<-CRYSTAL` pool (variable_spec:102) are clear. The one remaining finding is `arg` in excessive_allocations_spec:10 ("expected at most 0, got 1"), needing its own trace. (Fixed along the way: extractArguments now handles the bare (parenthesis-free) argument-list form of CrystalBareMethodCallExpression — the heredoc-header marker argument of `as_node <<-CRYSTAL` used to vanish, so the def saw zero arguments and reported "Missing 'source'"; earlier: macro-invocation block bodies are macro data via CrystalMacroContext.isInsideMacroCallBlock, the tight bracket after a dot-call method name always binds as the receiver's index postfix, `Reference.new(node, scope)` resolves the sibling `Ameba::AST::Reference` through the program closure, macro-call arguments are no longer checked as runtime calls, and proc-literal parameters resolve as local declarations.)
 - [ ] **Standalone chained-call argument checks** — the resolved-env.status(...).json(...) chains are clean now (the hash-key fix); when chained-call receivers gain exact typing, wire the standalone chain forms into the same argument checks with the regression shape `env.status(:not_found).json({error: "User not found"})`.
