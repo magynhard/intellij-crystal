@@ -5,6 +5,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Member targets in multi-assignments (`a.foo, a.bar = 1, 2`)** — the target rule accepted
+  only plain variables, so `@editor.width, @editor.height = ...` (reply `reader.cr`) broke the
+  enclosing `loop do` block. A private member-target rule (variable/constant receiver plus
+  argument-free dot accesses, incl. splats) precedes the plain form; calls with arguments,
+  parentheses, or blocks stay rejected, matching the compiler. The rule pins at the `=` rather
+  than the target list, so `when`-lists and brace tuples without `=` (`Set{foo, bar}`) still fall
+  back to plain expressions — pinning earlier regressed `src/time/tz.cr`. Covered by the
+  MultiAssignMemberTargets golden and negative tests. The external audit drops from 1,015 errors
+  in 499 files to 1,005 in 494 (zero newly failing files); indexed drops from 168 in 123 to 163
+  in 120.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

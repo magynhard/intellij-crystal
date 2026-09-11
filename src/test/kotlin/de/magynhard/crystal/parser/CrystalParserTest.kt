@@ -255,6 +255,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMultiAssignMemberTargets() {
+        doTest(true)
+    }
+
     fun testMultiParamBlock() {
         doTest(true)
     }

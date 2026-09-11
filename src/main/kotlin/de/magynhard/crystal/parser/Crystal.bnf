@@ -693,13 +693,30 @@ private assignment_target ::= variable | instance_var_access | class_var_access
 // Postfix modifiers apply to multi-assignments exactly like plain assignments
 // (`u, v = v, u if u > v` in int.cr's gcd) — without it the trailing `if`
 // opens an if_statement that swallows the enclosing method's `end`.
-multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values [postfix_modifier] {pin=4}
+// Pinned at the ASSIGN (element 5), not at the target list: before the `=`
+// the prefix may still be a plain comma-separated expression list
+// (`when transitions.empty?, unix_seconds < ...` in time/tz.cr) — only the
+// `=` commits the assignment shape. Member targets made the prefix greedier
+// (`transitions.empty?,`), so pinning any earlier strands the expression-list
+// fallback behind the pin.
+multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values [postfix_modifier] {pin=5}
 private multi_assign_target_list ::= multi_assign_target (COMMA NLS multi_assign_target)*
-multi_assign_target ::= STAR variable
-                       | STAR UNDERSCORE
+multi_assign_target ::= STAR (multi_assign_member_target | variable | UNDERSCORE)
+                       | multi_assign_member_target
                        | variable [COLON type_reference]
                        | UNDERSCORE
                        | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
+// Setter-shaped member targets: `@editor.width, @editor.height = ...`
+// (reply reader.cr), `a.foo, a.bar = 1, 2`, `a.b.c, d = 1, 2`
+// (compiler parser_spec). At least one argument-free dot access on a
+// variable or constant receiver; calls with arguments, parentheses, or
+// blocks stay rejected exactly like the compiler (verified: `a.foo()` and
+// `a.@x` fail, while `a.foo?`, `Foo.bar`, and `a.Foo` parse as targets).
+// Member alternatives precede the plain variable form so PEG does not
+// commit the receiver alone and strand the dot access.
+private multi_assign_member_target ::= multi_assign_member_root (DOT multi_assign_member_name)+
+private multi_assign_member_root ::= variable | CONSTANT
+private multi_assign_member_name ::= IDENTIFIER | CONSTANT | keyword_as_method
 private multi_assign_values ::= expression (COMMA expression)*
 
 constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {

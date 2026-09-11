@@ -374,11 +374,43 @@ by lexer token tests (`:color=`, `:Constant=`, `:foo==` stays symbol + `EQ`,
 crystal-repository audit drops from 1,019 errors in 502 files to 1,015
 errors in 499 files (`spec/std/object_spec.cr`, `src/io/hexdump.cr`, and
 `src/log/log.cr` parse cleanly; reply `reader.cr` advances past both
-`delegate` lines and now fails later at an unrelated `case`/`in`/`then`
-shape), verified by before/after file-set comparison with zero newly
-failing files; the pinned indexed corpus drops from 171 errors in 125
-files to 168 errors in 123 files (its own `io/hexdump.cr` and `log/log.cr`
-copies).
+`delegate` lines and then fails at its `@editor.width, @editor.height`
+member multi-assignment), verified by before/after file-set comparison
+with zero newly failing files; the pinned indexed corpus drops from 171
+errors in 125 files to 168 errors in 123 files (its own `io/hexdump.cr`
+and `log/log.cr` copies).
+
+Multi-assignment targets accept argument-free member accesses:
+`@editor.width, @editor.height = Term::Size.size` (reply `reader.cr:214`),
+`a.foo, a.bar = 1, 2`, `*a.foo, a.bar = 1`, `a.b.c, d = 1, 2` (all
+compiler-verified in parser_spec). A new private `multi_assign_member_target`
+(a variable or constant receiver plus at least one dot access) precedes the
+plain variable alternative so PEG never commits the receiver alone; splatted
+member targets reuse the existing `STAR` prefix without changing established
+PSI shapes. Calls with arguments, parentheses, or blocks stay rejected
+(`a.foo()`, `a.b {}`, `a.@x` all fail in the compiler too). Predicate-style
+member names need no `?`/`!` guard: the compiler itself accepts `a.foo?` as
+a target (only the single-target `b? = 1` fails, through a different path),
+and keyword/constant member names (`Foo.bar`, `a.Foo`) parse as targets.
+The rule is pinned at the `ASSIGN` (element 5), not at the target list:
+before the `=` the prefix may still be a plain expression list, and member
+targets made that prefix greedier (`transitions.empty?,` in time/tz.cr's
+`when transitions.empty?, unix_seconds < ...`, or `foo, bar` inside
+`Set{foo, bar}`) — pinning any earlier strands the expression-list fallback
+behind the pin and regresses `src/time/tz.cr`. Indexed member targets
+(`a[0], a[1] = 1, 2`) stay a separate family. Covered by the
+MultiAssignMemberTargets parser golden (real reader excerpt, splats, the
+`when`-list shape, trailing definition) and negative tests for
+argument/block/ivar targets. The external crystal-repository audit drops
+from 1,015 errors in 499 files to 1,005 errors in 494 files
+(`spec/std/struct_spec.cr` via the pin fix, `semantic_visitor.cr`,
+`formatter.cr`, `win32/process.cr`, `csv/builder.cr`), with further cascade
+reductions in `lib_sdl.cr`, the compiler `lexer.cr`, and `fiber.cr`;
+reply `reader.cr` still fails later at its `case`/`in`/`then` series, which
+now becomes the next isolated family. Verified by before/after file-set
+comparison with zero newly failing files; the pinned indexed corpus drops
+from 168 errors in 123 files to 163 errors in 120 files
+(`semantic_visitor.cr`, `formatter.cr`, `csv/builder.cr`).
 
 ## Fix Requirements
 
