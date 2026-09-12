@@ -5,6 +5,8 @@ import com.intellij.psi.TokenType
 import de.magynhard.crystal.psi.CrystalTypes
 
 object CrystalParserPredicates {
+    private val SPLAT_FRAGMENT_SUFFIX = Regex("[\\s\\S]*\\.\\s*splat\\s*(\\([^()]*\\))?\\s*")
+
     @JvmStatic
     fun isRecordDeclaration(
         builder: PsiBuilder,
@@ -50,6 +52,47 @@ object CrystalParserPredicates {
      * never `0.seconds(..1.day)`); Crystal rejects a leading `..` in bare
      * argument position ("wrong number of arguments").
      */
+    /**
+     * Gates macro-generated parameter fragments: immediately after a
+     * `macro_interpolation` element, accepts only fragments whose text ends
+     * with `.splat` (optionally with an argument list), e.g.
+     * `{{ properties.map do |field| ... end.splat }}` or
+     * `{{ operands.splat(", ") }}`. Bare `{{ x }}` fragments stay syntax
+     * errors, so the parameter rule keeps rejecting them.
+     */
+    @JvmStatic
+    fun isMacroSplatFragment(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        var step = -1
+        var token = builder.rawLookup(step)
+        while (token === TokenType.WHITE_SPACE || token === CrystalTypes.NEWLINE) {
+            step--
+            token = builder.rawLookup(step)
+        }
+        if (token !== CrystalTypes.MACRO_INTERPOLATION_END) return false
+        val fragmentEnd = builder.rawTokenTypeStart(step)
+        var depth = 0
+        while (true) {
+            step--
+            token = builder.rawLookup(step) ?: return false
+            if (token === CrystalTypes.MACRO_INTERPOLATION_END) {
+                depth++
+            } else if (token === CrystalTypes.MACRO_INTERPOLATION_BEGIN) {
+                if (depth == 0) {
+                    // The begin token is always exactly `{{`.
+                    val fragment = builder.originalText.subSequence(
+                        builder.rawTokenTypeStart(step) + 2,
+                        fragmentEnd
+                    )
+                    return SPLAT_FRAGMENT_SUFFIX.containsMatchIn(fragment)
+                }
+                depth--
+            }
+        }
+    }
+
     @JvmStatic
     fun isDotBareArgsBinaryOp(
         builder: PsiBuilder,

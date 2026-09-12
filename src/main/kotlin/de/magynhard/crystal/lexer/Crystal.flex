@@ -645,6 +645,10 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "unless"             { return CrystalTypes.UNLESS; }
   "while"              { return CrystalTypes.WHILE; }
   "until"              { return CrystalTypes.UNTIL; }
+  // do/end blocks inside string interpolations (`"#{list.map do |x| x end}"`
+  // is compiler-valid): reserved words, so no identifier lexing can change.
+  "do"                 { return CrystalTypes.DO; }
+  "end"                { return CrystalTypes.END; }
   "rescue"             { return CrystalTypes.RESCUE; }
   "require"            { return CrystalTypes.REQUIRE; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
@@ -824,6 +828,13 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "unless"             { return CrystalTypes.UNLESS; }
   "while"              { return CrystalTypes.WHILE; }
   "until"              { return CrystalTypes.UNTIL; }
+  // do/end blocks inside macro interpolations (`{{ properties.map do
+  // |field| ... end.splat }}` in macros.cr `record`): mirror MACRO_CONTROL
+  // so block bodies lex with real structure instead of collapsing to
+  // IDENTIFIERs. `do`/`end` are reserved words, so no identifier lexing
+  // can change.
+  "do"                 { return CrystalTypes.DO; }
+  "end"                { return CrystalTypes.END; }
   "rescue"             { return CrystalTypes.RESCUE; }
   "require"            { return CrystalTypes.REQUIRE; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }

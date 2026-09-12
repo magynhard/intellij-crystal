@@ -414,6 +414,9 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 param.node.findChildByType(CrystalTypes.AMPERSAND) != null -> continue
                 param.node.findChildByType(CrystalTypes.STAR) != null -> { hasSplat = true; continue }
                 param.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null -> { hasDoubleSplat = true; continue }
+                // Macro-generated splat fragments (`{{ items.splat }}`) expand to an
+                // unknown number of parameters: suppress count diagnostics like a splat.
+                param.node.findChildByType(CrystalTypes.MACRO_INTERPOLATION) != null -> { hasSplat = true; continue }
             }
             val name = param.parameterNameInfo().callSiteName ?: continue
             val hasDefault = param.expression != null

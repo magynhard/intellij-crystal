@@ -528,6 +528,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroSplatParameters() {
+        doTest(true)
+    }
+
     fun testAnnotationDefinitionWithStub() {
         doTest(true)
     }

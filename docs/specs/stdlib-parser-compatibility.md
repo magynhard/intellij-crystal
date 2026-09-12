@@ -515,6 +515,31 @@ unrelated gaps (`{{operand.var}}, ip = ...` multi-assign fragment and
 `private macro call(...)`). The pinned indexed corpus drops from 92 errors in
 82 files to 84 in 79 (3 repaired files fully clean).
 
+Macro-generated splat parameters parse: `def initialize({{
+properties.map do |field| ... end.splat }})` (macros.cr `record`) and
+`def {{name.id}}({{operands.splat(", ")}}*, node : ASTNode?)` (the
+interpreter's per-opcode defs). Two coordinated changes: the
+`MACRO_INTERPOLATION` (and string `INTERPOLATION`) lexer states now emit
+`do`/`end` keywords — both compiler-valid inside interpolations, both
+reserved words, so no identifier lexing can change — giving multi-line
+blocks real structure; and a new `parameter` branch binds a
+`macro_interpolation` as one `CrystalParameter` only when the fragment ends
+in `.splat(...)` (new `isMacroSplatFragment` predicate over the raw token
+text), with an optional tight `*` named-only marker. Bare `{{ x }}`
+fragments stay syntax errors with unchanged signatures. The argument-count
+inspection treats fragment parameters as unknown arity (splat-like) instead
+of flagging counts. Regenerated `CrystalLexer.java` (table noise plus the
+shared do/end actions) and `CrystalParser.java`; no new PSI element, no
+stub or index-key change, hence no stub-version bump. Covered by the
+MacroSplatParameters parser golden (verbatim `record` body with a real
+`block` node, the `{% for %}`-generated def shape, a one-liner, and a
+trailing declaration), negative tests for bare fragments, and an inspection
+test proving count suppression. The external crystal-repository audit drops
+from 163 errors in 149 files to 160 errors in 147 files (`macros.cr` and
+`interpreter/compiler.cr` fully clean) — verified by before/after file-set
+comparison with zero newly failing files. The pinned indexed corpus drops
+from 84 errors in 79 files to 81 in 77.
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

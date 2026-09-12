@@ -598,7 +598,16 @@ parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | inst
             | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | param_prefix* AMPERSAND [COLON type_reference]
-            | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN {
+            | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
+// Macro-generated splat fragments (`def initialize({{ properties.map do
+// |field| ... end.splat }})` in macros.cr `record`, `def {{name.id}}(
+// {{operands.splat(", ")}}*, node : ASTNode?)` in the interpreter): the
+// fragment expands to whole parameters, so it binds as one CrystalParameter
+// whose interpolation child keeps the existing PSI. The splat predicate
+// gates admission to fragments ending in `.splat(...)` — bare `{{ x }}`
+// stays a syntax error — and the trailing STAR (the named-only marker)
+// binds only when tight, exactly as written (`}}*`).
+            | param_prefix* macro_interpolation &<<isMacroSplatFragment>> [&<<isTokenTightAfterPreviousToken>> STAR] {
   mixin="de.magynhard.crystal.psi.impl.CrystalParameterMixin"
 }
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)

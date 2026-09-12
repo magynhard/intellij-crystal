@@ -146,6 +146,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   files fully clean, zero newly failing files; both interpreter sources advance 2 → 1 onto
   unrelated macro-definition/assignment gaps); indexed drops from 92 in 82 to 84 in 79
   (3 repaired files fully clean).
+- **Macro-generated splat parameters (`def initialize({{ ... end.splat }})`)** — the
+  `MACRO_INTERPOLATION` (and string `INTERPOLATION`) lexer states now emit `do`/`end`
+  keywords, so multi-line blocks inside interpolations lex with real structure; a new
+  `parameter` branch binds `macro_interpolation` as one `CrystalParameter` only when the
+  fragment ends in `.splat(...)` (new `isMacroSplatFragment` predicate), with an optional
+  tight `*` named-only marker. Bare `{{ x }}` stays a syntax error. The argument-count
+  inspection treats fragment parameters as unknown arity (splat-like). Covered by the
+  MacroSplatParameters golden (verbatim `record` body, `{% for %}`-generated def with
+  `{{...}}*, node`, one-liner), negative tests, and an inspection test. The external audit
+  drops from 163 errors in 149 files to 160 in 147 (`macros.cr`, `interpreter/compiler.cr`
+  fully clean, zero newly failing files); indexed drops from 84 in 79 to 81 in 77.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

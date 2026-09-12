@@ -2479,4 +2479,21 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("Unknown named argument") == true },
         )
     }
+
+    fun testMacroSplatFragmentParameterSuppressesCountDiagnostics() {
+        myFixture.configureByText("test.cr", """
+            def generated({{ items.splat }})
+            end
+
+            generated(1, 2)
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "A macro splat fragment expands to unknown arity and must not flag argument counts",
+            highlights.any {
+                it.description?.contains("Too many arguments") == true ||
+                    it.description?.contains("Missing required argument") == true
+            },
+        )
+    }
 }

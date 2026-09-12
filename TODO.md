@@ -146,7 +146,11 @@
   before the first and between `when`/`in` clauses; at least one real clause still
   required; external audit 173/153 → 163/149 with 4 files fully clean and both
   interpreter sources 2 → 1 onto unrelated macro gaps; indexed 92/82 → 84/79);
-  next: (a) remaining macro code positions (`def initialize({{`, case/when conditions,
+  macro-generated splat parameters are done (`do`/`end` in the interpolation lexer
+  states plus a splat-gated `parameter` branch; bare fragments still rejected;
+  external audit 163/149 → 160/147 with `macros.cr` and `interpreter/compiler.cr`
+  fully clean; indexed 84/79 → 81/77);
+  next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,
   separate approach.

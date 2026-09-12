@@ -7760,6 +7760,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
   //             | param_prefix* AMPERSAND [COLON type_reference]
   //             | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
+  // // Macro-generated splat fragments (`def initialize({{ properties.map do
+  // // |field| ... end.splat }})` in macros.cr `record`, `def {{name.id}}(
+  // // {{operands.splat(", ")}}*, node : ASTNode?)` in the interpreter): the
+  // // fragment expands to whole parameters, so it binds as one CrystalParameter
+  // // whose interpolation child keeps the existing PSI. The splat predicate
+  // // gates admission to fragments ending in `.splat(...)` — bare `{{ x }}`
+  // // stays a syntax error — and the trailing STAR (the named-only marker)
+  // // binds only when tight, exactly as written (`}}*`).
+  //             | param_prefix* macro_interpolation &<<isMacroSplatFragment>> [&<<isTokenTightAfterPreviousToken>> STAR]
   public static boolean parameter(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter")) return false;
     boolean result_;
@@ -7770,6 +7779,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = parameter_3(builder_, level_ + 1);
     if (!result_) result_ = parameter_4(builder_, level_ + 1);
     if (!result_) result_ = parameter_5(builder_, level_ + 1);
+    if (!result_) result_ = parameter_6(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
@@ -8137,6 +8147,68 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = consumeTokens(builder_, 0, COMMA, IDENTIFIER);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // param_prefix* macro_interpolation &<<isMacroSplatFragment>> [&<<isTokenTightAfterPreviousToken>> STAR]
+  private static boolean parameter_6(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_6")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = parameter_6_0(builder_, level_ + 1);
+    result_ = result_ && macro_interpolation(builder_, level_ + 1);
+    result_ = result_ && parameter_6_2(builder_, level_ + 1);
+    result_ = result_ && parameter_6_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // param_prefix*
+  private static boolean parameter_6_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_6_0")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!param_prefix(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "parameter_6_0", pos_)) break;
+    }
+    return true;
+  }
+
+  // &<<isMacroSplatFragment>>
+  private static boolean parameter_6_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_6_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isMacroSplatFragment(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // [&<<isTokenTightAfterPreviousToken>> STAR]
+  private static boolean parameter_6_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_6_3")) return false;
+    parameter_6_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>> STAR
+  private static boolean parameter_6_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_6_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = parameter_6_3_0_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, STAR);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean parameter_6_3_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "parameter_6_3_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 
