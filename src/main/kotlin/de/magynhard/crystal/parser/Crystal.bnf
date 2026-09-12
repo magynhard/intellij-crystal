@@ -790,7 +790,7 @@ nested_assignment ::= variable assign_op NLS (nested_assignment | nested_indexed
 // Public (composite) so its children do not inline into assignment/nested_assignment:
 // an inlined repeated argument_list/ivar child flips the single accessors of
 // CrystalAssignment into lists (GrammarKit @NotNull inference).
-nested_indexed_assignment ::= assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression)
+nested_indexed_assignment ::= indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+ assign_op NLS (indexed_assignment | nested_assignment | expression)
 
 yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
 // Yield in expression position may pass multiple values (`memo = found ? (yield memo, elem) : elem`).
@@ -825,12 +825,21 @@ assignment ::= variable assign_op NLS (assignment | nested_indexed_assignment | 
 }
 
 // Indexed assignment targets: `chars[index] = carry = 'a'`, `@data[i] = x`.
-// Left side restricted to name/ivar/class-var receivers followed by at least one
-// bracket access; fails fast without a bracket, so ordinary expressions with
-// assignment suffixes are unaffected.
+// The receiver may itself be a dot chain (`crystal.types[name] = ...` in
+// program.cr) and the right-hand side may chain further indexed assignments
+// (`buffer_ptr[8] = buffer_ptr[13] = 70` in uuid.cr, `ENV["FOO"] =
+// ENV["BAR"] = "1"`); the index may hold an assignment (`str[i += 1] = ...`
+// in base64.cr). All three are compiler-valid. The wrappers stay private so
+// existing trees keep their shape: plain targets still attach the same
+// leaves, and reads without a trailing assign operator still fall through
+// to plain expressions (no pin, as before).
 // NOTE: no pin here — `match[group]?` must be able to fall through to a plain
 // expression when no assignment operator follows the brackets.
-indexed_assignment ::= assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression) [postfix_modifier]
+indexed_assignment ::= indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+ assign_op NLS (indexed_assignment | nested_assignment | expression) [postfix_modifier]
+
+private indexed_assignment_target ::= assignment_target dot_call_access*
+
+private indexed_assignment_index ::= assignment | argument_list
 
 // Indexed assignment targets also accept constant receivers:
 // `ENV["GITHUB_STEP_SUMMARY"] = ...` (ameba specs). Brackets are required by

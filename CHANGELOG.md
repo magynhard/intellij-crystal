@@ -157,6 +157,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   `{{...}}*, node`, one-liner), negative tests, and an inspection test. The external audit
   drops from 163 errors in 149 files to 160 in 147 (`macros.cr`, `interpreter/compiler.cr`
   fully clean, zero newly failing files); indexed drops from 84 in 79 to 81 in 77.
+- **Chained indexed assignments (`a[i] = b[j] = v`)** — the right-hand side of
+  `indexed_assignment` (and `nested_indexed_assignment`) now admits further indexed
+  assignments; receivers may be dot chains (`crystal.types[name] = ...`, reusing the
+  shared `dot_call_access` PSI) and indices may hold assignments (`str[i += 1] = ...`,
+  binding as a real `CrystalAssignment` node). All wrappers stay private and reads
+  without a trailing operator still fall through to plain expressions. Only
+  `CrystalParser.java` plus additive accessors regenerate — no lexer, stub, or index
+  change. Covered by the ChainedIndexedAssignments golden (chains, dotted receiver,
+  index assignment, `||=`, nested-in-plain-assign) and negative tests. The external
+  audit drops from 160 errors in 147 files to 154 in 141 (6 repaired files fully clean,
+  zero newly failing files); indexed drops from 81 in 77 to 77 in 73 (4 repaired files
+  fully clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

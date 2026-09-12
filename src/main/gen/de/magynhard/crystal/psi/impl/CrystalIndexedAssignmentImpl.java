@@ -34,15 +34,33 @@ public class CrystalIndexedAssignmentImpl extends ASTWrapperPsiElement implement
   }
 
   @Override
+  @NotNull
+  public List<CrystalAssignment> getAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAssignment.class);
+  }
+
+  @Override
   @Nullable
   public CrystalClassVarAccess getClassVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
   }
 
   @Override
+  @NotNull
+  public List<CrystalDotCallAccess> getDotCallAccessList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalDotCallAccess.class);
+  }
+
+  @Override
   @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalIndexedAssignment getIndexedAssignment() {
+    return PsiTreeUtil.getChildOfType(this, CrystalIndexedAssignment.class);
   }
 
   @Override

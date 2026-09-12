@@ -10,11 +10,20 @@ public interface CrystalIndexedAssignment extends PsiElement {
   @NotNull
   List<CrystalArgumentList> getArgumentListList();
 
+  @NotNull
+  List<CrystalAssignment> getAssignmentList();
+
   @Nullable
   CrystalClassVarAccess getClassVarAccess();
 
+  @NotNull
+  List<CrystalDotCallAccess> getDotCallAccessList();
+
   @Nullable
   CrystalExpression getExpression();
+
+  @Nullable
+  CrystalIndexedAssignment getIndexedAssignment();
 
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();

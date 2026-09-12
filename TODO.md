@@ -150,6 +150,9 @@
   states plus a splat-gated `parameter` branch; bare fragments still rejected;
   external audit 163/149 → 160/147 with `macros.cr` and `interpreter/compiler.cr`
   fully clean; indexed 84/79 → 81/77);
+  chained indexed assignments are done (indexed RHS recursion, dotted receivers,
+  assignments in indices; external audit 160/147 → 154/141 with 6 files fully clean;
+  indexed 81/77 → 77/73);
   next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,

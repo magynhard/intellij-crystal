@@ -4487,12 +4487,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression) [postfix_modifier]
+  // indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+ assign_op NLS (indexed_assignment | nested_assignment | expression) [postfix_modifier]
   public static boolean indexed_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "indexed_assignment")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, INDEXED_ASSIGNMENT, "<indexed assignment>");
-    result_ = assignment_target(builder_, level_ + 1);
+    result_ = indexed_assignment_target(builder_, level_ + 1);
     result_ = result_ && indexed_assignment_1(builder_, level_ + 1);
     result_ = result_ && assign_op(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
@@ -4502,7 +4502,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (LBRACKET argument_list RBRACKET)+
+  // (LBRACKET indexed_assignment_index RBRACKET)+
   private static boolean indexed_assignment_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "indexed_assignment_1")) return false;
     boolean result_;
@@ -4517,23 +4517,24 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // LBRACKET argument_list RBRACKET
+  // LBRACKET indexed_assignment_index RBRACKET
   private static boolean indexed_assignment_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "indexed_assignment_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LBRACKET);
-    result_ = result_ && argument_list(builder_, level_ + 1);
+    result_ = result_ && indexed_assignment_index(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACKET);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // nested_assignment | expression
+  // indexed_assignment | nested_assignment | expression
   private static boolean indexed_assignment_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "indexed_assignment_4")) return false;
     boolean result_;
-    result_ = nested_assignment(builder_, level_ + 1);
+    result_ = indexed_assignment(builder_, level_ + 1);
+    if (!result_) result_ = nested_assignment(builder_, level_ + 1);
     if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
   }
@@ -4542,6 +4543,39 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean indexed_assignment_5(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "indexed_assignment_5")) return false;
     postfix_modifier(builder_, level_ + 1);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // assignment | argument_list
+  static boolean indexed_assignment_index(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "indexed_assignment_index")) return false;
+    boolean result_;
+    result_ = assignment(builder_, level_ + 1);
+    if (!result_) result_ = argument_list(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // assignment_target dot_call_access*
+  static boolean indexed_assignment_target(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "indexed_assignment_target")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = assignment_target(builder_, level_ + 1);
+    result_ = result_ && indexed_assignment_target_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // dot_call_access*
+  private static boolean indexed_assignment_target_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "indexed_assignment_target_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!dot_call_access(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "indexed_assignment_target_1", pos_)) break;
+    }
     return true;
   }
 
@@ -7458,12 +7492,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // assignment_target (LBRACKET argument_list RBRACKET)+ assign_op NLS (nested_assignment | expression)
+  // indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+ assign_op NLS (indexed_assignment | nested_assignment | expression)
   public static boolean nested_indexed_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "nested_indexed_assignment")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, NESTED_INDEXED_ASSIGNMENT, "<nested indexed assignment>");
-    result_ = assignment_target(builder_, level_ + 1);
+    result_ = indexed_assignment_target(builder_, level_ + 1);
     result_ = result_ && nested_indexed_assignment_1(builder_, level_ + 1);
     result_ = result_ && assign_op(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
@@ -7472,7 +7506,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (LBRACKET argument_list RBRACKET)+
+  // (LBRACKET indexed_assignment_index RBRACKET)+
   private static boolean nested_indexed_assignment_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "nested_indexed_assignment_1")) return false;
     boolean result_;
@@ -7487,23 +7521,24 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // LBRACKET argument_list RBRACKET
+  // LBRACKET indexed_assignment_index RBRACKET
   private static boolean nested_indexed_assignment_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "nested_indexed_assignment_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LBRACKET);
-    result_ = result_ && argument_list(builder_, level_ + 1);
+    result_ = result_ && indexed_assignment_index(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACKET);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // nested_assignment | expression
+  // indexed_assignment | nested_assignment | expression
   private static boolean nested_indexed_assignment_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "nested_indexed_assignment_4")) return false;
     boolean result_;
-    result_ = nested_assignment(builder_, level_ + 1);
+    result_ = indexed_assignment(builder_, level_ + 1);
+    if (!result_) result_ = nested_assignment(builder_, level_ + 1);
     if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
   }

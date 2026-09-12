@@ -540,6 +540,28 @@ from 163 errors in 149 files to 160 errors in 147 files (`macros.cr` and
 comparison with zero newly failing files. The pinned indexed corpus drops
 from 84 errors in 79 files to 81 in 77.
 
+Chained indexed assignments parse: `buffer_ptr[8] = buffer_ptr[13] = 70`
+(uuid.cr), `ENV["FOO"] = ENV["BAR"] = "1"` (env_spec.cr),
+`@handlers[short_flag] = @handlers[long_flag] = handler`
+(option_parser.cr), `crystal.types[name] = const = ...` (program.cr), and
+`str[i += 1] = ...` (base64.cr). The right-hand side of
+`indexed_assignment` (and of `nested_indexed_assignment`, which backs plain
+`x = a[i] = ...` chains) now admits further indexed assignments; receivers
+may be dot chains through the shared `dot_call_access` PSI, and indices may
+hold assignments binding as real `CrystalAssignment` nodes. All new wrappers
+stay private and operator-less reads still fall through to plain expressions
+(no pin, as before). Only `CrystalParser.java` plus additive accessors on the
+indexed-assignment nodes regenerate: no lexer change, no new element type, no
+stub or index change, hence no stub-version bump. Covered by the
+ChainedIndexedAssignments parser golden (multi-link chains, dotted receiver,
+index assignment, `||=`, nested chains, trailing declaration) and negative
+tests for missing right-hand sides and malformed index assignments. The
+external crystal-repository audit drops from 160 errors in 147 files to 154
+errors in 141 files — 6 repaired files fully clean — verified by
+before/after file-set comparison with zero newly failing files. The pinned
+indexed corpus drops from 81 errors in 77 files to 77 in 73 (4 repaired
+files fully clean).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,
