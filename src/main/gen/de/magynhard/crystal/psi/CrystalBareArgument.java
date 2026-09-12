@@ -71,6 +71,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalMacroControlEscaped> getMacroControlEscapedList();
 
   @NotNull
+  List<CrystalMacroIfEnvelope> getMacroIfEnvelopeList();
+
+  @NotNull
   List<CrystalMacroInterpolation> getMacroInterpolationList();
 
   @NotNull

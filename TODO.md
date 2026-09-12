@@ -126,13 +126,12 @@
 - [ ] **Repair macro interpolation in code positions** — expression positions are done
   (private `macro_content_expression` in both primary rules plus `//`, `=`, `<=`, `**`, `<<`,
   `>>`, `^`, `~` operator parity in the macro lexer states; external audit 280/230 → 211/183;
-  indexed 131/105 → 100/87);
-  next: (a) the `{% if %} X {% else %} Y {% end %}` expression envelope — single-tag macro
-  control already parses in expression positions, but the if/else/end chain with expression
-  branches (`expect_raises({% if %} A {% else %} B {% end %})`, `signal1 = {% if %} ... {% else %}
-  ... {% end %}`, ~10 files) needs if-aware matching whose branches stay real expressions so
-  block forms (`{% if %} def foo {% end %}`) keep parsing as separate members;
-  (b) receiver-qualified ivar access (`pointerof(fiber.@context)`) — fails in 6 files
+  indexed 131/105 → 100/87); structured `{% if %} A {% else %} B {% end %}` envelopes with
+  expression branches are done (new `CrystalMacroIfEnvelope` node, no stub change; external
+  audit 211/183 → 203/175; indexed 100/87 → 97/84);
+  next: (a) nested `lib` bodies inside `class` bodies (`class Crystal::System::ELF; lib LibELF`,
+  elf.cr/mach_o.cr), (b) string-colon named args (`with_env("FOO": "bar")`, process_spec.cr:548),
+  (c) receiver-qualified ivar access (`pointerof(fiber.@context)`) — fails in 6 files
   (`scheduler.cr`, `pthread.cr`, both scheduler variants, `thread_pool.cr`, `empty-hello-world.cr`
   fixture); same shape as `pointerof(s.@c)`.
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).

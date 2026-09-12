@@ -361,6 +361,45 @@ receiver-qualified ivar gap (`pointerof(fiber.@context)`, same family as
 corpus drops from 131 errors in 105 files to 100 errors in 87 files (18
 repaired files fully clean, zero newly failing files).
 
+Structured `{% if %} A {% else %} B {% end %}` envelopes carry expression
+branches: call args (`expect_raises({% if %} A {% else %} B {% end %},
+"msg")`), binary operands (`== {% if %} A {% else %} B {% end %} &&`),
+named-arg values (`system_exit_status: {% if %} ... code << 8 ... {% else %}
+... {% end %}`), and rescue types (`rescue IO::Error{% unless %} |
+OpenSSL::SSL::Error{% end %}`, valid inside `{% begin %}` macro bodies).
+The open tag must start with IF/UNLESS and at least one ELSE/ELSIF branch
+is mandatory, so plain `{% if %} ... {% end %}` blocks,
+`{% for %}`/`{% begin %}` loops, and assignment branches (`PLATFORM =
+"linux"` is a statement, not an expression) keep parsing as separate
+members; statement-level tags always match `macro_control` before
+`expression_statement`, so no block regroups there. The envelope is a real
+`CrystalMacroIfEnvelope` PSI node — otherwise two branch expressions would
+flip `CrystalArgument.getExpression()` into a list; stub-name fallbacks
+already cover generated names, so no stub change and no stub-version bump.
+Two PEG subtleties were load-bearing: `call_argument` tries the envelope
+with newlines-only leading trivia because `macro_argument_trivia` would
+otherwise eat the open tag (IntelliJ's PEG does not re-split greedily eaten
+trivia after a later failure), and expression-position tags exclude stray
+`{% else %}`/`{% elsif %}`/`{% end %}` closers (`macro_open_control`) —
+otherwise bare single-token branches swallow the middle tag as a bare-call
+argument (`A {% else %}` parsed as `A(else)`). The gated tags alias the
+`macro_control` element, so single tags keep their `CrystalMacroControl`
+node for macro-depth and require-context consumers. Covered by the
+MacroIfEnvelope parser golden (all four real shapes plus trailing
+declaration; the MacroExpressions RHS regroups onto the envelope node) and
+a negative test for envelopes missing the end tag in calls (the existing
+empty/unterminated-`{{ }}` tests cover the interpolation side; a missing
+`{% end %}` outside parentheses stays unflagged by design since every tag
+is complete). The external
+crystal-repository audit drops from 211 errors in 183 files to 203 errors
+in 175 files — 8 repaired files fully clean (including 3 bonus socket/client
+specs and dragonbox) — verified by before/after file-set comparison with
+zero newly failing files; `elf.cr`/`mach_o.cr` advance to nested
+`lib`-in-`class` bodies and `process_spec.cr` to `with_env("FOO": "bar")`
+string-colon args, both separate families. The pinned indexed corpus drops
+from 100 errors in 87 files to 97 errors in 84 files (dragonbox,
+http/server, process/status fully clean, zero newly failing files).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

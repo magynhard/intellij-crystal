@@ -39,4 +39,10 @@ public class CrystalArgumentListImpl extends ASTWrapperPsiElement implements Cry
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
   }
 
+  @Override
+  @NotNull
+  public List<CrystalMacroIfEnvelope> getMacroIfEnvelopeList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroIfEnvelope.class);
+  }
+
 }

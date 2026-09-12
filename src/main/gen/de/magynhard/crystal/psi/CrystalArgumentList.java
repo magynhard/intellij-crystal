@@ -13,4 +13,7 @@ public interface CrystalArgumentList extends PsiElement {
   @NotNull
   List<CrystalMacroControl> getMacroControlList();
 
+  @NotNull
+  List<CrystalMacroIfEnvelope> getMacroIfEnvelopeList();
+
 }

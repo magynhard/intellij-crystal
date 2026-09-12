@@ -248,6 +248,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitNamedElement(o);
   }
 
+  public void visitMacroIfEnvelope(@NotNull CrystalMacroIfEnvelope o) {
+    visitPsiElement(o);
+  }
+
   public void visitMacroInterpolation(@NotNull CrystalMacroInterpolation o) {
     visitPsiElement(o);
   }

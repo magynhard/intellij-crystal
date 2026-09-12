@@ -85,6 +85,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   MacroExpressions golden and negative tests. The external audit drops from 280 errors in 230
   files to 211 in 183 (47 repaired files fully clean, zero newly failing files); indexed drops
   from 131 in 105 to 100 in 87 (18 repaired files fully clean).
+- **Structured `{% if %} A {% else %} B {% end %}` envelopes** — new `CrystalMacroIfEnvelope` PSI
+  node for envelopes with expression branches (call args, binary operands, named-arg values,
+  rescue types); open tag must start with `IF`/`UNLESS` and an `ELSE`/`ELSIF` branch is mandatory
+  so plain blocks, loops, and assignment branches stay flat. `call_argument` tries the envelope
+  with newlines-only trivia (IntelliJ PEG does not re-split eaten trivia), and expression tags
+  exclude stray closers so bare branches cannot swallow the middle tag as a call argument. No
+  stub change. Covered by the MacroIfEnvelope golden and negative tests. The external audit drops
+  from 211 errors in 183 files to 203 in 175 (8 repaired files fully clean, zero newly failing
+  files); indexed drops from 100 in 87 to 97 in 84 (3 repaired files fully clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

@@ -8,6 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface CrystalRescueClause extends PsiElement {
 
   @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
+  @NotNull
   CrystalStatementList getStatementList();
 
   @Nullable

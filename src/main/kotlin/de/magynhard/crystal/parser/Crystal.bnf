@@ -440,8 +440,33 @@ macro_interpolation ::= MACRO_INTERPOLATION_BEGIN NLS expression [postfix_modifi
 // (compiler parse_atomic_without_location accepts `{% %}` and `{{ }}` as
 // atomic expressions, parser.cr:1015-1024), `when {{ i }}, ...` conditions,
 // and `a = {{ expr }}` right-hand sides. Token starts are disjoint from every
-// other primary, so no PEG ordering hazard.
-private macro_content_expression ::= macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped
+// other primary, so no PEG ordering hazard. The structured envelope comes
+// first (longest-match): bare tags stay separate members everywhere else.
+private macro_content_expression ::= macro_if_envelope | macro_open_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped
+
+// A lone `{% else %}` / `{% elsif %}` / `{% end %}` tag is never a valid
+// expression or argument on its own (stray closers belong to an envelope).
+// Gating them out here also stops bare single-token branches from swallowing
+// the middle tag as a bare-call argument (`A {% else %}` parsed as call
+// `A(else)`, stranding every envelope with a bare branch). Statement and
+// member positions keep full macro_control, so `{% if %} ... {% end %}`
+// blocks stay flat there.
+
+// Structured `{% if %} A {% else %} B {% end %}` envelopes with expression
+// branches: call args (`expect_raises({% if %} A {% else %} B {% end %})`),
+// binary operands (`== {% if %} A {% else %} B {% end %} &&`), and named-arg
+// values. The open tag must start with IF/UNLESS and at least one ELSE/ELSIF
+// branch is mandatory, so plain `{% if %} ... {% end %}` blocks,
+// `{% for %}`/`{% begin %}` loops, and assignment branches
+// (`PLATFORM = "linux"` is a statement, not an expression) keep parsing as
+// separate members. The envelope itself is a real PSI node (not private): an
+// argument holding two branch expressions would otherwise flip
+// `CrystalArgument.getExpression()` into a list and break every call-site
+// consumer. Branches stay real expression nodes inside it.
+macro_if_envelope ::= macro_if_open NLS expression (NLS macro_branch_tag NLS expression)+ NLS macro_end_tag
+private macro_if_open ::= MACRO_CONTROL_BEGIN (IF | UNLESS) macro_control_token* MACRO_CONTROL_END
+private macro_branch_tag ::= MACRO_CONTROL_BEGIN (ELSE | ELSIF) macro_control_token* MACRO_CONTROL_END
+private macro_end_tag ::= MACRO_CONTROL_BEGIN END MACRO_CONTROL_END
 
 // Macro-interpolated callee: `def {{method.id}}(path)` plus call forms like
 // `{{method.id}} path, form: body` (stdlib http/client.cr generates these inside
@@ -473,6 +498,12 @@ private macro_spliced_name ::= (IDENTIFIER | CONSTANT) macro_interpolation (IDEN
                              | macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
 
 macro_control ::= MACRO_CONTROL_BEGIN macro_control_token* MACRO_CONTROL_END
+// Expression-position control tags: same soup, but stray closers excluded
+// (see macro_content_expression). Aliased to the macro_control element so
+// single tags keep their CrystalMacroControl node for every downstream
+// consumer (macro-depth counting, require context); only the tag subset
+// differs, never the PSI shape.
+macro_open_control ::= MACRO_CONTROL_BEGIN !(ELSE | ELSIF | END) macro_control_token* MACRO_CONTROL_END {elementType=macro_control}
 // Escaped macro forms: `\{% stmt %}` (primitives.cr:101/146) and `\{{ expr }}`
 // — the backslash suppresses the expansion (verbatim data). The lexer pushes
 // the ordinary inner states and emits the *_ESCAPED_BEGIN, so the inner token
@@ -692,7 +723,13 @@ rescue_clause ::= RESCUE [rescue_spec] then_clause statement_list
 // type_reference supports unions (SomeError | OtherError) and namespaces (::Foo).
 private rescue_spec ::= IDENTIFIER COLON type_reference
                        | IDENTIFIER
-                       | type_reference
+                       | type_reference [rescue_macro_tail]
+
+// `rescue IO::Error{% unless %} | OpenSSL::SSL::Error{% end %}` (http
+// server.cr, valid inside `{% begin %}` macro bodies): macro tags attach
+// tightly to the type, so the first tag must directly abut it — a newline
+// before `{%` keeps the plain spec and the block parses separately.
+private rescue_macro_tail ::= &<<isTokenTightAfterPreviousToken>> macro_control [PIPE type_reference] macro_control
 
 ensure_clause ::= ENSURE statement_list
 
@@ -1110,8 +1147,17 @@ implicit_object_call ::= DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CL
 call_args ::= LPAREN NLS argument_list heredoc_bodies? NLS RPAREN
             | LPAREN RPAREN
 
-argument_list ::= macro_argument_trivia argument (macro_argument_trivia COMMA macro_argument_trivia argument)* [macro_argument_trivia COMMA] macro_argument_trivia
+argument_list ::= call_argument (macro_argument_trivia COMMA call_argument)* [macro_argument_trivia COMMA] macro_argument_trivia
                 | macro_only_argument_list
+
+// Envelope before trivia-split arguments (PEG longest-match-first): the
+// envelope carries newlines-only leading trivia so it always sees its
+// `{% if %}` open tag — full macro_argument_trivia would eat the tag and
+// strand the branches, and IntelliJ's PEG does not re-split greedily eaten
+// trivia after a later failure. The fallback keeps full trivia, so lone
+// `{% if %} X {% end %}` controls flow through plain arguments exactly as
+// before.
+private call_argument ::= NLS macro_if_envelope | macro_argument_trivia argument
 
 private macro_argument_trivia ::= (NEWLINE | macro_control)*
 private macro_only_argument_list ::= NEWLINE* macro_control (NEWLINE | macro_control)*
