@@ -520,6 +520,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testProcPointerVariableReceivers() {
+        doTest(true)
+    }
+
     fun testAnnotationDefinitionWithStub() {
         doTest(true)
     }

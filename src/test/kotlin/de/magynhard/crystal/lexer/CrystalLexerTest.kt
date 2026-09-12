@@ -327,6 +327,23 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testBlockPassProcPointerTokens() {
+        val tokens = nonWhitespaceTokens("f &->@worker.run")
+        assertEquals(
+            "Block-pass proc pointer should lex as AMPERSAND, ARROW, INSTANCE_VAR, DOT, IDENTIFIER, got: $tokens",
+            listOf(
+                CrystalTypes.IDENTIFIER to "f",
+                CrystalTypes.AMPERSAND to "&",
+                CrystalTypes.ARROW to "->",
+                CrystalTypes.INSTANCE_VAR to "@worker",
+                CrystalTypes.DOT to ".",
+                CrystalTypes.IDENTIFIER to "run"
+            ),
+            tokens
+        )
+    }
+
+    @Test
     fun testComprehensiveFileHasNoBadCharacters() {
         val file = java.io.File("src/test/testData/lexer/comprehensive.cr")
         if (!file.exists()) return

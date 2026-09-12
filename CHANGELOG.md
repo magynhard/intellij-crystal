@@ -125,6 +125,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   in 82 (`scheduler.cr`/`thread_pool.cr` clean). `pointerof(LibFFI.ffi_type_void)` stays failing
   as a separate family: syntactically indistinguishable from ordinary calls, it needs a semantic
   approach.
+- **Proc pointers with variable receivers (`&->@stack_pool.collect_loop`)** — `proc_literal`
+  gains a dedicated alternative for `ARROW (INSTANCE_VAR | CLASS_VAR) DOT name` with an
+  optional type list, matching the compiler, which requires the dot plus method name after
+  the variable. Raw leaves keep the existing token-based pointer shape: only
+  `CrystalParser.java` regenerates, with no lexer, PSI, stub, or index change. Covered by the
+  ProcPointerVariableReceivers golden (ivar, cvar, type list, real block-pass shape), negative
+  tests for bare/literal/numeric receivers, and a lexer test for the `& -> @x . name` token
+  sequence. The external audit drops from 174 errors in 154 files to 173 in 153
+  (`scheduler.cr` fully clean, zero newly failing files); indexed is unchanged at 92 in 82
+  (`crystal/` is outside the pinned index).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

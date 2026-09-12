@@ -137,7 +137,11 @@
   receiver-qualified ivar `pointerof` targets are done (private `pointerof_target`
   admitting exactly `.@ivar`-terminal chains via `dot_call_access`; ordinary calls stay
   rejected; external audit 188/162 → 174/154 with 8 files fully clean and `scheduler.cr`
-  2 → 1 onto the unrelated `&->@stack_pool.collect_loop` proc shape; indexed 96/84 → 92/82);
+  2 → 1 onto the unrelated `&->@stack_pool.collect_loop` proc shape;   indexed 96/84 → 92/82);
+  proc pointers with variable receivers are done (dedicated `proc_literal`
+  alternative for `ARROW (INSTANCE_VAR | CLASS_VAR) DOT name` plus optional type list;
+  raw leaves, no PSI/stub change; external audit 174/154 → 173/153 with `scheduler.cr`
+  fully clean; indexed unchanged at 92/82);
   next: (a) remaining macro code positions (`def initialize({{`, case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,

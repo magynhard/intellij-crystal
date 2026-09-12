@@ -1360,9 +1360,16 @@ block ::= DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* 
         | LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
+// Proc pointers also take instance/class-variable receivers (`->@worker.run`,
+// `->@@worker.run(Int32)` — scheduler.cr:257); the compiler requires a dot
+// plus method name after the variable (parse_fun_pointer, parser.cr:2073-2088),
+// so the variable alternative keeps its DOT mandatory while the plain
+// identifier/constant form stays as-is. Raw leaves match the existing
+// token-based pointer branch: no new PSI element, no stub change.
 proc_literal ::= ARROW LPAREN NLS parameter_list NLS RPAREN LBRACE statement_list RBRACE
                | ARROW LPAREN NLS parameter_list NLS RPAREN DO [statement_list] END
                | ARROW LBRACE statement_list RBRACE
+               | ARROW (INSTANCE_VAR | CLASS_VAR) DOT (IDENTIFIER | CONSTANT) [LPAREN type_reference (COMMA type_reference)* RPAREN]
                | ARROW (IDENTIFIER | CONSTANT) [DOT (IDENTIFIER | CONSTANT)] [LPAREN type_reference (COMMA type_reference)* RPAREN] {pin=1}
 
 // ==================== Literals ====================

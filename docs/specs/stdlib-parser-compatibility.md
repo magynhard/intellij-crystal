@@ -474,6 +474,24 @@ indexed corpus drops from 96 errors in 84 files to 92 in 82
 syntactically indistinguishable from an ordinary call, it needs a semantic
 approach rather than a wider rule.
 
+Proc pointers accept instance/class-variable receivers:
+`&->@stack_pool.collect_loop` (scheduler.cr:257). The compiler requires a dot
+plus method name after the variable in `parse_fun_pointer`
+(parser.cr:2073-2088), so `proc_literal` gains a dedicated
+`ARROW (INSTANCE_VAR | CLASS_VAR) DOT name` alternative with an optional type
+list, placed before the plain identifier/constant pointer branch. Raw leaves
+keep the existing token-based pointer shape: only `CrystalParser.java`
+regenerates — no lexer change (`&->` already lexes as `AMPERSAND` + `ARROW`),
+no generated PSI churn, no stub or index change, hence no stub-version bump.
+Covered by the ProcPointerVariableReceivers parser golden (ivar, cvar, type
+list, and the real block-pass call shape plus a trailing declaration),
+negative tests for bare/literal/numeric receivers, and a lexer test locking
+the `& -> @x . name` token sequence. The external crystal-repository audit
+drops from 174 errors in 154 files to 173 errors in 153 files
+(`scheduler.cr` fully clean) — verified by before/after file-set comparison
+with zero newly failing files. The pinned indexed corpus is unchanged at 92
+errors in 82 files (`crystal/` sits outside the index).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,
