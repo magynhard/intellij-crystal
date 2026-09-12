@@ -101,6 +101,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   arguments. Covered by the StringNamedArguments golden, negative tests, and an inspection test.
   The external audit drops from 203 errors in 175 files to 193 in 164 (11 repaired files fully
   clean, zero newly failing files); indexed is unchanged at 97 in 84 (spec-only files).
+- **Nested `lib` definitions in type bodies (`class ELF; lib LibELF ...; end`)** — `class_body`
+  (shared by class/struct/module) gains the existing `lib_definition` alternative, matching the
+  compiler, which parses type bodies as full expressions and only forbids `lib` inside method
+  bodies. `LIB` starts no other class member, so the addition is PEG-safe; only
+  `CrystalParser.java` plus the generated `CrystalClassBody` lib accessor regenerate, with no
+  lexer, stub-format, or index-key change (no stub-version bump). Covered by the
+  NestedLibDefinition golden (lib member plus a following method proving `end` binding) and
+  negative tests for unterminated nested libs and `lib` inside methods. The external audit drops
+  from 193 errors in 164 files to 188 in 162 (`elf.cr`/`mach_o.cr` fully clean, `lib_ffi.cr`
+  2 → 1, zero newly failing files); indexed drops from 97 in 84 to 96 in 84 via the same
+  `lib_ffi.cr` advance.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

@@ -129,9 +129,12 @@
   (new `CrystalMacroIfEnvelope` node, no stub change; external audit 211/183 → 203/175;
   indexed 100/87 → 97/84); string-colon named args are done (private `string_label` in
   `named_argument`/`named_bare_argument` plus label unquoting; external audit 203/175 → 193/164;
-  indexed unchanged at 97/84);
-  next: (a) nested `lib` bodies inside `class` bodies (`class Crystal::System::ELF; lib LibELF`,
-  elf.cr/mach_o.cr), (b) receiver-qualified ivar access (`pointerof(fiber.@context)`) — fails in
+  indexed unchanged at 97/84); nested `lib` definitions in type bodies are done
+  (`lib_definition` joins `class_member`, covering class/struct/module bodies; no lexer, stub,
+  or index-key change, so no stub-version bump; external audit 193/164 → 188/162 with
+  `elf.cr`/`mach_o.cr` fully clean and `lib_ffi.cr` 2 → 1; indexed 97/84 → 96/84 via the same
+  `lib_ffi.cr` advance);
+  next: (a) receiver-qualified ivar access (`pointerof(fiber.@context)`) — fails in
   7 files (`scheduler.cr`, `pthread.cr`, both scheduler variants, `thread_pool.cr`, `time.cr:89`,
   `empty-hello-world.cr` fixture); same shape as `pointerof(s.@c)`.
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).

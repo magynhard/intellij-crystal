@@ -2756,6 +2756,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                         | module_definition
   //                         | struct_definition
   //                         | enum_definition
+  //                         | lib_definition
   //                         | include_statement
   //                         | extend_statement
   //                         | alias_definition
@@ -2778,6 +2779,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = module_definition(builder_, level_ + 1);
     if (!result_) result_ = struct_definition(builder_, level_ + 1);
     if (!result_) result_ = enum_definition(builder_, level_ + 1);
+    if (!result_) result_ = lib_definition(builder_, level_ + 1);
     if (!result_) result_ = include_statement(builder_, level_ + 1);
     if (!result_) result_ = extend_statement(builder_, level_ + 1);
     if (!result_) result_ = alias_definition(builder_, level_ + 1);

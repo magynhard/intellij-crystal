@@ -291,6 +291,11 @@ alias_definition ::= ALIAS type_name ASSIGN type_reference {
 
 // ==================== Type Bodies ====================
 
+// Class bodies accept nested `lib` definitions (`class ELF; lib LibELF ...; end`
+// in crystal/system/unix/elf.cr and mach_o.cr). The compiler parses type bodies
+// with full expression parsing and only forbids `lib` inside method bodies
+// (parser.cr:1193-1198). LIB starts no other class member, so this alternative
+// is PEG-safe next to the nested type definitions.
 class_body ::= class_member*
 
 private class_member ::= NEWLINE
@@ -303,6 +308,7 @@ private class_member ::= NEWLINE
                         | module_definition
                         | struct_definition
                         | enum_definition
+                        | lib_definition
                         | include_statement
                         | extend_statement
                         | alias_definition

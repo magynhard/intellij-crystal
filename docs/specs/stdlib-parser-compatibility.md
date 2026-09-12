@@ -423,6 +423,27 @@ past its `with_env` line onto the receiver-qualified ivar gap
 pinned indexed corpus is unchanged at 97 errors in 84 files (the repaired
 spec files sit outside the 650-file index).
 
+Nested `lib` definitions work in type bodies: `class Crystal::System::ELF`
+with `lib LibELF` (elf.cr), `class Crystal::System::MachO` with
+`lib LibMachO` (mach_o.cr), and `module Crystal` with `lib LibFFI`
+(lib_ffi.cr). The compiler parses type bodies with full expression parsing
+and only forbids `lib` inside method bodies (`check_not_inside_def` at
+parser.cr:1193-1198), so the existing `lib_definition` rule joins
+`class_member` (shared by the class/struct/module bodies). `LIB` starts no
+other class member, keeping the addition PEG-safe. Only `CrystalParser.java`
+plus the generated `CrystalClassBody` lib accessor regenerate: no lexer
+change, no new PSI element, no stub-format or index-key change, hence no
+stub-version bump. Covered by the NestedLibDefinition parser golden (a lib
+member plus a following method proving the `end` binding) and negative tests
+for unterminated nested libs and `lib` inside method bodies (still rejected,
+matching the compiler). The external crystal-repository audit drops from 193
+errors in 164 files to 188 errors in 162 files — `elf.cr` and `mach_o.cr`
+fully clean, `lib_ffi.cr` advancing 2 → 1 (its remaining error is the
+unrelated `fun prep_closure_loc = ffi_prep_closure_loc(` alias shape) —
+verified by before/after file-set comparison with zero newly failing files.
+The pinned indexed corpus drops from 97 errors in 84 files to 96 in 84 via
+the same `lib_ffi.cr` advance (no file fully clean).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,
