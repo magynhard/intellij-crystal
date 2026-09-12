@@ -142,6 +142,10 @@
   alternative for `ARROW (INSTANCE_VAR | CLASS_VAR) DOT name` plus optional type list;
   raw leaves, no PSI/stub change; external audit 174/154 → 173/153 with `scheduler.cr`
   fully clean; indexed unchanged at 92/82);
+  macro control in `case` clause sequences is done (private `case_clause_trivia`
+  before the first and between `when`/`in` clauses; at least one real clause still
+  required; external audit 173/153 → 163/149 with 4 files fully clean and both
+  interpreter sources 2 → 1 onto unrelated macro gaps; indexed 92/82 → 84/79);
   next: (a) remaining macro code positions (`def initialize({{`, case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,

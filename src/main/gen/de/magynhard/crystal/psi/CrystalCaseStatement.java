@@ -22,6 +22,9 @@ public interface CrystalCaseStatement extends PsiElement {
   @NotNull
   List<CrystalInClause> getInClauseList();
 
+  @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
   @Nullable
   CrystalMultiAssignment getMultiAssignment();
 

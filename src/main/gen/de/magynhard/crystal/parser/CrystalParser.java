@@ -2613,7 +2613,29 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // CASE [case_subject] NEWLINE* (when_clause | in_clause)+ [else_clause] END
+  // (NEWLINE | SEMICOLON | macro_control)*
+  static boolean case_clause_trivia(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "case_clause_trivia")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!case_clause_trivia_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "case_clause_trivia", pos_)) break;
+    }
+    return true;
+  }
+
+  // NEWLINE | SEMICOLON | macro_control
+  private static boolean case_clause_trivia_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "case_clause_trivia_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // CASE [case_subject] case_clause_trivia ((when_clause | in_clause) case_clause_trivia)+ [else_clause] END
   public static boolean case_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "case_statement")) return false;
     if (!nextTokenIs(builder_, CASE)) return false;
@@ -2622,7 +2644,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, CASE);
     pinned_ = result_; // pin = 1
     result_ = result_ && report_error_(builder_, case_statement_1(builder_, level_ + 1));
-    result_ = pinned_ && report_error_(builder_, case_statement_2(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && report_error_(builder_, case_clause_trivia(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, case_statement_3(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, case_statement_4(builder_, level_ + 1)) && result_;
     result_ = pinned_ && consumeToken(builder_, END) && result_;
@@ -2637,18 +2659,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // NEWLINE*
-  private static boolean case_statement_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "case_statement_2")) return false;
-    while (true) {
-      int pos_ = current_position_(builder_);
-      if (!consumeToken(builder_, NEWLINE)) break;
-      if (!empty_element_parsed_guard_(builder_, "case_statement_2", pos_)) break;
-    }
-    return true;
-  }
-
-  // (when_clause | in_clause)+
+  // ((when_clause | in_clause) case_clause_trivia)+
   private static boolean case_statement_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "case_statement_3")) return false;
     boolean result_;
@@ -2663,9 +2674,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // when_clause | in_clause
+  // (when_clause | in_clause) case_clause_trivia
   private static boolean case_statement_3_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "case_statement_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = case_statement_3_0_0(builder_, level_ + 1);
+    result_ = result_ && case_clause_trivia(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // when_clause | in_clause
+  private static boolean case_statement_3_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "case_statement_3_0_0")) return false;
     boolean result_;
     result_ = when_clause(builder_, level_ + 1);
     if (!result_) result_ = in_clause(builder_, level_ + 1);

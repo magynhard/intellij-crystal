@@ -135,6 +135,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   sequence. The external audit drops from 174 errors in 154 files to 173 in 153
   (`scheduler.cr` fully clean, zero newly failing files); indexed is unchanged at 92 in 82
   (`crystal/` is outside the pinned index).
+- **Macro control in `case` clause sequences (`case v; {% for ... %}; when {{...}}`)** — a
+  private `case_clause_trivia` rule admits newlines, semicolons, and complete `{% ... %}`
+  tags before the first and between `when`/`in` clauses; at least one real clause stays
+  required and `{% end %}` can never stand in for the runtime `END`. Only `CrystalParser.java`
+  plus an additive `CrystalMacroControl` list on `CrystalCaseStatement` regenerate — no
+  lexer, stub, or index change. Covered by the MacroCaseClauses golden (generated `when`
+  and `in` clauses, macro-`if` between clauses, runtime `else`, semicolon form) and negative
+  tests. The external audit drops from 173 errors in 153 files to 163 in 149 (4 repaired
+  files fully clean, zero newly failing files; both interpreter sources advance 2 → 1 onto
+  unrelated macro-definition/assignment gaps); indexed drops from 92 in 82 to 84 in 79
+  (3 repaired files fully clean).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

@@ -492,6 +492,29 @@ drops from 174 errors in 154 files to 173 errors in 153 files
 with zero newly failing files. The pinned indexed corpus is unchanged at 92
 errors in 82 files (`crystal/` sits outside the index).
 
+Macro control works in `case` clause sequences: `case` headers followed by
+`{% for ... %}` generating `when {{...}}` or `in .{{...}}?` clauses
+(enum.cr, tuple.cr, tracing.cr, token.cr, both interpreter sources,
+bio.cr). The compiler only ever sees the expanded clauses, but this grammar
+keeps complete tags as plain leaves, so a private `case_clause_trivia` rule
+admits newlines, semicolons, and `macro_control` before the first and between
+`when`/`in` clauses. At least one real clause stays required, and a
+`{% end %}` tag can never stand in for the runtime `END`. Only
+`CrystalParser.java` plus an additive `CrystalMacroControl` list on
+`CrystalCaseStatement` regenerate: no lexer change, no new element type, no
+stub or index change, hence no stub-version bump. Covered by the
+MacroCaseClauses parser golden (generated `when` and `in` clauses, macro-`if`
+between clauses, runtime `else`, semicolon form, trailing declaration) and
+negative tests for statements before the first clause, unterminated tags,
+missing `end`, and macro-`end` closing the case. The external
+crystal-repository audit drops from 173 errors in 153 files to 163 errors in
+149 files — 4 repaired files fully clean (`token.cr`, `tracing.cr`,
+`enum.cr`, `tuple.cr`) — verified by before/after file-set comparison with
+zero newly failing files; both interpreter sources advance 2 → 1 onto
+unrelated gaps (`{{operand.var}}, ip = ...` multi-assign fragment and
+`private macro call(...)`). The pinned indexed corpus drops from 92 errors in
+82 files to 84 in 79 (3 repaired files fully clean).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

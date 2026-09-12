@@ -679,7 +679,18 @@ private condition_assignment ::= variable ASSIGN NLS expression
 
 for_statement ::= FOR IDENTIFIER IN expression then_clause statement_list END {pin=1}
 
-case_statement ::= CASE [case_subject] NEWLINE* (when_clause | in_clause)+ [else_clause] END {pin=1}
+case_statement ::= CASE [case_subject] case_clause_trivia ((when_clause | in_clause) case_clause_trivia)+ [else_clause] END {pin=1}
+
+// Macro control around case clauses (`case v; {% for ... %}; when {{...}};
+// ...; {% end %}; end` in enum.cr, tuple.cr, token.cr, the interpreter
+// sources, tracing.cr, bio.cr): the compiler only ever sees the expanded
+// clauses, but this grammar keeps complete `{% ... %}` tags as plain
+// CrystalMacroControl leaves, so a case-local trivia rule admits NEWLINE,
+// SEMICOLON, and macro_control before the first clause and between clauses.
+// At least one real when/in clause is still required (empty cases and
+// when/in mixing stay separate gaps), and a `{% end %}` tag can never stand
+// in for the runtime END — macro_control consumes its own END plus `%}`.
+private case_clause_trivia ::= (NEWLINE | SEMICOLON | macro_control)*
 
 // Case subject: Crystal allows assignments as case subjects (`case v = yield e`,
 // `case x, y = pair`). Assignments are statements in this grammar, not expressions,
