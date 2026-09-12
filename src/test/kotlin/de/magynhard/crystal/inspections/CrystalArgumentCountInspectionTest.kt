@@ -2464,4 +2464,19 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             highlights.any { it.description?.contains("Missing required argument") == true },
         )
     }
+
+    fun testStringNamedArgumentLabelMatchesParameter() {
+        myFixture.configureByText("test.cr", """
+            def with_env(foo : String)
+            end
+
+            with_env("foo": "bar")
+            with_env "foo": "bar"
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "String labels must match parameters by their unquoted name",
+            highlights.any { it.description?.contains("Unknown named argument") == true },
+        )
+    }
 }

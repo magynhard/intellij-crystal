@@ -94,6 +94,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   stub change. Covered by the MacroIfEnvelope golden and negative tests. The external audit drops
   from 211 errors in 183 files to 203 in 175 (8 repaired files fully clean, zero newly failing
   files); indexed drops from 100 in 87 to 97 in 84 (3 repaired files fully clean).
+- **String keys for named arguments (`with_env("FOO": "bar")`)** — private `string_label`
+  (non-interpolated literals, mirroring the lib fun external symbol) joins `named_argument` and
+  `named_bare_argument`; labels stay plain leaves with no lexer, PSI, or stub change.
+  `getNamedLabel` unquotes string labels so they match parameters instead of flagging unknown
+  arguments. Covered by the StringNamedArguments golden, negative tests, and an inspection test.
+  The external audit drops from 203 errors in 175 files to 193 in 164 (11 repaired files fully
+  clean, zero newly failing files); indexed is unchanged at 97 in 84 (spec-only files).
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

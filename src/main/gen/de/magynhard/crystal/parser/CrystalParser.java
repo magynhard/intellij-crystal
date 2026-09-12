@@ -7139,7 +7139,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IDENTIFIER | keyword_identifier) compact_colon NLS (control_value | expression)
+  // (IDENTIFIER | keyword_identifier | string_label) compact_colon NLS (control_value | expression)
   static boolean named_argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_argument")) return false;
     boolean result_, pinned_;
@@ -7153,12 +7153,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_ || pinned_;
   }
 
-  // IDENTIFIER | keyword_identifier
+  // IDENTIFIER | keyword_identifier | string_label
   private static boolean named_argument_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_argument_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
+    if (!result_) result_ = string_label(builder_, level_ + 1);
     return result_;
   }
 
@@ -7172,7 +7173,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IDENTIFIER | keyword_identifier) compact_colon NLS
+  // (IDENTIFIER | keyword_identifier | string_label) compact_colon NLS
   //     (control_value | absolute_namespace_bare_expression [ASSIGN bare_expression] | bare_expression [ASSIGN bare_expression])
   static boolean named_bare_argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_bare_argument")) return false;
@@ -7187,12 +7188,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_ || pinned_;
   }
 
-  // IDENTIFIER | keyword_identifier
+  // IDENTIFIER | keyword_identifier | string_label
   private static boolean named_bare_argument_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_bare_argument_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
+    if (!result_) result_ = string_label(builder_, level_ + 1);
     return result_;
   }
 
@@ -9477,6 +9479,32 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, STRING_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     if (!result_) result_ = interpolation_expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // (STRING_LITERAL | STRING_ESCAPE)+
+  static boolean string_label(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_label")) return false;
+    if (!nextTokenIs(builder_, "", STRING_ESCAPE, STRING_LITERAL)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = string_label_0(builder_, level_ + 1);
+    while (result_) {
+      int pos_ = current_position_(builder_);
+      if (!string_label_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "string_label", pos_)) break;
+    }
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // STRING_LITERAL | STRING_ESCAPE
+  private static boolean string_label_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_label_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     return result_;
   }
 

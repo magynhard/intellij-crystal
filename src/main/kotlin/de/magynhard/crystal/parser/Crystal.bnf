@@ -1190,7 +1190,7 @@ private starred_type_expression ::= type_path (STAR | DOUBLE_STAR)+
 private compact_colon ::= !<<colonHasLeadingDeclarationWhitespace>> COLON
 private spaced_colon ::= &<<colonHasLeadingDeclarationWhitespace>> COLON
 
-private named_argument ::= (IDENTIFIER | keyword_identifier) compact_colon NLS (control_value | expression) {pin=2}
+private named_argument ::= (IDENTIFIER | keyword_identifier | string_label) compact_colon NLS (control_value | expression) {pin=2}
 
 // TYPE-shaped parenthesized argument: `foo(x : Int32*)`,
 // `foo(x : Int32* | Nil)`, and multiline forms. Tried before named_argument;
@@ -1226,8 +1226,16 @@ bare_argument ::= named_type_bare_argument
 // them — `f x if cond` is a postfix modifier on the call, never an argument.
 private control_value ::= if_statement | unless_statement | out_argument
 
-private named_bare_argument ::= (IDENTIFIER | keyword_identifier) compact_colon NLS
+private named_bare_argument ::= (IDENTIFIER | keyword_identifier | string_label) compact_colon NLS
     (control_value | absolute_namespace_bare_expression [ASSIGN bare_expression] | bare_expression [ASSIGN bare_expression]) {pin=2}
+
+// String keys for named arguments (`with_env("FOO": "bar")`,
+// `NamedTuple("a-b": String)`): plain literal leaves, exactly like the lib
+// fun external symbol — the compiler rejects interpolated labels, and the
+// shared call-argument helpers unquote the leaves into the label. Only the
+// compact (whitespace-free) colon qualifies; spaced forms stay with the
+// type-position rules or fail like before.
+private string_label ::= (STRING_LITERAL | STRING_ESCAPE)+
 
 // Keep the absolute start bounded to compact named values: making it a global
 // bare-postfix alternative changes namespace-call PSI and resolution. The

@@ -122,18 +122,18 @@
   tokens, e.g. interpolated parameters (`def initialize({{` in `src/macros.cr:91`), case/when
   conditions (`in {{member.id}}`, `when {{name}}.to_slice`), and interpolated receivers/calls.
   Treat each position like the spliced-name fix: compiler behavior first, narrowest grammar
-  admission, golden plus boundary tests, audit file-set comparison.
-- [ ] **Repair macro interpolation in code positions** — expression positions are done
-  (private `macro_content_expression` in both primary rules plus `//`, `=`, `<=`, `**`, `<<`,
-  `>>`, `^`, `~` operator parity in the macro lexer states; external audit 280/230 → 211/183;
-  indexed 131/105 → 100/87); structured `{% if %} A {% else %} B {% end %}` envelopes with
-  expression branches are done (new `CrystalMacroIfEnvelope` node, no stub change; external
-  audit 211/183 → 203/175; indexed 100/87 → 97/84);
+  admission, golden plus boundary tests, audit file-set comparison. Expression positions are done
+  (private `macro_content_expression` in both primary rules plus operator parity in the macro
+  lexer states; external audit 280/230 → 211/183; indexed 131/105 → 100/87); structured
+  `{% if %} A {% else %} B {% end %}` envelopes with expression branches are done
+  (new `CrystalMacroIfEnvelope` node, no stub change; external audit 211/183 → 203/175;
+  indexed 100/87 → 97/84); string-colon named args are done (private `string_label` in
+  `named_argument`/`named_bare_argument` plus label unquoting; external audit 203/175 → 193/164;
+  indexed unchanged at 97/84);
   next: (a) nested `lib` bodies inside `class` bodies (`class Crystal::System::ELF; lib LibELF`,
-  elf.cr/mach_o.cr), (b) string-colon named args (`with_env("FOO": "bar")`, process_spec.cr:548),
-  (c) receiver-qualified ivar access (`pointerof(fiber.@context)`) — fails in 6 files
-  (`scheduler.cr`, `pthread.cr`, both scheduler variants, `thread_pool.cr`, `empty-hello-world.cr`
-  fixture); same shape as `pointerof(s.@c)`.
+  elf.cr/mach_o.cr), (b) receiver-qualified ivar access (`pointerof(fiber.@context)`) — fails in
+  7 files (`scheduler.cr`, `pthread.cr`, both scheduler variants, `thread_pool.cr`, `time.cr:89`,
+  `empty-hello-world.cr` fixture); same shape as `pointerof(s.@c)`.
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).
 - [ ] **Trace the last shard argument-count finding** — kemal's own sources (src/ + spec/, including static_file_handler_spec.etag_with_coding:135), ameba's typos.cr `as:` DSL finding, and the ameba `as_node <<-CRYSTAL` pool (variable_spec:102) are clear. The one remaining finding is `arg` in excessive_allocations_spec:10 ("expected at most 0, got 1"), needing its own trace. (Fixed along the way: extractArguments now handles the bare (parenthesis-free) argument-list form of CrystalBareMethodCallExpression — the heredoc-header marker argument of `as_node <<-CRYSTAL` used to vanish, so the def saw zero arguments and reported "Missing 'source'"; earlier: macro-invocation block bodies are macro data via CrystalMacroContext.isInsideMacroCallBlock, the tight bracket after a dot-call method name always binds as the receiver's index postfix, `Reference.new(node, scope)` resolves the sibling `Ameba::AST::Reference` through the program closure, macro-call arguments are no longer checked as runtime calls, and proc-literal parameters resolve as local declarations.)
 - [ ] **Standalone chained-call argument checks** — the resolved-env.status(...).json(...) chains are clean now (the hash-key fix); when chained-call receivers gain exact typing, wire the standalone chain forms into the same argument checks with the regression shape `env.status(:not_found).json({error: "User not found"})`.

@@ -63,11 +63,33 @@ object CrystalPsiCallArguments {
         return current
     }
 
-    /** Returns the direct token before a named argument's colon. */
+    /**
+     * Returns a named argument's label text. Identifier labels come back
+     * verbatim; string labels (`with_env("FOO": "bar")`) arrive as plain
+     * STRING_LITERAL/STRING_ESCAPE leaves whose quotes are stripped, so the
+     * label matches parameter names instead of flagging every string-keyed
+     * call as an unknown argument.
+     */
     fun getNamedLabel(argument: PsiElement): String? {
         if (argument !is CrystalArgument && argument !is CrystalBareArgument) return null
         val children = argument.node.getChildren(null)
         val colonIndex = children.indexOfFirst { it.elementType == CrystalTypes.COLON }
-        return children.getOrNull(colonIndex - 1)?.text
+        if (colonIndex <= 0) return null
+        val labelChild = children[colonIndex - 1]
+        if (labelChild.elementType != CrystalTypes.STRING_LITERAL &&
+            labelChild.elementType != CrystalTypes.STRING_ESCAPE
+        ) {
+            return labelChild.text
+        }
+        val parts = mutableListOf<String>()
+        var index = colonIndex - 1
+        while (index >= 0 &&
+            (children[index].elementType == CrystalTypes.STRING_LITERAL ||
+                children[index].elementType == CrystalTypes.STRING_ESCAPE)
+        ) {
+            parts.add(children[index].text)
+            index--
+        }
+        return parts.reversed().joinToString("").removeSurrounding("\"")
     }
 }

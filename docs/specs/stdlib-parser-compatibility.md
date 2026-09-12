@@ -400,6 +400,29 @@ string-colon args, both separate families. The pinned indexed corpus drops
 from 100 errors in 87 files to 97 errors in 84 files (dragonbox,
 http/server, process/status fully clean, zero newly failing files).
 
+String keys work for named arguments: `with_env("FOO": "bar")` (paren and
+bare calls with blocks), `with_env "LIB": "foo;;bar"`, and
+`NamedTuple("a-b": String)` (a call, so no type-args change was needed).
+The compiler accepts plain string labels but rejects interpolated ones and
+normalizes spaced colons via formatting, so a private `string_label`
+(`(STRING_LITERAL | STRING_ESCAPE)+`, mirroring the lib fun external
+symbol) joins `named_argument` and `named_bare_argument` in the compact
+form only. Labels stay plain leaves: no lexer, PSI, or stub change, only
+`CrystalParser.java` regenerates. `CrystalPsiCallArguments.getNamedLabel`
+unquotes string labels so `"FOO":` matches parameter `FOO` instead of
+flagging every string-keyed call as an unknown argument (identifier labels
+unchanged). Covered by the StringNamedArguments parser golden (paren/bare/
+NamedTuple/hash shapes plus trailing declaration), negative tests for
+incomplete labels and missing colons, and an inspection test proving
+string labels match parameters. The external crystal-repository audit drops
+from 203 errors in 175 files to 193 errors in 164 files — 11 repaired files
+fully clean — verified by before/after file-set comparison with zero newly
+failing files; one still-failing file (`time.cr`, 1 → 2 errors) advances
+past its `with_env` line onto the receiver-qualified ivar gap
+(`pointerof(buf.value.@privileges)`, same family as `fiber.@context`). The
+pinned indexed corpus is unchanged at 97 errors in 84 files (the repaired
+spec files sit outside the 650-file index).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,
