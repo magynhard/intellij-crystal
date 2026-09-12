@@ -516,6 +516,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPointerofQualifiedInstanceVar() {
+        doTest(true)
+    }
+
     fun testAnnotationDefinitionWithStub() {
         doTest(true)
     }

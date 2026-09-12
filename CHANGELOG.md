@@ -112,6 +112,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   from 193 errors in 164 files to 188 in 162 (`elf.cr`/`mach_o.cr` fully clean, `lib_ffi.cr`
   2 → 1, zero newly failing files); indexed drops from 97 in 84 to 96 in 84 via the same
   `lib_ffi.cr` advance.
+- **Receiver-qualified `pointerof` targets (`pointerof(fiber.@context)`)** — a private
+  `pointerof_target` rule admits exactly chains ending in `.@ivar` (single and multi-link
+  receivers like `buf.value.@privileges`), reusing the existing `dot_call_access` PSI; ordinary
+  calls, index access, literals, `self`, and mid-chain ivars (`foo.@bar.baz`) stay rejected,
+  matching the compiler's semantic target check. Only `CrystalParser.java` plus an additive
+  `CrystalDotCallAccess` list on `CrystalPointerofExpression` regenerate — no lexer, stub, or
+  index-key change (no stub-version bump). Covered by the PointerofQualifiedInstanceVar golden
+  and negative tests. The external audit drops from 188 errors in 162 files to 174 in 154
+  (8 repaired files fully clean, zero newly failing files; `scheduler.cr` advances 2 → 1 onto
+  the unrelated `&->@stack_pool.collect_loop` proc shape); indexed drops from 96 in 84 to 92
+  in 82 (`scheduler.cr`/`thread_pool.cr` clean). `pointerof(LibFFI.ffi_type_void)` stays failing
+  as a separate family: syntactically indistinguishable from ordinary calls, it needs a semantic
+  approach.
 - **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
   `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
   reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the

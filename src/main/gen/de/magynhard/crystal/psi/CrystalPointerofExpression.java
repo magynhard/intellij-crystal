@@ -10,6 +10,9 @@ public interface CrystalPointerofExpression extends PsiElement {
   @Nullable
   CrystalClassVarAccess getClassVarAccess();
 
+  @NotNull
+  List<CrystalDotCallAccess> getDotCallAccessList();
+
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 

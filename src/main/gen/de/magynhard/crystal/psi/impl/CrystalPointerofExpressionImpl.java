@@ -34,6 +34,12 @@ public class CrystalPointerofExpressionImpl extends ASTWrapperPsiElement impleme
   }
 
   @Override
+  @NotNull
+  public List<CrystalDotCallAccess> getDotCallAccessList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalDotCallAccess.class);
+  }
+
+  @Override
   @Nullable
   public CrystalInstanceVarAccess getInstanceVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);

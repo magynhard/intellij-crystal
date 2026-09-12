@@ -1535,7 +1535,32 @@ sizeof_expression ::= SIZEOF LPAREN NLS type_reference NLS RPAREN {pin=1}
 
 instance_sizeof_expression ::= INSTANCE_SIZEOF LPAREN NLS type_reference NLS RPAREN {pin=1}
 
-pointerof_expression ::= POINTEROF LPAREN NLS (instance_var_access | class_var_access | variable_reference) NLS RPAREN {pin=1}
+pointerof_expression ::= POINTEROF LPAREN NLS pointerof_target NLS RPAREN {pin=1}
+
+// `pointerof` targets: the compiler parses a full assignment-level expression
+// (parse_pointerof, parser.cr:6069) but only accepts variables, constants, and
+// read-instance-variables semantically (pointerof_var, main_visitor.cr:2687).
+// The qualified alternative therefore admits exactly chains that end in
+// `.@ivar` (`fiber.@context`, `buf.value.@privileges`), reusing the existing
+// dot_call_access PSI. Ordinary calls, index access, literals, and `self`
+// stay rejected; so does `foo.@bar.baz` (an ivar may not appear mid-chain).
+// Lib-external-var targets (`pointerof(LibFFI.ffi_type_void)`) are a separate
+// family: syntactically indistinguishable from ordinary calls, they need a
+// semantic approach, not a wider rule here.
+// PEG: the qualified form precedes the plain forms, otherwise `fiber` wins
+// first-match and strands the dot. The `*` repetition is possessive, so the
+// lookaheads keep intermediate links (non-ivar names) disjoint from the
+// terminal `.@ivar` — a bare `dot_call_access*` would swallow the terminal.
+private pointerof_target ::= pointerof_qualified_instance_var
+                           | instance_var_access
+                           | class_var_access
+                           | variable_reference
+
+private pointerof_qualified_instance_var ::= (instance_var_access | class_var_access | variable_reference) pointerof_receiver_access* pointerof_terminal_ivar_access
+
+private pointerof_receiver_access ::= &(NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation)) NLS dot_call_access
+
+private pointerof_terminal_ivar_access ::= &(NLS DOT INSTANCE_VAR) NLS dot_call_access
 
 offsetof_expression ::= OFFSETOF LPAREN NLS type_reference COMMA NLS instance_var_access NLS RPAREN {pin=1}
 

@@ -8292,7 +8292,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // POINTEROF LPAREN NLS (instance_var_access | class_var_access | variable_reference) NLS RPAREN
+  // POINTEROF LPAREN NLS pointerof_target NLS RPAREN
   public static boolean pointerof_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "pointerof_expression")) return false;
     if (!nextTokenIs(builder_, POINTEROF)) return false;
@@ -8301,20 +8301,141 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeTokens(builder_, 1, POINTEROF, LPAREN);
     pinned_ = result_; // pin = 1
     result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
-    result_ = pinned_ && report_error_(builder_, pointerof_expression_3(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && report_error_(builder_, pointerof_target(builder_, level_ + 1)) && result_;
     result_ = pinned_ && report_error_(builder_, NLS(builder_, level_ + 1)) && result_;
     result_ = pinned_ && consumeToken(builder_, RPAREN) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
 
+  /* ********************************************************** */
+  // (instance_var_access | class_var_access | variable_reference) pointerof_receiver_access* pointerof_terminal_ivar_access
+  static boolean pointerof_qualified_instance_var(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_qualified_instance_var")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = pointerof_qualified_instance_var_0(builder_, level_ + 1);
+    result_ = result_ && pointerof_qualified_instance_var_1(builder_, level_ + 1);
+    result_ = result_ && pointerof_terminal_ivar_access(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
   // instance_var_access | class_var_access | variable_reference
-  private static boolean pointerof_expression_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "pointerof_expression_3")) return false;
+  private static boolean pointerof_qualified_instance_var_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_qualified_instance_var_0")) return false;
     boolean result_;
     result_ = instance_var_access(builder_, level_ + 1);
     if (!result_) result_ = class_var_access(builder_, level_ + 1);
     if (!result_) result_ = variable_reference(builder_, level_ + 1);
+    return result_;
+  }
+
+  // pointerof_receiver_access*
+  private static boolean pointerof_qualified_instance_var_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_qualified_instance_var_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!pointerof_receiver_access(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "pointerof_qualified_instance_var_1", pos_)) break;
+    }
+    return true;
+  }
+
+  /* ********************************************************** */
+  // &(NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation)) NLS dot_call_access
+  static boolean pointerof_receiver_access(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_receiver_access")) return false;
+    if (!nextTokenIs(builder_, "", DOT, NEWLINE)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = pointerof_receiver_access_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && dot_call_access(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &(NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation))
+  private static boolean pointerof_receiver_access_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_receiver_access_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = pointerof_receiver_access_0_0(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // NLS DOT (IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation)
+  private static boolean pointerof_receiver_access_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_receiver_access_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, DOT);
+    result_ = result_ && pointerof_receiver_access_0_0_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation
+  private static boolean pointerof_receiver_access_0_0_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_receiver_access_0_0_2")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // pointerof_qualified_instance_var
+  //                            | instance_var_access
+  //                            | class_var_access
+  //                            | variable_reference
+  static boolean pointerof_target(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_target")) return false;
+    boolean result_;
+    result_ = pointerof_qualified_instance_var(builder_, level_ + 1);
+    if (!result_) result_ = instance_var_access(builder_, level_ + 1);
+    if (!result_) result_ = class_var_access(builder_, level_ + 1);
+    if (!result_) result_ = variable_reference(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // &(NLS DOT INSTANCE_VAR) NLS dot_call_access
+  static boolean pointerof_terminal_ivar_access(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_terminal_ivar_access")) return false;
+    if (!nextTokenIs(builder_, "", DOT, NEWLINE)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = pointerof_terminal_ivar_access_0(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && dot_call_access(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &(NLS DOT INSTANCE_VAR)
+  private static boolean pointerof_terminal_ivar_access_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_terminal_ivar_access_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = pointerof_terminal_ivar_access_0_0(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // NLS DOT INSTANCE_VAR
+  private static boolean pointerof_terminal_ivar_access_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_terminal_ivar_access_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
+    result_ = result_ && consumeTokens(builder_, 0, DOT, INSTANCE_VAR);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 

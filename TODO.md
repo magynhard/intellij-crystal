@@ -134,9 +134,14 @@
   or index-key change, so no stub-version bump; external audit 193/164 → 188/162 with
   `elf.cr`/`mach_o.cr` fully clean and `lib_ffi.cr` 2 → 1; indexed 97/84 → 96/84 via the same
   `lib_ffi.cr` advance);
-  next: (a) receiver-qualified ivar access (`pointerof(fiber.@context)`) — fails in
-  7 files (`scheduler.cr`, `pthread.cr`, both scheduler variants, `thread_pool.cr`, `time.cr:89`,
-  `empty-hello-world.cr` fixture); same shape as `pointerof(s.@c)`.
+  receiver-qualified ivar `pointerof` targets are done (private `pointerof_target`
+  admitting exactly `.@ivar`-terminal chains via `dot_call_access`; ordinary calls stay
+  rejected; external audit 188/162 → 174/154 with 8 files fully clean and `scheduler.cr`
+  2 → 1 onto the unrelated `&->@stack_pool.collect_loop` proc shape; indexed 96/84 → 92/82);
+  next: (a) remaining macro code positions (`def initialize({{`, case/when conditions,
+  interpolated receivers/calls), (b) lib-external-var `pointerof` targets
+  (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,
+  separate approach.
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).
 - [ ] **Trace the last shard argument-count finding** — kemal's own sources (src/ + spec/, including static_file_handler_spec.etag_with_coding:135), ameba's typos.cr `as:` DSL finding, and the ameba `as_node <<-CRYSTAL` pool (variable_spec:102) are clear. The one remaining finding is `arg` in excessive_allocations_spec:10 ("expected at most 0, got 1"), needing its own trace. (Fixed along the way: extractArguments now handles the bare (parenthesis-free) argument-list form of CrystalBareMethodCallExpression — the heredoc-header marker argument of `as_node <<-CRYSTAL` used to vanish, so the def saw zero arguments and reported "Missing 'source'"; earlier: macro-invocation block bodies are macro data via CrystalMacroContext.isInsideMacroCallBlock, the tight bracket after a dot-call method name always binds as the receiver's index postfix, `Reference.new(node, scope)` resolves the sibling `Ameba::AST::Reference` through the program closure, macro-call arguments are no longer checked as runtime calls, and proc-literal parameters resolve as local declarations.)
 - [ ] **Standalone chained-call argument checks** — the resolved-env.status(...).json(...) chains are clean now (the hash-key fix); when chained-call receivers gain exact typing, wire the standalone chain forms into the same argument checks with the regression shape `env.status(:not_found).json({error: "User not found"})`.

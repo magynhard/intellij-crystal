@@ -444,6 +444,36 @@ verified by before/after file-set comparison with zero newly failing files.
 The pinned indexed corpus drops from 97 errors in 84 files to 96 in 84 via
 the same `lib_ffi.cr` advance (no file fully clean).
 
+Receiver-qualified `pointerof` targets parse: `pointerof(fiber.@context)`
+(scheduler, execution-context and thread-pool families),
+`pointerof(s.@c)` (empty-hello-world fixture),
+`pointerof(buf.value.@privileges)` (time.cr), `pointerof(action.@sa_mask)`
+(pthread.cr, signal.cr), `pointerof(event.@timer)` (iocp.cr), and
+`pointerof(cookie.@secure)` (cookie_spec.cr). The compiler parses a full
+assignment-level expression in `parse_pointerof` (parser.cr:6069-6087) but
+only accepts variables, constants, and read-instance-variables semantically
+(`pointerof_var`, main_visitor.cr:2687-2724), so a private `pointerof_target`
+rule admits exactly dot chains ending in `.@ivar`, reusing the existing
+`dot_call_access` PSI (receiver stays a `CrystalVariableReference`, each link
+a `CrystalDotCallAccess`). Ordinary calls, index access, literals, `self`,
+and mid-chain ivars (`foo.@bar.baz`) stay rejected. Only
+`CrystalParser.java` plus an additive `CrystalDotCallAccess` list on
+`CrystalPointerofExpression` regenerate: no lexer change, no new element
+type, no stub or index-key change, hence no stub-version bump. Covered by
+the PointerofQualifiedInstanceVar parser golden (direct, multi-link, and
+multiline targets plus the pre-existing simple targets and a trailing
+declaration) and negative tests for `self`, literals, ordinary/argument calls,
+index access, and mid-chain ivars. The external crystal-repository audit
+drops from 188 errors in 162 files to 174 errors in 154 files — 8 repaired
+files fully clean — verified by before/after file-set comparison with zero
+newly failing files; `scheduler.cr` advances 2 → 1 onto the unrelated
+`&->@stack_pool.collect_loop` proc shape (separate family). The pinned
+indexed corpus drops from 96 errors in 84 files to 92 in 82
+(`scheduler.cr`/`thread_pool.cr` clean). `pointerof(LibFFI.ffi_type_void)`
+(lib external variable) stays failing in both corpora as a separate family:
+syntactically indistinguishable from an ordinary call, it needs a semantic
+approach rather than a wider rule.
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,
