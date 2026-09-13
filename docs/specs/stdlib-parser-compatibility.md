@@ -648,6 +648,36 @@ before/after file-set comparison with zero newly failing files. The pinned
 indexed corpus drops from 72 errors in 68 files to 69 in 65. The `.!`
 pseudo-method suffix stays a separate pending cluster.
 
+The `.!` pseudo-method suffix now parses exactly like the compiler's Not
+pseudo-call: `value.!`, `value.!()`, `value.!(\n)`, the double chain
+`value.!.!`, and the guard-shorthand chains `&.dst?.!`
+(time/location_spec.cr), `&.empty?.!` (colorize.cr), and
+`&.has_any_args?.!` (compiler semantic new.cr), plus the receiver-less
+shorthands `find(&.!)` and `when .!()` through a new
+`implicit_object_call` branch. A private `bang_suffix` rule (`NLS DOT
+BANG`) joins both postfix rules ahead of the ordinary alternatives and
+stays deliberately outside `dot_call_access`/`keyword_as_method`: `.!` is
+not a definable method name — the compiler rejects `def !`
+(parser_spec.cr:2502-2515, negative test) — so no CrystalDotCallAccess and
+no reference node appear, matching the compiler's pseudo-call text. The
+empty-paren form is strict per the compiler: the immediately-empty
+`LPAREN NLS RPAREN` pair is a separate alternative and the bare `.!`
+carries a `!LPAREN` guard, so `value.!(args)` remains a parse error (the
+compiler reports `expecting token ')'`; without the guard the leftover
+argument group silently bound as a call-args postfix). Only
+`CrystalParser.java` regenerates: token-level leaves, no new PSI element,
+no stub or index change, hence no stub-version bump. Covered by the
+BangSuffixChains golden and negative tests. `def self.!` remains a
+pre-existing acceptance gap — proven identical on the previous commit
+(shape exactly the same before this change) and therefore tracked in
+TODO rather than attributed here. The external crystal-repository audit
+drops from 142 errors in 129 files to 140 errors in 127 files —
+`time/location_spec.cr` and compiler semantic `new.cr` fully clean —
+verified by before/after file-set comparison with zero newly failing
+files. The pinned indexed corpus drops from 69 errors in 65 files to 68
+in 64. Newly stopped cascade line: `if color == :{{name.id}}`
+(colorize.cr:387) joins the pending operator-symbol family.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

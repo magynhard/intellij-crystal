@@ -169,8 +169,12 @@
   `uint_spec.cr`, and `crystal/hasher_spec.cr` fully clean; indexed 74/70 → 72/68);
   prefix `!` precedence is done (`BANG` in the twin unary chains, `not_expression` level removed;
   external audit 145/132 → 142/129 with compiler semantic `method_lookup.cr`, `restrictions.cr`,
-  and `suggestions.cr` fully clean; indexed 72/68 → 69/65; pending neighbor: the `.!` pseudo-method
-  suffix in colorize.cr/new.cr/location_spec.cr);
+  and `suggestions.cr` fully clean; indexed 72/68 → 69/65);
+  `.!` pseudo-method suffix is done (private `bang_suffix` in both postfix rules + implicit-object
+  shorthand, `!LPAREN`-stricter `!()`; external audit 142/129 → 140/127 with
+  `time/location_spec.cr` and compiler semantic `new.cr` fully clean; indexed 69/65 → 68/64;
+  newly stopped cascade: `:{{name.id}}` symbol-operator-suffix in colorize.cr:387;
+  pre-existing plugin gap recorded: `def self.!` still parses without error);
   next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,

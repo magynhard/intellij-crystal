@@ -959,7 +959,21 @@ private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | 
 
 private postfix_expression ::= primary_expression postfix_op*
 
+// `.!` pseudo-method suffix (Not): `foo.!`, `foo.!()`, and the guard-shorthand
+// chains `&.dst?.!` (location_spec.cr), `&.empty?.!` (colorize.cr),
+// `&.has_any_args?.!` (semantic new.cr). It is not a definable method name —
+// the compiler rejects `def !` (parser_spec "cannot define a not method") — so
+// it deliberately stays a private token-level suffix outside
+// dot_call_access/keyword_as_method: no CrystalDotCallAccess, no reference,
+// exactly like the compiler's Not pseudo-call. The bare `.!` alternative
+// carries a `!LPAREN` guard: only immediately-empty `!()` qualifies; content
+// inside the parens (`value.!(args)`) is a compiler syntax error and must not
+// fall through to a call-args postfix of the chain.
+private bang_suffix ::= NLS DOT BANG !LPAREN
+                      | NLS DOT BANG LPAREN NLS RPAREN
+
 private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+                     | NLS bang_suffix
                      // PEG: member assignment must precede ordinary dot-call access, otherwise
                      // `config.server ||= value` commits to `.server` and strands the assign op.
                      // Plain ASSIGN covers setter calls as nested assignment values
@@ -1200,6 +1214,10 @@ private nested_call_lookahead ::= binary_op_lookahead | (DOTDOT | DOTDOTDOT)
 implicit_object_call ::= DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CLASS_VAR | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | macro_interpolation | operator_method_name) [&<<isTokenTightAfterPreviousToken>> QUESTION]
                            [call_args [block] | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list [block] | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list | block]
                        | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
+                       // Pseudo-method `.!` shorthand (`find(&.!)`); same !LPAREN
+                       // strictness as bang_suffix.
+                       | DOT BANG !LPAREN
+                       | DOT BANG LPAREN NLS RPAREN
 
 // Third alternative group — closeless heredoc calls (`f(rule, <<-CRYSTAL)`): the
 // lexer folds the ')' and any further same-line code after the delimiter into a
@@ -1355,6 +1373,7 @@ private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | WRA
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
 private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
+                           | NLS bang_suffix
                            | NLS dot_call_access
                           | namespace_access
                           | LBRACKET argument_list RBRACKET [QUESTION]

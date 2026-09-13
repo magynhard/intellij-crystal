@@ -5,6 +5,23 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **`.!` pseudo-method suffix (`value.!`, `&.dst?.!`, `find(&.!)`)** — the NOT pseudo-call was
+  unparsed: `location.zones.find(&.dst?.!)` (location_spec.cr),
+  `ENV["NO_COLOR"]?.try(&.empty?.!)` (colorize.cr), and
+  `self_new_methods.any?(&.has_any_args?.!)` (compiler semantic new.cr) failed at the `!`. A
+  private `bang_suffix` (`NLS DOT BANG`, plus immediately-empty `!()` and `!(\n)` via the strict
+  `LPAREN NLS RPAREN` alternative with a `!LPAREN` bare guard) joins both postfix rules and an
+  `implicit_object_call` shorthand branch (`find(&.!)` / `when .!()`), deliberately outside
+  `dot_call_access`/`keyword_as_method`: `.` `!` is not a definable method (`def !` stays
+  rejected by negative tests), so no CrystalDotCallAccess, no reference, echoing the compiler's
+  Not pseudo-call and its argument rejection (`value.!(args)` stays a parse error). Only
+  `CrystalParser.java` regenerates; token-level leaves, PSI/stubs untouched. BangSuffixChains
+  golden covers `value.!`, the double chain, `.!()`, the `&.` guard chains, and the multiline
+  `.!(
+)` form; `def self.!` remains a pre-existing acceptance gap tracked in TODO. The external audit
+  drops from 142 errors in 129 files to 140 in 127 (location_spec.cr and semantic new.cr fully
+  clean, zero newly failing files); indexed drops from 69 in 65 to 68 in 64. Newly stopped
+  cascade: `if color == :{{name.id}}` (colorize.cr:387) joins the pending operator-symbol family.
 - **Prefix `!` at unary precedence (`!!a != !!b`)** — the `not_expression` level sat above the
   comparison row, so a leading `!`, triple `!!` chain, or `!=` RHS with `!!` could not start a
   comparison operand: `if def_metadata.yields != !!signature.block` (method_lookup.cr),
