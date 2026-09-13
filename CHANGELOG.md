@@ -5,6 +5,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro-generated symbols (`:{{name.id}}`)** — a colon followed by a macro interpolation now
+  parses as a full symbol expression, reusing the `symbol_string_expression` PSI: `if color ==
+  :{{name.id}}` (colorize.cr `fore`/`back`), `getter :{{property.id}}` (macros.cr generated
+  getters), `attributes[:{{var.name.id}}]?` (compiler instance_var_spec), and receiver reads like
+  `:{{name.id}}.to_s`. A second alternative (`COLON` + tightness predicate + `macro_interpolation`)
+  keeps the existing element type, so inference returns `Symbol` and receiver trust is unchanged;
+  space before the interpolation stays a parse error and the lexer is untouched (operator symbols
+  like `:+` remain a separate pending cluster). Covered by the `MacroGeneratedSymbols` golden
+  (four real corpus shapes, no `PsiErrorElement`), a `Symbol` inference assertion, and a
+  spaced-colon negative test; no new element type, no stub or index change. The external
+  crystal-repository audit drops from 140 errors in 127 files to 139 in 126 (colorize.cr fully
+  clean, zero regressions by file-set and per-file count comparison); the pinned indexed corpus
+  drops from 68 in 64 to 67 in 63. Newly exposed cascades: macro-args in int_spec and
+  interpolated named-argument labels in json/yaml from_json/from_yaml.
 - **`.!` pseudo-method suffix (`value.!`, `&.dst?.!`, `find(&.!)`)** — the NOT pseudo-call was
   unparsed: `location.zones.find(&.dst?.!)` (location_spec.cr),
   `ENV["NO_COLOR"]?.try(&.empty?.!)` (colorize.cr), and

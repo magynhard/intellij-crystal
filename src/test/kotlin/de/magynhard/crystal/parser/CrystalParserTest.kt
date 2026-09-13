@@ -404,6 +404,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroGeneratedSymbols() {
+        doTest(true)
+    }
+
     fun testLibTypeAlias() {
         doTest(true)
     }

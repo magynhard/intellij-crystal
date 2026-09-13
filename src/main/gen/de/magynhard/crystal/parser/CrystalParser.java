@@ -10045,39 +10045,73 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
+  //                             | COLON &<<isTokenTightAfterPreviousToken>> macro_interpolation
   public static boolean symbol_string_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "symbol_string_expression")) return false;
-    if (!nextTokenIs(builder_, SYMBOL_COLON)) return false;
+    if (!nextTokenIs(builder_, "<symbol string expression>", COLON, SYMBOL_COLON)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, SYMBOL_STRING_EXPRESSION, "<symbol string expression>");
+    result_ = symbol_string_expression_0(builder_, level_ + 1);
+    if (!result_) result_ = symbol_string_expression_1(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
+  private static boolean symbol_string_expression_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, SYMBOL_COLON);
-    result_ = result_ && symbol_string_expression_1(builder_, level_ + 1);
-    exit_section_(builder_, marker_, SYMBOL_STRING_EXPRESSION, result_);
+    result_ = result_ && symbol_string_expression_0_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
-  private static boolean symbol_string_expression_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "symbol_string_expression_1")) return false;
+  private static boolean symbol_string_expression_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_0_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = symbol_string_expression_1_0(builder_, level_ + 1);
+    result_ = symbol_string_expression_0_1_0(builder_, level_ + 1);
     while (result_) {
       int pos_ = current_position_(builder_);
-      if (!symbol_string_expression_1_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "symbol_string_expression_1", pos_)) break;
+      if (!symbol_string_expression_0_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "symbol_string_expression_0_1", pos_)) break;
     }
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // STRING_LITERAL | STRING_ESCAPE | interpolation_expression
-  private static boolean symbol_string_expression_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "symbol_string_expression_1_0")) return false;
+  private static boolean symbol_string_expression_0_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_0_1_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, STRING_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     if (!result_) result_ = interpolation_expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  // COLON &<<isTokenTightAfterPreviousToken>> macro_interpolation
+  private static boolean symbol_string_expression_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COLON);
+    result_ = result_ && symbol_string_expression_1_1(builder_, level_ + 1);
+    result_ = result_ && macro_interpolation(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean symbol_string_expression_1_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "symbol_string_expression_1_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 

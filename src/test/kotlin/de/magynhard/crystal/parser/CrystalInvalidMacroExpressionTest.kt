@@ -31,4 +31,15 @@ class CrystalInvalidMacroExpressionTest : BasePlatformTestCase() {
             PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
         )
     }
+
+    fun testRejectsSpacedMacroGeneratedSymbol() {
+        val file = myFixture.configureByText(
+            "test.cr",
+            "x = : {{name.id}}\nputs x"
+        )
+        assertTrue(
+            "Expected parse error for a space between colon and macro interpolation",
+            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+        )
+    }
 }

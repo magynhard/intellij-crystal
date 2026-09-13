@@ -34,6 +34,12 @@ public class CrystalSymbolStringExpressionImpl extends ASTWrapperPsiElement impl
   }
 
   @Override
+  @Nullable
+  public CrystalMacroInterpolation getMacroInterpolation() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
   @NotNull
   public List<CrystalPostfixModifier> getPostfixModifierList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalPostfixModifier.class);

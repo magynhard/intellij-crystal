@@ -437,6 +437,13 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testMacroGeneratedSymbolInferSymbol() {
+        assertTypes(
+            "value = :{{name.id}}\n<caret>value",
+            "Symbol"
+        )
+    }
+
     fun testBeginFlowComposesNormalRescueElseAndEnsure() {
         assertTypes(
             "value = 1\nbegin\n  value = \"normal\"\nrescue\n  value = true\nelse\n  value = 'e'\nensure\n  1\nend\n<caret>value",

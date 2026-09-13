@@ -1510,7 +1510,13 @@ private percent_literal_content ::= STRING_LITERAL | STRING_ESCAPE | interpolati
 // %I interpolates symbol words, so its content mirrors the interpolation support of %W.
 private percent_symbol_content ::= SYMBOL_LITERAL | interpolation_expression | NEWLINE
 
+// Macro-generated symbol: `:{{name.id}}` (colorize.cr fore/back,
+// `getter :{{property.id}}` macros.cr, `attributes[:{{var.name.id}}]?`).
+// No space after the colon (compiler expects an identifier token there),
+// reusing the symbol_string_expression element type so type inference and
+// receiver trust treat it exactly like `:"name"`.
 symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
+                            | COLON &<<isTokenTightAfterPreviousToken>> macro_interpolation
 
 array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference]
 

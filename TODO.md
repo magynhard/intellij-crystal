@@ -172,8 +172,12 @@
   and `suggestions.cr` fully clean; indexed 72/68 → 69/65);
   `.!` pseudo-method suffix is done (private `bang_suffix` in both postfix rules + implicit-object
   shorthand, `!LPAREN`-stricter `!()`; external audit 142/129 → 140/127 with
-  `time/location_spec.cr` and compiler semantic `new.cr` fully clean; indexed 69/65 → 68/64;
-  newly stopped cascade: `:{{name.id}}` symbol-operator-suffix in colorize.cr:387;
+  `time/location_spec.cr` and compiler semantic `new.cr` fully clean; indexed 69/65 → 68/64);
+  macro-generated symbols are done (second `symbol_string_expression` alternative `COLON` +
+  tightness + `macro_interpolation`, existing element type reused; external audit 140/127 →
+  139/126 with colorize.cr fully clean — both `:{{name.id}}` comparison sites; indexed 68/64 →
+  67/63; newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
+  json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
   next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets

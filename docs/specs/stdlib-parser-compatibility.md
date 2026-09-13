@@ -678,6 +678,36 @@ files. The pinned indexed corpus drops from 69 errors in 65 files to 68
 in 64. Newly stopped cascade line: `if color == :{{name.id}}`
 (colorize.cr:387) joins the pending operator-symbol family.
 
+Macro-generated symbols parse: `:{{name.id}}` (colorize.cr `fore`/`back`
+comparisons), `getter :{{property.id}}` (macros.cr generated getters), and
+`attributes[:{{var.name.id}}]?` (compiler instance_var_spec) — a colon
+followed by a macro interpolation is a full symbol expression, exactly like
+the generated `{{...}}` operand in Crystal. A second
+`symbol_string_expression` alternative (`COLON` + tightness predicate +
+`macro_interpolation`) reuses the existing element type, so type inference
+and receiver trust treat it like `:"name"`: `CrystalTypeSetResolver`
+returns `Symbol`, `CrystalExactReceiverTypeResolver` accepts it as a
+receiver, and the additively generated `CrystalSymbolStringExpression`
+getter exposes the interpolation. Space before the interpolation stays a
+parse error via `&<<isTokenTightAfterPreviousToken>>` (the compiler
+expects an identifier token directly after the colon); plain `:name` and
+interpolated `:"name"` untouched. The lexer is untouched — YYINITIAL
+already produced `COLON` + `MACRO_INTERPOLATION_BEGIN`, and operator
+symbols (`:+`, `:[]`) remain a separate pending lexer/grammar cluster.
+`CrystalParser.java` plus additive getters in the generated
+`CrystalSymbolStringExpression` PSI regenerate; no new element type, no
+stub or index change, hence no stub-version bump. Covered by the
+MacroGeneratedSymbols golden (all four real corpus shapes, no
+`PsiErrorElement`), a `Symbol` inference assertion, and a spaced-colon
+negative test. The external 1.21.0 crystal-repository audit drops from
+140 errors in 127 files to 139 in 126 — colorize.cr fully clean (both
+comparison sites) — verified by before/after file-set and per-file error
+count comparison with zero regressions. The pinned indexed corpus drops
+from 68 errors in 64 files to 67 in 63. Newly exposed cascades stay in
+the pending families: macro-args in `spec/primitives/int_spec.cr` and
+interpolated named-argument labels (`{{ key.id.stringify }}:`) in
+json/yaml from_json/from_yaml.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

@@ -10,6 +10,9 @@ public interface CrystalSymbolStringExpression extends PsiElement {
   @NotNull
   List<CrystalExpression> getExpressionList();
 
+  @Nullable
+  CrystalMacroInterpolation getMacroInterpolation();
+
   @NotNull
   List<CrystalPostfixModifier> getPostfixModifierList();
 
