@@ -5,6 +5,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Unary wrapping operators (`&-value`, `&+value`)** — `WRAP_PLUS`/`WRAP_MINUS` existed only with
+  binary/compound precedence, so the prefix uses in `Pointer(T).new(self.address & (&-boundary))`
+  (pointer.cr), `value < 0 ? &-v : v` (big_int.cr), `x = &-0_u32` (uint_spec.cr), and the hasher
+  spec failed at the operator. The two private unary rules admit `WRAP_PLUS`/`WRAP_MINUS`
+  (compiler parse_prefix, parser_spec `&- 1` / `&+ 1`), mirroring the bare-expression parallel —
+  only `&+`/`&-` are prefix operators; `&*`/`&**` (and operand-less forms) stay rejected by new
+  negative tests, via the same `&->` proc-literal token split as before. The existing binary
+  precedence, lexer tokens, PSI, stubs, and indexes are untouched — only `CrystalParser.java`
+  regenerates. The WrappingOperators golden extends to prefix reads, spacing forms, the
+  ternary/comparison and argument contexts, and a binary-left-operand canary. The external audit
+  drops from 149 errors in 136 files to 145 in 132 (`pointer.cr`, `big/big_int.cr`, `uint_spec.cr`,
+  and `crystal/hasher_spec.cr` fully clean, zero newly failing files); indexed drops from 74 in 70
+  to 72 in 68. The `!!` precedence family (method_lookup/restrictions `!= !!x`) remains a separate
+  cluster, as does the `.!` pseudo-method suffix.
 - **Indexed and `self` targets in multi-assignments (`self[i], self[j] = ...`, `a.value, a[n] = ...`)** —
   `multi_assign_target` had no bracket alternative, so the pointer-crystal swap (pointer.cr),
   `slice/sort.cr` median loops, and the position restore in compiler `syntax/lexer.cr`

@@ -597,6 +597,31 @@ cascade lines — `NamedTuple.new(` interior macro-controlled named arguments
 (json/from_yaml.cr) and `run_op_tests {{ int1 }}, {{ int2 }}, :+`
 (int_spec.cr) — join the pending macro-controlled-argument family.
 
+Unary wrapping operators parse in prefix position: `negative = &-value`,
+`positive = &+value`, the spaced `&- value` form, the ternary/comparison
+`value < 0 ? &-v : v` (big_int.cr), the paren-grouped operand
+`Pointer(T).new(self.address & (&-boundary))` (pointer.cr), and the
+block-passed `call(&-(1_u64 << shift))` (hasher_spec.cr). The
+`WRAP_PLUS`/`WRAP_MINUS` tokens existed only in the binary/compound
+precedence rows; the two private unary rules now include them, mirroring
+the compiler's `parse_prefix` set (`&- 1`, `&+ 1` in parser_spec.cr:294/295)
+and the parallel bare-expression chain. Prefix admission stays exclusive to
+`&+`/`&-`: `&*` and `&**` prefixes and operand-less wraps stay rejected
+(negative tests confirm the compiler behavior `value = &*operand` fails),
+the `&->` proc-literal token split is untouched, binary `a &- b` keeps
+binding in the additive row (golden canary), and a same-line operand after
+the operator is the pragmatic boundary — a newline directly after a unary
+wrap never binds a right operand in the compiler either (`x = &-` reports
+wrong number of arguments for Int32#&-, verified against crystal 1.21).
+Only `CrystalParser.java` regenerates: no new token, no PSI element, no
+stub or index change, hence no stub-version bump. The external
+crystal-repository audit drops from 149 errors in 136 files to 145 errors
+in 132 files — `pointer.cr`, `big/big_int.cr`, `uint_spec.cr`, and
+`crystal/hasher_spec.cr` fully clean (~22 latent unary sites behind four
+exact error tails) — verified by before/after file-set comparison with
+zero newly failing files. The pinned indexed corpus drops from 74 errors
+in 70 files to 72 in 68.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

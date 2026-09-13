@@ -164,6 +164,11 @@
   `crypto/bcrypt.cr:140`/`:137`, and `samples/sudoku.cr` recovered; indexed 76/72 → 74/70;
   newly stopped cascades: unary `&-boundary` in pointer.cr:481, `out = v.to_unsafe` keyword-name
   family in slice/sort.cr:348);
+  unary wrapping operators are done (`WRAP_PLUS`/`WRAP_MINUS` in both private unary rules, prefix
+  exclusive to `&+`/`&-`; external audit 149/136 → 145/132 with `pointer.cr`, `big/big_int.cr`,
+  `uint_spec.cr`, and `crystal/hasher_spec.cr` fully clean; indexed 74/70 → 72/68; pending
+  neighbors: `!!` precedence family in method_lookup/restrictions/suggestions and the `.!`
+  pseudo-method suffix);
   next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,
