@@ -708,6 +708,40 @@ the pending families: macro-args in `spec/primitives/int_spec.cr` and
 interpolated named-argument labels (`{{ key.id.stringify }}:`) in
 json/yaml from_json/from_yaml.
 
+Word keywords bind as local variables in exactly the subset the compiler
+accepts as identifiers: `of`, `union`, `uninitialized`, `forall`, and
+`previous_def`. `union = alloca llvm_type(type)` (compiler codegen
+call.cr), `if of = node.of` with `[of.key, of.value] of ASTNode`
+(literal_expander.cr and its to_s/transformer/parser twins), and
+`union patterns` (regex.cr) parse. The same subset rebinds in rvalue
+position: bare call arguments (`store @last, union`), array elements, and
+multi-assign targets. A dedicated private `keyword_variable` (targets,
+includes UNINITIALIZED) and `keyword_variable_value` (rvalues, drops
+UNINITIALIZED) keep `t = uninitialized UInt32` parsed by the
+`uninitialized T` type-expression alternative — admitting UNINITIALIZED
+into the plain reference overrode it and split `UInt32` into a stray
+statement (caught by the AsmAndUninitialized golden during development).
+`out` is excluded on both sides because a leading `out` is the
+argument-forwarding keyword; `end`, `def`, `if`, and every other
+statement-reserved keyword never rebind, so def bodies still terminate
+(crystal-parser-verified against the compiler: `select`, `alias`, `as`,
+`extend`, macro, and `out` assignments are rejected there too; `of`,
+`union`, `out`, `uninitialized`, `forall`, `previous_def` assignments
+accepted). Only `CrystalParser.java` regenerates; no new PSI element, no
+stub or index change, hence no stub-version bump. Covered by the
+KeywordAssignedKeywords golden and negative reserved-keyword, `out =`,
+and def-terminator tests. The external 1.21.0 crystal-repository audit
+drops from 139 errors in 126 files to 137 in 120 — `codegen/call.cr`,
+semantic `ast.cr`, `literal_expander.cr`, `syntax/transformer.cr`,
+`regex.cr`, and `spec/parser_spec.cr` fully clean — verified by
+before/after per-file count comparison. The pinned indexed corpus drops
+from 67 errors in 63 files to 66 in 58. Same-root-cause visibility
+inflation: the pending keyword-parameter family
+(`def parse_c_struct_or_union(union : Bool)`,
+`def self.map(values, of = nil, &)` now report two same-line errors
+instead of one, and `yaml/lib_yaml.cr` exposes `alias : AliasEvent` —
+resolved by the next cluster, not attributed here.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

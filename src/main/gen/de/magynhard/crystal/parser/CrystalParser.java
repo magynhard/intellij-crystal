@@ -4859,6 +4859,31 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // OF | UNION | UNINITIALIZED | FORALL | PREVIOUS_DEF
+  static boolean keyword_variable(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "keyword_variable")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, OF);
+    if (!result_) result_ = consumeToken(builder_, UNION);
+    if (!result_) result_ = consumeToken(builder_, UNINITIALIZED);
+    if (!result_) result_ = consumeToken(builder_, FORALL);
+    if (!result_) result_ = consumeToken(builder_, PREVIOUS_DEF);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // OF | UNION | FORALL | PREVIOUS_DEF
+  static boolean keyword_variable_value(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "keyword_variable_value")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, OF);
+    if (!result_) result_ = consumeToken(builder_, UNION);
+    if (!result_) result_ = consumeToken(builder_, FORALL);
+    if (!result_) result_ = consumeToken(builder_, PREVIOUS_DEF);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // lib_member*
   public static boolean lib_body(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_body")) return false;
@@ -11144,7 +11169,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
-  //                    | macro_fresh_variable
+  //                        | keyword_variable
+  //                        | macro_fresh_variable
   static boolean variable(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "variable")) return false;
     boolean result_;
@@ -11152,12 +11178,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = class_var_access(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, GLOBAL_VAR);
     if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = keyword_variable(builder_, level_ + 1);
     if (!result_) result_ = macro_fresh_variable(builder_, level_ + 1);
     return result_;
   }
 
   /* ********************************************************** */
-  // GLOBAL_VAR | IDENTIFIER | CONSTANT
+  // GLOBAL_VAR | IDENTIFIER | CONSTANT | keyword_variable_value
   public static boolean variable_reference(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "variable_reference")) return false;
     boolean result_;
@@ -11165,6 +11192,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, GLOBAL_VAR);
     if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = keyword_variable_value(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }

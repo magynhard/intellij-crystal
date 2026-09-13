@@ -408,6 +408,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testKeywordAssignedKeywords() {
+        doTest(true)
+    }
+
     fun testLibTypeAlias() {
         doTest(true)
     }

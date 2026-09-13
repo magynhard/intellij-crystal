@@ -176,7 +176,15 @@
   macro-generated symbols are done (second `symbol_string_expression` alternative `COLON` +
   tightness + `macro_interpolation`, existing element type reused; external audit 140/127 →
   139/126 with colorize.cr fully clean — both `:{{name.id}}` comparison sites; indexed 68/64 →
-  67/63; newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
+  67/63);
+  keyword identifiers as local variables are done (compiler-verified subset `of`, `union`,
+  `uninitialized`, `forall`, `previous_def` in `variable` and rvalue `variable_reference`,
+  `out`/`uninitialized` rvalue excluded; external audit 139/126 → 137/120 with `codegen/call.cr`,
+  semantic `ast.cr`, `literal_expander.cr`, `syntax/transformer.cr`, `regex.cr`, `spec/parser_spec.cr`
+  fully clean; indexed 67/63 → 66/58; same-cause visibility inflation on the pending
+  keyword-parameter family: `type_intersect.cr:254`, `syntax/ast.cr:557`, `syntax/parser.cr:6164`
+  report 2 same-line errors, `yaml/lib_yaml.cr` exposes `alias : AliasEvent`);
+  newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
   next: (a) remaining macro code positions (case/when conditions,

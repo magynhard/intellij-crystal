@@ -5,6 +5,24 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Keyword identifiers as local variables (`union = ...`, `if of = node.of`, `store @last, union`)** —
+  word keywords now bind as variables in exactly the subset the compiler accepts as identifiers
+  (`of`, `union`, `uninitialized`, `forall`, `previous_def`), as assignment targets and rvalues:
+  `union = alloca llvm_type(type)` (compiler codegen call.cr), `if of = node.of` with `[of.key,
+  of.value]` (literal_expander.cr and its to_s/transformer/parser twins), `union patterns` (regex.cr).
+  `out` is excluded — a leading `out` is the argument-forwarding keyword (`out x`), `out = v` stays
+  invalid — and `uninitialized` is excluded from rvalue position: the `uninitialized T`
+  type-expression alternative owns the token (`t = uninitialized U`), so `uninitialized UInt32`
+  keeps its PSI. Statement-reserved keywords (`end`, `def`, `if`, ...) never rebind, so the
+  def-body terminator stays `end` (negative tests). Covered by the `KeywordAssignedKeywords` golden
+  (assignment, condition variable, call arguments, multi-assign targets) and four negative cases;
+  no new PSI element, no stub or index change. The external 1.21.0 crystal-repository audit drops
+  from 139 errors in 126 files to 137 in 120 — `codegen/call.cr`, semantic `ast.cr`,
+  `literal_expander.cr`, `syntax/transformer.cr`, `regex.cr`, and `spec/parser_spec.cr` fully clean;
+  the pinned indexed corpus drops from 67 in 63 to 66 in 58. Same-root-cause visibility inflation:
+  keyword-named parameters (`def parse_c_struct_or_union(union : Bool)`, `def self.map(values, of =
+  nil, &)`) now report two same-line errors instead of one until the keyword-parameter cluster
+  lands; `yaml/lib_yaml.cr` `alias : AliasEvent` is exposed by the moved error position.
 - **Macro-generated symbols (`:{{name.id}}`)** — a colon followed by a macro interpolation now
   parses as a full symbol expression, reusing the `symbol_string_expression` PSI: `if color ==
   :{{name.id}}` (colorize.cr `fore`/`back`), `getter :{{property.id}}` (macros.cr generated
