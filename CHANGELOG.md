@@ -5,6 +5,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Prefix `!` at unary precedence (`!!a != !!b`)** — the `not_expression` level sat above the
+  comparison row, so a leading `!`, triple `!!` chain, or `!=` RHS with `!!` could not start a
+  comparison operand: `if def_metadata.yields != !!signature.block` (method_lookup.cr),
+  `!!double_splat != !!other.double_splat` (restrictions.cr), and `yields == !!block`
+  (suggestions.cr) failed. `BANG` joins both private unary rules and the former
+  `not_expression`/`bare_not_expression` levels are removed — matching the compiler's
+  `parse_prefix` (`!` parses a prefix-chain operand, so `!a == b` rebinding as `(!a) == b` is
+  intentional and CC-verified). Only `CrystalParser.java` regenerates; the tree change is the
+  deliberate precedence repair. DoubleBangComparisons golden (double bangs on both comparison
+  sides, `&&` operand, rebinding `!a == b`) and negative tests guard the shape; the syntactic
+  `.!` suffix forms belong to a separate pseudo-method cluster. The external audit drops from
+  145 errors in 132 files to 142 in 129 (the three compiler semantic sources
+  `method_lookup.cr`, `restrictions.cr`, `suggestions.cr` fully clean, zero newly failing
+  files); indexed drops from 72 in 68 to 69 in 65.
 - **Unary wrapping operators (`&-value`, `&+value`)** — `WRAP_PLUS`/`WRAP_MINUS` existed only with
   binary/compound precedence, so the prefix uses in `Pointer(T).new(self.address & (&-boundary))`
   (pointer.cr), `value < 0 ? &-v : v` (big_int.cr), `x = &-0_u32` (uint_spec.cr), and the hasher

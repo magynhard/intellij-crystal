@@ -918,9 +918,17 @@ expression ::= or_expression [QUESTION [expression COLON expression]]
 
 private or_expression ::= and_expression (OR_OR NLS and_expression)*
 
-private and_expression ::= not_expression (AND_AND NLS not_expression)*
-
-private not_expression ::= BANG not_expression | comparison_expression
+// Prefix `!` binds tight like every other unary operator: the compiler parses
+// it in parse_prefix with parse_prefix as its operand (parser.cr:631-648), so
+// `!!signature.block != yields` (method_lookup.cr:197),
+// `!!double_splat != !!other.double_splat` (restrictions.cr:527), and
+// `yields == !!block` (suggestions.cr:50) each evaluate a NOT of a prefix
+// chain, then compare. The former `not_expression` level sat above
+// comparison, so `yields != !!block` failed outright and a leading
+// `!a == b` bound the whole comparison under NOT — both wrong per the
+// compiler (`!a == b` is `(!a) == b`, verified against crystal 1.21).
+// The level is gone; the and/or rows reference comparison directly.
+private and_expression ::= comparison_expression (AND_AND NLS comparison_expression)*
 
 private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression)*
 
@@ -946,7 +954,7 @@ private power_expression ::= unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) 
 // compiler parse_prefix, parser_spec.cr:294/295). `&*` and `&**` stay binary
 // and as compound operators — the compiler rejects `value = &*operand` — and
 // the token starts are disjoint from the existing unary set, so no PEG hazard.
-private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | WRAP_PLUS | WRAP_MINUS) unary_expression
+private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | WRAP_PLUS | WRAP_MINUS | BANG) unary_expression
                             | postfix_expression
 
 private postfix_expression ::= primary_expression postfix_op*
@@ -1320,9 +1328,7 @@ private bare_expression ::= bare_or_expression [QUESTION [expression COLON expre
 
 private bare_or_expression ::= bare_and_expression (OR_OR NLS bare_and_expression)*
 
-private bare_and_expression ::= bare_not_expression (AND_AND NLS bare_not_expression)*
-
-private bare_not_expression ::= BANG bare_not_expression | bare_comparison_expression
+private bare_and_expression ::= bare_comparison_expression (AND_AND NLS bare_comparison_expression)*
 
 private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression)*
 
@@ -1343,7 +1349,7 @@ private bare_multiplicative_expression ::= bare_power_expression ((STAR | SLASH 
 
 private bare_power_expression ::= bare_unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS bare_unary_expression)*
 
-private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | WRAP_PLUS | WRAP_MINUS) bare_unary_expression
+private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | WRAP_PLUS | WRAP_MINUS | BANG) bare_unary_expression
                                 | bare_postfix_expression
 
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*

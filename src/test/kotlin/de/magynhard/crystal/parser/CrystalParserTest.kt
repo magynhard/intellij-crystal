@@ -540,6 +540,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testDoubleBangComparisons() {
+        doTest(true)
+    }
+
     fun testAnnotationDefinitionWithStub() {
         doTest(true)
     }

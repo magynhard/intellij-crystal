@@ -622,6 +622,32 @@ exact error tails) — verified by before/after file-set comparison with
 zero newly failing files. The pinned indexed corpus drops from 74 errors
 in 70 files to 72 in 68.
 
+Compact compound `!` comparisons parse: `!!a != !!b`,
+`if def_metadata.yields != !!signature.block` (method_lookup.cr:197),
+`!!double_splat != !!other.double_splat` (restrictions.cr:527), and
+`yields == !!block` (suggestions.cr:50). The former `not_expression`/
+`bare_not_expression` levels sat above the comparison row, so a comparison
+operand could not start with `!` at all (`yields != !!block` failed with
+`got '!='`) and a leading `!` swallowed the entire following comparison.
+`BANG` now joins `unary_expression`/`bare_unary_expression`, and the
+not-levels are gone: `and_expression` references `comparison_expression`
+directly, mirroring the compiler's `parse_prefix` where `!`'s operand is a
+prefix chain only (parser.cr:631-648). The rebinding is deliberate and
+compiler-exact — `!a == b` parses as `(!a) == b` and `!a && b` as `(!a) &&
+b` (verified against crystal 1.21: `!false || true` and `!false && false`
+evaluate tight) even though files that relied on the plugin's looser
+`!(...)` envelope now report a different — correct — PSI shape. Only
+`CrystalParser.java` regenerates: no new token, no PSI element, no stub or
+index change, hence no stub-version bump. Covered by the
+DoubleBangComparisons golden (double bangs on both comparison sides, `&&`
+operand, rebinding) and negative tests for operand-less and broken chains.
+The external crystal-repository audit drops from 145 errors in 132 files
+to 142 errors in 129 files — compiler semantic `method_lookup.cr`,
+`restrictions.cr`, and `suggestions.cr` fully clean — verified by
+before/after file-set comparison with zero newly failing files. The pinned
+indexed corpus drops from 72 errors in 68 files to 69 in 65. The `.!`
+pseudo-method suffix stays a separate pending cluster.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

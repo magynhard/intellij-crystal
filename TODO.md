@@ -166,9 +166,11 @@
   family in slice/sort.cr:348);
   unary wrapping operators are done (`WRAP_PLUS`/`WRAP_MINUS` in both private unary rules, prefix
   exclusive to `&+`/`&-`; external audit 149/136 → 145/132 with `pointer.cr`, `big/big_int.cr`,
-  `uint_spec.cr`, and `crystal/hasher_spec.cr` fully clean; indexed 74/70 → 72/68; pending
-  neighbors: `!!` precedence family in method_lookup/restrictions/suggestions and the `.!`
-  pseudo-method suffix);
+  `uint_spec.cr`, and `crystal/hasher_spec.cr` fully clean; indexed 74/70 → 72/68);
+  prefix `!` precedence is done (`BANG` in the twin unary chains, `not_expression` level removed;
+  external audit 145/132 → 142/129 with compiler semantic `method_lookup.cr`, `restrictions.cr`,
+  and `suggestions.cr` fully clean; indexed 72/68 → 69/65; pending neighbor: the `.!` pseudo-method
+  suffix in colorize.cr/new.cr/location_spec.cr);
   next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,
