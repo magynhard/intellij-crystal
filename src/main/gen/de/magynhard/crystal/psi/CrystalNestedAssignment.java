@@ -17,6 +17,9 @@ public interface CrystalNestedAssignment extends CrystalAssignment {
   CrystalInstanceVarAccess getInstanceVarAccess();
 
   @Nullable
+  CrystalMacroFreshVariable getMacroFreshVariable();
+
+  @Nullable
   CrystalNestedAssignment getNestedAssignment();
 
   @Nullable

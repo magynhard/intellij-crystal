@@ -562,6 +562,41 @@ before/after file-set comparison with zero newly failing files. The pinned
 indexed corpus drops from 81 errors in 77 files to 77 in 73 (4 repaired
 files fully clean).
 
+Macro fresh variables parse as real statement/primary nodes: `%value{i} =
+@iterators[{{ i }}].next` (iterator.cr), `%var{key.id} = nil`
+(json/from_json.cr, yaml/from_yaml.cr), `%val{int} = {{ int }}::MAX ...`
+(int_spec.cr), and bare reads `%val`/`%exp` with and without keys
+(math_spec.cr). The `MACRO_FRESH_VAR` token existed only inside macro
+bodies; everywhere else `%ident` bound as the modulo operator. The
+YYINITIAL state now admits `%ident` under an operand-position guard
+(`freshVariableAllowed`): word and literal left operands keep the modulo
+reading (`10 % val`, `count % item`), while line starts, the
+postfix-modifier keywords (`return stop if %value{i}.is_a?(Stop)`), and
+argument positions take the fresh variable; longest-match keeps the percent
+literal rules (`%q(`, `%w[`, ...) ahead because they match one character
+more. The new public `macro_fresh_variable` composite (`MACRO_FRESH_VAR`
+token plus optional `LBRACE expression RBRACE` key, mirroring the
+compiler's `MacroVar` node) joins `variable` — so assignment targets,
+condition assignments, and multi-assign targets admit fresh variables — both
+primary-expression groups for reads, and the `{% %}` opaque-soup token set.
+The braces key is expansion data: the name is the fresh-var token, no
+PsiReference is installed (the name only becomes resolvable after macro
+expansion), and `localAssignmentIdentifier` returns null so the
+unused-variable flow never binds macro-internal names (Crystal emits no
+runtime warning for them). Only `CrystalLexer.java`, `CrystalParser.java`,
+and additive accessors on the touched composites regenerate — no new token
+type, no stub or index change, hence no stub-version bump. Covered by the
+MacroFreshVariables parser golden (assignments, reads, `nilable?`-branch
+envelopes, modulo fallback) and negative tests for numeric fresh var names,
+unclosed braces, and leading commas inside the key. The external
+crystal-repository audit drops from 154 errors in 141 files to 152 errors in
+139 files — `iterator.cr` and `math_spec.cr` fully clean — verified by
+before/after file-set comparison with zero newly failing files. The pinned
+indexed corpus drops from 77 errors in 73 files to 76 in 72. Newly stopped
+cascade lines — `NamedTuple.new(` interior macro-controlled named arguments
+(json/from_yaml.cr) and `run_op_tests {{ int1 }}, {{ int2 }}, :+`
+(int_spec.cr) — join the pending macro-controlled-argument family.
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

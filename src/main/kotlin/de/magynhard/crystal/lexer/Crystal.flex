@@ -182,6 +182,47 @@ import com.intellij.psi.TokenType;
   }
 
   /**
+   * Fresh-variable admission for the YYINITIAL `%ident` form. `%var{key} = ...`
+   * appears between macro control tags (`{% begin %}`/`{% for %}` bodies in
+   * iterator.cr, json/from_yaml.cr) — Crystal's own lexer emits :MACRO_VAR only
+   * with an active macro state. We approximate the macro-context gate at
+   * operator level: `%ident` is a fresh variable unless the immediately
+   * preceding significant token can be a left operand of a binary `%`
+   * (identifier, constant, var, number, string/char/symbol literal, closing
+   * bracket, chain end). Identifiers `x %val` therefore keep the modulo
+   * reading, while line starts, postfix-modifier keywords, and argument
+   * positions take the fresh variable.
+   */
+  private boolean freshVariableAllowed() {
+    int i = zzStartRead - 1;
+    while (i >= 0 && (zzBuffer.charAt(i) == ' ' || zzBuffer.charAt(i) == '\t')) i--;
+    if (i < 0) return true;
+    char c = zzBuffer.charAt(i);
+    switch (c) {
+      case '\n': case '\r': case '(': case '[': case '{': case ',':
+      case '=': case '+': case '-': case '*': case '/': case '<': case '>':
+      case '?': case ':': case '|': case '&': case '^': case '~': case '!':
+      case '%':
+        return true;
+      case '.': case ')': case ']': case '}': case '@': case '"': case '\'':
+        return false;
+      default:
+        // Word predecessors are variables/constants (left operands of the
+        // modulo operator) except the postfix-modifier keywords, after which a
+        // fresh variable starts an operand again (`return stop if %value{i}`).
+        if (Character.isLetter(c) || Character.isDigit(c) || c == '_' || c == '?' || c == '!') {
+          int end = i + 1;
+          while (i >= 0 && (Character.isLetterOrDigit(zzBuffer.charAt(i)) || zzBuffer.charAt(i) == '_'
+                            || zzBuffer.charAt(i) == '?' || zzBuffer.charAt(i) == '!')) i--;
+          String word = zzBuffer.subSequence(i + 1, end).toString();
+          return word.equals("if") || word.equals("unless") || word.equals("while")
+              || word.equals("until") || word.equals("return");
+        }
+        return false;
+    }
+  }
+
+  /**
    * `%(`-style input is a percent literal in expression position, but an operator
    * METHOD NAME after `def` or `.` (`def %(other)`, `def self.%(...)`). Crystal
    * disambiguates by context; we look backwards at the raw buffer.
@@ -483,6 +524,17 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
                           yybegin(PERCENT_LITERAL);
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
                         }
+
+  // Macro fresh variables: `%value{i} = ...` between macro control tags
+  // (iterator.cr, json/from_json.cr) and bare reads (`%val` in math_spec).
+  // Crystal's lexer emits :MACRO_VAR only while the macro state is active, so
+  // in normal code `%ident` stays behind the modulo-operator decision unless
+  // the previous significant token cannot be a left operand (line start, open
+  // bracket, comma, assign, operator, or the tail `%}` of a control tag).
+  // Longest-match keeps the percent literals ahead: `%q(` matches three
+  // characters where the fresh-var rule matches only two.
+  "%" {IDENTIFIER}     { if (freshVariableAllowed()) { return CrystalTypes.MACRO_FRESH_VAR; }
+                          return CrystalTypes.PERCENT; }
 
   // String start
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }

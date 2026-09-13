@@ -1970,6 +1970,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                                   | instance_var_access
   //                                   | class_var_access
   //                                   | variable_reference
+  //                                   | macro_fresh_variable
   //                                   | typeof_expression
   //                                   | sizeof_expression
   //                                   | instance_sizeof_expression
@@ -2001,6 +2002,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = instance_var_access(builder_, level_ + 1);
     if (!result_) result_ = class_var_access(builder_, level_ + 1);
     if (!result_) result_ = variable_reference(builder_, level_ + 1);
+    if (!result_) result_ = macro_fresh_variable(builder_, level_ + 1);
     if (!result_) result_ = typeof_expression(builder_, level_ + 1);
     if (!result_) result_ = sizeof_expression(builder_, level_ + 1);
     if (!result_) result_ = instance_sizeof_expression(builder_, level_ + 1);
@@ -5285,7 +5287,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+  // IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | MACRO_FRESH_VAR
   //     | INTEGER_LITERAL | CHAR_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
   //     | SYMBOL_LITERAL | SYMBOL_COLON
   //     // Backtick commands and regex literals appear inside macro control blocks:
@@ -5314,6 +5316,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, INSTANCE_VAR);
     if (!result_) result_ = consumeToken(builder_, CLASS_VAR);
     if (!result_) result_ = consumeToken(builder_, GLOBAL_VAR);
+    if (!result_) result_ = consumeToken(builder_, MACRO_FRESH_VAR);
     if (!result_) result_ = consumeToken(builder_, INTEGER_LITERAL);
     if (!result_) result_ = consumeToken(builder_, CHAR_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_LITERAL);
@@ -5490,6 +5493,38 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, CONSTANT);
     if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // MACRO_FRESH_VAR [LBRACE expression RBRACE]
+  public static boolean macro_fresh_variable(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_fresh_variable")) return false;
+    if (!nextTokenIs(builder_, MACRO_FRESH_VAR)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, MACRO_FRESH_VAR);
+    result_ = result_ && macro_fresh_variable_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, MACRO_FRESH_VARIABLE, result_);
+    return result_;
+  }
+
+  // [LBRACE expression RBRACE]
+  private static boolean macro_fresh_variable_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_fresh_variable_1")) return false;
+    macro_fresh_variable_1_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // LBRACE expression RBRACE
+  private static boolean macro_fresh_variable_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_fresh_variable_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, LBRACE);
+    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RBRACE);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
@@ -8883,6 +8918,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                              | instance_var_access
   //                              | class_var_access
   //                              | variable_reference
+  //                              | macro_fresh_variable
   //                              | typeof_expression
   //                              | sizeof_expression
   //                              | instance_sizeof_expression
@@ -8918,6 +8954,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = instance_var_access(builder_, level_ + 1);
     if (!result_) result_ = class_var_access(builder_, level_ + 1);
     if (!result_) result_ = variable_reference(builder_, level_ + 1);
+    if (!result_) result_ = macro_fresh_variable(builder_, level_ + 1);
     if (!result_) result_ = typeof_expression(builder_, level_ + 1);
     if (!result_) result_ = sizeof_expression(builder_, level_ + 1);
     if (!result_) result_ = instance_sizeof_expression(builder_, level_ + 1);
@@ -10953,6 +10990,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
+  //                    | macro_fresh_variable
   static boolean variable(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "variable")) return false;
     boolean result_;
@@ -10960,6 +10998,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = class_var_access(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, GLOBAL_VAR);
     if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = macro_fresh_variable(builder_, level_ + 1);
     return result_;
   }
 

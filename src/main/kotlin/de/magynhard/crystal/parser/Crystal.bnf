@@ -519,7 +519,7 @@ macro_control_escaped ::= MACRO_CONTROL_ESCAPED_BEGIN macro_control_token* MACRO
 macro_interpolation_escaped ::= MACRO_INTERPOLATION_ESCAPED_BEGIN NLS expression [postfix_modifier] NLS MACRO_INTERPOLATION_END
 // CHAR_LITERAL and GLOBAL_VAR must stay in sync with the <MACRO_CONTROL> lexer state,
 // which can emit them anywhere inside {% ... %} (e.g. `{% if x == 'a' %}`).
-private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR
+private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | MACRO_FRESH_VAR
     | INTEGER_LITERAL | CHAR_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
     | SYMBOL_LITERAL | SYMBOL_COLON
     // Backtick commands and regex literals appear inside macro control blocks:
@@ -880,7 +880,18 @@ constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {
   pin=2
 }
 
+// Macro fresh variables: `%value` and `%var{key.id}` between macro control
+// tags (`{% begin %}` bodies in iterator.cr, json/from_yaml.cr) and in macro
+// bodies (MACRO_BODY lexes the fresh var as a bare token; the optional key
+// appears only where real braces are tokenized). The name token is the whole
+// composite's leaf; the key expression is macro data resolved at expansion
+// time, so name-based consumers see the token `%value`.
+macro_fresh_variable ::= MACRO_FRESH_VAR [LBRACE expression RBRACE] {
+  mixin="de.magynhard.crystal.psi.impl.CrystalMacroFreshVariableMixin"
+}
+
 private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
+                   | macro_fresh_variable
 
 private assign_op ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
                      | PERCENT_ASSIGN | AMPERSAND_ASSIGN | PIPE_ASSIGN | CARET_ASSIGN
@@ -1073,6 +1084,7 @@ private primary_expression ::= grouped_expression
                              | instance_var_access
                              | class_var_access
                              | variable_reference
+                             | macro_fresh_variable
                              | typeof_expression
                              | sizeof_expression
                              | instance_sizeof_expression
@@ -1349,6 +1361,7 @@ private bare_primary_expression ::= grouped_expression
                                   | instance_var_access
                                   | class_var_access
                                   | variable_reference
+                                  | macro_fresh_variable
                                   | typeof_expression
                                   | sizeof_expression
                                   | instance_sizeof_expression

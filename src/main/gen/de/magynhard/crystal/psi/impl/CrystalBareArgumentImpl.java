@@ -154,6 +154,12 @@ public class CrystalBareArgumentImpl extends CrystalAccessorArgumentMixin implem
 
   @Override
   @NotNull
+  public List<CrystalMacroFreshVariable> getMacroFreshVariableList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroFreshVariable.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalMacroIfEnvelope> getMacroIfEnvelopeList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroIfEnvelope.class);
   }

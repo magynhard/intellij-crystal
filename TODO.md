@@ -153,6 +153,11 @@
   chained indexed assignments are done (indexed RHS recursion, dotted receivers,
   assignments in indices; external audit 160/147 → 154/141 with 6 files fully clean;
   indexed 81/77 → 77/73);
+  macro fresh variables are done (YYINITIAL `%ident` with an operand-position `freshVariableAllowed`
+  guard, `macro_fresh_variable` PSI with braces key in `variable`/primaries/`{% %}` soup; external
+  audit 154/141 → 152/139 with `iterator.cr` and `math_spec.cr` fully clean; indexed 77/73 → 76/72;
+  newly stopped cascades: `NamedTuple.new(` interior macro-controlled named args, `run_op_tests...`
+  macro-args in int_spec);
   next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,

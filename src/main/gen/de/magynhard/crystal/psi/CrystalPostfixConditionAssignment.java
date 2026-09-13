@@ -16,4 +16,7 @@ public interface CrystalPostfixConditionAssignment extends CrystalAssignment {
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();
 
+  @Nullable
+  CrystalMacroFreshVariable getMacroFreshVariable();
+
 }

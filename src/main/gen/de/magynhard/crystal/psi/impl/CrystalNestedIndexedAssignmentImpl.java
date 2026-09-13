@@ -71,6 +71,12 @@ public class CrystalNestedIndexedAssignmentImpl extends ASTWrapperPsiElement imp
 
   @Override
   @Nullable
+  public CrystalMacroFreshVariable getMacroFreshVariable() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroFreshVariable.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalNestedAssignment getNestedAssignment() {
     return PsiTreeUtil.getChildOfType(this, CrystalNestedAssignment.class);
   }

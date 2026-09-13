@@ -5,18 +5,9 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface CrystalCondition extends PsiElement {
+public interface CrystalMacroFreshVariable extends PsiElement {
 
   @Nullable
-  CrystalClassVarAccess getClassVarAccess();
-
-  @NotNull
   CrystalExpression getExpression();
-
-  @Nullable
-  CrystalInstanceVarAccess getInstanceVarAccess();
-
-  @Nullable
-  CrystalMacroFreshVariable getMacroFreshVariable();
 
 }

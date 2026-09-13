@@ -23,6 +23,9 @@ public interface CrystalAssignment extends PsiElement {
   CrystalInstanceVarAccess getInstanceVarAccess();
 
   @Nullable
+  CrystalMacroFreshVariable getMacroFreshVariable();
+
+  @Nullable
   CrystalNestedIndexedAssignment getNestedIndexedAssignment();
 
   @Nullable

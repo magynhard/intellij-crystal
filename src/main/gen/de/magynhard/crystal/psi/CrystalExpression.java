@@ -71,6 +71,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalMacroControlEscaped> getMacroControlEscapedList();
 
   @NotNull
+  List<CrystalMacroFreshVariable> getMacroFreshVariableList();
+
+  @NotNull
   List<CrystalMacroIfEnvelope> getMacroIfEnvelopeList();
 
   @NotNull

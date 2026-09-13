@@ -40,6 +40,12 @@ public class CrystalMultiAssignTargetImpl extends ASTWrapperPsiElement implement
   }
 
   @Override
+  @Nullable
+  public CrystalMacroFreshVariable getMacroFreshVariable() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroFreshVariable.class);
+  }
+
+  @Override
   @NotNull
   public List<CrystalMultiAssignTarget> getMultiAssignTargetList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMultiAssignTarget.class);

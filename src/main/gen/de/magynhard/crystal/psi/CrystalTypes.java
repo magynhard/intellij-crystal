@@ -70,6 +70,7 @@ public interface CrystalTypes {
   IElementType MACRO_CONTROL = new CrystalElementType("MACRO_CONTROL");
   IElementType MACRO_CONTROL_ESCAPED = new CrystalElementType("MACRO_CONTROL_ESCAPED");
   IElementType MACRO_DEFINITION = CrystalStubElementTypeFactory.create("MACRO_DEFINITION");
+  IElementType MACRO_FRESH_VARIABLE = new CrystalElementType("MACRO_FRESH_VARIABLE");
   IElementType MACRO_IF_ENVELOPE = new CrystalElementType("MACRO_IF_ENVELOPE");
   IElementType MACRO_INTERPOLATION = new CrystalElementType("MACRO_INTERPOLATION");
   IElementType MACRO_INTERPOLATION_ESCAPED = new CrystalElementType("MACRO_INTERPOLATION_ESCAPED");
@@ -476,6 +477,9 @@ public interface CrystalTypes {
       }
       else if (type == MACRO_DEFINITION) {
         return new CrystalMacroDefinitionImpl(node);
+      }
+      else if (type == MACRO_FRESH_VARIABLE) {
+        return new CrystalMacroFreshVariableImpl(node);
       }
       else if (type == MACRO_IF_ENVELOPE) {
         return new CrystalMacroIfEnvelopeImpl(node);

@@ -5,6 +5,25 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro fresh variables (`%value{i}`, `%var{key.id}`, bare `%val`)** — the `MACRO_FRESH_VAR`
+  token existed only inside macro bodies; between macro control tags (`{% begin %}`/`{% for %}`
+  bodies in iterator.cr, json/from_json.cr) and outside, `%` bound as the modulo operator and the
+  statement failed. The YYINITIAL lexer now admits `%ident` under an operand-position guard (word
+  and literal left operands keep the modulo reading `10 % val`; line starts, postfix-modifier
+  keywords, and argument positions take the fresh variable; longest-match keeps the percent
+  literals ahead). A `macro_fresh_variable` composite (MACRO_FRESH_VAR token plus optional
+  `LBRACE expression RBRACE` key, mirroring the compiler's `MacroVar`) joins `variable` (assignment
+  targets, condition assignments, multi-assign targets) and both primary-expression groups, and
+  enters the `{% %}` soup token set. The name is the fresh-var token; the brace key is expansion
+  data, so the unused-variable analysis skips these macro-internal bindings (Crystal emits no
+  runtime warning for them) and no PsiReference is installed. Only `CrystalLexer.java`,
+  `CrystalParser.java`, and additive accessors regenerate — no stub or index change. Covered by the
+  MacroFreshVariables golden (assignments, reads, `nilable?`-branch envelopes, modulo fallback) and
+  negative tests (numeric fresh var, unclosed braces, stray leading comma). The external audit
+  drops from 154 errors in 141 files to 152 in 139 (`iterator.cr` and `math_spec.cr` fully clean;
+  zero newly failing files); indexed drops from 77 in 73 to 76 in 72. Newly stopped cascade lines:
+  `NamedTuple.new(` interior macro-controlled named args (json/from_yaml.cr) and
+  `run_op_tests {{ int1 }}, {{ int2 }}, :+` (int_spec.cr).
 - **Member targets in multi-assignments (`a.foo, a.bar = 1, 2`)** — the target rule accepted
   only plain variables, so `@editor.width, @editor.height = ...` (reply `reader.cr`) broke the
   enclosing `loop do` block. A private member-target rule (variable/constant receiver plus

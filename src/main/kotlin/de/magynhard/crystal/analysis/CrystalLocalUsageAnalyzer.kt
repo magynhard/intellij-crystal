@@ -1123,8 +1123,16 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
 
     private fun localAssignmentIdentifier(assignment: CrystalAssignment): PsiElement? {
         if (assignment.instanceVarAccess != null || assignment.classVarAccess != null) return null
-        return (assignment as? PsiNameIdentifierOwner)?.nameIdentifier
+        val identifier = (assignment as? PsiNameIdentifierOwner)?.nameIdentifier
             ?: assignment.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+        // Macro fresh variables (`%var{key.id} = nil` in {% begin %} bodies)
+        // are macro-internal bindings materialized at expansion time; their
+        // name never becomes an ordinary symbol, so the unused-variable flow
+        // keeps neither bindings nor reads for them (crystal itself emits no
+        // warning for MacroVar; flagging it reported `…fresh var 'value' is
+        // never used` noise on every generated binding).
+        if (identifier?.node?.elementType == CrystalTypes.MACRO_FRESH_VAR) return null
+        return identifier
     }
 
     private fun localReferenceName(reference: CrystalVariableReference): String? =

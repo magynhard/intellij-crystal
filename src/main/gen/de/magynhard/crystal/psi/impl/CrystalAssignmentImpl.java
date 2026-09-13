@@ -58,6 +58,12 @@ public class CrystalAssignmentImpl extends CrystalAssignmentMixin implements Cry
 
   @Override
   @Nullable
+  public CrystalMacroFreshVariable getMacroFreshVariable() {
+    return PsiTreeUtil.getChildOfType(this, CrystalMacroFreshVariable.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalNestedIndexedAssignment getNestedIndexedAssignment() {
     return PsiTreeUtil.getChildOfType(this, CrystalNestedIndexedAssignment.class);
   }

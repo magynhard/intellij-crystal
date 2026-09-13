@@ -10,14 +10,14 @@ import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalPostfixConditionAssignmentImpl extends CrystalConditionAssignmentMixin implements CrystalPostfixConditionAssignment {
+public class CrystalMacroFreshVariableImpl extends CrystalMacroFreshVariableMixin implements CrystalMacroFreshVariable {
 
-  public CrystalPostfixConditionAssignmentImpl(ASTNode node) {
+  public CrystalMacroFreshVariableImpl(ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {
-    visitor.visitPostfixConditionAssignment(this);
+    visitor.visitMacroFreshVariable(this);
   }
 
   @Override
@@ -28,26 +28,8 @@ public class CrystalPostfixConditionAssignmentImpl extends CrystalConditionAssig
 
   @Override
   @Nullable
-  public CrystalClassVarAccess getClassVarAccess() {
-    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
-  }
-
-  @Override
-  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
-  }
-
-  @Override
-  @Nullable
-  public CrystalInstanceVarAccess getInstanceVarAccess() {
-    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
-  }
-
-  @Override
-  @Nullable
-  public CrystalMacroFreshVariable getMacroFreshVariable() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMacroFreshVariable.class);
   }
 
 }

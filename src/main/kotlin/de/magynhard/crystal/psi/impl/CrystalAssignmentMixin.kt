@@ -29,6 +29,14 @@ abstract class CrystalAssignmentMixin(node: ASTNode) : ASTWrapperPsiElement(node
                 CrystalTypes.IDENTIFIER, CrystalTypes.INSTANCE_VAR, CrystalTypes.CLASS_VAR -> {
                     return child.psi
                 }
+                // Macro fresh variables (`%var{key.id} = nil`): the leaf is a
+                // MACRO_FRESH_VAR token; its `macro_fresh_variable` composite is a
+                // PsiNameIdentifierOwner but no PsiReference provider, so the
+                // rename flow reaches the leaf directly through its token.
+                CrystalTypes.MACRO_FRESH_VAR -> {
+                    return (child.psi as? com.intellij.psi.PsiNameIdentifierOwner)?.nameIdentifier
+                        ?: child.psi
+                }
             }
             child = child.treeNext
         }
@@ -47,10 +55,11 @@ abstract class CrystalAssignmentMixin(node: ASTNode) : ASTWrapperPsiElement(node
     override fun setName(name: String): PsiElement {
         val ident = nameIdentifier ?: return this
         val tokenType = ident.node.elementType
-        val bareName = name.removePrefix("@").removePrefix("@")
+        val bareName = name.removePrefix("@").removePrefix("@").removePrefix("%")
         val fixedName = when (tokenType) {
             CrystalTypes.INSTANCE_VAR -> "@$bareName"
             CrystalTypes.CLASS_VAR -> "@@$bareName"
+            CrystalTypes.MACRO_FRESH_VAR -> "%$bareName"
             else -> bareName
         }
         val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
