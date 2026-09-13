@@ -582,6 +582,11 @@ private lib_fun_parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter 
 private lib_fun_unnamed_parameter ::= LPAREN type_reference (COMMA type_reference)* RPAREN ARROW [type_union]
                                     | type_union
 
+// Compiler-verified keyword-as-parameter subset (matches keyword_variable):
+// of, union, uninitialized, forall, previous_def. select/alias/end/macro are
+// rejected by the compiler even with default or type.
+private keyword_parameter_name ::= OF | UNION | UNINITIALIZED | FORALL | PREVIOUS_DEF
+
 private param_prefix ::= annotation_usage
                        | macro_control
 // Explicit call-site name plus internal binding/storage target. This longer
@@ -591,11 +596,17 @@ private param_prefix ::= annotation_usage
 // `def self.history(with entries = ...)` in reply's spec_helper.cr) — the
 // compiler accepts every keyword as the external name as long as a valid
 // internal name follows (parser_spec "external names"). The keyword stays a
-// token and only this rule accepts it as a label; a lone keyword is still
-// rejected because the second name is mandatory.
+// token and only this rule accepts it as a label; a lone reserved keyword is
+// still rejected — only the keyword_parameter_name subset below stands alone.
+// The compiler-verified identifier subset also stands alone as a parameter
+// name (`def declare_class_var(node, var, uninitialized)`, `def
+// self.map(values, of = nil, &)`, `def parse_c_struct_or_union(union : Bool)`,
+// `def self.common_descendent_union(type, union)`) and joins the
+// starred/splat name group (`*union`, `&of`).
 parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+            | param_prefix* keyword_parameter_name [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND IDENTIFIER COLON type_union COMMA type_union (COMMA type_union)* ARROW [type_reference]
-            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access | keyword_parameter_name) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | param_prefix* AMPERSAND [COLON type_reference]
             | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN

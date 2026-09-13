@@ -5,6 +5,21 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Keyword identifiers as parameter names (`def declare_class_var(node, var, uninitialized)`)** — the
+  compiler-verified keyword subset (`of`, `union`, `uninitialized`, `forall`, `previous_def`) now
+  stands alone as a def parameter name, with an optional type and default: `parameters of = nil,
+  &` (ast.cr), `def parse_c_struct_or_union(union : Bool)` (parser.cr), and `(*union)`/`(&of)`
+  splat/block forms. Every other keyword stays an external call-site label only (`end end_pos`,
+  `with entries`, negative-tested for `end`/`def`/`if`/`select`/`alias`), and the two-name label
+  form is unchanged. Covered by KeywordParameterNames golden plus the invalid-parameter tests; no
+  PSI shape change beyond admitted parameters, no stub or index change. The external 1.21.0
+  crystal-repository audit drops from 137 errors in 120 files to 130 in 117 — `type_intersect.cr`,
+  `syntax/ast.cr`, and `syntax/parser.cr` fully clean; the pinned indexed corpus drops from 66 in
+  58 to 59 in 55, matching the per-file count diff with zero regressions. Newly exposed cascade:
+  a lone `uninitialized` as a bare `.new` argument
+  (`TypeDeclarationWithLocation.new(var_type.virtual_type, node.location.not_nil!, uninitialized,
+  nil)`) wants the `uninitialized T` type alternative first — deferred to the bare-argument
+  cluster.
 - **Keyword identifiers as local variables (`union = ...`, `if of = node.of`, `store @last, union`)** —
   word keywords now bind as variables in exactly the subset the compiler accepts as identifiers
   (`of`, `union`, `uninitialized`, `forall`, `previous_def`), as assignment targets and rvalues:

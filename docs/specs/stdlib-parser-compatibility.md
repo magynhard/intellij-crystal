@@ -740,7 +740,32 @@ inflation: the pending keyword-parameter family
 (`def parse_c_struct_or_union(union : Bool)`,
 `def self.map(values, of = nil, &)` now report two same-line errors
 instead of one, and `yaml/lib_yaml.cr` exposes `alias : AliasEvent` —
-resolved by the next cluster, not attributed here.
+resolved by later clusters, not attributed here.
+
+The compiler-verified keyword subset also stands alone as a parameter
+name with an optional type and default: `keyword_parameter_name` (`OF`,
+`UNION`, `UNINITIALIZED`, `FORALL`, `PREVIOUS_DEF`, empirically
+crystal-verified — `select`, `alias`, `end`, and `macro` are rejected
+even with a default or type) joins `parameter` as a second alternative
+and joins the starred/splat name group (`*union`, `&of`). The two-name
+external-label form is untouched: every keyword stays a valid call-site
+label (`end end_pos`, `with entries`), a lone reserved keyword stays
+rejected, and paren-less parameter lists keep their order
+(generated-splat fragments still gated). Only `CrystalParser.java`
+regenerates; no new element type, no PSI/stub/index change. Covered by
+the KeywordParameterNames golden (all four audit shapes plus default,
+typed, splat, and block forms) and the reserved-keyword negative class
+with the unchanged end-label positive control. The external 1.21.0
+crystal-repository audit drops from 137 errors in 120 files to 130 in
+117 — `semantic/type_intersect.cr`, `syntax/ast.cr`, and
+`syntax/parser.cr` fully clean — and the pinned indexed corpus drops
+from 66 errors in 58 files to 59 in 55, both matching a per-file count
+diff with zero regressions (the doubled same-line errors collapse).
+Newly exposed cascade: a lone `uninitialized` as a bare `.new`
+argument — `TypeDeclarationWithLocation.new(var_type.virtual_type,
+node.location.not_nil!, uninitialized, nil)` — still binds the
+`uninitialized T` type alternative first and expects a type reference;
+deferred to the bare-argument cluster.
 
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),

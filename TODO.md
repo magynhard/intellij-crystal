@@ -184,6 +184,11 @@
   fully clean; indexed 67/63 → 66/58; same-cause visibility inflation on the pending
   keyword-parameter family: `type_intersect.cr:254`, `syntax/ast.cr:557`, `syntax/parser.cr:6164`
   report 2 same-line errors, `yaml/lib_yaml.cr` exposes `alias : AliasEvent`);
+  keyword identifiers as parameter names are done (compiler-verified subset in a lone-name
+  parameter alternative; external audit 137/120 → 130/117 with `type_intersect.cr`,
+  `syntax/ast.cr`, `syntax/parser.cr` fully clean; indexed 66/58 → 59/55; newly exposed cascade:
+  lone `uninitialized` as bare `.new` argument — `TypeDeclarationWithLocation.new(...,
+  uninitialized, nil)` in type_declaration_visitor.cr:277);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
