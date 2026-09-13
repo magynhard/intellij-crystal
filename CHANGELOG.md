@@ -5,6 +5,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Multiple `typeof` arguments (`typeof(t, u)`)** — `typeof` now accepts one or more
+  comma-separated expressions, with newlines after the opener or comma and a trailing comma:
+  `typeof(first, second)`, `typeof(\n first,\n second,\n)`, nested calls/tuples, and type
+  contexts such as `Pointer(typeof(first, second))`. The private list is shared by type-context
+  `typeof` and expression `typeof`; empty, leading/double-comma, and newline-before-comma forms
+  remain parse errors as verified against Crystal. `CrystalTypeofExpression` regenerates from a
+  singular nullable expression accessor to `getExpressionList()`; no in-repository consumer used
+  the old accessor, and no stub or index changes. Covered by TypeofMultipleArguments golden and
+  four negative cases. The external 1.21.0 crystal-repository audit drops from 130 errors in 117
+  files to 128 in 115 (`src/class.cr` and `spec/std/class_spec.cr` fully clean); the pinned indexed
+  corpus drops from 59 in 55 to 58 in 54, with no indexed per-file regressions. Assignment-level
+  operands such as `typeof(value = 1, other = 2)` remain a separate `parse_op_assign`-parity
+  concern and are deliberately outside this small grammar-only fix.
 - **Keyword identifiers as parameter names (`def declare_class_var(node, var, uninitialized)`)** — the
   compiler-verified keyword subset (`of`, `union`, `uninitialized`, `forall`, `previous_def`) now
   stands alone as a def parameter name, with an optional type and default: `parameters of = nil,

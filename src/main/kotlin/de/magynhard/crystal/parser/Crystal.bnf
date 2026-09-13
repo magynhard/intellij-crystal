@@ -1606,7 +1606,7 @@ private type_atom ::= type_path [type_arguments]
                         // macro-generated method bodies (int.cr from_digits).
                        | macro_interpolation
                        | SELF
-                       | TYPEOF LPAREN NLS expression (COMMA NLS expression)* NLS RPAREN
+                       | TYPEOF LPAREN NLS typeof_argument_list NLS RPAREN
                        | LPAREN type_reference (COMMA type_reference)* RPAREN
                        | LBRACE NLS IDENTIFIER COLON type_reference (NLS COMMA NLS IDENTIFIER COLON type_reference)* NLS RBRACE
                        | LBRACE NLS type_reference (NLS COMMA NLS type_reference)* NLS RBRACE
@@ -1648,7 +1648,13 @@ private type_name ::= CONSTANT (DOUBLE_COLON CONSTANT)*
 
 // ==================== Typeof / Sizeof ====================
 
-typeof_expression ::= TYPEOF LPAREN expression RPAREN {pin=1}
+// The compiler's parse_typeof accepts one or more expressions, with newlines
+// after the opener or comma and an optional trailing comma:
+// `typeof(t, u)`, `typeof(\n t,\n u,\n)`. Keep the comma directly after an
+// expression so `typeof(t\n, u)` remains invalid like the compiler.
+private typeof_argument_list ::= expression (COMMA NLS expression)* [COMMA]
+
+typeof_expression ::= TYPEOF LPAREN NLS typeof_argument_list NLS RPAREN {pin=1}
 
 sizeof_expression ::= SIZEOF LPAREN NLS type_reference NLS RPAREN {pin=1}
 

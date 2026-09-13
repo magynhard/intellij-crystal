@@ -416,6 +416,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testTypeofMultipleArguments() {
+        doTest(true)
+    }
+
     fun testLibTypeAlias() {
         doTest(true)
     }

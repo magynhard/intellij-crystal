@@ -767,6 +767,25 @@ node.location.not_nil!, uninitialized, nil)` — still binds the
 `uninitialized T` type alternative first and expects a type reference;
 deferred to the bare-argument cluster.
 
+`typeof` takes one or more comma-separated expressions in both expression
+and type contexts: `typeof(t, u)` (class.cr `Class#|`), multiline
+`typeof(\n t,\n u,\n)`, nested tuple/call operands, and
+`Pointer(typeof(t, u))`. A private `typeof_argument_list` now supplies
+both `typeof_expression` and `type_atom`; the comma remains directly after
+the preceding expression, matching compiler validation that rejects a
+newline before it, a leading/double comma, and no arguments. The compiler
+also accepts assignment-level operands through `parse_op_assign`, but this
+grammar's existing expression model deliberately does not; extending that
+boundary is separate scope, so `typeof(value = 1, other = 2)` remains
+unsupported. `CrystalParser.java` and the generated typeof PSI regenerate:
+the singular nullable `getExpression()` becomes non-null
+`getExpressionList()`; there are no in-repository consumers of the old
+accessor and no stub/index changes. Covered by TypeofMultipleArguments
+golden and four negative forms. The external 1.21.0 crystal-repository
+audit drops from 130 errors in 117 files to 128 in 115 (`src/class.cr` and
+`spec/std/class_spec.cr` fully clean); the pinned indexed corpus drops from
+59 errors in 55 files to 58 in 54, with zero indexed per-file regressions.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

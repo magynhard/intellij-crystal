@@ -189,6 +189,10 @@
   `syntax/ast.cr`, `syntax/parser.cr` fully clean; indexed 66/58 → 59/55; newly exposed cascade:
   lone `uninitialized` as bare `.new` argument — `TypeDeclarationWithLocation.new(...,
   uninitialized, nil)` in type_declaration_visitor.cr:277);
+  multiple `typeof` arguments are done (shared private `typeof_argument_list` in expression and
+  type contexts; trailing comma/newlines supported; external audit 130/117 → 128/115 with
+  `src/class.cr` and `spec/std/class_spec.cr` clean; indexed 59/55 → 58/54; assignment-level
+  operands `typeof(value = 1, other = 2)` remain separate parse_op_assign parity);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
