@@ -158,6 +158,12 @@
   audit 154/141 → 152/139 with `iterator.cr` and `math_spec.cr` fully clean; indexed 77/73 → 76/72;
   newly stopped cascades: `NamedTuple.new(` interior macro-controlled named args, `run_op_tests...`
   macro-args in int_spec);
+  indexed and `self` multi-assign targets are done (private `multi_assign_indexed_target` from the
+  indexed-assignment helpers, `SELF` in `assignment_target` and the member root; external audit
+  152/139 → 149/136 with `pointer.cr:322`, `slice/sort.cr:28`, compiler `syntax/lexer.cr:1988`,
+  `crypto/bcrypt.cr:140`/`:137`, and `samples/sudoku.cr` recovered; indexed 76/72 → 74/70;
+  newly stopped cascades: unary `&-boundary` in pointer.cr:481, `out = v.to_unsafe` keyword-name
+  family in slice/sort.cr:348);
   next: (a) remaining macro code positions (case/when conditions,
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,

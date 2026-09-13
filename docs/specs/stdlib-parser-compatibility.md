@@ -597,6 +597,40 @@ cascade lines — `NamedTuple.new(` interior macro-controlled named arguments
 (json/from_yaml.cr) and `run_op_tests {{ int1 }}, {{ int2 }}, :+`
 (int_spec.cr) — join the pending macro-controlled-argument family.
 
+Multi-assignment targets admit indexed receivers and `self`-rooted
+targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
+`a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites
+including cascades), `cdata[i], cdata[i + 1] = l, r` (bcrypt.cr), and
+`self.current_pos, @line_number, @column_number = ...` (compiler
+`syntax/lexer.cr`). A private `multi_assign_indexed_target` reuses
+`indexed_assignment_target` (with dot chains) plus
+`indexed_assignment_index`, placed ahead of the member and variable
+alternatives in both the plain and splat `multi_assign_target` groups so
+the receiver alone never commits and strands a bracket;
+`assignment_target` gains `SELF` (so plain `self[i] = value` parses like
+the compiler, while `self = value` stays invalid — `assignment` still
+begins with `variable`) and `multi_assign_member_root` gains `SELF` for
+member targets. All wrappers stay private and inline: no new PSI element
+type, no runtime consumer change, no stub or index change, hence no
+stub-version bump. The pin stays only on `multi_assignment`'s final
+`ASSIGN`; before it, comma-list prefixes (`when a[i], a[j]`) keep falling
+back to plain expressions — no pin on targets, indices, or the helper
+itself, so multi-assignment attempts roll back cleanly, and no
+`recoverWhile` is added. Calls with arguments on `self` or bracket
+receivers, parenthesized whole targets, typed index targets, and malformed
+index contents stay rejected. Covered by the extended
+MultiAssignMemberTargets golden (audit shapes, splats, multi-level
+indices, `Foo::Bar[i, j]`, index assignments, postfix modifier, fallback
+canary) and new negative tests for calls/blocks on indexed targets and
+malformed indices. The external crystal-repository audit drops from 152
+errors in 139 files to 149 errors in 136 files — the target repairs also
+recovered the downstream `crypto/bcrypt.cr:137` `0.step(...) do` and
+`samples/sudoku.cr` `loop do` stops — with zero newly failing files. The
+pinned indexed corpus drops from 76 errors in 72 files to 74 in 70. Newly
+stopped cascade lines: `Pointer(T).new(...&-boundary...)` (unary
+wrap-minus) and `out = v.to_unsafe` (`out` as a local name —
+keyword-identifier family).
+
 Macro-generated type definitions parse structurally: `type_name` (class,
 struct, module, enum, alias, annotation) accepts a bare macro interpolation
 (`struct {{num.id}}` — primitives.cr:435/480/560, compiler_rt.cr:58/74/173,

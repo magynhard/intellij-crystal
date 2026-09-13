@@ -7,8 +7,17 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalMultiAssignTarget extends PsiElement {
 
+  @NotNull
+  List<CrystalArgumentList> getArgumentListList();
+
+  @NotNull
+  List<CrystalAssignment> getAssignmentList();
+
   @Nullable
   CrystalClassVarAccess getClassVarAccess();
+
+  @NotNull
+  List<CrystalDotCallAccess> getDotCallAccessList();
 
   @Nullable
   CrystalInstanceVarAccess getInstanceVarAccess();

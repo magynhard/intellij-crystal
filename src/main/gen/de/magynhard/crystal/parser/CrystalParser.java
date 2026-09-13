@@ -1002,53 +1002,56 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // variable | instance_var_access | class_var_access
+  // SELF
+  //                             | variable
+  //                             | instance_var_access | class_var_access
   //                             | [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)*
   static boolean assignment_target(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "assignment_target")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = variable(builder_, level_ + 1);
+    result_ = consumeToken(builder_, SELF);
+    if (!result_) result_ = variable(builder_, level_ + 1);
     if (!result_) result_ = instance_var_access(builder_, level_ + 1);
     if (!result_) result_ = class_var_access(builder_, level_ + 1);
-    if (!result_) result_ = assignment_target_3(builder_, level_ + 1);
+    if (!result_) result_ = assignment_target_4(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)*
-  private static boolean assignment_target_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "assignment_target_3")) return false;
+  private static boolean assignment_target_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_target_4")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = assignment_target_3_0(builder_, level_ + 1);
+    result_ = assignment_target_4_0(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, CONSTANT);
-    result_ = result_ && assignment_target_3_2(builder_, level_ + 1);
+    result_ = result_ && assignment_target_4_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // [DOUBLE_COLON]
-  private static boolean assignment_target_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "assignment_target_3_0")) return false;
+  private static boolean assignment_target_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_target_4_0")) return false;
     consumeToken(builder_, DOUBLE_COLON);
     return true;
   }
 
   // (DOUBLE_COLON CONSTANT)*
-  private static boolean assignment_target_3_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "assignment_target_3_2")) return false;
+  private static boolean assignment_target_4_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_target_4_2")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!assignment_target_3_2_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "assignment_target_3_2", pos_)) break;
+      if (!assignment_target_4_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "assignment_target_4_2", pos_)) break;
     }
     return true;
   }
 
   // DOUBLE_COLON CONSTANT
-  private static boolean assignment_target_3_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "assignment_target_3_2_0")) return false;
+  private static boolean assignment_target_4_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_target_4_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeTokens(builder_, 0, DOUBLE_COLON, CONSTANT);
@@ -6948,6 +6951,45 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+
+  static boolean multi_assign_indexed_target(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_indexed_target")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = indexed_assignment_target(builder_, level_ + 1);
+    result_ = result_ && multi_assign_indexed_target_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (LBRACKET indexed_assignment_index RBRACKET)+
+  private static boolean multi_assign_indexed_target_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_indexed_target_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = multi_assign_indexed_target_1_0(builder_, level_ + 1);
+    while (result_) {
+      int pos_ = current_position_(builder_);
+      if (!multi_assign_indexed_target_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "multi_assign_indexed_target_1", pos_)) break;
+    }
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // LBRACKET indexed_assignment_index RBRACKET
+  private static boolean multi_assign_indexed_target_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_indexed_target_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, LBRACKET);
+    result_ = result_ && indexed_assignment_index(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RBRACKET);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // IDENTIFIER | CONSTANT | keyword_as_method
   static boolean multi_assign_member_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assign_member_name")) return false;
@@ -6959,11 +7001,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // variable | CONSTANT
+  // SELF | variable | CONSTANT
   static boolean multi_assign_member_root(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assign_member_root")) return false;
     boolean result_;
-    result_ = variable(builder_, level_ + 1);
+    result_ = consumeToken(builder_, SELF);
+    if (!result_) result_ = variable(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, CONSTANT);
     return result_;
   }
@@ -7007,7 +7050,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // STAR (multi_assign_member_target | variable | UNDERSCORE)
+  // STAR (multi_assign_indexed_target | multi_assign_member_target | variable | UNDERSCORE)
+  //                        | multi_assign_indexed_target
   //                        | multi_assign_member_target
   //                        | variable [COLON type_reference]
   //                        | UNDERSCORE
@@ -7017,15 +7061,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, MULTI_ASSIGN_TARGET, "<multi assign target>");
     result_ = multi_assign_target_0(builder_, level_ + 1);
+    if (!result_) result_ = multi_assign_indexed_target(builder_, level_ + 1);
     if (!result_) result_ = multi_assign_member_target(builder_, level_ + 1);
-    if (!result_) result_ = multi_assign_target_2(builder_, level_ + 1);
+    if (!result_) result_ = multi_assign_target_3(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, UNDERSCORE);
-    if (!result_) result_ = multi_assign_target_4(builder_, level_ + 1);
+    if (!result_) result_ = multi_assign_target_5(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 
-  // STAR (multi_assign_member_target | variable | UNDERSCORE)
+  // STAR (multi_assign_indexed_target | multi_assign_member_target | variable | UNDERSCORE)
   private static boolean multi_assign_target_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assign_target_0")) return false;
     boolean result_;
@@ -7036,37 +7081,38 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // multi_assign_member_target | variable | UNDERSCORE
+  // multi_assign_indexed_target | multi_assign_member_target | variable | UNDERSCORE
   private static boolean multi_assign_target_0_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assign_target_0_1")) return false;
     boolean result_;
-    result_ = multi_assign_member_target(builder_, level_ + 1);
+    result_ = multi_assign_indexed_target(builder_, level_ + 1);
+    if (!result_) result_ = multi_assign_member_target(builder_, level_ + 1);
     if (!result_) result_ = variable(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, UNDERSCORE);
     return result_;
   }
 
   // variable [COLON type_reference]
-  private static boolean multi_assign_target_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "multi_assign_target_2")) return false;
+  private static boolean multi_assign_target_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_target_3")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = variable(builder_, level_ + 1);
-    result_ = result_ && multi_assign_target_2_1(builder_, level_ + 1);
+    result_ = result_ && multi_assign_target_3_1(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // [COLON type_reference]
-  private static boolean multi_assign_target_2_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "multi_assign_target_2_1")) return false;
-    multi_assign_target_2_1_0(builder_, level_ + 1);
+  private static boolean multi_assign_target_3_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_target_3_1")) return false;
+    multi_assign_target_3_1_0(builder_, level_ + 1);
     return true;
   }
 
   // COLON type_reference
-  private static boolean multi_assign_target_2_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "multi_assign_target_2_1_0")) return false;
+  private static boolean multi_assign_target_3_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_target_3_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, COLON);
@@ -7076,8 +7122,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
-  private static boolean multi_assign_target_4(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "multi_assign_target_4")) return false;
+  private static boolean multi_assign_target_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_target_5")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LPAREN);

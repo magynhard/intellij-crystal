@@ -28,9 +28,27 @@ public class CrystalMultiAssignTargetImpl extends ASTWrapperPsiElement implement
   }
 
   @Override
+  @NotNull
+  public List<CrystalArgumentList> getArgumentListList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalArgumentList.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalAssignment> getAssignmentList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalAssignment.class);
+  }
+
+  @Override
   @Nullable
   public CrystalClassVarAccess getClassVarAccess() {
     return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalDotCallAccess> getDotCallAccessList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalDotCallAccess.class);
   }
 
   @Override

@@ -5,6 +5,25 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Indexed and `self` targets in multi-assignments (`self[i], self[j] = ...`, `a.value, a[n] = ...`)** —
+  `multi_assign_target` had no bracket alternative, so the pointer-crystal swap (pointer.cr),
+  `slice/sort.cr` median loops, and the position restore in compiler `syntax/lexer.cr`
+  (`self.current_pos, @line_number, @column_number = ...`) failed at the comma. A private
+  `multi_assign_indexed_target` (reusing `indexed_assignment_target` + `indexed_assignment_index`,
+  now also admitting `self`/nested `self.foo` receivers through the same helper as ordinary
+  `self[i] = value` assignments) and a `SELF` member root for dot-member targets mount ahead of
+  the member and variable alternatives in both the plain and splat target groups; all shapes keep
+  the private inline helpers, so no new PSI element type and no runtime consumers change, and the
+  pin stays solely at the final `ASSIGN` so expression lists (`when a[i], a[j]`) keep falling back.
+  Calls with parentheses or blocks, parenthesized whole targets, typed index targets, and
+  malformed index contents stay rejected (new negative tests). MultiAssignMemberTargets golden
+  extends to the audit shapes, splats, multi-level indices, `Foo::Bar[i, j]`, index assignments,
+  and the expression-list fallback canary. The external audit drops from 152 errors in 139 files
+  to 149 in 136 (`pointer.cr:322` and `slice/sort.cr:28` repaired, compiler `syntax/lexer.cr:1988`,
+  `crypto/bcrypt.cr:140`/`:137` and `samples/sudoku.cr` recovered); indexed drops from 76 in 72 to
+  74 in 70. Newly stopped cascade lines: `Pointer(T).new(self.address & (&-boundary))` (unary
+  wrap-minus family) and `out = v.to_unsafe` in `slice/sort.cr:348` (`out` as a local name —
+  the keyword-identifier family).
 - **Macro fresh variables (`%value{i}`, `%var{key.id}`, bare `%val`)** — the `MACRO_FRESH_VAR`
   token existed only inside macro bodies; between macro control tags (`{% begin %}`/`{% for %}`
   bodies in iterator.cr, json/from_json.cr) and outside, `%` bound as the modulo operator and the

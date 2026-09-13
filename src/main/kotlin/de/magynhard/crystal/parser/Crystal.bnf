@@ -842,9 +842,13 @@ private indexed_assignment_target ::= assignment_target dot_call_access*
 private indexed_assignment_index ::= assignment | argument_list
 
 // Indexed assignment targets also accept constant receivers:
-// `ENV["GITHUB_STEP_SUMMARY"] = ...` (ameba specs). Brackets are required by
-// indexed_assignment, so plain constants keep binding through constant_assignment.
-private assignment_target ::= variable | instance_var_access | class_var_access
+// `ENV["GITHUB_STEP_SUMMARY"] = ...` (ameba specs) and `self[i] = value`
+// (pointer.cr swap) — brackets are required by indexed_assignment, so plain
+// constants keep binding through constant_assignment and bare `self = value`
+// never parses as assignment (assignment itself starts with `variable`).
+private assignment_target ::= SELF
+                            | variable
+                            | instance_var_access | class_var_access
                             | [DOUBLE_COLON] CONSTANT (DOUBLE_COLON CONSTANT)*
 
 // Postfix modifiers apply to multi-assignments exactly like plain assignments
@@ -858,7 +862,8 @@ private assignment_target ::= variable | instance_var_access | class_var_access
 // fallback behind the pin.
 multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values [postfix_modifier] {pin=5}
 private multi_assign_target_list ::= multi_assign_target (COMMA NLS multi_assign_target)*
-multi_assign_target ::= STAR (multi_assign_member_target | variable | UNDERSCORE)
+multi_assign_target ::= STAR (multi_assign_indexed_target | multi_assign_member_target | variable | UNDERSCORE)
+                       | multi_assign_indexed_target
                        | multi_assign_member_target
                        | variable [COLON type_reference]
                        | UNDERSCORE
@@ -869,10 +874,12 @@ multi_assign_target ::= STAR (multi_assign_member_target | variable | UNDERSCORE
 // variable or constant receiver; calls with arguments, parentheses, or
 // blocks stay rejected exactly like the compiler (verified: `a.foo()` and
 // `a.@x` fail, while `a.foo?`, `Foo.bar`, and `a.Foo` parse as targets).
-// Member alternatives precede the plain variable form so PEG does not
-// commit the receiver alone and strand the dot access.
+// The indexed-target and member alternatives precede the plain variable
+// form so PEG does not commit the receiver alone and strand the access
+// (`a.value[n]`, `self[0]`, `self.current_pos`).
+private multi_assign_indexed_target ::= indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+
 private multi_assign_member_target ::= multi_assign_member_root (DOT multi_assign_member_name)+
-private multi_assign_member_root ::= variable | CONSTANT
+private multi_assign_member_root ::= SELF | variable | CONSTANT
 private multi_assign_member_name ::= IDENTIFIER | CONSTANT | keyword_as_method
 private multi_assign_values ::= expression (COMMA expression)*
 
