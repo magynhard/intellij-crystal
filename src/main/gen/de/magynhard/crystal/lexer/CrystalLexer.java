@@ -1205,8 +1205,45 @@ class CrystalLexer implements FlexLexer {
     return false;
   }
 
+  /** A macro body starts only after a declaration at the beginning of a line. */
+  private boolean isMacroDefinitionStart() {
+    int pos = zzStartRead - 1;
+    while (pos >= 0 && zzBuffer.charAt(pos) != '\n' && zzBuffer.charAt(pos) != '\r') pos--;
+    pos++;
+    while (pos < zzStartRead && (zzBuffer.charAt(pos) == ' ' || zzBuffer.charAt(pos) == '\t')) pos++;
+
+    if (matchesWordAt(pos, "private")) {
+      pos += 7;
+      while (pos < zzStartRead && (zzBuffer.charAt(pos) == ' ' || zzBuffer.charAt(pos) == '\t')) pos++;
+    } else if (matchesWordAt(pos, "protected")) {
+      pos += 9;
+      while (pos < zzStartRead && (zzBuffer.charAt(pos) == ' ' || zzBuffer.charAt(pos) == '\t')) pos++;
+    }
+    return pos == zzStartRead;
+  }
+
+  private boolean matchesWordAt(int start, String word) {
+    int end = start + word.length();
+    return end <= zzBuffer.length()
+        && zzBuffer.subSequence(start, end).toString().equals(word)
+        && (start == 0 || !Character.isLetterOrDigit(zzBuffer.charAt(start - 1)))
+        && (end == zzBuffer.length() || !Character.isLetterOrDigit(zzBuffer.charAt(end)));
+  }
+
+  /** Macro signatures may continue over newlines; wait for their closing parenthesis. */
+  private boolean macroHeaderHasOpenParenthesis() {
+    int depth = 0;
+    for (int pos = macroHeaderStart; pos < zzStartRead; pos++) {
+      char c = zzBuffer.charAt(pos);
+      if (c == '(') depth++;
+      else if (c == ')' && depth > 0) depth--;
+    }
+    return depth > 0;
+  }
+
   // Macro body state tracking
   private boolean macroHeaderSeen = false;
+  private int macroHeaderStart = -1;
   private int macroBodyDepth = 0;
   private boolean macroBodyAtLineStart = false;
   private int macroNestingLevel = 0;
@@ -1599,7 +1636,7 @@ class CrystalLexer implements FlexLexer {
           case 3:
             { PendingHeredoc ph = pendingHeredocs.pollFirst();
                          if (ph != null) { heredocId = ph.id; heredocRaw = ph.raw; yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_START; } // body opener
-                         if (macroHeaderSeen) { macroHeaderSeen = false; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); }
+                         if (macroHeaderSeen && !macroHeaderHasOpenParenthesis()) { macroHeaderSeen = false; macroHeaderStart = -1; macroBodyDepth = 0; macroBodyAtLineStart = true; yybegin(MACRO_BODY); }
                          return CrystalTypes.NEWLINE;
             }
           // fall through
@@ -2557,7 +2594,7 @@ class CrystalLexer implements FlexLexer {
           // fall through
           case 356: break;
           case 164:
-            { macroHeaderSeen = true; return CrystalTypes.MACRO;
+            { if (isMacroDefinitionStart()) { macroHeaderSeen = true; macroHeaderStart = zzStartRead; } return CrystalTypes.MACRO;
             }
           // fall through
           case 357: break;

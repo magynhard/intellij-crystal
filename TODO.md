@@ -202,6 +202,11 @@
   `handleElementRename` rewriting the keyword leaf to `IDENTIFIER`; external audit 128/115 →
   127/114 with `type_declaration_visitor.cr` clean; indexed 58/54 → 57/53, zero newly failing
   files by file-set comparison);
+  macro header lexer state is done (`macroHeaderSeen` only activates for a line-start macro
+  declaration with optional `private`/`protected`, and waits for a multiline header's closing
+  parenthesis; dotted `.macro`, `def macro`, and macro-named fields/parameters stay ordinary
+  code; external audit 127/114 → 118/105; indexed 57/53 → 48/44, exactly nine compiler files
+  repaired and zero newly failing files by file-set comparison);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);

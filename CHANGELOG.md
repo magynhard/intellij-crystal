@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro body lexing no longer starts after arbitrary `macro` keywords** — `macroHeaderSeen` now
+  activates only for a `macro` declaration at the start of a line (optionally `private` or
+  `protected`) and waits for a multiline signature's closing parenthesis before entering
+  `MACRO_BODY`. Dotted macro-method calls (`filename.macro`), method names (`def macro`), and
+  field/parameter names (`macro : Macro`, `@macro`) no longer turn following source into macro body
+  content. Covered by lexer regressions for all four non-declaration forms and a multiline private
+  macro header. The external 1.21.0 crystal-repository audit drops from 127 errors in 114 files to
+  118 in 105; the pinned indexed corpus drops from 57 in 53 to 48 in 44, with exactly nine repaired
+  compiler files and zero newly failing files by file-set comparison.
 - **Lone `uninitialized` as a bare call argument, with end-to-end rename for keyword variables** —
   `TypeDeclarationWithLocation.new(node, var, uninitialized, nil)` (compiler
   `type_declaration_visitor.cr`) now parses: a private `uninitialized_variable_reference ::=

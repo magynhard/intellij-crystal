@@ -71,6 +71,37 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testOnlyMacroDefinitionsEnterMacroBody() {
+        val nonDefinitions = listOf(
+            "filename.macro.location\nsource_filename = macro_source.try &.filename" to "source_filename",
+            "getter macro : Macro\ndef initialize(@macro : Macro)\nend" to "def",
+            "def macro(type)\n  Macro.new(type)\nend" to "Macro",
+            "record FinishedHook, scope : ModuleType, macro : Macro\ngetter finished_hooks = [] of FinishedHook" to "getter",
+        )
+
+        for ((source, followingToken) in nonDefinitions) {
+            val token = nonWhitespaceTokens(source).firstOrNull { it.second == followingToken }
+            assertNotNull("'$followingToken' should be lexed after a non-definition macro", token)
+            assertNotEquals("'$followingToken' must not become macro body content", CrystalTypes.MACRO_BODY_CONTENT, token?.first)
+        }
+    }
+
+    @Test
+    fun testMultilineMacroHeaderWaitsForClosingParenthesis() {
+        val tokens = nonWhitespaceTokens("""
+            private macro build(
+              name,
+              type
+            )
+              {{ name }}
+            end
+        """.trimIndent())
+
+        assertEquals(CrystalTypes.IDENTIFIER, tokens.first { it.second == "name" }.first)
+        assertTrue(tokens.any { it.first == CrystalTypes.MACRO_INTERPOLATION_BEGIN })
+    }
+
+    @Test
     fun testRequireKeywordInExpressionLexerStates() {
         val inputs = listOf(
             "\"#{require \"./dependency\"}\"",

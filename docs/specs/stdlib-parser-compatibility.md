@@ -809,6 +809,21 @@ in 114 (`type_declaration_visitor.cr` fully clean); the pinned indexed
 corpus drops from 58 errors in 54 files to 57 in 53 — verified by
 before/after file-set comparison with zero newly failing files.
 
+Macro body lexing starts only after an actual macro declaration. The lexer used
+to set `macroHeaderSeen` for every `macro` keyword and entered `MACRO_BODY` at
+the next newline, so dotted macro-method calls (`filename.macro.location`),
+method names (`def macro`), and field/parameter names (`macro : Macro`,
+`@macro`) consumed following Crystal source as macro body content. The flag now
+requires `macro` at the start of a line, optionally after `private` or
+`protected`, and waits for a multiline signature's closing parenthesis before
+switching states. Covered by lexer regressions for each non-declaration form
+and a multiline private macro header. The external 1.21.0 crystal-repository
+audit drops from 127 errors in 114 files to 118 in 105; the pinned indexed
+corpus drops from 57 errors in 53 files to 48 in 44. File-set comparison shows
+exactly nine repaired compiler files (`exception`, `interpreter`, semantic
+`hooks`/`top_level_visitor`, syntax `location`/`virtual_file`, and doc tooling)
+and zero newly failing files.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites
