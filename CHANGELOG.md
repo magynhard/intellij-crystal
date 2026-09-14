@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Keyword setter method names (`def private=`)** — any word keyword plus `=` is now a valid setter
+  name, matching the compiler (`types.cr`); operators stay invalid. Method naming reports `private=`
+  via the existing header-token fallback. No stub or index change. Covered by the KeywordSetter
+  golden plus a method-name regression. The external Crystal 1.21.0 repository audit drops from 75
+  errors in 71 files to 74 in 70, while the pinned indexed corpus drops from 28 in 27 to 27 in 26;
+  both file-set comparisons show exactly one repaired file and zero new failures.
 - **Multiline ternary expressions** — `?` and `:` may be followed by newlines, matching the
   compiler's `parse_question_colon` (`range/bsearch.cr`). The nil-safe `?` postfix stays separate
   through its tightness guard. No PSI, stub, or index change. Covered by the MultilineTernary

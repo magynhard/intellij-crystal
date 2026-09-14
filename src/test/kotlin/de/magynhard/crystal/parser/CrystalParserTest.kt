@@ -500,6 +500,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testKeywordSetter() {
+        doTest(true)
+    }
+
     fun testLibFunUppercaseNames() {
         doTest(true)
     }

@@ -413,7 +413,13 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
 // strands the '=' (broke stdlib files like uri.cr with `def host=(host : String?)`).
 private method_name ::= BACKTICK
               |  IDENTIFIER ASSIGN
+              // Keyword setters (`def private=(value)` in types.cr): the
+              // compiler accepts any keyword plus `=` as a setter name, while
+              // operators stay invalid — hence keyword_identifier, not the
+              // wider keyword_as_method. Setter forms precede plain names.
+              |  keyword_identifier ASSIGN
               | SELF DOT IDENTIFIER ASSIGN
+              | SELF DOT keyword_identifier ASSIGN
               // `def {{type.id}}.from_digits(...)` — macro-interpolated receiver
               // (int.cr inside `macro expand_...` for-loops). Must precede the
               // fragment compounds: a committed plain compound would strand the
@@ -433,7 +439,7 @@ private method_name ::= BACKTICK
                | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
               // `def Float64.new(...)` — qualified method names inside the type's
               // own scope (float.cr); optional ASSIGN covers `def Float64.round=`.
-              | CONSTANT DOT (IDENTIFIER ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
+              | CONSTANT DOT (IDENTIFIER ASSIGN | keyword_identifier ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
               // `def &{{op.id}}(other : {{int2.id}}) : self` — operator-headed
               // generated names inside {% for %} bodies (primitives.cr bitwise
               // ops). Must PRECEDE the bare operator alternative: PEG commits

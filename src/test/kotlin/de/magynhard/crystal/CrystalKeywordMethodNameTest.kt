@@ -40,6 +40,13 @@ class CrystalKeywordMethodNameTest : BasePlatformTestCase() {
         )
     }
 
+    fun testKeywordSetterMethodName_Private() {
+        assertEquals(
+            "private=",
+            methodNameOf("def private=(set_private)\nend")
+        )
+    }
+
     fun testKeywordMethodName_If() {
         assertEquals(
             "if",

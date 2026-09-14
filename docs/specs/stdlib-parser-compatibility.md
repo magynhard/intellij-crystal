@@ -897,6 +897,17 @@ question-expression shape: the plain form is tried after the newline-tolerant
 form, so the `?` never greedily consumes the next line (ExpressionAndRangeReplay
 golden unchanged).
 
+Keyword method names accept a trailing `=` as a setter: the compiler takes any
+keyword plus `=` (`def private=(set_private)` in types.cr) while operators
+stay invalid, so the grammar adds `keyword_identifier ASSIGN` (plain,
+`self.`-qualified, and `Constant.`-qualified) ahead of the plain keyword form.
+Method naming keeps working through the existing header-token fallback, which
+composes `private=`. No stub or index change. Covered by the KeywordSetter
+golden plus a method-name regression. The external 1.21.0 crystal-repository
+audit drops from 75 errors in 71 files to 74 in 70, and the pinned indexed
+corpus drops from 28 in 27 to 27 in 26. Both file-set comparisons repair
+exactly one file with zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

@@ -231,6 +231,9 @@
   `named_tuple.cr` failing, so totals stay 76/72 and 29/28 with zero newly failing files);
   multiline ternaries are done (newlines around `?` and `:`; external audit 76/72 → 75/71 and
   indexed 29/28 → 28/27, `bsearch` repaired with zero newly failing files);
+  keyword setter method names are done (`def private=` with any word keyword, operators excluded;
+  external audit 75/71 → 74/70 and indexed 28/27 → 27/26, `types` repaired with zero newly failing
+  files);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
