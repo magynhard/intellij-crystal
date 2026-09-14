@@ -35,6 +35,12 @@ public class CrystalConstantAssignmentImpl extends ASTWrapperPsiElement implemen
 
   @Override
   @Nullable
+  public CrystalHeredocBodies getHeredocBodies() {
+    return PsiTreeUtil.getChildOfType(this, CrystalHeredocBodies.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalPostfixModifier getPostfixModifier() {
     return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
   }

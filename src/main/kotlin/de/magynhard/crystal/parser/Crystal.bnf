@@ -898,7 +898,7 @@ private multi_assign_member_root ::= SELF | variable | CONSTANT
 private multi_assign_member_name ::= IDENTIFIER | CONSTANT | keyword_as_method
 private multi_assign_values ::= expression (COMMA expression)*
 
-constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] {
+constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] [heredoc_bodies] {
   pin=2
 }
 
@@ -1014,7 +1014,7 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
                      // keeps binding at the expression level.
                      | &<<isTokenTightAfterPreviousToken>> QUESTION
                      | namespace_access
-                     | LBRACKET argument_list RBRACKET [QUESTION]
+                     | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
                      // Empty tight brackets after an expression are an EMPTY-ARGUMENT
                      // call (`Int64[]` invokes the Number `[]` macro with zero args,
                      // number_spec.cr:398), never an array literal — the array-literal
@@ -1242,7 +1242,7 @@ private nested_call_lookahead ::= binary_op_lookahead | (DOTDOT | DOTDOTDOT)
 // the postfix_op .as(...) form only applies after an existing primary expression.
 implicit_object_call ::= DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CLASS_VAR | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | macro_interpolation | operator_method_name) [&<<isTokenTightAfterPreviousToken>> QUESTION]
                            [call_args [block] | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list [block] | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list | block]
-                       | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
+                       | DOT LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION] [assign_op expression]
                        // Pseudo-method `.!` shorthand (`find(&.!)`); same !LPAREN
                        // strictness as bang_suffix.
                        | DOT BANG !LPAREN
@@ -1405,7 +1405,7 @@ private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_refere
                            | NLS bang_suffix
                            | NLS dot_call_access
                           | namespace_access
-                          | LBRACKET argument_list RBRACKET [QUESTION]
+                          | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
                           // Empty tight brackets after a bare expression are an
                           // empty-argument call (`Int64[]`), not an array literal.
                           | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET

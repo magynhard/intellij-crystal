@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Constant-assignment heredocs and spaced index ternaries** — constant values now attach queued
+  heredoc bodies, so compiler constants such as `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` preserve
+  their complete structured bodies and following declarations. Index suffixes accept `?` only when
+  tight (`values[i]?`), allowing the spaced `values[i] ? value : fallback` form to bind as a ternary
+  instead. `CrystalConstantAssignment` gains an additive nullable `getHeredocBodies()` accessor; no
+  stub or index change. Covered by ConstantHeredocAssignments and IndexedAccessTernary goldens. The
+  external Crystal 1.21.0 repository audit drops from 105 errors in 94 files to 96 in 85, while the
+  pinned indexed corpus drops from 48 in 44 to 39 in 35; both file-set comparisons show exactly nine
+  repaired files and zero new failures.
 - **Typed tuple collections and expression-position `with … yield`** — typed brace literals now
   accept tuple entries as well as hash entries: `Deque{1, 2, 3}`, `Set{"a", "b"}`, multiline and
   trailing-comma forms, while `HTTP::Headers{"Accept" => "text/plain"}` keeps its existing hash

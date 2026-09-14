@@ -839,6 +839,21 @@ index change. Covered by TypedCollectionsAndWithYield golden. The external
 94, with eleven files fully clean and zero newly failing files by file-set
 comparison; the pinned indexed corpus remains 48 in 44.
 
+Constant assignments attach queued heredoc bodies at statement level just like
+ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
+body PSI and do not strand body content or subsequent declarations. Index
+suffix `?` is tight in the compiler (`values[i]?`); a space leaves the question
+token for `parse_question_colon`, so `values[i] ? value : fallback` is a ternary,
+not a nil-safe index. The grammar applies the same guard to ordinary, bare, and
+implicit-object index access. `CrystalConstantAssignment` gains the generated,
+additive nullable `getHeredocBodies()` accessor; no stub or index change.
+Covered by ConstantHeredocAssignments and IndexedAccessTernary goldens. The
+external 1.21.0 crystal-repository audit drops from 105 errors in 94 files to
+96 in 85, and the pinned indexed corpus drops from 48 in 44 to 39 in 35. Both
+file-set comparisons repair exactly nine files (`command`, semantic `cover`,
+three doc constants, playground server, `ryu_printf`, `io/delimited`, and
+`levenshtein`) with zero newly failing files.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

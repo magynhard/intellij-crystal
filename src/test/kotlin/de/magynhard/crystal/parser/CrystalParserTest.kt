@@ -404,6 +404,14 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testConstantHeredocAssignments() {
+        doTest(true)
+    }
+
+    fun testIndexedAccessTernary() {
+        doTest(true)
+    }
+
     fun testMacroInterpolationWithSymbol() {
         doTest(true)
     }

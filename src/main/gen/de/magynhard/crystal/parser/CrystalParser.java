@@ -1844,7 +1844,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                            | NLS bang_suffix
   //                            | NLS dot_call_access
   //                           | namespace_access
-  //                           | LBRACKET argument_list RBRACKET [QUESTION]
+  //                           | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
   //                           // Empty tight brackets after a bare expression are an
   //                           // empty-argument call (`Int64[]`), not an array literal.
   //                           | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
@@ -1911,7 +1911,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // LBRACKET argument_list RBRACKET [QUESTION]
+  // LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
   private static boolean bare_postfix_op_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_postfix_op_4")) return false;
     boolean result_;
@@ -1924,11 +1924,32 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [QUESTION]
+  // [&<<isTokenTightAfterPreviousToken>> QUESTION]
   private static boolean bare_postfix_op_4_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_postfix_op_4_3")) return false;
-    consumeToken(builder_, QUESTION);
+    bare_postfix_op_4_3_0(builder_, level_ + 1);
     return true;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>> QUESTION
+  private static boolean bare_postfix_op_4_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_4_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = bare_postfix_op_4_3_0_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, QUESTION);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean bare_postfix_op_4_3_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_4_3_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
   }
 
   // &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
@@ -3041,7 +3062,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // CONSTANT ASSIGN NLS expression [postfix_modifier]
+  // CONSTANT ASSIGN NLS expression [postfix_modifier] [heredoc_bodies]
   public static boolean constant_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "constant_assignment")) return false;
     if (!nextTokenIs(builder_, CONSTANT)) return false;
@@ -3051,7 +3072,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     pinned_ = result_; // pin = 2
     result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
     result_ = pinned_ && report_error_(builder_, expression(builder_, level_ + 1)) && result_;
-    result_ = pinned_ && constant_assignment_4(builder_, level_ + 1) && result_;
+    result_ = pinned_ && report_error_(builder_, constant_assignment_4(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && constant_assignment_5(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
@@ -3060,6 +3082,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean constant_assignment_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "constant_assignment_4")) return false;
     postfix_modifier(builder_, level_ + 1);
+    return true;
+  }
+
+  // [heredoc_bodies]
+  private static boolean constant_assignment_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "constant_assignment_5")) return false;
+    heredoc_bodies(builder_, level_ + 1);
     return true;
   }
 
@@ -4238,7 +4267,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // DOT (IDENTIFIER | keyword_as_method | INSTANCE_VAR | CLASS_VAR | RESPONDS_TO | IS_A | NIL_QUESTION | AS | AS_QUESTION | macro_interpolation | operator_method_name) [&<<isTokenTightAfterPreviousToken>> QUESTION]
   //                            [call_args [block] | !DOT !LBRACKET !LBRACE !<<isHeredocBodyOpener>> bare_argument_list [block] | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list | block]
-  //                        | DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
+  //                        | DOT LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION] [assign_op expression]
   //                        // Pseudo-method `.!` shorthand (`find(&.!)`); same !LPAREN
   //                        // strictness as bang_suffix.
   //                        | DOT BANG !LPAREN
@@ -4439,7 +4468,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // DOT LBRACKET argument_list RBRACKET [QUESTION] [assign_op expression]
+  // DOT LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION] [assign_op expression]
   private static boolean implicit_object_call_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "implicit_object_call_1")) return false;
     boolean result_;
@@ -4453,11 +4482,32 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [QUESTION]
+  // [&<<isTokenTightAfterPreviousToken>> QUESTION]
   private static boolean implicit_object_call_1_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "implicit_object_call_1_4")) return false;
-    consumeToken(builder_, QUESTION);
+    implicit_object_call_1_4_0(builder_, level_ + 1);
     return true;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>> QUESTION
+  private static boolean implicit_object_call_1_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "implicit_object_call_1_4_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = implicit_object_call_1_4_0_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, QUESTION);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean implicit_object_call_1_4_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "implicit_object_call_1_4_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
   }
 
   // [assign_op expression]
@@ -8895,7 +8945,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                      // keeps binding at the expression level.
   //                      | &<<isTokenTightAfterPreviousToken>> QUESTION
   //                      | namespace_access
-  //                      | LBRACKET argument_list RBRACKET [QUESTION]
+  //                      | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
   //                      // Empty tight brackets after an expression are an EMPTY-ARGUMENT
   //                      // call (`Int64[]` invokes the Number `[]` macro with zero args,
   //                      // number_spec.cr:398), never an array literal — the array-literal
@@ -9019,7 +9069,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // LBRACKET argument_list RBRACKET [QUESTION]
+  // LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
   private static boolean postfix_op_6(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op_6")) return false;
     boolean result_;
@@ -9032,11 +9082,32 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [QUESTION]
+  // [&<<isTokenTightAfterPreviousToken>> QUESTION]
   private static boolean postfix_op_6_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op_6_3")) return false;
-    consumeToken(builder_, QUESTION);
+    postfix_op_6_3_0(builder_, level_ + 1);
     return true;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>> QUESTION
+  private static boolean postfix_op_6_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_6_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = postfix_op_6_3_0_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, QUESTION);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean postfix_op_6_3_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_6_3_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
   }
 
   // &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET

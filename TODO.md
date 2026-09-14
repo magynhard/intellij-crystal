@@ -65,10 +65,10 @@
   `value = !~ other` and `value = other !~` produce a `PsiErrorElement` but can consume a following
   declaration during pinned assignment recovery. Add boundary-aware recovery without `recoverWhile` or
   weakening valid consecutive-statement parsing, then assert the trailing declaration remains structured.
-- [ ] **Keep postfix-rescue bare calls from consuming heredoc body openers** — valid code such as
-  `value = <<-TEXT rescue puts fallback` currently treats the newline `HEREDOC_START` body opener as another
-  bare argument of `puts`, leaving the body content detached. Preserve the marker/body pairing while keeping
-  ordinary closeless heredoc-call arguments valid.
+- [ ] **Keep postfix bare calls from consuming heredoc body openers** — valid code such as
+  `value = <<-TEXT rescue puts fallback` and `VALUE = <<-TEXT if enabled` currently treats the newline
+  `HEREDOC_START` body opener as another bare argument of `puts` or `enabled`, leaving the body content
+  detached. Preserve the marker/body pairing while keeping ordinary closeless heredoc-call arguments valid.
 
 ## Call Argument Inspection Follow-up
 
@@ -212,6 +212,10 @@
   `with_yield_statement` accepts bare/parenthesized yield arguments and is admitted as a primary
   expression while preserving its PSI element; external audit 118/105 → 105/94, eleven files
   clean and zero newly failing files; indexed remains 48/44);
+  constant-assignment heredocs and spaced index ternaries are done (queued bodies attach to
+  `CONSTANT = <<-BODY`; only tight `values[i]?` is nil-safe while `values[i] ? a : b` is ternary;
+  additive constant heredoc PSI accessor, no stub/index change; external audit 105/94 → 96/85 and
+  indexed 48/44 → 39/35, nine repaired files and zero newly failing files);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
