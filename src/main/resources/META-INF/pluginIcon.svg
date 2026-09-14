@@ -18,7 +18,7 @@
        id="linearGradient3"
        inkscape:collect="always">
       <stop
-         style="stop-color:#ff6600;stop-opacity:1"
+         style="stop-color:#fccd4d;stop-opacity:1;"
          offset="0"
          id="stop3" />
       <stop
@@ -32,8 +32,8 @@
        id="linearGradient4"
        x1="5.4800777"
        y1="34.471455"
-       x2="38.360542"
-       y2="7.2478447"
+       x2="53.209785"
+       y2="-8.6620579"
        gradientUnits="userSpaceOnUse" />
   </defs>
   <sodipodi:namedview
@@ -45,11 +45,11 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:zoom="2.8284271"
-     inkscape:cx="46.492271"
-     inkscape:cy="7.6013979"
+     inkscape:zoom="2"
+     inkscape:cx="180.75"
+     inkscape:cy="26.25"
      inkscape:window-width="1920"
-     inkscape:window-height="1113"
+     inkscape:window-height="1081"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
