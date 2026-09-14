@@ -865,6 +865,14 @@ drops from 80 errors in 75 files to 78 in 73, and the pinned indexed corpus
 drops from 33 in 31 to 31 in 29. Both file-set comparisons repair exactly two
 files (`range`, `slice`) with zero newly failing files.
 
+Annotation definitions accept a semicolon before `end`: the compiler's
+`parse_annotation_def` takes any statement end there, so `annotation Field;
+end` (uri/params/serializable.cr) is valid. The grammar accepts newlines or
+semicolons with no stub change. Covered by the AnnotationSemicolon golden. The
+external 1.21.0 crystal-repository audit drops from 78 errors in 73 files to 76
+in 72, and the pinned indexed corpus drops from 31 in 29 to 29 in 28. Both
+file-set comparisons repair exactly one file with zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

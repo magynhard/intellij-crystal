@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Semicolon-terminated annotation definitions** — `annotation Field; end` now parses, matching the
+  compiler's `StatementEnd` between the annotation name and `end` (`uri/params/serializable.cr`).
+  No stub or index change. Covered by the AnnotationSemicolon golden. The external Crystal 1.21.0
+  repository audit drops from 78 errors in 73 files to 76 in 72, while the pinned indexed corpus
+  drops from 31 in 29 to 29 in 28; both file-set comparisons show exactly one repaired file and
+  zero new failures.
 - **Block-only `super` and `previous_def` calls** — `super { |i| yield i }` and `super do … end`
   without arguments now parse, matching the compiler's normal call path with a trailing block
   (`range.cr`, `slice.cr`). No PSI, stub, or index change. Covered by the SuperBlock golden. The

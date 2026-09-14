@@ -249,7 +249,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // ANNOTATION type_name NEWLINE* END
+  // ANNOTATION type_name (NEWLINE | SEMICOLON)* END
   public static boolean annotation_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "annotation_definition")) return false;
     if (!nextTokenIs(builder_, ANNOTATION)) return false;
@@ -264,15 +264,24 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_ || pinned_;
   }
 
-  // NEWLINE*
+  // (NEWLINE | SEMICOLON)*
   private static boolean annotation_definition_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "annotation_definition_2")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!consumeToken(builder_, NEWLINE)) break;
+      if (!annotation_definition_2_0(builder_, level_ + 1)) break;
       if (!empty_element_parsed_guard_(builder_, "annotation_definition_2", pos_)) break;
     }
     return true;
+  }
+
+  // NEWLINE | SEMICOLON
+  private static boolean annotation_definition_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "annotation_definition_2_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    return result_;
   }
 
   /* ********************************************************** */

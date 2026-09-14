@@ -223,6 +223,9 @@
   block-only `super`/`previous_def` calls are done (trailing block without arguments;
   external audit 80/75 → 78/73 and indexed 33/31 → 31/29, `range` and `slice` repaired with zero
   newly failing files);
+  semicolon-terminated annotation definitions are done (`annotation Field; end`;
+  external audit 78/73 → 76/72 and indexed 31/29 → 29/28, `serializable` repaired with zero newly
+  failing files);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);

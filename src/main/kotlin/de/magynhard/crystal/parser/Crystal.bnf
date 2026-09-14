@@ -273,7 +273,10 @@ lib_definition ::= LIB CONSTANT lib_outer_body END {
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-annotation_definition ::= ANNOTATION type_name NEWLINE* END {
+// The compiler's parse_annotation_def accepts any StatementEnd (semicolon,
+// newline, or space) between the name and `end` (parser.cr StatementEnd),
+// so `annotation Field; end` (uri/params/serializable.cr) is valid.
+annotation_definition ::= ANNOTATION type_name (NEWLINE | SEMICOLON)* END {
   pin=1
   stubClass="de.magynhard.crystal.stubs.CrystalAnnotationDefinitionStub"
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedAnnotationDefinitionImpl"
