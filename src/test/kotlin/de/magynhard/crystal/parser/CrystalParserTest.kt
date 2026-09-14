@@ -496,6 +496,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMultilineTernary() {
+        doTest(true)
+    }
+
     fun testLibFunUppercaseNames() {
         doTest(true)
     }

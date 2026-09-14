@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Multiline ternary expressions** — `?` and `:` may be followed by newlines, matching the
+  compiler's `parse_question_colon` (`range/bsearch.cr`). The nil-safe `?` postfix stays separate
+  through its tightness guard. No PSI, stub, or index change. Covered by the MultilineTernary
+  golden; existing ternary and nil-safe-index goldens unchanged. The external Crystal 1.21.0
+  repository audit drops from 76 errors in 72 files to 75 in 71, while the pinned indexed corpus
+  drops from 29 in 28 to 28 in 27; both file-set comparisons show exactly one repaired file and
+  zero new failures. A trailing `value ?` at end of line keeps its lenient question-expression
+  shape instead of consuming the next line (ExpressionAndRangeReplay unchanged).
 - **Double-splat parameter restrictions (`**options : **T`)** — a `**` parameter may now carry a
   `**` restriction, strictly paired as in the compiler (`def self.new(**options : **T)` in
   `named_tuple.cr`); `x : **T`, `*x : **T`, and `&x : **T` stay parse errors. No PSI, stub, or index

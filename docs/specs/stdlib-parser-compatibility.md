@@ -884,6 +884,19 @@ from line 59 to an independent later site (macro-generated hash keys at line
 71, a separate cluster) — so totals stay 76 errors in 72 files externally and
 29 in 28 indexed, with zero newly failing files by file-set comparison.
 
+Ternary expressions tolerate newlines around `?` and `:`: the compiler skips
+space and newlines on both sides, so the `bsearch` form with `:` at the start
+of the next line (range/bsearch.cr) is valid. The nil-safe `?` postfix stays
+separate through its existing tightness guard. No PSI, stub, or index change.
+Covered by the MultilineTernary golden; existing ternary and nil-safe-index
+goldens are unchanged. The external 1.21.0 crystal-repository audit drops from
+76 errors in 72 files to 75 in 71, and the pinned indexed corpus drops from 29
+in 28 to 28 in 27. Both file-set comparisons repair exactly one file with zero
+newly failing files. A trailing `value ?` at end of line keeps its lenient
+question-expression shape: the plain form is tried after the newline-tolerant
+form, so the `?` never greedily consumes the next line (ExpressionAndRangeReplay
+golden unchanged).
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index
