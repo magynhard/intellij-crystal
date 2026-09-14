@@ -31,7 +31,8 @@ fun CrystalParameter.parameterNameInfo(): CrystalParameterNameInfo {
     val identifiers = children
         .filter {
             it.elementType == CrystalTypes.IDENTIFIER ||
-                CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType)
+                CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType) ||
+                (isLibFunParameter() && CrystalTokenTypes.KEYWORDS.contains(it.elementType))
         }
         .map { it.text }
     val storageName = instanceVarAccess?.name ?: classVarAccess?.name
@@ -67,6 +68,9 @@ fun CrystalParameter.parameterNameInfo(): CrystalParameterNameInfo {
         explicitExternalName = explicitExternalName,
     )
 }
+
+/** FFI signatures permit every keyword as an explicitly typed parameter name. */
+fun CrystalParameter.isLibFunParameter(): Boolean = parent?.parent is CrystalFunDefinition
 
 fun CrystalParameter.localBindingNames(): List<String> {
     if (node.findChildByType(CrystalTypes.LPAREN) != null) {

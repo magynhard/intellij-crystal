@@ -839,6 +839,22 @@ index change. Covered by TypedCollectionsAndWithYield golden. The external
 94, with eleven files fully clean and zero newly failing files by file-set
 comparison; the pinned indexed corpus remains 48 in 44.
 
+C FFI aggregate bodies have their own compiler-aligned grammar rather than
+reusing the outer `lib` body. `struct` and `union` accept fields with word
+keywords (`next`, `alias`, `union`) and one type for multiple names (`r, g, b :
+UInt8`); structs additionally admit `include`, while unions admit macro forms
+and may use `include` as a field name. Ordinary outer `lib` bodies still reject
+fields. `lib fun` accepts every word keyword as a parameter name only
+when it is explicitly typed (`fun : ClosureFun`, `out : Bio*`, `class : Type`,
+`then : Block`), matching the compiler's FFI-only identifier path. These items
+materialize as normal `CrystalParameter` PSI, including name, documentation,
+rename, and missing-type inspection support. Aggregate PSI keeps its existing
+`getLibBody()` and `getLibFieldList()` accessors. Covered by LibAggregateFields and
+LibFunKeywordParameters goldens plus parser, PSI-name, and inspection tests.
+The external 1.21.0 crystal-repository audit drops from 96 errors in 85 files
+to 80 in 75; the pinned indexed corpus drops from 39 in 35 to 33 in 31. Both
+file-set comparisons repair ten files with zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

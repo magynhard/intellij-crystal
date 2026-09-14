@@ -266,7 +266,7 @@ enum_definition ::= ENUM type_name [COLON type_reference] enum_body END {
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
-lib_definition ::= LIB CONSTANT lib_body END {
+lib_definition ::= LIB CONSTANT lib_outer_body END {
   pin=1
   stubClass="de.magynhard.crystal.stubs.CrystalLibDefinitionStub"
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedLibDefinitionImpl"
@@ -331,6 +331,9 @@ private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control |
 
 enum_constant ::= (CONSTANT | macro_interpolation) [ASSIGN expression]
 
+// Canonical PSI schema for lib-shaped bodies. The concrete outer-lib, struct,
+// and union rules below all use this element type, preserving their shared
+// CrystalLibBody accessors while constraining what each context admits.
 lib_body ::= lib_member*
 
 // Crystal allows constant assignments in lib bodies (`lib LibC { F_GETFD = 1 }`);
@@ -349,7 +352,19 @@ lib_body ::= lib_member*
 // lib_member exactly like class bodies and statements.
 private lib_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var | lib_field
 
-lib_field ::= IDENTIFIER COLON type_reference
+// The outer lib, C struct, and C union accept different member subsets. Their
+// shared element type keeps the established CrystalLibBody PSI contract.
+lib_outer_body ::= lib_outer_member* {elementType=lib_body}
+private lib_outer_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var
+lib_struct_body ::= lib_struct_member* {elementType=lib_body}
+private lib_struct_member ::= NEWLINE | SEMICOLON | include_statement | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | lib_field
+lib_union_body ::= lib_union_member* {elementType=lib_body}
+private lib_union_member ::= NEWLINE | SEMICOLON | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | lib_field
+
+// The compiler treats words such as `next`, `alias`, and `union` as field
+// names in C aggregates, and one type declaration may name several fields.
+lib_field ::= lib_field_name (COMMA NLS lib_field_name)* COLON type_reference
+private lib_field_name ::= IDENTIFIER | keyword_identifier
 
 // External vars take a plain symbol after `=` (compiler IdentOrConst:
 // parser.cr:5904-5909 reads the real name as identifier or constant), so
@@ -376,9 +391,9 @@ type_alias_lib ::= ALIAS CONSTANT ASSIGN type_reference
 
 lib_type_alias ::= IDENTIFIER CONSTANT ASSIGN type_reference
 
-lib_struct_definition ::= STRUCT CONSTANT lib_body END
+lib_struct_definition ::= STRUCT CONSTANT lib_struct_body END
 
-lib_union_definition ::= UNION CONSTANT lib_body END
+lib_union_definition ::= UNION CONSTANT lib_union_body END
 
 // ==================== Methods ====================
 
@@ -575,7 +590,10 @@ lib_fun_external_string ::= (STRING_LITERAL | STRING_ESCAPE)+ {elementType=strin
 // Only fun_definition uses this list; def/macro/top-level fun keep the named
 // parameter_list, so top-level `fun foo(Int32)` stays a syntax error.
 lib_fun_parameter_list ::= [lib_fun_parameter_item (COMMA NLS lib_fun_parameter_item)* [COMMA]] {elementType=parameter_list}
-private lib_fun_parameter_item ::= bare_splat_separator | DOTDOTDOT | parameter | lib_fun_unnamed_parameter
+private lib_fun_parameter_item ::= bare_splat_separator | DOTDOTDOT | lib_fun_keyword_parameter | parameter | lib_fun_unnamed_parameter
+// C FFI parameters use the compiler's unconstrained IDENT path: a word
+// keyword is valid when it has an explicit type, unlike a normal def parameter.
+lib_fun_keyword_parameter ::= keyword_identifier COLON type_reference {elementType=parameter}
 // Parenthesized proc types carry their output arrow outside the parens
 // (`(Bio*, Char*, Int) -> Int`, compiler parse_atomic_type paren branch).
 // A bare union never takes an arrow here, so `Int, Float` stays two items.

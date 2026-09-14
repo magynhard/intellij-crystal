@@ -98,6 +98,15 @@ class CrystalLibFunParameterTypeInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testTypedKeywordParametersHaveNoError() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun keyword_parameters(out : Int, class : Int, then : Int, catch : Int)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testAnnotatedFunParametersStillChecked() {
         myFixture.configureByText("test.cr", """
             lib LibC

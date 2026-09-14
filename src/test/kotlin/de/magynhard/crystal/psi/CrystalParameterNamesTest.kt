@@ -1,5 +1,7 @@
 package de.magynhard.crystal.psi
 
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -45,6 +47,27 @@ class CrystalParameterNamesTest : BasePlatformTestCase() {
         assertNames(parameters[3], "with", "cache", "@cache", "with", "with @cache")
         assertNames(parameters[4], "out", "value", null, "out", "out value")
         assertNames(parameters[5], "typed", "typed", null, null, "typed")
+    }
+
+    fun testNamesTypedKeywordLibFunParameters() {
+        val file = myFixture.configureByText("test.cr", """
+            lib LibC
+              fun keyword_parameters(out : Int, class : Int, then : Int)
+            end
+        """.trimIndent())
+        val parameters = PsiTreeUtil.findChildrenOfType(file, CrystalParameter::class.java).toList()
+
+        assertNames(parameters[0], "out", "out", null, null, "out")
+        assertNames(parameters[1], "class", "class", null, null, "class")
+        assertNames(parameters[2], "then", "then", null, null, "then")
+
+        val classParameter = parameters[1] as PsiNameIdentifierOwner
+        assertEquals("class", classParameter.nameIdentifier?.text)
+        WriteCommandAction.runWriteCommandAction(project) {
+            classParameter.setName("storage_class")
+        }
+        assertEquals("storage_class", classParameter.nameIdentifier?.text)
+        assertTrue(file.text.contains("storage_class : Int"))
     }
 
     private fun assertNames(

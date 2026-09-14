@@ -4963,7 +4963,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // LIB CONSTANT lib_body END
+  // LIB CONSTANT lib_outer_body END
   public static boolean lib_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_definition")) return false;
     if (!nextTokenIs(builder_, LIB)) return false;
@@ -4971,7 +4971,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _NONE_, LIB_DEFINITION, null);
     result_ = consumeTokens(builder_, 1, LIB, CONSTANT);
     pinned_ = result_; // pin = 1
-    result_ = result_ && report_error_(builder_, lib_body(builder_, level_ + 1));
+    result_ = result_ && report_error_(builder_, lib_outer_body(builder_, level_ + 1));
     result_ = pinned_ && consumeToken(builder_, END) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
@@ -5023,15 +5023,49 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // IDENTIFIER COLON type_reference
+  // lib_field_name (COMMA NLS lib_field_name)* COLON type_reference
   public static boolean lib_field(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_field")) return false;
-    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, LIB_FIELD, "<lib field>");
+    result_ = lib_field_name(builder_, level_ + 1);
+    result_ = result_ && lib_field_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && type_reference(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // (COMMA NLS lib_field_name)*
+  private static boolean lib_field_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_field_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!lib_field_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "lib_field_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // COMMA NLS lib_field_name
+  private static boolean lib_field_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_field_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeTokens(builder_, 0, IDENTIFIER, COLON);
-    result_ = result_ && type_reference(builder_, level_ + 1);
-    exit_section_(builder_, marker_, LIB_FIELD, result_);
+    result_ = consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && lib_field_name(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // IDENTIFIER | keyword_identifier
+  static boolean lib_field_name(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_field_name")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
     return result_;
   }
 
@@ -5075,6 +5109,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // keyword_identifier COLON type_reference
+  public static boolean lib_fun_keyword_parameter(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_fun_keyword_parameter")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, PARAMETER, "<lib fun keyword parameter>");
+    result_ = keyword_identifier(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && type_reference(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // macro_spliced_name | IDENTIFIER | CONSTANT | keyword_identifier
   static boolean lib_fun_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_fun_name")) return false;
@@ -5087,12 +5134,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_splat_separator | DOTDOTDOT | parameter | lib_fun_unnamed_parameter
+  // bare_splat_separator | DOTDOTDOT | lib_fun_keyword_parameter | parameter | lib_fun_unnamed_parameter
   static boolean lib_fun_parameter_item(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_fun_parameter_item")) return false;
     boolean result_;
     result_ = bare_splat_separator(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, DOTDOTDOT);
+    if (!result_) result_ = lib_fun_keyword_parameter(builder_, level_ + 1);
     if (!result_) result_ = parameter(builder_, level_ + 1);
     if (!result_) result_ = lib_fun_unnamed_parameter(builder_, level_ + 1);
     return result_;
@@ -5231,16 +5279,83 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // STRUCT CONSTANT lib_body END
+  // lib_outer_member*
+  public static boolean lib_outer_body(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_outer_body")) return false;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, LIB_BODY, "<lib outer body>");
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!lib_outer_member(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "lib_outer_body", pos_)) break;
+    }
+    exit_section_(builder_, level_, marker_, true, false, null);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | constant_assignment | fun_definition | type_alias_lib | lib_type_alias | lib_struct_definition | lib_union_definition | enum_definition | lib_external_var
+  static boolean lib_outer_member(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_outer_member")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = annotation_usage(builder_, level_ + 1);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
+    if (!result_) result_ = constant_assignment(builder_, level_ + 1);
+    if (!result_) result_ = fun_definition(builder_, level_ + 1);
+    if (!result_) result_ = type_alias_lib(builder_, level_ + 1);
+    if (!result_) result_ = lib_type_alias(builder_, level_ + 1);
+    if (!result_) result_ = lib_struct_definition(builder_, level_ + 1);
+    if (!result_) result_ = lib_union_definition(builder_, level_ + 1);
+    if (!result_) result_ = enum_definition(builder_, level_ + 1);
+    if (!result_) result_ = lib_external_var(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // lib_struct_member*
+  public static boolean lib_struct_body(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_struct_body")) return false;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, LIB_BODY, "<lib struct body>");
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!lib_struct_member(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "lib_struct_body", pos_)) break;
+    }
+    exit_section_(builder_, level_, marker_, true, false, null);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // STRUCT CONSTANT lib_struct_body END
   public static boolean lib_struct_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_struct_definition")) return false;
     if (!nextTokenIs(builder_, STRUCT)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeTokens(builder_, 0, STRUCT, CONSTANT);
-    result_ = result_ && lib_body(builder_, level_ + 1);
+    result_ = result_ && lib_struct_body(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, END);
     exit_section_(builder_, marker_, LIB_STRUCT_DEFINITION, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // NEWLINE | SEMICOLON | include_statement | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | lib_field
+  static boolean lib_struct_member(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_struct_member")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = include_statement(builder_, level_ + 1);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
+    if (!result_) result_ = lib_field(builder_, level_ + 1);
     return result_;
   }
 
@@ -5258,16 +5373,45 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // UNION CONSTANT lib_body END
+  // lib_union_member*
+  public static boolean lib_union_body(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_union_body")) return false;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, LIB_BODY, "<lib union body>");
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!lib_union_member(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "lib_union_body", pos_)) break;
+    }
+    exit_section_(builder_, level_, marker_, true, false, null);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // UNION CONSTANT lib_union_body END
   public static boolean lib_union_definition(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_union_definition")) return false;
     if (!nextTokenIs(builder_, UNION)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeTokens(builder_, 0, UNION, CONSTANT);
-    result_ = result_ && lib_body(builder_, level_ + 1);
+    result_ = result_ && lib_union_body(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, END);
     exit_section_(builder_, marker_, LIB_UNION_DEFINITION, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // NEWLINE | SEMICOLON | macro_control | macro_control_escaped | macro_interpolation | macro_interpolation_escaped | lib_field
+  static boolean lib_union_member(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_union_member")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = consumeToken(builder_, SEMICOLON);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
+    if (!result_) result_ = lib_field(builder_, level_ + 1);
     return result_;
   }
 

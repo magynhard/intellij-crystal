@@ -5,6 +5,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **C-FFI aggregate fields and keyword parameters** — `lib struct` and `lib union` now accept
+  compiler-valid keyword field names (`next`, `alias`, `union`) and grouped declarations such as
+  `r, g, b : UInt8`; structs retain include and macro forms, unions retain macro forms, and ordinary
+  outer `lib` bodies still reject fields. `lib fun` accepts every explicitly typed keyword parameter (`fun`, `out`,
+  `class`, `then`) as a normal parameter with name, documentation, rename, and type inspection
+  support. Struct/union PSI retains `getLibBody()` and `getLibFieldList()`. Covered by
+  LibAggregateFields and LibFunKeywordParameters goldens plus
+  parser, PSI-name, and inspection regressions. The external Crystal 1.21.0 repository audit drops
+  from 96 errors in 85 files to 80 in 75, while the pinned indexed corpus drops from 39 in 35 to 33
+  in 31; both file-set comparisons show ten repaired files and zero new failures.
 - **Constant-assignment heredocs and spaced index ternaries** — constant values now attach queued
   heredoc bodies, so compiler constants such as `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` preserve
   their complete structured bodies and following declarations. Index suffixes accept `?` only when

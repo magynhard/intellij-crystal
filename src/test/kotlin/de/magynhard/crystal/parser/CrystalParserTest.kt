@@ -476,6 +476,14 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testLibAggregateFields() {
+        doTest(true)
+    }
+
+    fun testLibFunKeywordParameters() {
+        doTest(true)
+    }
+
     fun testLibFunUppercaseNames() {
         doTest(true)
     }

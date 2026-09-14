@@ -113,4 +113,20 @@ class CrystalInvalidFunParameterTest : BasePlatformTestCase() {
             PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
         )
     }
+
+    fun testRejectsOuterLibFieldsAndUntypedKeywordParameters() {
+        listOf(
+            "lib LibC\n  left : Int32\nend",
+            "lib LibC\n  fun bad(out)\nend",
+            "def bad(out : Int32)\nend",
+            "lib LibC\n  union U\n    include Base\n  end\nend",
+            "lib LibC\n  struct S\n    fun nested : Int32\n  end\nend",
+        ).forEach { source ->
+            val file = myFixture.configureByText("test.cr", source)
+            assertTrue(
+                "Expected parse error for '$source'",
+                PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+            )
+        }
+    }
 }

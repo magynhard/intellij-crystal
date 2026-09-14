@@ -216,6 +216,10 @@
   `CONSTANT = <<-BODY`; only tight `values[i]?` is nil-safe while `values[i] ? a : b` is ternary;
   additive constant heredoc PSI accessor, no stub/index change; external audit 105/94 → 96/85 and
   indexed 48/44 → 39/35, nine repaired files and zero newly failing files);
+  C-FFI aggregate fields and typed keyword parameters are done (struct/union-only grouped fields
+  and keyword names; outer lib fields remain invalid; all typed keyword lib-fun parameters are
+  normal PSI names; external audit 96/85 → 80/75 and indexed 39/35 → 33/31, ten repaired files and
+  zero newly failing files);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
