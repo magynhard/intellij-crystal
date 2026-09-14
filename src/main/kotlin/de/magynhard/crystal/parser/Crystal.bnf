@@ -627,7 +627,13 @@ private param_prefix ::= annotation_usage
 parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             | param_prefix* keyword_parameter_name [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND IDENTIFIER COLON type_union COMMA type_union (COMMA type_union)* ARROW [type_reference]
-            | param_prefix* [STAR | DOUBLE_STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access | keyword_parameter_name) [COLON type_reference] [ASSIGN expression]
+            // A double-splat parameter may carry a double-splat restriction
+            // (`def self.new(**options : **T)` in named_tuple.cr): the compiler
+            // pairs the restriction splat strictly with the parameter splat
+            // (parser.cr parse_parameter), so `x : **T` stays invalid. This
+            // longer alternative precedes the plain splat form (PEG).
+            | param_prefix* DOUBLE_STAR (IDENTIFIER | instance_var_access | class_var_access | keyword_parameter_name) [COLON [DOUBLE_STAR] type_reference] [ASSIGN expression]
+            | param_prefix* [STAR | AMPERSAND] (IDENTIFIER | instance_var_access | class_var_access | keyword_parameter_name) [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND COLON type_union (COMMA type_union)* ARROW [type_union]
             | param_prefix* AMPERSAND [COLON type_reference]
             | param_prefix* LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN

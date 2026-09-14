@@ -873,6 +873,17 @@ external 1.21.0 crystal-repository audit drops from 78 errors in 73 files to 76
 in 72, and the pinned indexed corpus drops from 31 in 29 to 29 in 28. Both
 file-set comparisons repair exactly one file with zero newly failing files.
 
+A double-splat parameter accepts a double-splat restriction: the compiler
+pairs the restriction splat strictly with the parameter splat, so
+`def self.new(**options : **T)` (named_tuple.cr) is valid while `x : **T`,
+`*x : **T`, and `&x : **T` stay errors. The grammar splits the `DOUBLE_STAR`
+parameter branch with an optional `DOUBLE_STAR` restriction; no PSI, stub, or
+index change. Covered by the DoubleSplatRestriction golden plus negative
+tests. The `**T` site itself is repaired — the file's first error advances
+from line 59 to an independent later site (macro-generated hash keys at line
+71, a separate cluster) — so totals stay 76 errors in 72 files externally and
+29 in 28 indexed, with zero newly failing files by file-set comparison.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

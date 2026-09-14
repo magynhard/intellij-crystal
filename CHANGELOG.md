@@ -5,6 +5,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Double-splat parameter restrictions (`**options : **T`)** — a `**` parameter may now carry a
+  `**` restriction, strictly paired as in the compiler (`def self.new(**options : **T)` in
+  `named_tuple.cr`); `x : **T`, `*x : **T`, and `&x : **T` stay parse errors. No PSI, stub, or index
+  change. Covered by the DoubleSplatRestriction golden plus negative tests. The `**T` site itself
+  is repaired (the file's first error moves from line 59 to an independent later site: macro-
+  generated hash keys at line 71, a separate cluster); totals stay 76 errors in 72 files externally
+  and 29 in 28 indexed, with zero new failures by file-set comparison.
 - **Semicolon-terminated annotation definitions** — `annotation Field; end` now parses, matching the
   compiler's `StatementEnd` between the annotation name and `end` (`uri/params/serializable.cr`).
   No stub or index change. Covered by the AnnotationSemicolon golden. The external Crystal 1.21.0
