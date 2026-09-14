@@ -193,6 +193,15 @@
   type contexts; trailing comma/newlines supported; external audit 130/117 → 128/115 with
   `src/class.cr` and `spec/std/class_spec.cr` clean; indexed 59/55 → 58/54; assignment-level
   operands `typeof(value = 1, other = 2)` remain separate parse_op_assign parity);
+  lone `uninitialized` as a bare call argument is done (private
+  `uninitialized_variable_reference ::= UNINITIALIZED !type_reference` in `variable_reference`,
+  so `TypeDeclarationWithLocation.new(..., uninitialized, nil)` binds the keyword-named value
+  while `uninitialized UInt32` keeps the type expression; keyword variables resolve and rename
+  end to end via the shared `KEYWORD_VARIABLES` set — reference creation, name identifiers,
+  `setName`, parameter names, local usage analysis, word-scanner indexing, and
+  `handleElementRename` rewriting the keyword leaf to `IDENTIFIER`; external audit 128/115 →
+  127/114 with `type_declaration_visitor.cr` clean; indexed 58/54 → 57/53, zero newly failing
+  files by file-set comparison);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);

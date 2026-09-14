@@ -39,6 +39,13 @@ object CrystalTokenTypes {
         CrystalTypes.WHILE, CrystalTypes.WITH, CrystalTypes.YIELD
     )
 
+    // Contextual keywords Crystal permits as local variables and standalone
+    // parameter names. Keep this aligned with keyword_variable in Crystal.bnf.
+    @JvmField val KEYWORD_VARIABLES = TokenSet.create(
+        CrystalTypes.OF, CrystalTypes.UNION, CrystalTypes.UNINITIALIZED,
+        CrystalTypes.FORALL, CrystalTypes.PREVIOUS_DEF,
+    )
+
     @JvmField val COMMENTS = TokenSet.create(CrystalTypes.LINE_COMMENT)
 
     @JvmField val STRINGS = TokenSet.create(

@@ -272,6 +272,8 @@ class CrystalReference(
             ?: element.node.findChildByType(CrystalTypes.CONSTANT)
             ?: element.node.findChildByType(CrystalTypes.INSTANCE_VAR)
             ?: element.node.findChildByType(CrystalTypes.CLASS_VAR)
+            ?: element.node.getChildren(null)
+                .firstOrNull { de.magynhard.crystal.lexer.CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType) }
             ?: return element
 
         // Strip any @/@@ prefix the user may have typed, then re-apply from original token type.
@@ -282,7 +284,14 @@ class CrystalReference(
             else -> bareName
         }
 
-        val newLeaf = createLeafFromText(element.project, fixedName, identNode.elementType) ?: return element
+        // A keyword variable (e.g. `union`) renames to a plain identifier: the
+        // new text no longer lexes as the keyword token.
+        val targetType = if (de.magynhard.crystal.lexer.CrystalTokenTypes.KEYWORD_VARIABLES.contains(identNode.elementType)) {
+            CrystalTypes.IDENTIFIER
+        } else {
+            identNode.elementType
+        }
+        val newLeaf = createLeafFromText(element.project, fixedName, targetType) ?: return element
         identNode.treeParent.replaceChild(identNode, newLeaf)
         return element
     }

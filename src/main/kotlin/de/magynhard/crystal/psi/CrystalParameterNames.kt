@@ -29,23 +29,27 @@ fun CrystalParameter.parameterNameInfo(): CrystalParameterNameInfo {
 
     val children = node.getChildren(null)
     val identifiers = children
-        .filter { it.elementType == CrystalTypes.IDENTIFIER }
+        .filter {
+            it.elementType == CrystalTypes.IDENTIFIER ||
+                CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType)
+        }
         .map { it.text }
     val storageName = instanceVarAccess?.name ?: classVarAccess?.name
     val localName = storageName?.removePrefix("@@")?.removePrefix("@") ?: identifiers.lastOrNull()
-    // Keywords are valid external (call-site) labels — `def foo(with entries)` —
-    // but never internal bindings. Only a keyword that precedes the internal-name
-    // or storage leaf counts; keywords in type position (`x : self`) do not, and
-    // neither do prefixes like `&`, `*`, or `out`-marker-adjacent tokens that are
-    // not name leaves. The compiler assigns the same external names, including
-    // `out` in `def foo(out x)`.
+    // Every keyword is valid as an external call-site label (`def foo(with
+    // entries)`); keyword variables are also internal bindings when they are
+    // the sole name. Only a keyword preceding the internal/storage leaf counts
+    // as external; keywords in type position (`x : self`) and prefixes do not.
     val internalIndex = if (storageName != null) {
         children.indexOfFirst {
             it.elementType == CrystalTypes.INSTANCE_VAR_ACCESS ||
                 it.elementType == CrystalTypes.CLASS_VAR_ACCESS
         }
     } else {
-        children.indexOfLast { it.elementType == CrystalTypes.IDENTIFIER }
+        children.indexOfLast {
+            it.elementType == CrystalTypes.IDENTIFIER ||
+                CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType)
+        }
     }
     val explicitExternalName = if (internalIndex > 0) {
         children.take(internalIndex)

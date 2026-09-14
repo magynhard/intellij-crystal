@@ -11223,6 +11223,29 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // UNINITIALIZED !type_reference
+  static boolean uninitialized_variable_reference(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "uninitialized_variable_reference")) return false;
+    if (!nextTokenIs(builder_, UNINITIALIZED)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, UNINITIALIZED);
+    result_ = result_ && uninitialized_variable_reference_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // !type_reference
+  private static boolean uninitialized_variable_reference_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "uninitialized_variable_reference_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !type_reference(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // UNLESS condition then_clause statement_list [else_clause] END
   public static boolean unless_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "unless_statement")) return false;
@@ -11281,7 +11304,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // GLOBAL_VAR | IDENTIFIER | CONSTANT | keyword_variable_value
+  // GLOBAL_VAR | IDENTIFIER | CONSTANT | keyword_variable_value | uninitialized_variable_reference
   public static boolean variable_reference(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "variable_reference")) return false;
     boolean result_;
@@ -11290,6 +11313,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, CONSTANT);
     if (!result_) result_ = keyword_variable_value(builder_, level_ + 1);
+    if (!result_) result_ = uninitialized_variable_reference(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }

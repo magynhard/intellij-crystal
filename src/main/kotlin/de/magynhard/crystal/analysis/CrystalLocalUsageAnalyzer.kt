@@ -188,7 +188,10 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         for (parameter in parameters) {
             val names = parameter.localBindingNames()
             val identifiers = parameter.node.getChildren(null)
-                .filter { it.elementType == CrystalTypes.IDENTIFIER }
+                .filter {
+                    it.elementType == CrystalTypes.IDENTIFIER ||
+                        CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType)
+                }
                 .associateBy { it.text }
             for (name in names) {
                 val identifier = identifiers[name]?.psi
@@ -1136,7 +1139,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
     }
 
     private fun localReferenceName(reference: CrystalVariableReference): String? =
-        reference.node.findChildByType(CrystalTypes.IDENTIFIER)?.text
+        (reference as? PsiNameIdentifierOwner)?.name
 
     private fun forIdentifier(statement: CrystalForStatement): PsiElement? =
         statement.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi

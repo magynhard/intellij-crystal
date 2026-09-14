@@ -70,6 +70,22 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
         assertEquals("Foo", nameIdent!!.text)
     }
 
+    fun testRenameKeywordVariableReferenceUsesIdentifierToken() {
+        val file = myFixture.configureByText("test.cr", """
+            def build
+              union = 1
+              <caret>union
+            end
+        """.trimIndent())
+        myFixture.renameElementAtCaret("merged")
+        myFixture.checkResult("""
+            def build
+              merged = 1
+              merged
+            end
+        """.trimIndent())
+    }
+
     // ==================== CrystalParameter — PsiNameIdentifierOwner ====================
 
     fun testParameterImplementsPsiNameIdentifierOwner() {

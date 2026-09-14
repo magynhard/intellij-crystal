@@ -5,13 +5,17 @@ import com.intellij.lang.findUsages.FindUsagesProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.TokenSet
 import de.magynhard.crystal.lexer.CrystalLexerAdapter
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 
 class CrystalFindUsagesProvider : FindUsagesProvider {
 
     override fun getWordsScanner() = DefaultWordsScanner(
         CrystalLexerAdapter(),
-        TokenSet.create(CrystalTypes.IDENTIFIER, CrystalTypes.CONSTANT, CrystalTypes.INSTANCE_VAR, CrystalTypes.CLASS_VAR),
+        TokenSet.orSet(
+            TokenSet.create(CrystalTypes.IDENTIFIER, CrystalTypes.CONSTANT, CrystalTypes.INSTANCE_VAR, CrystalTypes.CLASS_VAR),
+            CrystalTokenTypes.KEYWORD_VARIABLES,
+        ),
         TokenSet.create(CrystalTypes.LINE_COMMENT),
         TokenSet.create(CrystalTypes.STRING_LITERAL)
     )

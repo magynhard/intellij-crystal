@@ -1576,7 +1576,12 @@ class_var_access ::= CLASS_VAR {
 // The same compiler-verified keyword subset rebinds as a variable reference in
 // expression/rvalue position: `store @last, union`, `[of.key, of.value]`,
 // `if of = node.of`. Statement-reserved keywords stay rejected.
-variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT | keyword_variable_value {
+// A lone `uninitialized` may be a keyword-named local parameter/value
+// (`TypeDeclarationWithLocation.new(..., uninitialized, nil)`). If the next
+// token starts a type, the existing `uninitialized_expression` owns it instead.
+private uninitialized_variable_reference ::= UNINITIALIZED !type_reference
+
+variable_reference ::= GLOBAL_VAR | IDENTIFIER | CONSTANT | keyword_variable_value | uninitialized_variable_reference {
   mixin="de.magynhard.crystal.psi.impl.CrystalVariableReferenceMixin"
 }
 

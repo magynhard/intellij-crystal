@@ -786,6 +786,29 @@ audit drops from 130 errors in 117 files to 128 in 115 (`src/class.cr` and
 `spec/std/class_spec.cr` fully clean); the pinned indexed corpus drops from
 59 errors in 55 files to 58 in 54, with zero indexed per-file regressions.
 
+A lone `uninitialized` binds as a keyword-named value in bare call
+position: `TypeDeclarationWithLocation.new(node, var, uninitialized, nil)`
+(compiler `semantic/type_declaration_visitor.cr:277`). A private
+`uninitialized_variable_reference ::= UNINITIALIZED !type_reference` joins
+`variable_reference`, so the existing `uninitialized_expression` still owns
+`uninitialized UInt32` — the negative lookahead keeps the type alternative
+first and the AsmAndUninitialized golden is unchanged. Keyword variables
+also resolve and rename end to end now that the grammar admits them: a
+shared `KEYWORD_VARIABLES` token set (`of`, `union`, `uninitialized`,
+`forall`, `previous_def`) drives reference creation, name identifiers,
+`setName`, parameter names, and the local usage analyzer; the word scanner
+indexes the same leaves so `ReferencesSearch` finds usages, and
+`handleElementRename` rewrites a renamed keyword leaf as `IDENTIFIER`
+because the new text no longer lexes as the keyword. Only
+`CrystalParser.java` regenerates — no lexer, stub, or index change.
+Covered by the UninitializedKeywordReference golden, keyword
+parameter/assignment resolution tests, focused `ReferencesSearch` and
+`handleElementRename` tests, and an end-to-end rename test. The external
+1.21.0 crystal-repository audit drops from 128 errors in 115 files to 127
+in 114 (`type_declaration_visitor.cr` fully clean); the pinned indexed
+corpus drops from 58 errors in 54 files to 57 in 53 — verified by
+before/after file-set comparison with zero newly failing files.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

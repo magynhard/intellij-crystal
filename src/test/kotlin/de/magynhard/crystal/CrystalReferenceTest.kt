@@ -133,6 +133,74 @@ class CrystalReferenceTest : BasePlatformTestCase() {
         assertEquals("callback", parameter.nameIdentifier?.text)
     }
 
+    fun testKeywordParameterReferenceResolvesToParameter() {
+        val file = myFixture.configureByText("test.cr", """
+            def declare_class_var(node, var, uninitialized)
+              TypeDeclarationWithLocation.new(node, var, uninitialized, nil)
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "uninitialized" }
+
+        val resolved = findReference(usage)?.resolve() as? PsiNameIdentifierOwner
+        assertNotNull("Keyword parameter should resolve", resolved)
+        assertEquals("uninitialized", resolved!!.name)
+        assertEquals("uninitialized", resolved.nameIdentifier?.text)
+    }
+
+    fun testKeywordAssignmentReferenceResolvesToAssignment() {
+        val file = myFixture.configureByText("test.cr", """
+            def build
+              union = 1
+              union
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "union" }
+
+        val resolved = findReference(usage)?.resolve() as? PsiNameIdentifierOwner
+        assertNotNull("Keyword assignment should resolve", resolved)
+        assertEquals("union", resolved!!.name)
+        assertEquals("union", resolved.nameIdentifier?.text)
+    }
+
+    fun testKeywordAssignmentUsageFoundByReferencesSearch() {
+        val file = myFixture.configureByText("test.cr", """
+            def build
+              union = 1
+              union
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "union" }
+        val target = findReference(usage)?.resolve() ?: error("Keyword assignment should resolve")
+
+        val refs = com.intellij.psi.search.searches.ReferencesSearch.search(target).findAll()
+        assertTrue(
+            "ReferencesSearch should find the keyword usage",
+            refs.any { it.element === usage },
+        )
+    }
+
+    fun testKeywordUsageHandleElementRenameUsesIdentifierToken() {
+        val file = myFixture.configureByText("test.cr", """
+            def build
+              union = 1
+              union
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "union" }
+        val reference = findReference(usage) ?: error("Keyword usage should have a reference")
+
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            reference.handleElementRename("merged")
+        }
+
+        assertEquals("merged", usage.text)
+        assertEquals(CrystalTypes.IDENTIFIER, usage.node.findChildByType(CrystalTypes.IDENTIFIER)?.elementType)
+    }
+
     fun testDestructuredMethodParameterResolvesLocally() {
         val file = myFixture.configureByText("test.cr", """
             def wrapper((callback, other))

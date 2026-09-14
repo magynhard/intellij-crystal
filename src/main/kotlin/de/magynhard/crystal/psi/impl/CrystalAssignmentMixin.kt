@@ -5,6 +5,7 @@ import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.CrystalAssignment
 import de.magynhard.crystal.psi.CrystalNestedIndexedAssignment
 import de.magynhard.crystal.psi.CrystalTypes
@@ -25,6 +26,7 @@ abstract class CrystalAssignmentMixin(node: ASTNode) : ASTWrapperPsiElement(node
         // The assignment variable is the first child of type IDENTIFIER, INSTANCE_VAR, or CLASS_VAR.
         var child = node.firstChildNode
         while (child != null) {
+            if (CrystalTokenTypes.KEYWORD_VARIABLES.contains(child.elementType)) return child.psi
             when (child.elementType) {
                 CrystalTypes.IDENTIFIER, CrystalTypes.INSTANCE_VAR, CrystalTypes.CLASS_VAR -> {
                     return child.psi
@@ -62,7 +64,8 @@ abstract class CrystalAssignmentMixin(node: ASTNode) : ASTWrapperPsiElement(node
             CrystalTypes.MACRO_FRESH_VAR -> "%$bareName"
             else -> bareName
         }
-        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
+        val targetType = if (CrystalTokenTypes.KEYWORD_VARIABLES.contains(tokenType)) CrystalTypes.IDENTIFIER else tokenType
+        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, targetType) ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)
         return this
     }

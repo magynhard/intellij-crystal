@@ -5,6 +5,7 @@ import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.PsiReference
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 
 /**
@@ -22,6 +23,8 @@ private fun createCrystalReference(element: ASTWrapperPsiElement): CrystalRefere
 
     val identNode = element.node.findChildByType(CrystalTypes.IDENTIFIER)
         ?: element.node.findChildByType(CrystalTypes.CONSTANT)
+        ?: element.node.getChildren(null)
+            .firstOrNull { CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType) }
         ?: return null
 
     val name = identNode.text
@@ -42,7 +45,8 @@ private fun createCrystalReference(element: ASTWrapperPsiElement): CrystalRefere
  * check — and TokenInplaceRenameHandler steps aside because a custom renamePsiElementProcessor
  * is registered — leaving rename completely grayed out.
  *
- * getNameIdentifier() returns the IDENTIFIER or CONSTANT leaf child.
+ * getNameIdentifier() returns the identifier, constant, or contextual keyword
+ * variable leaf child.
  */
 abstract class CrystalVariableReferenceMixin(node: ASTNode) : ASTWrapperPsiElement(node), PsiNameIdentifierOwner {
     override fun getReference(): PsiReference? = createCrystalReference(this)
@@ -51,6 +55,9 @@ abstract class CrystalVariableReferenceMixin(node: ASTNode) : ASTWrapperPsiEleme
     override fun getNameIdentifier(): PsiElement? {
         return node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
             ?: node.findChildByType(CrystalTypes.CONSTANT)?.psi
+            ?: node.getChildren(null)
+                .firstOrNull { CrystalTokenTypes.KEYWORD_VARIABLES.contains(it.elementType) }
+                ?.psi
     }
 
     override fun getName(): String? = nameIdentifier?.text
@@ -64,7 +71,8 @@ abstract class CrystalVariableReferenceMixin(node: ASTNode) : ASTWrapperPsiEleme
             CrystalTypes.CLASS_VAR -> "@@$bareName"
             else -> bareName
         }
-        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
+        val targetType = if (CrystalTokenTypes.KEYWORD_VARIABLES.contains(tokenType)) CrystalTypes.IDENTIFIER else tokenType
+        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, targetType) ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)
         return this
     }

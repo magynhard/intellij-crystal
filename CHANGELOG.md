@@ -5,6 +5,22 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Lone `uninitialized` as a bare call argument, with end-to-end rename for keyword variables** —
+  `TypeDeclarationWithLocation.new(node, var, uninitialized, nil)` (compiler
+  `type_declaration_visitor.cr`) now parses: a private `uninitialized_variable_reference ::=
+  UNINITIALIZED !type_reference` joins `variable_reference`, so a lone `uninitialized` binds the
+  keyword-named local parameter/value while `uninitialized UInt32` keeps the existing
+  `uninitialized_expression` PSI (AsmAndUninitialized canary unchanged). Keyword variables also
+  resolve and rename end to end now that the PSI admits them: a shared `KEYWORD_VARIABLES` token
+  set drives reference creation, name identifiers, `setName`, parameter names, and the local usage
+  analyzer; the word scanner indexes the same leaves so `ReferencesSearch` finds usages, and
+  `handleElementRename` rewrites a renamed keyword leaf as `IDENTIFIER` (the new text no longer
+  lexes as the keyword). Covered by the UninitializedKeywordReference golden, keyword
+  parameter/assignment resolution tests, focused `ReferencesSearch` and `handleElementRename`
+  tests, and an end-to-end rename test. The external 1.21.0 crystal-repository audit drops from
+  128 errors in 115 files to 127 in 114 (`type_declaration_visitor.cr` fully clean); the pinned
+  indexed corpus drops from 58 in 54 to 57 in 53 — verified by before/after file-set comparison
+  with zero newly failing files.
 - **Multiple `typeof` arguments (`typeof(t, u)`)** — `typeof` now accepts one or more
   comma-separated expressions, with newlines after the opener or comma and a trailing comma:
   `typeof(first, second)`, `typeof(\n first,\n second,\n)`, nested calls/tuples, and type

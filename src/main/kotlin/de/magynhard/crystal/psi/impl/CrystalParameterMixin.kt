@@ -4,6 +4,7 @@ import com.intellij.extapi.psi.ASTWrapperPsiElement
 import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.psi.parameterNameInfo
@@ -24,6 +25,9 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
         var lastIdent: PsiElement? = null
         var child = node.firstChildNode
         while (child != null) {
+            if (CrystalTokenTypes.KEYWORD_VARIABLES.contains(child.elementType)) {
+                lastIdent = child.psi
+            } else {
             when (child.elementType) {
                 CrystalTypes.IDENTIFIER -> {
                     lastIdent = child.psi
@@ -36,6 +40,7 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
                     val classVar = child.findChildByType(CrystalTypes.CLASS_VAR)
                     if (classVar != null) lastIdent = classVar.psi
                 }
+            }
             }
             child = child.treeNext
         }
@@ -55,7 +60,8 @@ abstract class CrystalParameterMixin(node: ASTNode) : ASTWrapperPsiElement(node)
             CrystalTypes.CLASS_VAR -> "@@$bareName"
             else -> bareName
         }
-        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, tokenType) ?: return this
+        val targetType = if (CrystalTokenTypes.KEYWORD_VARIABLES.contains(tokenType)) CrystalTypes.IDENTIFIER else tokenType
+        val newNode = de.magynhard.crystal.psi.createLeafFromText(project, fixedName, targetType) ?: return this
         ident.node.treeParent.replaceChild(ident.node, newNode)
         return this
     }
