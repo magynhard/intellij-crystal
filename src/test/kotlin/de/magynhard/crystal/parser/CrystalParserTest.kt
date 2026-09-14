@@ -307,6 +307,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testTypedCollectionsAndWithYield() {
+        doTest(true)
+    }
+
     fun testPointerofOffsetof() {
         doTest(true)
     }

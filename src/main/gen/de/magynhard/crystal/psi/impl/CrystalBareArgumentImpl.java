@@ -100,6 +100,12 @@ public class CrystalBareArgumentImpl extends CrystalAccessorArgumentMixin implem
 
   @Override
   @NotNull
+  public List<CrystalExpressionList> getExpressionListList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpressionList.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalGroupedExpression> getGroupedExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalGroupedExpression.class);
   }
@@ -282,6 +288,12 @@ public class CrystalBareArgumentImpl extends CrystalAccessorArgumentMixin implem
   @NotNull
   public List<CrystalVariableReference> getVariableReferenceList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalVariableReference.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalWithYieldStatement> getWithYieldStatementList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalWithYieldStatement.class);
   }
 
 }

@@ -207,6 +207,11 @@
   parenthesis; dotted `.macro`, `def macro`, and macro-named fields/parameters stay ordinary
   code; external audit 127/114 → 118/105; indexed 57/53 → 48/44, exactly nine compiler files
   repaired and zero newly failing files by file-set comparison);
+  typed tuple collections and expression-position `with … yield` are done (`type_path{...}` now
+  chooses existing hash entries first or an expression list for `Deque{1, 2}`/`Set{"a", "b"}`;
+  `with_yield_statement` accepts bare/parenthesized yield arguments and is admitted as a primary
+  expression while preserving its PSI element; external audit 118/105 → 105/94, eleven files
+  clean and zero newly failing files; indexed remains 48/44);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);

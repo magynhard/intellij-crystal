@@ -101,6 +101,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalExpressionList> getExpressionListList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpressionList.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalGroupedExpression> getGroupedExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalGroupedExpression.class);
   }
@@ -301,6 +307,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
   @NotNull
   public List<CrystalWhileStatement> getWhileStatementList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalWhileStatement.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalWithYieldStatement> getWithYieldStatementList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalWithYieldStatement.class);
   }
 
   @Override

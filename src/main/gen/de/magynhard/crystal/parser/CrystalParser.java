@@ -1999,6 +1999,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // grouped_expression
   //                                   | control_flow_expression
+  //                                   | with_yield_statement
   //                                   | array_literal
   //                                   | hash_literal
   //                                   | typed_collection_literal
@@ -2031,6 +2032,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     boolean result_;
     result_ = grouped_expression(builder_, level_ + 1);
     if (!result_) result_ = control_flow_expression(builder_, level_ + 1);
+    if (!result_) result_ = with_yield_statement(builder_, level_ + 1);
     if (!result_) result_ = array_literal(builder_, level_ + 1);
     if (!result_) result_ = hash_literal(builder_, level_ + 1);
     if (!result_) result_ = typed_collection_literal(builder_, level_ + 1);
@@ -9123,6 +9125,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // grouped_expression
   //                              | control_flow_expression
+  //                              | with_yield_statement
   //                              | array_literal
   //                              | hash_literal
   //                              | typed_collection_literal
@@ -9159,6 +9162,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     boolean result_;
     result_ = grouped_expression(builder_, level_ + 1);
     if (!result_) result_ = control_flow_expression(builder_, level_ + 1);
+    if (!result_) result_ = with_yield_statement(builder_, level_ + 1);
     if (!result_) result_ = array_literal(builder_, level_ + 1);
     if (!result_) result_ = hash_literal(builder_, level_ + 1);
     if (!result_) result_ = typed_collection_literal(builder_, level_ + 1);
@@ -11086,7 +11090,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // type_path LBRACE NLS [hash_entry_list] NLS RBRACE
+  // type_path LBRACE NLS [hash_entry_list | expression_list] NLS RBRACE
   static boolean typed_collection_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "typed_collection_literal")) return false;
     boolean result_;
@@ -11101,11 +11105,20 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [hash_entry_list]
+  // [hash_entry_list | expression_list]
   private static boolean typed_collection_literal_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "typed_collection_literal_3")) return false;
-    hash_entry_list(builder_, level_ + 1);
+    typed_collection_literal_3_0(builder_, level_ + 1);
     return true;
+  }
+
+  // hash_entry_list | expression_list
+  private static boolean typed_collection_literal_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "typed_collection_literal_3_0")) return false;
+    boolean result_;
+    result_ = hash_entry_list(builder_, level_ + 1);
+    if (!result_) result_ = expression_list(builder_, level_ + 1);
+    return result_;
   }
 
   /* ********************************************************** */
@@ -11592,7 +11605,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // WITH expression YIELD
+  // WITH expression YIELD [LPAREN argument_list RPAREN | bare_argument_list]
   public static boolean with_yield_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "with_yield_statement")) return false;
     if (!nextTokenIs(builder_, WITH)) return false;
@@ -11601,9 +11614,40 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, WITH);
     pinned_ = result_; // pin = 1
     result_ = result_ && report_error_(builder_, expression(builder_, level_ + 1));
-    result_ = pinned_ && consumeToken(builder_, YIELD) && result_;
+    result_ = pinned_ && report_error_(builder_, consumeToken(builder_, YIELD)) && result_;
+    result_ = pinned_ && with_yield_statement_3(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
+  }
+
+  // [LPAREN argument_list RPAREN | bare_argument_list]
+  private static boolean with_yield_statement_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "with_yield_statement_3")) return false;
+    with_yield_statement_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // LPAREN argument_list RPAREN | bare_argument_list
+  private static boolean with_yield_statement_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "with_yield_statement_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = with_yield_statement_3_0_0(builder_, level_ + 1);
+    if (!result_) result_ = bare_argument_list(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // LPAREN argument_list RPAREN
+  private static boolean with_yield_statement_3_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "with_yield_statement_3_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, LPAREN);
+    result_ = result_ && argument_list(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RPAREN);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
   }
 
   /* ********************************************************** */

@@ -824,6 +824,21 @@ exactly nine repaired compiler files (`exception`, `interpreter`, semantic
 `hooks`/`top_level_visitor`, syntax `location`/`virtual_file`, and doc tooling)
 and zero newly failing files.
 
+Typed brace literals choose between a hash and a tuple collection, matching the
+compiler's `parse_custom_literal`: `HTTP::Headers{"Accept" => "text/plain"}`
+keeps `hash_entry_list`, while `Deque{1, 2, 3}` and `Set{"a", "b"}` use
+`expression_list` (including multiline and trailing-comma forms). Hash entries
+are tried first, so a `=>` pair never falls through to a tuple. `with scope
+yield` is an atomic expression in the compiler, not only a standalone
+statement: it accepts bare or parenthesized yield arguments and can appear in
+assignments, multi-assignments, blocks, and call arguments. The grammar reuses
+the existing `CrystalWithYieldStatement` PSI element in primary and bare-primary
+positions; generated argument-list accessors are additive, with no stub or
+index change. Covered by TypedCollectionsAndWithYield golden. The external
+1.21.0 crystal-repository audit drops from 118 errors in 105 files to 105 in
+94, with eleven files fully clean and zero newly failing files by file-set
+comparison; the pinned indexed corpus remains 48 in 44.
+
 Multi-assignment targets admit indexed receivers and `self`-rooted
 targets: `self[i], self[j] = self[j], self[i]` (pointer.cr crystal swap),
 `a.value, a[n] = a[n], a.value` (slice/sort.cr median helpers, four sites

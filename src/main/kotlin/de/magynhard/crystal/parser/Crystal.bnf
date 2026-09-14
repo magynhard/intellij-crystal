@@ -827,7 +827,11 @@ private yield_expression_args ::= [yield_leading_argument] (COMMA NLS expression
 // modifier keywords, so no other leading token can be misread this way.
 private yield_leading_argument ::= !IF !UNLESS expression
 
-with_yield_statement ::= WITH expression YIELD {pin=1}
+// `with scope yield value` is an expression (including multi-assignment and
+// block bodies), not only a standalone statement. The existing element type
+// keeps statement-position PSI stable while primary-expression alternatives
+// below admit the same construct where the compiler does.
+with_yield_statement ::= WITH expression YIELD [LPAREN argument_list RPAREN | bare_argument_list] {pin=1}
 
 // ==================== Assignments ====================
 
@@ -1129,6 +1133,7 @@ private control_flow_expression ::= RETURN [abrupt_value_list]
 
 private primary_expression ::= grouped_expression
                              | control_flow_expression
+                             | with_yield_statement
                              | array_literal
                              | hash_literal
                              | typed_collection_literal
@@ -1409,6 +1414,7 @@ private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_refere
 // Bare primary: like primary but no blocks or method calls with bare args (to prevent ambiguity)
 private bare_primary_expression ::= grouped_expression
                                   | control_flow_expression
+                                  | with_yield_statement
                                   | array_literal
                                   | hash_literal
                                   | typed_collection_literal
@@ -1547,10 +1553,12 @@ array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference
 hash_literal ::= LBRACE NLS [hash_entry_list] NLS RBRACE [OF type_reference DOUBLE_ARROW type_reference]
 
 // Crystal literal instantiation: `HTTP::Headers{...}` (kemal request specs) —
-// a constant type path directly followed by a brace literal instantiates the
-// typed collection. Registered before method_call_expression/bare calls so
-// CONSTANT + LBRACE binds the literal instead of a block call.
-private typed_collection_literal ::= type_path LBRACE NLS [hash_entry_list] NLS RBRACE
+// a constant type path directly followed by a brace literal instantiates a
+// typed hash or tuple/array (`Set{"a", "b"}`, `Deque{1, 2}`). Hash entries
+// are tried first so `Type{"key" => value}` preserves its existing shape.
+// Registered before method_call_expression/bare calls so CONSTANT + LBRACE
+// binds the literal instead of a block call.
+private typed_collection_literal ::= type_path LBRACE NLS [hash_entry_list | expression_list] NLS RBRACE
 
 hash_entry_list ::= hash_entry (NLS COMMA NLS hash_entry)* [COMMA]
 

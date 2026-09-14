@@ -44,6 +44,9 @@ public interface CrystalBareArgument extends PsiElement {
   CrystalExpression getExpression();
 
   @NotNull
+  List<CrystalExpressionList> getExpressionListList();
+
+  @NotNull
   List<CrystalGroupedExpression> getGroupedExpressionList();
 
   @NotNull
@@ -135,5 +138,8 @@ public interface CrystalBareArgument extends PsiElement {
 
   @NotNull
   List<CrystalVariableReference> getVariableReferenceList();
+
+  @NotNull
+  List<CrystalWithYieldStatement> getWithYieldStatementList();
 
 }

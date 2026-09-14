@@ -8,6 +8,12 @@ import com.intellij.psi.PsiElement;
 public interface CrystalWithYieldStatement extends PsiElement {
 
   @Nullable
+  CrystalArgumentList getArgumentList();
+
+  @Nullable
+  CrystalBareArgumentList getBareArgumentList();
+
+  @Nullable
   CrystalExpression getExpression();
 
 }

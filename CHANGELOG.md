@@ -5,6 +5,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Typed tuple collections and expression-position `with … yield`** — typed brace literals now
+  accept tuple entries as well as hash entries: `Deque{1, 2, 3}`, `Set{"a", "b"}`, multiline and
+  trailing-comma forms, while `HTTP::Headers{"Accept" => "text/plain"}` keeps its existing hash
+  shape. `with scope yield` is now valid wherever an expression is valid, including assignments,
+  multi-assignments, bare arguments, and parenthesized yield arguments. The existing
+  `CrystalWithYieldStatement` PSI element is reused, with additive argument-list accessors; no stub
+  or index change. Covered by the TypedCollectionsAndWithYield golden. The external 1.21.0
+  crystal-repository audit drops from 118 errors in 105 files to 105 in 94, with eleven files fully
+  clean and zero newly failing files by file-set comparison; the pinned indexed corpus remains 48 in
+  44.
 - **Macro body lexing no longer starts after arbitrary `macro` keywords** — `macroHeaderSeen` now
   activates only for a `macro` declaration at the start of a line (optionally `private` or
   `protected`) and waits for a multiline signature's closing parenthesis before entering

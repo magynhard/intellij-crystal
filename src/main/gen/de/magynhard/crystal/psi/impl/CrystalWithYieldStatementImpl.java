@@ -29,6 +29,18 @@ public class CrystalWithYieldStatementImpl extends ASTWrapperPsiElement implemen
 
   @Override
   @Nullable
+  public CrystalArgumentList getArgumentList() {
+    return PsiTreeUtil.getChildOfType(this, CrystalArgumentList.class);
+  }
+
+  @Override
+  @Nullable
+  public CrystalBareArgumentList getBareArgumentList() {
+    return PsiTreeUtil.getChildOfType(this, CrystalBareArgumentList.class);
+  }
+
+  @Override
+  @Nullable
   public CrystalExpression getExpression() {
     return PsiTreeUtil.getChildOfType(this, CrystalExpression.class);
   }
