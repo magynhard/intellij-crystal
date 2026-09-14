@@ -1221,9 +1221,16 @@ method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare
                         // its only argument; the looseness predicate keeps a tight
                         // `[` (`foo["key"]`) on the index postfix path.
                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list [block]
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
-                         | (IDENTIFIER | CONSTANT) block
-                         | (SUPER | PREVIOUS_DEF) call_args [block]
+                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
+                          | (IDENTIFIER | CONSTANT) block
+                          // Block-only super/previous_def (`super { |i| yield i }`
+                          // in range.cr, slice.cr): the compiler routes super
+                          // through the normal call path and always parses a
+                          // block afterwards (parser.cr parse_var_or_call plus
+                          // parse_block), so no arguments are required. Token
+                          // starts are disjoint from the call_args branch.
+                          | (SUPER | PREVIOUS_DEF) block
+                          | (SUPER | PREVIOUS_DEF) call_args [block]
                          // !DOT: `super.tap do` chains through the postfix rules — a
                          // bare argument must not swallow the chained member access,
                          // otherwise the trailing block strands. The remaining guards

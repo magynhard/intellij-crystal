@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Block-only `super` and `previous_def` calls** — `super { |i| yield i }` and `super do … end`
+  without arguments now parse, matching the compiler's normal call path with a trailing block
+  (`range.cr`, `slice.cr`). No PSI, stub, or index change. Covered by the SuperBlock golden. The
+  external Crystal 1.21.0 repository audit drops from 80 errors in 75 files to 78 in 73, while the
+  pinned indexed corpus drops from 33 in 31 to 31 in 29; both file-set comparisons show exactly two
+  repaired files and zero new failures.
 - **C-FFI aggregate fields and keyword parameters** — `lib struct` and `lib union` now accept
   compiler-valid keyword field names (`next`, `alias`, `union`) and grouped declarations such as
   `r, g, b : UInt8`; structs retain include and macro forms, unions retain macro forms, and ordinary

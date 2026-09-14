@@ -855,6 +855,16 @@ The external 1.21.0 crystal-repository audit drops from 96 errors in 85 files
 to 80 in 75; the pinned indexed corpus drops from 39 in 35 to 33 in 31. Both
 file-set comparisons repair ten files with zero newly failing files.
 
+`super` and `previous_def` accept a trailing block without arguments: the
+compiler routes them through the normal call path and always parses a block
+afterwards, so `super { |i| yield i }` (range.cr, slice.cr) is valid. The
+grammar adds a block-only alternative ahead of the call-args branch; token
+starts are disjoint, so PEG ordering is safe. No PSI, stub, or index change.
+Covered by the SuperBlock golden. The external 1.21.0 crystal-repository audit
+drops from 80 errors in 75 files to 78 in 73, and the pinned indexed corpus
+drops from 33 in 31 to 31 in 29. Both file-set comparisons repair exactly two
+files (`range`, `slice`) with zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

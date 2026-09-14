@@ -220,6 +220,9 @@
   and keyword names; outer lib fields remain invalid; all typed keyword lib-fun parameters are
   normal PSI names; external audit 96/85 → 80/75 and indexed 39/35 → 33/31, ten repaired files and
   zero newly failing files);
+  block-only `super`/`previous_def` calls are done (trailing block without arguments;
+  external audit 80/75 → 78/73 and indexed 33/31 → 31/29, `range` and `slice` repaired with zero
+  newly failing files);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);
