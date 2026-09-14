@@ -100,6 +100,12 @@ Parser grammar changes require a focused parser fixture and golden file with no 
 - Increment `CrystalParserDefinition.FILE.getStubVersion()` whenever serialized stub format or index
   key semantics change. Keep the `CrystalFileType` reference that initializes
   `CrystalStubElementTypeHolder` before index initialization.
+- Stub building goes through the platform `DefaultStubBuilder` (full PSI parse). Do not override
+  `IStubFileElementType.getBuilder()` with a hand-rolled lexer stub builder: a lexer stub tree
+  cannot reliably mirror the PSI (nesting, error recovery, constant stubs) and breaks the
+  stub↔PSI mirror contract the platform enforces (`Cached PSI count doesn't match`,
+  `PSI and index do not match`). Index speed must come from parser efficiency, not from
+  bypassing the contract.
 - Runtime features must not scan every Crystal file through `FileTypeIndex.processFiles()` or an
   equivalent project-wide iteration. Use `StubIndex`; corpus builders and explicit audit tasks are the
   only scanning exceptions.
