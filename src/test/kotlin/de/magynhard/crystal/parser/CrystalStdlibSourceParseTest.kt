@@ -219,6 +219,14 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(callError)
     }
 
+    fun testPrimitivesCrParsesWithoutErrors() {
+        // compiler/crystal/interpreter/primitives.cr uses parenthesized
+        // semicolon groups as ternary branches (`checked ? (sign_extend(7,
+        // node: node); i64_to_u8(node: node)) : nop`).
+        val primitives = findStdlibFile("compiler/crystal/interpreter/primitives.cr") ?: return
+        assertParsesCleanly(primitives)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

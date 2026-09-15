@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Semicolon groups in parenthesized expressions** — groups hold several
+  `;`-separated expressions with the last as the value
+  (`checked ? (sign_extend(7, node: node); i64_to_u8(node: node)) : nop` in
+  `primitives.cr`), matching the compiler's `parse_parenthesized_expression`;
+  each element keeps the assignment-capable shape. No stub or index change.
+  Covered by the GroupedSemicolonExpressions golden, a negative test, and a
+  real-file canary. The indexed corpus drops from 13 errors in 12 files to 12
+  in 11, with `primitives.cr` fully repaired and zero newly failing files.
 - **Assignments as tuple entries** — every tuple element parses at assignment
   level via a dedicated `tuple_entry_list` reusing the shared `EXPRESSION_LIST`
   PSI type (`case {real_inf_sign = @real.infinite?, ...}` in `complex.cr`,

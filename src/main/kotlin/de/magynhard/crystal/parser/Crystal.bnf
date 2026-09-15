@@ -1231,8 +1231,12 @@ private primary_expression ::= grouped_expression
 // Crystal parenthesized expressions carry postfix modifiers inside the group:
 // `test(a, (ifs if ifs.size > 1))` (ameba) — the modifier belongs to the group
 // value, while `(x) if cond` keeps the modifier outside (PEG: the `)` ends the
-// group before the modifier can bind inside).
-grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] [postfix_modifier] NLS RPAREN
+// group before the modifier can bind inside). Groups also hold several
+// semicolon-separated expressions (`checked ? (sign_extend(7, node: node);
+// i64_to_u8(node: node)) : nop` in primitives.cr), matching the compiler's
+// parse_parenthesized_expression (parser.cr:1864); each element keeps the
+// assignment-capable shape. Newline-separated groups stay a follow-up.
+grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] (SEMICOLON NLS expression [assign_op NLS expression])* [postfix_modifier] NLS RPAREN
 
 // Global-scope method calls: ::raise "msg", ::puts x, ::Foo::Bar.baz. The [DOUBLE_COLON]
 // prefix calls the method in the top-level namespace, ignoring any current scope.

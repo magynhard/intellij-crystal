@@ -1007,6 +1007,15 @@ and real-file canaries. The pinned indexed corpus drops from 15 errors in 14
 files to 13 in 12, with both files fully repaired and zero newly failing
 files.
 
+Parenthesized groups hold several semicolon-separated expressions with the
+last as the value (`checked ? (sign_extend(7, node: node); i64_to_u8(node:
+node)) : nop` in `primitives.cr`), matching the compiler's
+`parse_parenthesized_expression`; each element keeps the assignment-capable
+shape. No stub or index change. Covered by the GroupedSemicolonExpressions
+golden, a negative test, and a real-file canary. The pinned indexed corpus
+drops from 13 errors in 12 files to 12 in 11, with `primitives.cr` fully
+repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index
