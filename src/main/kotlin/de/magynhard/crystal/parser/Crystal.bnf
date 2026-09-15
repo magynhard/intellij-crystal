@@ -952,6 +952,11 @@ multi_assign_target ::= STAR (multi_assign_indexed_target | multi_assign_member_
                        | multi_assign_indexed_target
                        | multi_assign_member_target
                        | variable [COLON type_reference]
+                       // Bare macro-generated targets (`{{operand.var}}, ip = ...`
+                       // in disassembler.cr — verified against the real compiler:
+                       // `{{a}}, b = 1, 2` assigns the generated variable).
+                       // `{{` starts no other target alternative.
+                       | macro_interpolation
                        | UNDERSCORE
                        | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
 // Setter-shaped member targets: `@editor.width, @editor.height = ...`

@@ -256,6 +256,13 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(builder)
     }
 
+    fun testDisassemblerCrParsesWithoutErrors() {
+        // compiler/crystal/interpreter/disassembler.cr assigns to bare
+        // macro-generated targets (`{{operand.var}}, ip = ...`).
+        val disassembler = findStdlibFile("compiler/crystal/interpreter/disassembler.cr") ?: return
+        assertParsesCleanly(disassembler)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

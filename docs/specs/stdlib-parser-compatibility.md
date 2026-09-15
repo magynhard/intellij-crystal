@@ -1057,6 +1057,13 @@ BNF, stub, or index change. Covered by the BareSplatCallArguments golden and
 a real-file canary. The pinned indexed corpus drops from 9 errors in 8 files
 to 8 in 7, with `xml/builder.cr` fully repaired and zero newly failing files.
 
+Bare macro-generated multi-assignment targets parse as structured assignment
+targets (`{{operand.var}}, ip = ...` in `disassembler.cr` — verified against
+the real compiler, where `{{a}}, b = 1, 2` assigns the generated variable).
+No stub or index change. Covered by the MacroMultiAssignTarget golden and a
+real-file canary. The pinned indexed corpus drops from 8 errors in 7 files to
+7 in 6, with `disassembler.cr` fully repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

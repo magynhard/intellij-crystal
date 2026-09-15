@@ -5,6 +5,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Bare macro-generated multi-assignment targets** — `{{operand.var}}, ip = ...`
+  in `disassembler.cr` parses with the interpolation as a structured assignment
+  target (verified against the real compiler: `{{a}}, b = 1, 2` assigns the
+  generated variable). No stub or index change. Covered by the
+  MacroMultiAssignTarget golden and a real-file canary. The indexed corpus
+  drops from 8 errors in 7 files to 7 in 6, with `disassembler.cr` fully
+  repaired and zero newly failing files.
 - **Tight bare splat arguments** — `*`/`**` after a call name are splat
   arguments unless followed by whitespace (`start_attribute *args, **nargs` in
   `xml/builder.cr`), matching the compiler's `parse_call_args_space_consumed`;

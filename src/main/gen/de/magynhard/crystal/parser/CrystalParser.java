@@ -7619,6 +7619,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                        | multi_assign_indexed_target
   //                        | multi_assign_member_target
   //                        | variable [COLON type_reference]
+  //                        // Bare macro-generated targets (`{{operand.var}}, ip = ...`
+  //                        // in disassembler.cr — verified against the real compiler:
+  //                        // `{{a}}, b = 1, 2` assigns the generated variable).
+  //                        // `{{` starts no other target alternative.
+  //                        | macro_interpolation
   //                        | UNDERSCORE
   //                        | LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
   public static boolean multi_assign_target(PsiBuilder builder_, int level_) {
@@ -7629,8 +7634,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = multi_assign_indexed_target(builder_, level_ + 1);
     if (!result_) result_ = multi_assign_member_target(builder_, level_ + 1);
     if (!result_) result_ = multi_assign_target_3(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, UNDERSCORE);
-    if (!result_) result_ = multi_assign_target_5(builder_, level_ + 1);
+    if (!result_) result_ = multi_assign_target_6(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
@@ -7687,8 +7693,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // LPAREN multi_assign_target COMMA multi_assign_target_list RPAREN
-  private static boolean multi_assign_target_5(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "multi_assign_target_5")) return false;
+  private static boolean multi_assign_target_6(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assign_target_6")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LPAREN);
