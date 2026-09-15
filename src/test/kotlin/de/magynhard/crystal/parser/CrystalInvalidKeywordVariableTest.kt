@@ -28,14 +28,17 @@ class CrystalInvalidKeywordVariableTest : BasePlatformTestCase() {
         )
     }
 
-    fun testRejectsOutAssignment() {
+    fun testOutAssignmentStillTerminatesDefAtEnd() {
+        // `out = 1` is an ordinary local (slice/sort.cr) — the def body must
+        // still terminate at `end`, exactly like the other keyword variables.
         val file = myFixture.configureByText(
             "test.cr",
-            "def f\n  out = 1\nend"
+            "def f\n  out = 1\nend\nputs 1"
         )
+        val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
         assertTrue(
-            "A leading `out` is its own argument-forwarding keyword, never a variable",
-            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+            "A def body after an `out` assignment must still terminate at `end`, found ${errors.size} errors",
+            errors.isEmpty()
         )
     }
 

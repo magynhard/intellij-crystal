@@ -971,14 +971,17 @@ macro_fresh_variable ::= MACRO_FRESH_VAR [LBRACE expression RBRACE] {
 // Word keywords are valid local-variable names, exactly the subset the
 // compiler accepts as identifiers: `union = alloca llvm_type(type)` (codegen
 // call.cr), `if of = node.of` (literal_expander.cr), `store @last, union`.
-// `out` is excluded: a leading `out` is its own argument-forwarding keyword
-// (`out x`), so `out = v` stays invalid; `end`/`def`/... stay reserved so the
-// def-body terminator and statement starts never rebind as expressions.
-private keyword_variable ::= OF | UNION | UNINITIALIZED | FORALL | PREVIOUS_DEF
+// `out` joins them: the compiler lexes it as IDENT with a keyword value and
+// only rejects it as a PARAMETER name (invalid_internal_name?, parser.cr),
+// so `out = v.to_unsafe` (slice/sort.cr), `out.value`, and `out += 1` are
+// ordinary locals; `end`/`def`/... stay reserved so the def-body terminator
+// and statement starts never rebind as expressions. The `foo(out x)`
+// forwarding form keeps its own out_argument rule ahead of expression.
+private keyword_variable ::= OF | UNION | UNINITIALIZED | FORALL | PREVIOUS_DEF | OUT
 // Rvalue subset: UNINITIALIZED must never start a plain reference — the
 // `uninitialized T` type-expression alternative owns the token there
 // (`t = uninitialized U`, class.cr), so the rvalue set drops it.
-private keyword_variable_value ::= OF | UNION | FORALL | PREVIOUS_DEF
+private keyword_variable_value ::= OF | UNION | FORALL | PREVIOUS_DEF | OUT
 
 private variable ::= instance_var_access | class_var_access | GLOBAL_VAR | IDENTIFIER
                        | keyword_variable
@@ -1406,14 +1409,19 @@ private out_argument ::= OUT NLS (IDENTIFIER | INSTANCE_VAR)
 // keep their NEWLINE unconsumed.
 bare_argument_list ::= bare_argument (macro_argument_trivia COMMA macro_argument_trivia bare_argument)* [COMMA macro_argument_trivia]
 
-bare_argument ::= named_type_bare_argument
+// `out` is also an ordinary variable now, so the forwarding form must
+// precede the expression alternatives: `receive out target` would otherwise
+// commit a bare `out` variable and strand `target` (PEG never retries).
+// OUT starts no other alternative, and a lone `out` still falls through
+// (out_argument needs a name after it).
+bare_argument ::= out_argument
+                | named_type_bare_argument
                 | named_bare_argument
                 | STAR bare_expression
                 | DOUBLE_STAR bare_expression
                 | AMPERSAND bare_expression
                 | assignment
                 | bare_expression
-                | out_argument
                 {
   mixin="de.magynhard.crystal.psi.impl.CrystalAccessorArgumentMixin"
 }

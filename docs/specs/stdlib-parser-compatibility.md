@@ -1016,6 +1016,16 @@ golden, a negative test, and a real-file canary. The pinned indexed corpus
 drops from 13 errors in 12 files to 12 in 11, with `primitives.cr` fully
 repaired and zero newly failing files.
 
+`out` is an ordinary local-variable name: it joins the contextual
+keyword-variable family for writes, reads, dot chains, and compound
+assignment (`out = v.to_unsafe` in `slice/sort.cr`), matching the compiler,
+which lexes it as IDENT and rejects it only as a parameter name. The
+`foo(out x)` forwarding form keeps its own argument rule ahead of the
+expression alternatives in both call shapes. No stub or index change. Covered
+by the OutVariable golden, out-parameter negative tests, and a real-file
+canary. The pinned indexed corpus drops from 12 errors in 11 files to 11 in
+10, with `slice/sort.cr` fully repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

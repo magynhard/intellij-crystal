@@ -5,6 +5,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **`out` as an ordinary local-variable name** — `out` joins the contextual
+  keyword-variable family (`out = v.to_unsafe` in `slice/sort.cr`, plus reads,
+  dot chains, and compound assignment), matching the compiler, which lexes it
+  as IDENT and rejects it only as a *parameter* name
+  (`invalid_internal_name?`). The `foo(out x)` forwarding form keeps its own
+  argument rule, ordered ahead of the expression alternatives in both call
+  shapes so `receive out target` still binds the target. Bare
+  `consume out <target>` lines parse as juxtaposed statements under the
+  pre-existing statement-list leniency (same as any identifier-led line), while
+  parenthesized invalid targets still error. No stub or index change. Covered
+  by the OutVariable golden, out-parameter negative tests, and a real-file
+  canary. The indexed corpus drops from 12 errors in 11 files to 11 in 10, with
+  `slice/sort.cr` fully repaired and zero newly failing files.
 - **Semicolon groups in parenthesized expressions** — groups hold several
   `;`-separated expressions with the last as the value
   (`checked ? (sign_extend(7, node: node); i64_to_u8(node: node)) : nop` in

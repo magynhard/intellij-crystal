@@ -227,6 +227,13 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(primitives)
     }
 
+    fun testSliceSortCrParsesWithoutErrors() {
+        // slice/sort.cr assigns to a local named `out` (`out = v.to_unsafe`),
+        // which the compiler accepts everywhere except parameter names.
+        val sort = findStdlibFile("slice/sort.cr") ?: return
+        assertParsesCleanly(sort)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

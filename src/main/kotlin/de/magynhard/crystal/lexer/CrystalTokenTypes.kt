@@ -43,7 +43,7 @@ object CrystalTokenTypes {
     // parameter names. Keep this aligned with keyword_variable in Crystal.bnf.
     @JvmField val KEYWORD_VARIABLES = TokenSet.create(
         CrystalTypes.OF, CrystalTypes.UNION, CrystalTypes.UNINITIALIZED,
-        CrystalTypes.FORALL, CrystalTypes.PREVIOUS_DEF,
+        CrystalTypes.FORALL, CrystalTypes.PREVIOUS_DEF, CrystalTypes.OUT,
     )
 
     @JvmField val COMMENTS = TokenSet.create(CrystalTypes.LINE_COMMENT)
