@@ -10882,7 +10882,73 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // LBRACE NLS expression_list [heredoc_bodies] macro_argument_trivia NLS RBRACE
+  // assignment | expression
+  static boolean tuple_entry(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "tuple_entry")) return false;
+    boolean result_;
+    result_ = assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // macro_argument_trivia tuple_entry (macro_argument_trivia COMMA macro_argument_trivia tuple_entry)* [COMMA macro_argument_trivia]
+  public static boolean tuple_entry_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "tuple_entry_list")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, EXPRESSION_LIST, "<tuple entry list>");
+    result_ = macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && tuple_entry(builder_, level_ + 1);
+    result_ = result_ && tuple_entry_list_2(builder_, level_ + 1);
+    result_ = result_ && tuple_entry_list_3(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // (macro_argument_trivia COMMA macro_argument_trivia tuple_entry)*
+  private static boolean tuple_entry_list_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "tuple_entry_list_2")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!tuple_entry_list_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "tuple_entry_list_2", pos_)) break;
+    }
+    return true;
+  }
+
+  // macro_argument_trivia COMMA macro_argument_trivia tuple_entry
+  private static boolean tuple_entry_list_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "tuple_entry_list_2_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COMMA);
+    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && tuple_entry(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [COMMA macro_argument_trivia]
+  private static boolean tuple_entry_list_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "tuple_entry_list_3")) return false;
+    tuple_entry_list_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // COMMA macro_argument_trivia
+  private static boolean tuple_entry_list_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "tuple_entry_list_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COMMA);
+    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // LBRACE NLS tuple_entry_list [heredoc_bodies] macro_argument_trivia NLS RBRACE
   public static boolean tuple_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "tuple_literal")) return false;
     if (!nextTokenIs(builder_, LBRACE)) return false;
@@ -10890,7 +10956,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, LBRACE);
     result_ = result_ && NLS(builder_, level_ + 1);
-    result_ = result_ && expression_list(builder_, level_ + 1);
+    result_ = result_ && tuple_entry_list(builder_, level_ + 1);
     result_ = result_ && tuple_literal_3(builder_, level_ + 1);
     result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);

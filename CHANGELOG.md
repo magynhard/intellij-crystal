@@ -5,6 +5,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Assignments as tuple entries** — every tuple element parses at assignment
+  level via a dedicated `tuple_entry_list` reusing the shared `EXPRESSION_LIST`
+  PSI type (`case {real_inf_sign = @real.infinite?, ...}` in `complex.cr`,
+  `case {arg_type = arg.type, arg}` in `call_error.cr`), matching the
+  compiler's `parse_op_assign_no_control` per element. Single assignment only:
+  `{a, b = 1}` stays `Tuple[Var, Assign]`, never a multi-assign. Arrays, `in`
+  patterns, and typed collections keep the expression-only shape, and plain
+  tuples keep byte-identical trees. Tuple type inference and effect analysis
+  traverse entries in source order. No stub or index change. Covered by the
+  TupleAssignmentEntries golden, a negative test, and real-file canaries. The
+  indexed corpus drops from 15 errors in 14 files to 13 in 12, with both files
+  fully repaired and zero newly failing files.
 - **Mixed implicit and plain `when` entries** — each `when` entry independently
   chooses between the implicit comparison and the plain form
   (`when .<(0x20), 0x7f` in `json/builder.cr`), matching the compiler's

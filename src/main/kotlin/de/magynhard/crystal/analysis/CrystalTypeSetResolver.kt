@@ -1496,7 +1496,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (element is CrystalStringExpression || element is CrystalSymbolStringExpression ||
             element is CrystalHeredocLiteral) return false
         if (element is CrystalArrayLiteral) return element.expressionList?.expressionList.orEmpty().any(::mayRaise)
-        if (element is CrystalTupleLiteral) return element.expressionList?.expressionList.orEmpty().any(::mayRaise)
+        if (element is CrystalTupleLiteral) return tupleElements(element).any(::mayRaise)
         if (element is CrystalHashLiteral) return element.hashEntryList?.hashEntryList.orEmpty()
             .flatMap { it.expressionList }.any(::mayRaise)
         if (element is CrystalMethodCallExpression || element is CrystalBareMethodCallExpression ||
@@ -1803,8 +1803,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun resolveTuple(tuple: CrystalTupleLiteral): CrystalTypeResolution {
-        return resolveTupleValues(tuple.expressionList?.expressionList.orEmpty())
+        return resolveTupleValues(tupleElements(tuple))
     }
+
+    /**
+     * Tuple entries in source order, including assignment entries
+     * (`{real_inf_sign = @real.infinite?, ...}`). The shared expression-list
+     * node still wraps them; flattened accessors cannot preserve order across
+     * the two shapes, so children are traversed directly.
+     */
+    private fun tupleElements(tuple: CrystalTupleLiteral): List<PsiElement> =
+        tuple.expressionList?.children?.mapNotNull { child ->
+            child.takeIf { it is CrystalAssignment || it is CrystalExpression }
+        }.orEmpty()
 
     private fun resolveAbruptValues(values: List<PsiElement>): CrystalTypeResolution = when (values.size) {
         0 -> knownType("Nil")

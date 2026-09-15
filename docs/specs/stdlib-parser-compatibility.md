@@ -995,6 +995,18 @@ MixedWhenEntries golden and a real-file canary. The pinned indexed corpus
 drops from 16 errors in 15 files to 15 in 14, with `json/builder.cr` fully
 repaired and zero newly failing files.
 
+Tuple elements parse at assignment level through a dedicated entry list that
+reuses the shared `EXPRESSION_LIST` PSI type (`case {real_inf_sign =
+@real.infinite?, ...}` in `complex.cr`, `case {arg_type = arg.type, arg}` in
+`call_error.cr`), matching the compiler's per-element `parse_op_assign`. Only
+single assignment is admitted — `{a, b = 1}` stays `Tuple[Var, Assign]`, never
+a multi-assign — while arrays, `in` patterns, and typed collections keep the
+expression-only shape and plain tuples keep byte-identical trees. No stub or
+index change. Covered by the TupleAssignmentEntries golden, a negative test,
+and real-file canaries. The pinned indexed corpus drops from 15 errors in 14
+files to 13 in 12, with both files fully repaired and zero newly failing
+files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

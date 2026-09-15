@@ -1824,7 +1824,23 @@ expression_list ::= macro_argument_trivia expression (macro_argument_trivia COMM
 // expression_list itself to consume terminator newlines needed by when-clauses.
 // Heredoc markers as tuple entries bind their string bodies inside the braces:
 // `.should eq({<<-PRE.lines, <<-POST.lines` + bodies + `})` (ameba util_spec).
-tuple_literal ::= LBRACE NLS expression_list [heredoc_bodies] macro_argument_trivia NLS RBRACE
+// Tuple elements are assignment-level (`case {real_inf_sign = @real.infinite?,
+// ...}` in complex.cr, `case {arg_type = arg.type, arg}` in call_error.cr):
+// the compiler parses every element with parse_op_assign_no_control
+// (parser.cr:parse_hash_or_tuple_literal/parse_tuple). A dedicated entry list
+// reuses the EXPRESSION_LIST PSI type (like lib_body/parameter_list reuse),
+// so arrays, `in` patterns, and typed collections keep the plain
+// expression-only shape while plain tuples parse byte-identical trees.
+// Single assignment ONLY — never multi_assignment: `{a, b = 1}` is
+// Tuple[Var, Assign], not a multi-assign (elements parse one by one).
+// Assignment precedes expression so `a` alone never strands a following `=`.
+tuple_literal ::= LBRACE NLS tuple_entry_list [heredoc_bodies] macro_argument_trivia NLS RBRACE
+// Deliberately NOT private: the rule must materialize the shared
+// EXPRESSION_LIST node (like lib_body/parameter_list reuse) so plain tuples
+// keep their exact tree shape and arrays, `in` patterns, and typed
+// collections keep the expression-only rule untouched.
+tuple_entry_list ::= macro_argument_trivia tuple_entry (macro_argument_trivia COMMA macro_argument_trivia tuple_entry)* [COMMA macro_argument_trivia] {elementType=expression_list}
+private tuple_entry ::= assignment | expression
 
 // ==================== Helper Rules ====================
 

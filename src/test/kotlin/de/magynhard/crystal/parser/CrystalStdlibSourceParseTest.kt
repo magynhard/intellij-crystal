@@ -205,6 +205,20 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(builder)
     }
 
+    fun testComplexCrParsesWithoutErrors() {
+        // complex.cr matches on a tuple with assignment entries
+        // (`case {real_inf_sign = @real.infinite?, ...}`).
+        val complex = findStdlibFile("complex.cr") ?: return
+        assertParsesCleanly(complex)
+    }
+
+    fun testCallErrorCrParsesWithoutErrors() {
+        // compiler/crystal/semantic/call_error.cr matches on a tuple with an
+        // assignment entry (`case {arg_type = arg.type, arg}`).
+        val callError = findStdlibFile("compiler/crystal/semantic/call_error.cr") ?: return
+        assertParsesCleanly(callError)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical
