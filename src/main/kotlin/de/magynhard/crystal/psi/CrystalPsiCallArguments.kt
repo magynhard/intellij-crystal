@@ -76,6 +76,10 @@ object CrystalPsiCallArguments {
         val colonIndex = children.indexOfFirst { it.elementType == CrystalTypes.COLON }
         if (colonIndex <= 0) return null
         val labelChild = children[colonIndex - 1]
+        // Macro-generated labels (`{{ key.stringify }}: value`) are dynamic;
+        // their names are unknown at parse time, so treat them as positional
+        // to avoid false-positive argument-count or name-mismatch warnings.
+        if (labelChild.elementType == CrystalTypes.MACRO_INTERPOLATION_BEGIN) return null
         if (labelChild.elementType != CrystalTypes.STRING_LITERAL &&
             labelChild.elementType != CrystalTypes.STRING_ESCAPE
         ) {

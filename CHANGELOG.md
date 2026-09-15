@@ -5,6 +5,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro-controlled hash and named-tuple entries** — `hash_entry_list` now accepts
+  `{% ... %}` macro control tags before, between, and after entries, matching the
+  compiler's macro expansion for hash literals (`named_tuple.cr`'s `def self.new(**options : **T)`
+  with `{% for key in T %} {{ key.stringify }}: options[{{ key.symbolize }}], {% end %}`).
+  A `macro_only_hash_entry_list` alternative covers conditionally empty entry lists.
+  `getNamedLabel` returns null for macro-generated labels to prevent false-positive
+  argument-count and type-check warnings. Covered by the MacroControlledHashEntries
+  and MacroGeneratedBareLabel goldens plus negative hash-entry tests. The indexed
+  corpus drops from 26 errors in 25 files to 25 in 24, with `named_tuple.cr` fully
+  repaired.
 - **Macro-generated receiver ivar access (`other.@{{ivar.id}}`)** — DOT access now accepts
   `AT macro_interpolation` as a generated instance-variable name, matching Crystal's struct
   equality pattern (`struct.cr`). No stub or index change. Covered by the MacroGeneratedIvarAccess

@@ -45,6 +45,12 @@ public class CrystalArgumentImpl extends CrystalAccessorArgumentMixin implements
   }
 
   @Override
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
   @Nullable
   public CrystalTypePath getTypePath() {
     return PsiTreeUtil.getChildOfType(this, CrystalTypePath.class);

@@ -923,6 +923,21 @@ MacroGeneratedMultiAssign, and MacroGeneratedLabels goldens. The pinned indexed
 corpus drops from 27 errors in 26 files to 26 in 25, with `struct.cr` fully
 repaired and zero newly failing files.
 
+Hash and named-tuple literals accept macro control tags between entries:
+`{% for key in T %} {{ key.stringify }}: value, {% end %}` inside `{% begin %} ... {% end %}`
+(`named_tuple.cr`). `hash_entry_list` introduces a `macro_trivia` separator that
+consumes `NEWLINE` and `macro_control` tokens before, between, and after entries; a
+separate `macro_only_hash_entry_list` alternative covers conditionally empty entry
+lists (`{% if flag %} key: value, {% end %}`). `hash_literal` and
+`typed_collection_literal` keep their own leading `NLS` for parse-tree stability.
+`getNamedLabel` in `CrystalPsiCallArguments` returns null when the label preceder is
+`MACRO_INTERPOLATION_BEGIN`, preventing `CrystalArgumentCountInspection` and
+`CrystalTypeCheckInspection` from reporting false-positive unknown-argument or
+type-mismatch warnings on dynamically generated labels. No stub or index change.
+Covered by the MacroControlledHashEntries and MacroGeneratedBareLabel goldens plus
+negative hash-entry tests. The pinned indexed corpus drops from 26 errors in 25
+files to 25 in 24, with `named_tuple.cr` fully repaired.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

@@ -26,6 +26,9 @@ public interface CrystalMultiAssignTarget extends PsiElement {
   CrystalMacroFreshVariable getMacroFreshVariable();
 
   @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
+  @NotNull
   List<CrystalMultiAssignTarget> getMultiAssignTargetList();
 
   @Nullable

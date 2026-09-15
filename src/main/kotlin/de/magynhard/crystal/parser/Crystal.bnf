@@ -1606,7 +1606,16 @@ hash_literal ::= LBRACE NLS [hash_entry_list] NLS RBRACE [OF type_reference DOUB
 // binds the literal instead of a block call.
 private typed_collection_literal ::= type_path LBRACE NLS [hash_entry_list | expression_list] NLS RBRACE
 
-hash_entry_list ::= hash_entry (NLS COMMA NLS hash_entry)* [COMMA]
+// Hash and named-tuple entries may be separated by macro control tags
+// (`{% for key in T %} {{ key.stringify }}: value, {% end %}` in
+// named_tuple.cr). The trivia mirrors the macro_argument_trivia pattern
+// from call argument lists. A macro-only alternative covers conditionally
+// empty entry lists (`{% if flag %} key: value, {% end %}`).
+hash_entry_list ::= macro_trivia hash_entry (macro_trivia COMMA macro_trivia hash_entry)* [macro_trivia COMMA] macro_trivia
+                  | macro_only_hash_entry_list
+
+private macro_trivia ::= (NEWLINE | macro_control)*
+private macro_only_hash_entry_list ::= NEWLINE* macro_control (NEWLINE | macro_control)*
 
 hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
 

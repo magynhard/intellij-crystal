@@ -10,4 +10,7 @@ public interface CrystalHashEntryList extends PsiElement {
   @NotNull
   List<CrystalHashEntry> getHashEntryList();
 
+  @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
 }
