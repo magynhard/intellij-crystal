@@ -1026,6 +1026,19 @@ by the OutVariable golden, out-parameter negative tests, and a real-file
 canary. The pinned indexed corpus drops from 12 errors in 11 files to 11 in
 10, with `slice/sort.cr` fully repaired and zero newly failing files.
 
+`when` is an identifier in nested positions: block parameters
+(`node.whens.each do |when|`) and reads (`guess_type(when.body)`) in
+`type_guess_visitor.cr`, matching the compiler, which lexes it as IDENT and
+rejects it only as a parameter name outside the allowed list. Because a clause
+keyword must never start a statement — the greedy statement list would swallow
+a following `when` clause as a variable-plus-dot-call statement — `statement`
+carries a `!WHEN` guard, the `end_token?` analogue (parser.cr:6369), while
+`when`/`in`/`else` clauses keep matching structurally; `when` stays readable
+but not writable. No stub or index change. Covered by the WhenIdentifier
+golden (including a two-clause case pinning clause dispatch) and a real-file
+canary. The pinned indexed corpus drops from 11 errors in 10 files to 10 in 9,
+with `type_guess_visitor.cr` fully repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

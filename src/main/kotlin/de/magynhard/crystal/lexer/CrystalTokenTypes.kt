@@ -44,6 +44,7 @@ object CrystalTokenTypes {
     @JvmField val KEYWORD_VARIABLES = TokenSet.create(
         CrystalTypes.OF, CrystalTypes.UNION, CrystalTypes.UNINITIALIZED,
         CrystalTypes.FORALL, CrystalTypes.PREVIOUS_DEF, CrystalTypes.OUT,
+        CrystalTypes.WHEN,
     )
 
     @JvmField val COMMENTS = TokenSet.create(CrystalTypes.LINE_COMMENT)

@@ -234,6 +234,14 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(sort)
     }
 
+    fun testTypeGuessVisitorCrParsesWithoutErrors() {
+        // compiler/crystal/semantic/type_guess_visitor.cr uses `when` as a
+        // block parameter name and receiver (`node.whens.each do |when|`,
+        // `guess_type(when.body)`).
+        val visitor = findStdlibFile("compiler/crystal/semantic/type_guess_visitor.cr") ?: return
+        assertParsesCleanly(visitor)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

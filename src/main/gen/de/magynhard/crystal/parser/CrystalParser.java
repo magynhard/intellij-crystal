@@ -5084,7 +5084,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // OF | UNION | UNINITIALIZED | FORALL | PREVIOUS_DEF
+  // OF | UNION | UNINITIALIZED | FORALL | PREVIOUS_DEF | WHEN
   static boolean keyword_parameter_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "keyword_parameter_name")) return false;
     boolean result_;
@@ -5093,6 +5093,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, UNINITIALIZED);
     if (!result_) result_ = consumeToken(builder_, FORALL);
     if (!result_) result_ = consumeToken(builder_, PREVIOUS_DEF);
+    if (!result_) result_ = consumeToken(builder_, WHEN);
     return result_;
   }
 
@@ -5111,7 +5112,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // OF | UNION | FORALL | PREVIOUS_DEF | OUT
+  // OF | UNION | FORALL | PREVIOUS_DEF | OUT | WHEN
   static boolean keyword_variable_value(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "keyword_variable_value")) return false;
     boolean result_;
@@ -5120,6 +5121,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, FORALL);
     if (!result_) result_ = consumeToken(builder_, PREVIOUS_DEF);
     if (!result_) result_ = consumeToken(builder_, OUT);
+    if (!result_) result_ = consumeToken(builder_, WHEN);
     return result_;
   }
 
@@ -10545,33 +10547,54 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // if_statement
-  //             | unless_statement
-  //             | while_statement
-  //             | until_statement
-  //             | begin_statement
-  //             | for_statement
-  //             | select_statement
-  //             | return_statement
-  //             | break_statement
-  //             | next_statement
-  //             | yield_statement
-  //             | with_yield_statement
-  //             | include_statement
-  //             | extend_statement
-  //             | multi_assignment
-  //             | property_declaration
-  //             | indexed_assignment
-  //             | assignment
-  //             | constant_assignment
-  //             | macro_control
-  //             | macro_control_escaped
-  //             | macro_interpolation_escaped
-  //             | expression_statement
+  // !WHEN statement_body
   public static boolean statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "statement")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, STATEMENT, "<statement>");
+    result_ = statement_0(builder_, level_ + 1);
+    result_ = result_ && statement_body(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // !WHEN
+  private static boolean statement_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "statement_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !consumeToken(builder_, WHEN);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // if_statement
+  //              | unless_statement
+  //              | while_statement
+  //              | until_statement
+  //              | begin_statement
+  //              | for_statement
+  //              | select_statement
+  //              | return_statement
+  //              | break_statement
+  //              | next_statement
+  //              | yield_statement
+  //              | with_yield_statement
+  //              | include_statement
+  //              | extend_statement
+  //              | multi_assignment
+  //              | property_declaration
+  //              | indexed_assignment
+  //              | assignment
+  //              | constant_assignment
+  //              | macro_control
+  //              | macro_control_escaped
+  //              | macro_interpolation_escaped
+  //              | expression_statement
+  static boolean statement_body(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "statement_body")) return false;
+    boolean result_;
     result_ = if_statement(builder_, level_ + 1);
     if (!result_) result_ = unless_statement(builder_, level_ + 1);
     if (!result_) result_ = while_statement(builder_, level_ + 1);
@@ -10595,7 +10618,6 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = macro_control_escaped(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
     if (!result_) result_ = expression_statement(builder_, level_ + 1);
-    exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 

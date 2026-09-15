@@ -5,6 +5,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **`when` as an identifier in nested positions** — `when` joins the contextual
+  keywords for block parameters (`node.whens.each do |when|`) and reads
+  (`guess_type(when.body)`) in `type_guess_visitor.cr`, matching the compiler,
+  which lexes it as IDENT and rejects it only as a parameter name outside the
+  allowed list. Since a clause keyword must never start a statement (the greedy
+  statement list would swallow a following `when` clause), `statement` carries
+  a `!WHEN` guard — the `end_token?` analogue — while `when`/`in`/`else`
+  clauses keep matching structurally; `when` stays readable but not writable.
+  No stub or index change. Covered by the WhenIdentifier golden (including a
+  two-clause case pinning clause dispatch) and a real-file canary. The indexed
+  corpus drops from 11 errors in 10 files to 10 in 9, with
+  `type_guess_visitor.cr` fully repaired and zero newly failing files.
 - **`out` as an ordinary local-variable name** — `out` joins the contextual
   keyword-variable family (`out = v.to_unsafe` in `slice/sort.cr`, plus reads,
   dot chains, and compound assignment), matching the compiler, which lexes it
