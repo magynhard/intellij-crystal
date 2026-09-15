@@ -908,6 +908,21 @@ audit drops from 75 errors in 71 files to 74 in 70, and the pinned indexed
 corpus drops from 28 in 27 to 27 in 26. Both file-set comparisons repair
 exactly one file with zero newly failing files.
 
+Macro-generated receiver instance variables accept `AT macro_interpolation` after
+DOT: the compiler's struct equality pattern (`other.@{{ivar.id}}` in struct.cr)
+generates ivar names at expansion time, and the existing `dot_call_access` rule
+already admitted `INSTANCE_VAR` and `macro_interpolation` but not the composite
+`@{{...}}` form. The new alternative sits between `CLASS_VAR` and
+`keyword_as_method`, keeping token-disjoint ordering. `CrystalDotCallAccessMixin`
+returns null for the reference when no IDENTIFIER/CONSTANT node is present, so
+macro-generated names stay unresolved without breaking navigation. Multi-assign
+member names, named-argument labels, bare-argument labels, and `string_label`
+also accept `macro_interpolation` for the same family of generated identifiers.
+No stub or index change. Covered by the MacroGeneratedIvarAccess,
+MacroGeneratedMultiAssign, and MacroGeneratedLabels goldens. The pinned indexed
+corpus drops from 27 errors in 26 files to 26 in 25, with `struct.cr` fully
+repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

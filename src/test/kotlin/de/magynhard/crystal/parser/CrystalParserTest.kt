@@ -619,4 +619,16 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
     fun testExpressionAndRangeReplay() {
         doTest(true)
     }
+
+    fun testMacroGeneratedIvarAccess() {
+        doTest(true)
+    }
+
+    fun testMacroGeneratedMultiAssign() {
+        doTest(true)
+    }
+
+    fun testMacroGeneratedLabels() {
+        doTest(true)
+    }
 }

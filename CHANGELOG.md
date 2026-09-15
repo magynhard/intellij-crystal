@@ -5,6 +5,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro-generated receiver ivar access (`other.@{{ivar.id}}`)** — DOT access now accepts
+  `AT macro_interpolation` as a generated instance-variable name, matching Crystal's struct
+  equality pattern (`struct.cr`). No stub or index change. Covered by the MacroGeneratedIvarAccess
+  golden plus the existing DotCallAccess regressions. The indexed corpus drops from 27 errors in
+  26 files to 26 in 25, with `struct.cr` fully repaired and zero newly failing files.
 - **Keyword setter method names (`def private=`)** — any word keyword plus `=` is now a valid setter
   name, matching the compiler (`types.cr`); operators stay invalid. Method naming reports `private=`
   via the existing header-token fallback. No stub or index change. Covered by the KeywordSetter

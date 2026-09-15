@@ -234,6 +234,12 @@
   keyword setter method names are done (`def private=` with any word keyword, operators excluded;
   external audit 75/71 → 74/70 and indexed 28/27 → 27/26, `types` repaired with zero newly failing
   files);
+  macro-generated receiver ivar access is done (`other.@{{ivar.id}}` in `dot_call_access`;
+  indexed 27/26 → 26/25, `struct` repaired with zero newly failing files);
+  macro-generated multi-assignment targets and named-argument labels are done
+  (`multi_assign_member_name`, `named_argument`, `named_bare_argument`, and `string_label`
+  accept `macro_interpolation`; no new indexed repairs yet because the disassembler.cr target
+  stays macro-body content and the json/yaml label sites advance to later gaps);
   newly exposed cascades: macro-args in int_spec, interpolated named-argument labels in
   json/yaml from_json/from_yaml);
   pre-existing plugin gap recorded: `def self.!` still parses without error);

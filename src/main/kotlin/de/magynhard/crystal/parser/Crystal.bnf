@@ -928,7 +928,7 @@ multi_assign_target ::= STAR (multi_assign_indexed_target | multi_assign_member_
 private multi_assign_indexed_target ::= indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+
 private multi_assign_member_target ::= multi_assign_member_root (DOT multi_assign_member_name)+
 private multi_assign_member_root ::= SELF | variable | CONSTANT
-private multi_assign_member_name ::= IDENTIFIER | CONSTANT | keyword_as_method
+private multi_assign_member_name ::= IDENTIFIER | CONSTANT | keyword_as_method | macro_interpolation
 private multi_assign_values ::= expression (COMMA expression)*
 
 constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] [heredoc_bodies] {
@@ -1088,7 +1088,7 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // brackets, and the required COMMA after it distinguishes the argument form
 // from the index postfix (config["envs"] has no comma and keeps binding as
 // index).
-dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | keyword_as_method | macro_interpolation) [&<<isTokenTightAfterPreviousToken>> QUESTION]
+dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | AT macro_interpolation | keyword_as_method | macro_interpolation) [&<<isTokenTightAfterPreviousToken>> QUESTION]
                            [!<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
                            | call_args
                            // The lookahead mirrors method_call_expression's bare
@@ -1350,7 +1350,7 @@ private starred_type_expression ::= type_path (STAR | DOUBLE_STAR)+
 private compact_colon ::= !<<colonHasLeadingDeclarationWhitespace>> COLON
 private spaced_colon ::= &<<colonHasLeadingDeclarationWhitespace>> COLON
 
-private named_argument ::= (IDENTIFIER | keyword_identifier | string_label) compact_colon NLS (control_value | expression) {pin=2}
+private named_argument ::= (IDENTIFIER | keyword_identifier | string_label | macro_interpolation) compact_colon NLS (control_value | expression) {pin=2}
 
 // TYPE-shaped parenthesized argument: `foo(x : Int32*)`,
 // `foo(x : Int32* | Nil)`, and multiline forms. Tried before named_argument;
@@ -1386,7 +1386,7 @@ bare_argument ::= named_type_bare_argument
 // them — `f x if cond` is a postfix modifier on the call, never an argument.
 private control_value ::= if_statement | unless_statement | out_argument
 
-private named_bare_argument ::= (IDENTIFIER | keyword_identifier | string_label) compact_colon NLS
+private named_bare_argument ::= (IDENTIFIER | keyword_identifier | string_label | macro_interpolation) compact_colon NLS
     (control_value | absolute_namespace_bare_expression [ASSIGN bare_expression] | bare_expression [ASSIGN bare_expression]) {pin=2}
 
 // String keys for named arguments (`with_env("FOO": "bar")`,
@@ -1395,7 +1395,7 @@ private named_bare_argument ::= (IDENTIFIER | keyword_identifier | string_label)
 // shared call-argument helpers unquote the leaves into the label. Only the
 // compact (whitespace-free) colon qualifies; spaced forms stay with the
 // type-position rules or fail like before.
-private string_label ::= (STRING_LITERAL | STRING_ESCAPE)+
+private string_label ::= (STRING_LITERAL | STRING_ESCAPE | macro_interpolation)+
 
 // Keep the absolute start bounded to compact named values: making it a global
 // bare-postfix alternative changes namespace-call PSI and resolution. The
