@@ -17,4 +17,18 @@ class CrystalInvalidPostfixModifierTest : BasePlatformTestCase() {
             assertTrue(PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty())
         }
     }
+
+    fun testAcceptsChainedIfUnlessRescueModifiers() {
+        listOf(
+            "x += 1 if a if b",
+            "puts x if a unless b",
+            "y = f rescue g rescue h",
+        ).forEach { source ->
+            val file = myFixture.configureByText("test.cr", source)
+            assertTrue(
+                "Chained postfix modifiers must parse without errors: $source",
+                PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isEmpty()
+            )
+        }
+    }
 }

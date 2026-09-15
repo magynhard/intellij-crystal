@@ -242,6 +242,13 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(visitor)
     }
 
+    fun testStringFormatterCrParsesWithoutErrors() {
+        // string/formatter.cr chains two postfix modifiers
+        // (`str_size += 1 if ... < 4 if e_index`).
+        val formatter = findStdlibFile("string/formatter.cr") ?: return
+        assertParsesCleanly(formatter)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

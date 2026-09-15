@@ -259,6 +259,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testChainedPostfixModifiers() {
+        doTest(true)
+    }
+
     fun testMacroInterpolatedCallee() {
         doTest(true)
     }

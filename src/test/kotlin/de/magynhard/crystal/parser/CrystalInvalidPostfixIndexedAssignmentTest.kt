@@ -17,13 +17,15 @@ class CrystalInvalidPostfixIndexedAssignmentTest : BasePlatformTestCase() {
         assertEquals("Following", PsiTreeUtil.findChildOfType(file, CrystalClassDefinition::class.java)?.name)
     }
 
-    fun testRejectsChainedPostfixModifiersWithoutConsumingFollowingDeclaration() {
+    fun testAcceptsChainedPostfixModifiersWithoutConsumingFollowingDeclaration() {
+        // Chained postfix modifiers are valid (the compiler loops expression
+        // suffixes); the following declaration must still parse separately.
         val file = myFixture.configureByText(
             "test.cr",
             "values[0] = 1 if first unless second\nclass Following\nend",
         )
 
-        assertTrue(PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty())
+        assertTrue(PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isEmpty())
         assertEquals("Following", PsiTreeUtil.findChildOfType(file, CrystalClassDefinition::class.java)?.name)
     }
 }

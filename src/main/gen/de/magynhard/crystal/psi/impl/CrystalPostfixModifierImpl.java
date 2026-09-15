@@ -39,4 +39,10 @@ public class CrystalPostfixModifierImpl extends ASTWrapperPsiElement implements 
     return PsiTreeUtil.getChildOfType(this, CrystalPostfixConditionAssignment.class);
   }
 
+  @Override
+  @Nullable
+  public CrystalPostfixModifier getPostfixModifier() {
+    return PsiTreeUtil.getChildOfType(this, CrystalPostfixModifier.class);
+  }
+
 }

@@ -13,4 +13,7 @@ public interface CrystalPostfixModifier extends PsiElement {
   @Nullable
   CrystalPostfixConditionAssignment getPostfixConditionAssignment();
 
+  @Nullable
+  CrystalPostfixModifier getPostfixModifier();
+
 }

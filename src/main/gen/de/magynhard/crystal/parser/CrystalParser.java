@@ -9391,13 +9391,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IF | UNLESS | RESCUE) postfix_condition_with_assignment
+  // (IF | UNLESS | RESCUE) postfix_condition_with_assignment [postfix_modifier]
   public static boolean postfix_modifier(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_modifier")) return false;
     boolean result_;
-    Marker marker_ = enter_section_(builder_, level_, _NONE_, POSTFIX_MODIFIER, "<postfix modifier>");
+    Marker marker_ = enter_section_(builder_, level_, _COLLAPSE_, POSTFIX_MODIFIER, "<postfix modifier>");
     result_ = postfix_modifier_0(builder_, level_ + 1);
     result_ = result_ && postfix_condition_with_assignment(builder_, level_ + 1);
+    result_ = result_ && postfix_modifier_2(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
@@ -9410,6 +9411,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, UNLESS);
     if (!result_) result_ = consumeToken(builder_, RESCUE);
     return result_;
+  }
+
+  // [postfix_modifier]
+  private static boolean postfix_modifier_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_modifier_2")) return false;
+    postfix_modifier(builder_, level_ + 1);
+    return true;
   }
 
   /* ********************************************************** */

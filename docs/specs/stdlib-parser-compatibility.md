@@ -1039,6 +1039,16 @@ golden (including a two-clause case pinning clause dispatch) and a real-file
 canary. The pinned indexed corpus drops from 11 errors in 10 files to 10 in 9,
 with `type_guess_visitor.cr` fully repaired and zero newly failing files.
 
+Postfix `if`/`unless`/`rescue` modifiers chain right-nested
+(`str_size += 1 if small_gap if e_index` in `string/formatter.cr`), matching
+the compiler's expression-suffix loop; the nested modifier is a child of the
+first, so singular accessor consumers behave as before and single-modifier
+trees stay byte-identical. Trailing `while`/`until` stay rejected. No stub or
+index change. Covered by the ChainedPostfixModifiers golden, acceptance
+tests, and a real-file canary. The pinned indexed corpus drops from 10 errors
+in 9 files to 9 in 8, with `string/formatter.cr` fully repaired and zero newly
+failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

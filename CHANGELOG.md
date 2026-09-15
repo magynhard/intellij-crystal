@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Chained postfix modifiers** — `if`/`unless`/`rescue` modifiers nest
+  right-recursively (`str_size += 1 if small_gap if e_index` in
+  `string/formatter.cr`), matching the compiler's expression-suffix loop; the
+  nested modifier is a child of the first, so all singular `postfixModifier`
+  accessors keep working and single-modifier trees stay byte-identical.
+  Trailing `while`/`until` stay rejected. Covered by the
+  ChainedPostfixModifiers golden, chained-modifier acceptance tests, and a
+  real-file canary. The indexed corpus drops from 10 errors in 9 files to 9 in
+  8, with `string/formatter.cr` fully repaired and zero newly failing files.
 - **`when` as an identifier in nested positions** — `when` joins the contextual
   keywords for block parameters (`node.whens.each do |when|`) and reads
   (`guess_type(when.body)`) in `type_guess_visitor.cr`, matching the compiler,
