@@ -5,6 +5,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Mixed implicit and plain `when` entries** — each `when` entry independently
+  chooses between the implicit comparison and the plain form
+  (`when .<(0x20), 0x7f` in `json/builder.cr`), matching the compiler's
+  per-entry branch in `parse_when_expression`; the previous all-or-nothing
+  alternation stranded the tail once shapes mixed (PEG never retries the second
+  alternative). The implicit form takes call arguments first
+  (`Call(ImplicitObj, <, (0x20))`), falling back to the plain comparison
+  operand (`when .< 0` unchanged). No stub or index change. Covered by the
+  MixedWhenEntries golden and a real-file canary. The indexed corpus drops from
+  16 errors in 15 files to 15 in 14, with `json/builder.cr` fully repaired and
+  zero newly failing files. (`when _` rejection stays a known gap: lone `_`
+  lexes as `IDENTIFIER`, so distinguishing it needs lexer-level handling.)
 - **Bare `is_a?`/`responds_to?` callees on implicit self** — `is_a?(T)` and
   `responds_to?(:sym)` without a receiver parse as ordinary calls via shared
   `call_callee`/`bare_call_callee` groups, matching the compiler's

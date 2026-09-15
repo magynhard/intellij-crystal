@@ -198,6 +198,13 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(humanize)
     }
 
+    fun testJsonBuilderCrParsesWithoutErrors() {
+        // json/builder.cr mixes an implicit comparison call with a plain
+        // entry (`when .<(0x20), 0x7f`).
+        val builder = findStdlibFile("json/builder.cr") ?: return
+        assertParsesCleanly(builder)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

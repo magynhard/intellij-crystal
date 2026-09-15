@@ -11,6 +11,12 @@ public interface CrystalWhenClause extends PsiElement {
   List<CrystalAssignment> getAssignmentList();
 
   @NotNull
+  List<CrystalBlock> getBlockList();
+
+  @NotNull
+  List<CrystalCallArgs> getCallArgsList();
+
+  @NotNull
   List<CrystalExpression> getExpressionList();
 
   @NotNull

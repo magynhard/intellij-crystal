@@ -790,12 +790,22 @@ when_clause ::= WHEN when_entry_list then_clause statement_list
 // `when path = find_as_path(globs)`, `when guard_clause = guard_clause(node)`
 // (ameba) — mirroring case_subject's assignment forms. Assignments must be
 // tried before plain expressions so `when x = expr` binds the whole entry.
-private when_entry_list ::= implicit_when_comparison (macro_argument_trivia COMMA macro_argument_trivia implicit_when_comparison)*
-                           | when_condition_entry (macro_argument_trivia COMMA macro_argument_trivia when_condition_entry)* [COMMA macro_argument_trivia]
+// Each entry chooses independently between the implicit comparison and the
+// plain form (`when .<(0x20), 0x7f` in json/builder.cr): the compiler
+// branches per entry in parse_when_expression (parser.cr:3047), while an
+// all-or-nothing alternation strands the tail once the shapes mix (PEG never
+// retries the second alternative after the first one commits).
+private when_entry_list ::= (implicit_when_comparison | when_condition_entry)
+                            (macro_argument_trivia COMMA macro_argument_trivia (implicit_when_comparison | when_condition_entry))*
+                            [macro_argument_trivia COMMA]
 
 private when_condition_entry ::= multi_assignment | assignment | expression
 
-private implicit_when_comparison ::= DOT operator_method_name NLS expression
+// The implicit form takes call arguments first (`Call(ImplicitObj, <, (0x20))`
+// per parse_var_or_call with force_call, parser.cr:4463): trying the plain
+// expression first would bind `.<(0x20)` as DOT LT plus a grouped expression
+// instead. Without parentheses the operand parses as before (`when .< 0`).
+private implicit_when_comparison ::= DOT operator_method_name (call_args [block] | NLS expression)
 
 in_clause ::= IN expression_list [IF condition] then_clause statement_list
 

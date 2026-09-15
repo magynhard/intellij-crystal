@@ -985,6 +985,16 @@ change. Covered by the BarePredicateCallees golden and real-file canaries.
 The pinned indexed corpus drops from 18 errors in 17 files to 16 in 15,
 with both files fully repaired and zero newly failing files.
 
+`when` entries choose independently between the implicit comparison and the
+plain form (`when .<(0x20), 0x7f` in `json/builder.cr`), matching the
+compiler's per-entry branch in `parse_when_expression`; the previous
+all-or-nothing alternation stranded the tail once shapes mixed. The implicit
+form takes call arguments first and falls back to the plain operand
+(`when .< 0` keeps its shape). No stub or index change. Covered by the
+MixedWhenEntries golden and a real-file canary. The pinned indexed corpus
+drops from 16 errors in 15 files to 15 in 14, with `json/builder.cr` fully
+repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

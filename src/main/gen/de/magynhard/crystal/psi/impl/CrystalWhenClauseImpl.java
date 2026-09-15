@@ -35,6 +35,18 @@ public class CrystalWhenClauseImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalBlock> getBlockList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBlock.class);
+  }
+
+  @Override
+  @NotNull
+  public List<CrystalCallArgs> getCallArgsList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalCallArgs.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalExpression> getExpressionList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalExpression.class);
   }

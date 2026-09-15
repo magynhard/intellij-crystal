@@ -4652,7 +4652,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // DOT operator_method_name NLS expression
+  // DOT operator_method_name (call_args [block] | NLS expression)
   static boolean implicit_when_comparison(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "implicit_when_comparison")) return false;
     if (!nextTokenIs(builder_, DOT)) return false;
@@ -4660,7 +4660,46 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, DOT);
     result_ = result_ && operator_method_name(builder_, level_ + 1);
-    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && implicit_when_comparison_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // call_args [block] | NLS expression
+  private static boolean implicit_when_comparison_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "implicit_when_comparison_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = implicit_when_comparison_2_0(builder_, level_ + 1);
+    if (!result_) result_ = implicit_when_comparison_2_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // call_args [block]
+  private static boolean implicit_when_comparison_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "implicit_when_comparison_2_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = call_args(builder_, level_ + 1);
+    result_ = result_ && implicit_when_comparison_2_0_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [block]
+  private static boolean implicit_when_comparison_2_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "implicit_when_comparison_2_0_1")) return false;
+    block(builder_, level_ + 1);
+    return true;
+  }
+
+  // NLS expression
+  private static boolean implicit_when_comparison_2_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "implicit_when_comparison_2_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = NLS(builder_, level_ + 1);
     result_ = result_ && expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -11982,103 +12021,76 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // implicit_when_comparison (macro_argument_trivia COMMA macro_argument_trivia implicit_when_comparison)*
-  //                            | when_condition_entry (macro_argument_trivia COMMA macro_argument_trivia when_condition_entry)* [COMMA macro_argument_trivia]
+  // (implicit_when_comparison | when_condition_entry)
+  //                             (macro_argument_trivia COMMA macro_argument_trivia (implicit_when_comparison | when_condition_entry))*
+  //                             [macro_argument_trivia COMMA]
   static boolean when_entry_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "when_entry_list")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = when_entry_list_0(builder_, level_ + 1);
-    if (!result_) result_ = when_entry_list_1(builder_, level_ + 1);
+    result_ = result_ && when_entry_list_1(builder_, level_ + 1);
+    result_ = result_ && when_entry_list_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // implicit_when_comparison (macro_argument_trivia COMMA macro_argument_trivia implicit_when_comparison)*
+  // implicit_when_comparison | when_condition_entry
   private static boolean when_entry_list_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "when_entry_list_0")) return false;
     boolean result_;
-    Marker marker_ = enter_section_(builder_);
     result_ = implicit_when_comparison(builder_, level_ + 1);
-    result_ = result_ && when_entry_list_0_1(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
+    if (!result_) result_ = when_condition_entry(builder_, level_ + 1);
     return result_;
   }
 
-  // (macro_argument_trivia COMMA macro_argument_trivia implicit_when_comparison)*
-  private static boolean when_entry_list_0_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "when_entry_list_0_1")) return false;
-    while (true) {
-      int pos_ = current_position_(builder_);
-      if (!when_entry_list_0_1_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "when_entry_list_0_1", pos_)) break;
-    }
-    return true;
-  }
-
-  // macro_argument_trivia COMMA macro_argument_trivia implicit_when_comparison
-  private static boolean when_entry_list_0_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "when_entry_list_0_1_0")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = macro_argument_trivia(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, COMMA);
-    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
-    result_ = result_ && implicit_when_comparison(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
-  // when_condition_entry (macro_argument_trivia COMMA macro_argument_trivia when_condition_entry)* [COMMA macro_argument_trivia]
+  // (macro_argument_trivia COMMA macro_argument_trivia (implicit_when_comparison | when_condition_entry))*
   private static boolean when_entry_list_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "when_entry_list_1")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = when_condition_entry(builder_, level_ + 1);
-    result_ = result_ && when_entry_list_1_1(builder_, level_ + 1);
-    result_ = result_ && when_entry_list_1_2(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
-  }
-
-  // (macro_argument_trivia COMMA macro_argument_trivia when_condition_entry)*
-  private static boolean when_entry_list_1_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "when_entry_list_1_1")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
-      if (!when_entry_list_1_1_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "when_entry_list_1_1", pos_)) break;
+      if (!when_entry_list_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "when_entry_list_1", pos_)) break;
     }
     return true;
   }
 
-  // macro_argument_trivia COMMA macro_argument_trivia when_condition_entry
-  private static boolean when_entry_list_1_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "when_entry_list_1_1_0")) return false;
+  // macro_argument_trivia COMMA macro_argument_trivia (implicit_when_comparison | when_condition_entry)
+  private static boolean when_entry_list_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "when_entry_list_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = macro_argument_trivia(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
     result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
-    result_ = result_ && when_condition_entry(builder_, level_ + 1);
+    result_ = result_ && when_entry_list_1_0_3(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // [COMMA macro_argument_trivia]
-  private static boolean when_entry_list_1_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "when_entry_list_1_2")) return false;
-    when_entry_list_1_2_0(builder_, level_ + 1);
+  // implicit_when_comparison | when_condition_entry
+  private static boolean when_entry_list_1_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "when_entry_list_1_0_3")) return false;
+    boolean result_;
+    result_ = implicit_when_comparison(builder_, level_ + 1);
+    if (!result_) result_ = when_condition_entry(builder_, level_ + 1);
+    return result_;
+  }
+
+  // [macro_argument_trivia COMMA]
+  private static boolean when_entry_list_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "when_entry_list_2")) return false;
+    when_entry_list_2_0(builder_, level_ + 1);
     return true;
   }
 
-  // COMMA macro_argument_trivia
-  private static boolean when_entry_list_1_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "when_entry_list_1_2_0")) return false;
+  // macro_argument_trivia COMMA
+  private static boolean when_entry_list_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "when_entry_list_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, COMMA);
-    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
+    result_ = macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COMMA);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
