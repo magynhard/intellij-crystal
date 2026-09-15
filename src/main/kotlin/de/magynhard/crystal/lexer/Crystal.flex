@@ -764,6 +764,9 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   ">="                 { return CrystalTypes.GTE; }
   "&&"                 { return CrystalTypes.AND_AND; }
   "||"                 { return CrystalTypes.OR_OR; }
+  // Integer division inside interpolations (`"#{number // 10_000}"`):
+  // longest-match prefers this over the SLASH below.
+  "//"                 { return CrystalTypes.DOUBLE_SLASH; }
   "=>"                 { return CrystalTypes.DOUBLE_ARROW; }
   // Ranges inside string interpolations: `#{code[2...-2]}` (ameba heredoc_indent).
   "..."                { return CrystalTypes.DOTDOTDOT; }
@@ -886,6 +889,14 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
   "end"  / [\)\]\},;]  { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
+  // Chained call on a block value (`end.should ...` in spec/helpers): the
+  // greedy content rule below would swallow `end.foo` whole and the depth
+  // would never decrement, so the macro never closes. Matching the whole run
+  // wins the longest-match tie against the content rule; the span stays one
+  // opaque content token exactly like the other end followers. At depth 0 the
+  // end still closes the macro and the pushed-back suffix lexes as real code.
+  "end" "." [^ \t\r\n\{\}#]* { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yypushback(yylength() - 3); yybegin(YYINITIAL); return CrystalTypes.END; }
+                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
   // end at EOF
   "end"               { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT; }
@@ -930,7 +941,13 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   {CONSTANT}           { return CrystalTypes.CONSTANT; }
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
-  {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  // Numbers (float before int since float is more specific with dot) —
+  // mirror YYINITIAL: macro bodies compute with hex literals (`0x20b`),
+  // suffixed integers (`27_u32`) and floats exactly like plain code.
+  {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTypes.FLOAT_LITERAL; }
+  {INTEGER}            { return CrystalTypes.INTEGER_LITERAL; }
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
@@ -1017,7 +1034,13 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
   {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
   {IDENTIFIER}         { return CrystalTypes.IDENTIFIER; }
-  {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
+  // Numbers (float before int since float is more specific with dot) —
+  // mirror YYINITIAL: macro conditions compute with hex literals, suffixed
+  // integers and floats exactly like plain code (`{% if x == 0x20 %}`).
+  {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTypes.FLOAT_LITERAL; }
+  {INTEGER}            { return CrystalTypes.INTEGER_LITERAL; }
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }

@@ -956,6 +956,25 @@ The pinned indexed corpus drops from 25 errors in 24 files to 23 in 22, with
 `json/from_json.cr` and `yaml/from_yaml.cr` fully repaired and zero newly
 failing files.
 
+Embedded lexer states mirror plain-code literal and operator coverage: the
+`MACRO_INTERPOLATION` and `MACRO_CONTROL` states lex hex/octal/binary
+literals, integer suffixes (`27_u32`), and floats exactly like `YYINITIAL`
+(`{{ Limb == UInt64 ? 27_u32 : 13_u32 }}`, `== {{ flag?(:bits64) ? 0x20b : 0x10b }}`,
+`{{ 0x20000000000000_u64 }}` call arguments) — previously a suffixed or
+non-decimal literal split into two tokens and stranded the whole interpolation.
+The `INTERPOLATION` state gains `//` (`"#{number // 10_000}"`). The
+`MACRO_BODY` end rules additionally accept a `.` follower by matching the
+whole `end.foo` run (the greedy content rule would otherwise swallow it and
+the macro depth never decrements), so chained calls on block values
+(`end.should(...)` in spec helpers) close their `do` block correctly. `{{`/`}}`
+tightness, spaced-brace rejection, and `?`/`!` end followers are unchanged. No
+BNF, stub, or index change. Covered by the MacroInterpolationLiterals golden,
+negative interpolation tests, and real-file canaries. The pinned indexed
+corpus drops from 23 errors in 22 files to 18 in 17, with
+`float/fast_float/bigint.cr`, `float/fast_float/float_common.cr`,
+`exception/call_stack/libunwind.cr`, `xml.cr`, and `spec/helpers/string.cr`
+fully repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

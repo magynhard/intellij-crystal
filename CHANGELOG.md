@@ -5,6 +5,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Embedded lexer-state literal and operator coverage** — the `MACRO_INTERPOLATION`
+  and `MACRO_CONTROL` states lex hex/octal/binary literals, integer suffixes, and
+  floats exactly like plain code (`{{ Limb == UInt64 ? 27_u32 : 13_u32 }}`,
+  `== {{ flag?(:bits64) ? 0x20b : 0x10b }}`); the `INTERPOLATION` state gains `//`
+  (`"#{number // 10_000}"`); `MACRO_BODY` end detection accepts a `.` follower so
+  chained calls on block values (`end.should(...)`) close their `do` block instead
+  of swallowing the macro's `END`. No BNF, stub, or index change. Covered by the
+  MacroInterpolationLiterals golden, negative interpolation tests, and real-file
+  canaries. The indexed corpus drops from 23 errors in 22 files to 18 in 17, with
+  `float/fast_float/bigint.cr`, `float/fast_float/float_common.cr`,
+  `exception/call_stack/libunwind.cr`, `xml.cr`, and `spec/helpers/string.cr` fully
+  repaired and zero newly failing files.
 - **Explicitly qualified method receivers (`def Time::Location.new`)** — `method_name`
   now accepts a constant path receiver (`CONSTANT (:: CONSTANT)* DOT target`) with the
   same identifier, setter, keyword, and operator targets as single-segment receivers,

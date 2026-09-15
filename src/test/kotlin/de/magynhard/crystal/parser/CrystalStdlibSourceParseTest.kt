@@ -151,6 +151,40 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(pcre2)
     }
 
+    fun testFastFloatBigintCrParsesWithoutErrors() {
+        // float/fast_float/bigint.cr computes with suffixed integers inside
+        // macro interpolations (`{{ Limb == UInt64 ? 27_u32 : 13_u32 }}`).
+        val bigint = findStdlibFile("float/fast_float/bigint.cr") ?: return
+        assertParsesCleanly(bigint)
+    }
+
+    fun testFastFloatCommonCrParsesWithoutErrors() {
+        // float/fast_float/float_common.cr passes hex literals with suffixes
+        // as macro-interpolated call arguments (`{{ 0x20000000000000_u64 }}`).
+        val common = findStdlibFile("float/fast_float/float_common.cr") ?: return
+        assertParsesCleanly(common)
+    }
+
+    fun testLibunwindCrParsesWithoutErrors() {
+        // exception/call_stack/libunwind.cr compares against a
+        // macro-interpolated hex literal (`== {{ flag?(:bits64) ? 0x20b : 0x10b }}`).
+        val libunwind = findStdlibFile("exception/call_stack/libunwind.cr") ?: return
+        assertParsesCleanly(libunwind)
+    }
+
+    fun testXmlCrParsesWithoutErrors() {
+        // xml.cr divides inside string interpolation (`"#{number // 10_000}"`).
+        val xml = findStdlibFile("xml.cr") ?: return
+        assertParsesCleanly(xml)
+    }
+
+    fun testSpecHelpersStringCrParsesWithoutErrors() {
+        // spec/helpers/string.cr chains a call on a block value inside a macro
+        // body (`end.should(%expectation, ...)`).
+        val helper = findStdlibFile("spec/helpers/string.cr") ?: return
+        assertParsesCleanly(helper)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

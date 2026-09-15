@@ -42,4 +42,29 @@ class CrystalInvalidMacroExpressionTest : BasePlatformTestCase() {
             PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
         )
     }
+
+    fun testRejectsSpacedMacroInterpolationBraces() {
+        // `{{`/`}}` are only interpolation delimiters when tight
+        // (compiler lexer.cr); `{{y} }` cannot close the interpolation.
+        val file = myFixture.configureByText(
+            "test.cr",
+            "x = {{y} }\nputs x"
+        )
+        assertTrue(
+            "Expected parse error for spaced macro interpolation braces",
+            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+        )
+    }
+
+    fun testRejectsSpacedNumericSuffixInMacroInterpolation() {
+        // `27_u32` is one literal; `27 _u32` is two juxtaposed expressions.
+        val file = myFixture.configureByText(
+            "test.cr",
+            "x = {{ 27 _u32 }}\nputs x"
+        )
+        assertTrue(
+            "Expected parse error for a spaced numeric suffix in macro interpolation",
+            PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty()
+        )
+    }
 }
