@@ -58,7 +58,8 @@ class CrystalMethodDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?,
     val isSelfMethod: Boolean,
-    val enclosingRecordQualifiedName: String? = null,
+    /** Explicit receiver (`def Time::Location.new`) or enclosing record; null for plain lexical ownership. */
+    val ownerQualifiedName: String? = null,
 ) : StubBase<CrystalMethodDefinition>(parent, elementType), CrystalNamedStub
 
 // ==================== Macro Stub ====================

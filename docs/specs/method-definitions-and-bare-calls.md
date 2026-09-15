@@ -45,8 +45,8 @@ leaf; `getNameFromMethodName` appends `=` when the next significant sibling toke
 
 **Stub version:** Parsing-semantics changes in this area require bumping
 `CrystalParserDefinition.FILE.getStubVersion()` so persisted indexes rebuild
-(currently at 9; the latest bump restores constructors after nilable compound
-type restrictions).
+(currently at 19; the latest bump carries explicitly qualified method
+receivers as stub owners).
 
 ## Nilable compound type restrictions
 
@@ -190,6 +190,44 @@ Resolution of such calls stays suppressed (macro-generated names), consistent wi
 DOT-call architecture; the goal here is error-free parsing so surrounding definitions
 index cleanly.
 
+## Explicitly qualified method receivers (`def Time::Location.new`)
+
+The compiler accepts a constant path as a `def` receiver, owning the method for
+that type's static side outside any lexical type body:
+
+```crystal
+def Time::Location.new(pull : JSON::PullParser)
+  load(pull.read_string)
+end
+```
+
+`method_name` therefore accepts `CONSTANT (:: CONSTANT)* DOT
+qualified_method_target`, where the target mirrors the single-segment and `self`
+shapes (identifier, setter, keyword, operator). The alternative sits exactly
+where the old single-segment `CONSTANT DOT` form was — after the
+CONSTANT-leading macro-spliced forms, so generated names keep precedence (PEG
+longest-match-first). It starts with `CONSTANT`, so the compiler-rejected
+leading-`::` form (`def ::Time::Location.new`) stays a parse error, and it
+admits no generic arguments (`def Box(Int32).new` stays invalid).
+
+**Naming:** the method name is the target after the receiver DOT — `def
+Float64.new` is `new`, not `Float64`. `getNameIdentifier()` anchors on the
+target token so rename and `getTextOffset()` keep working; operator and keyword
+fallbacks compose only the target region, never receiver segments.
+
+**Ownership:** an explicit receiver outranks the lexical enclosure. The method
+stub persists it as `ownerQualifiedName` (generalizing the former
+record-only field; the binary layout is unchanged), `def Time::Location.new`
+indexes under `CrystalMethodIndex["new"]` and
+`CrystalMethodByClassIndex["Location"]` but never under `CrystalMethodIndex["Time"]`
+or the top-level index — including the `struct Int8; def Float64.new; end; end`
+shape, which belongs to `Float64`, not `Int8`. Constant receivers classify as
+self (static) methods; macro-interpolated receivers stay owner-unknown and
+unclassified. Exact-identity filtering and unqualified call sites
+(`callableUnqualified`, `resolveUnqualifiedCall`) consult the same owner, so
+`load(...)` inside `def Time::Location.new` resolves against `Time::Location`
+and `Other::Location.new` never receives `Time::Location`'s methods.
+
 ## Macro uncertainty vs. explicitly defined methods
 
 `collectNamedMethods` treats a type whose members include macro-interpolated method
@@ -234,14 +272,25 @@ These rules are covered by `DotCompoundAssignment`, `DotRegexDivision`, and
 ## Test Coverage
 
 - Parser goldens: `SetterMethodDefinition.cr`, `MacroInterpolatedCallee.cr`,
-  `NilableParenthesizedType.cr`,
+  `NilableParenthesizedType.cr`, `QualifiedReceiverMethodDefinitions.cr`
+  (qualified receivers, qualified setter, receiver-beats-enclosure),
   `MethodCalls.cr` (nested dot-call tail), `ExpressionAndRangeReplay.cr` (range
   binding), existing implicit-constructor inspection fixtures.
+- Negative parser tests: `CrystalInvalidQualifiedReceiverTest` (leading `::`,
+  generic receiver, truncated path, missing target).
+- PSI naming: `CrystalQualifiedReceiverMethodTest` (target naming, rename
+  anchor, qualified setter/operator/keyword, static classification, macro
+  receiver untouched).
+- Index: `CrystalIndexServiceTest.testIndexesQualifiedReceiverMethodUnderReceiverType`
+  (name/class/top-level keys, stub owner and static flag) and
+  `testExplicitReceiverBeatsLexicalEnclosureInIndex`.
 - Stdlib canary: `CrystalStdlibSourceParseTest` parses real `/usr/lib/crystal`
   sources when a local Crystal is installed (currently `uri.cr`, `http/client.cr`,
   `http/server/response.cr` — the type-shaped macro argument regression source —,
   `http/server/context.cr`, `http/server/request_processor.cr`, `deque.cr`,
-  `int.cr`, `float.cr`, `number.cr`, `comparable.cr`, `json/to_json.cr`, and the
+  `int.cr`, `float.cr`, `number.cr`, `comparable.cr`, `json/to_json.cr`,
+  `json/from_json.cr` and `yaml/from_yaml.cr` — the qualified-receiver sources —,
+  and the
   compiler's `crystal/macros.cr`) and fails on any `PsiErrorElement`. This canary
   exists because stdlib files use far more syntax than hand-written fixtures; a
   grammar gap there degrades indexing silently.
@@ -251,6 +300,9 @@ These rules are covered by `DotCompoundAssignment`, `DotRegexDivision`, and
   behind `{% for %}`-generated siblings.
 - Resolution semantics: `CrystalMethodHierarchyTest.testInterpolatedMacroMethodNameSuppressesOnlyUnknownNames`
   (explicit names resolve, unknown names stay suppressed),
+  `testQualifiedReceiverMethodResolvesOnExactStaticIdentity` (qualified
+  receiver on the exact static identity, no cross-namespace leakage, absent
+  from the instance side),
   `CrystalGotoDeclarationTest.testNewOnClassWithMacroGeneratedMethodsStillResolves` /
   `testInitializeOnClassWithMacroGeneratedMethodsStillResolves` /
   `testUndefinedNameOnMacroGeneratingClassStaysSuppressed`.

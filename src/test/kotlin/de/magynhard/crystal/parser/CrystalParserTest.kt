@@ -227,6 +227,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testQualifiedReceiverMethodDefinitions() {
+        doTest(true)
+    }
+
     fun testMacroInterpolatedCallee() {
         doTest(true)
     }

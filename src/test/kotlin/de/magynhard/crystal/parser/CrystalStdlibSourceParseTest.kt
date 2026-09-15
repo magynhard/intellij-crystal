@@ -150,4 +150,18 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val pcre2 = findStdlibFile("regex/pcre2.cr") ?: return
         assertParsesCleanly(pcre2)
     }
+
+    fun testJsonFromJsonCrParsesWithoutErrors() {
+        // json/from_json.cr defines `def Time::Location.new` (line ~481): an
+        // explicitly qualified receiver owning the method outside any lexical
+        // type. A parse gap there cascades through the rest of the file.
+        val fromJson = findStdlibFile("json/from_json.cr") ?: return
+        assertParsesCleanly(fromJson)
+    }
+
+    fun testYamlFromYamlCrParsesWithoutErrors() {
+        // yaml/from_yaml.cr defines `def Time::Location.new` (line ~334).
+        val fromYaml = findStdlibFile("yaml/from_yaml.cr") ?: return
+        assertParsesCleanly(fromYaml)
+    }
 }

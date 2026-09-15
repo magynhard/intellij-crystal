@@ -456,4 +456,37 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
             result.methods.map { it.method.name }
         )
     }
+
+    fun testQualifiedReceiverMethodResolvesOnExactStaticIdentity() {
+        // `def Time::Location.new` (json/from_json.cr, yaml/from_yaml.cr) owns
+        // the method for Time::Location's static side even at file top level;
+        // a same-simple-name Other::Location must not leak into the result.
+        val file = myFixture.configureByText(
+            "test.cr",
+            "module Time\n  class Location\n  end\nend\n" +
+                "module Other\n  class Location\n  end\nend\n" +
+                "def Time::Location.new(pull)\n  load(pull)\nend\n" +
+                "def Other::Location.new(pull)\n  load(pull)\nend\n"
+        )
+        val session = CrystalTypeSetResolver.session(file)
+
+        val static = session.collectNamedMethods(
+            CrystalTypeIdentity("Location", "Time::Location"),
+            CrystalReceiverMode.STATIC,
+            "new"
+        )
+        assertTrue(static.complete)
+        assertEquals(1, static.methods.size)
+        assertEquals(
+            "Time::Location",
+            de.magynhard.crystal.psi.CrystalPsiUtils.methodOwnerQualifiedName(static.methods.single())
+        )
+
+        val instance = session.collectNamedMethods(
+            CrystalTypeIdentity("Location", "Time::Location"),
+            CrystalReceiverMode.INSTANCE,
+            "new"
+        )
+        assertTrue(instance.methods.none { it.name == "new" })
+    }
 }

@@ -111,7 +111,7 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         val topLevelMethods = CrystalIndexService.findTopLevelMethods("label", project, scope)
 
         assertContainsElements(byClass.mapNotNull { it.name }, "label")
-        assertEquals("Registry::Entry", byClass.single().stub?.enclosingRecordQualifiedName)
+        assertEquals("Registry::Entry", byClass.single().stub?.ownerQualifiedName)
         assertEmpty(topLevelMethods)
     }
 
@@ -145,6 +145,51 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
 
         assertContainsElements(namedMethods.mapNotNull { it.name }, "require")
         assertEmpty(topLevelMethods)
+    }
+
+    fun testIndexesQualifiedReceiverMethodUnderReceiverType() {
+        myFixture.addFileToProject("qualified_receiver.cr", """
+            def Time::Location.new(pull)
+              load(pull)
+            end
+
+            def Time::Location.from_json_object_key?(key : String) : Time::Location
+              load(key)
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val byName = CrystalIndexService.findMethods("new", project, scope)
+        val byClass = CrystalIndexService.findMethodsByClass("Location", project, scope)
+        val topLevel = CrystalIndexService.findTopLevelMethods("new", project, scope)
+        val receiverNameHits = CrystalIndexService.findMethods("Time", project, scope)
+
+        assertContainsElements(byName.mapNotNull { it.name }, "new")
+        assertContainsElements(byClass.mapNotNull { it.name }, "new", "from_json_object_key?")
+        assertEmpty(topLevel)
+        assertTrue(receiverNameHits.none { it.name == "Time" })
+
+        val stub = byClass.single { it.name == "new" }.stub
+        assertEquals("new", stub?.name)
+        assertEquals(true, stub?.isSelfMethod)
+        assertEquals("Time::Location", stub?.ownerQualifiedName)
+    }
+
+    fun testExplicitReceiverBeatsLexicalEnclosureInIndex() {
+        myFixture.addFileToProject("receiver_enclosure.cr", """
+            struct Int8
+              def Float64.new(value)
+                value
+              end
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val floatMethods = CrystalIndexService.findMethodsByClass("Float64", project, scope)
+        val intMethods = CrystalIndexService.findMethodsByClass("Int8", project, scope)
+
+        assertContainsElements(floatMethods.mapNotNull { it.name }, "new")
+        assertTrue(intMethods.none { it.name == "new" })
     }
 
     fun testFindsNestedTypes() {

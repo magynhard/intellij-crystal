@@ -938,6 +938,24 @@ Covered by the MacroControlledHashEntries and MacroGeneratedBareLabel goldens pl
 negative hash-entry tests. The pinned indexed corpus drops from 26 errors in 25
 files to 25 in 24, with `named_tuple.cr` fully repaired.
 
+Method definitions accept explicitly qualified constant receivers:
+`def Time::Location.new` (`json/from_json.cr`, `yaml/from_yaml.cr`) parses with
+the receiver path in the header — the single-segment `CONSTANT DOT` alternative
+becomes `CONSTANT (:: CONSTANT)* DOT qualified_method_target`, reusing the same
+identifier, setter, keyword, and operator targets. Leading `::` and generic
+receivers stay parse errors. The method name is the target after the receiver
+DOT (`def Float64.new` is `new`); constant receivers classify as self (static)
+methods; the stub persists the explicit receiver as the method owner
+(generalizing the record-only owner field with an unchanged binary layout), so
+qualified definitions index under the receiver and never leak into top-level
+lookup, and unqualified call sites resolve against the same owner. The stub
+version is bumped to 19 for the changed name, classification, and index keys.
+Covered by the QualifiedReceiverMethodDefinitions golden, negative receiver
+tests, PSI naming, index, and hierarchy regressions, and real-file canaries.
+The pinned indexed corpus drops from 25 errors in 24 files to 23 in 22, with
+`json/from_json.cr` and `yaml/from_yaml.cr` fully repaired and zero newly
+failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

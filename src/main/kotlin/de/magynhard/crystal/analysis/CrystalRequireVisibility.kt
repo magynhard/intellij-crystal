@@ -41,15 +41,16 @@ internal object CrystalRequireVisibility {
         methods: Collection<CrystalMethodDefinition>,
         context: PsiElement,
     ): List<CrystalMethodDefinition> {
-        val callSiteType = CrystalPsiUtils.getEnclosingType(context)?.let(CrystalPsiUtils::buildQualifiedName)
+        val callSiteType = CrystalPsiUtils.callSiteOwnerQualifiedName(context)
         return methods.filter { method ->
-            val enclosing = CrystalPsiUtils.getEnclosingType(method)
+            // An explicit header receiver (`def Time::Location.new`) owns the
+            // method even outside any lexical type; otherwise ownership falls
+            // back to the enclosing type or record.
+            val owner = method.stub?.ownerQualifiedName
+                ?: CrystalPsiUtils.methodOwnerQualifiedName(method)
             when {
-                enclosing == null -> !CrystalPsiUtils.isSelfMethod(method)
-                else -> {
-                    val owner = CrystalPsiUtils.buildQualifiedName(enclosing)
-                    callSiteType != null && (owner == callSiteType || callSiteType.startsWith("$owner::"))
-                }
+                owner == null -> !CrystalPsiUtils.isSelfMethod(method)
+                else -> callSiteType != null && (owner == callSiteType || callSiteType.startsWith("$owner::"))
             }
         }
     }

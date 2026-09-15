@@ -1533,28 +1533,26 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun resolveUnqualifiedCall(name: String?, call: PsiElement): CrystalTypeResolution {
         name ?: return CrystalTypeResolution.Unknown
         val enclosingMethod = PsiTreeUtil.getParentOfType(call, CrystalMethodDefinition::class.java)
-        val enclosingType = CrystalPsiUtils.getEnclosingType(call)
-        if (enclosingType != null) {
-            val identity = CrystalPsiUtils.buildQualifiedName(enclosingType)
-                ?.let { TypeIdentity(it.substringAfterLast("::"), it) }
-            if (identity != null) {
-                val collection = hierarchy.collectNamedMethods(
-                    identity.toShared(),
-                    if (enclosingMethod?.let(CrystalPsiUtils::isSelfMethod) == true) {
-                        CrystalReceiverMode.STATIC
-                    } else {
-                        CrystalReceiverMode.INSTANCE
-                    },
-                    name
-                )
-                if (!collection.complete) return CrystalTypeResolution.Unknown
-                val candidates = collection.methods
-                if (candidates.size > 1) return CrystalTypeResolution.Unknown
-                if (candidates.size == 1) return resolveMethodReturn(candidates.single())
-            }
+        val ownerName = CrystalPsiUtils.callSiteOwnerQualifiedName(call)
+        if (ownerName != null) {
+            val identity = TypeIdentity(ownerName.substringAfterLast("::"), ownerName)
+            val collection = hierarchy.collectNamedMethods(
+                identity.toShared(),
+                if (enclosingMethod?.let(CrystalPsiUtils::isSelfMethod) == true) {
+                    CrystalReceiverMode.STATIC
+                } else {
+                    CrystalReceiverMode.INSTANCE
+                },
+                name
+            )
+            if (!collection.complete) return CrystalTypeResolution.Unknown
+            val candidates = collection.methods
+            if (candidates.size > 1) return CrystalTypeResolution.Unknown
+            if (candidates.size == 1) return resolveMethodReturn(candidates.single())
         }
         val topLevel = methods(name).filter {
-            CrystalPsiUtils.getEnclosingType(it) == null && !CrystalPsiUtils.isSelfMethod(it)
+            (it.stub?.ownerQualifiedName ?: CrystalPsiUtils.methodOwnerQualifiedName(it)) == null &&
+                !CrystalPsiUtils.isSelfMethod(it)
         }
         return if (topLevel.size == 1) resolveMethodReturn(topLevel.single()) else CrystalTypeResolution.Unknown
     }

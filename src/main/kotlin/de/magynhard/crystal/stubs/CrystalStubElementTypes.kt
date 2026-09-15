@@ -153,26 +153,30 @@ class CrystalMethodDefinitionElementType(debugName: String) :
     override fun serialize(stub: CrystalMethodDefinitionStub, dataStream: StubOutputStream) {
         dataStream.writeName(stub.name)
         dataStream.writeBoolean(stub.isSelfMethod)
-        dataStream.writeName(stub.enclosingRecordQualifiedName)
+        dataStream.writeName(stub.ownerQualifiedName)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalMethodDefinitionStub {
         val name = dataStream.readNameString()
         val isSelfMethod = dataStream.readBoolean()
-        val enclosingRecordQualifiedName = dataStream.readNameString()
-        return CrystalMethodDefinitionStub(parentStub, this, name, isSelfMethod, enclosingRecordQualifiedName)
+        val ownerQualifiedName = dataStream.readNameString()
+        return CrystalMethodDefinitionStub(parentStub, this, name, isSelfMethod, ownerQualifiedName)
     }
 
     override fun createStub(psi: CrystalMethodDefinition, parentStub: StubElement<out PsiElement>?): CrystalMethodDefinitionStub {
-        val enclosingRecordQualifiedName = CrystalPsiUtils.getEnclosingType(psi)
-            ?.takeIf { it is CrystalMethodCallExpression }
-            ?.let(CrystalPsiUtils::buildQualifiedName)
+        // An explicit header receiver (`def Time::Location.new`) owns the
+        // method even at file top level or inside an unrelated type; only
+        // without one does the enclosing record contribute ownership.
+        val ownerQualifiedName = CrystalPsiUtils.explicitMethodReceiverQualifiedName(psi)
+            ?: CrystalPsiUtils.getEnclosingType(psi)
+                ?.takeIf { it is CrystalMethodCallExpression }
+                ?.let(CrystalPsiUtils::buildQualifiedName)
         return CrystalMethodDefinitionStub(
             parentStub,
             this,
             psi.name,
             CrystalPsiUtils.isSelfMethod(psi),
-            enclosingRecordQualifiedName,
+            ownerQualifiedName,
         )
     }
 
@@ -187,7 +191,7 @@ class CrystalMethodDefinitionElementType(debugName: String) :
         // Index by enclosing class/module/struct/enum name for O(1) class→methods lookups.
         // Top-level defs (no enclosing type) go into a dedicated index so free-text
         // completion can retrieve them without scanning all methods.
-        val className = stub.enclosingRecordQualifiedName?.substringAfterLast("::")
+        val className = stub.ownerQualifiedName?.substringAfterLast("::")
             ?: findEnclosingParentName(stub)
         if (className != null) {
             sink.occurrence(CrystalMethodByClassIndex.KEY, className)

@@ -136,10 +136,85 @@ object CrystalPsiUtils {
     }
 
     /**
-     * Returns whether a method has a direct `self` receiver in its definition header.
+     * Returns whether a method has an explicit static receiver in its definition
+     * header: `self` (`def self.build`) or a constant path (`def Float64.new`,
+     * `def Time::Location.new`). Macro-interpolated receivers stay unclassified
+     * here — their concrete owner is unknown before macro expansion.
      */
     fun isSelfMethod(method: CrystalMethodDefinition): Boolean {
-        return method.node.findChildByType(CrystalTypes.SELF) != null
+        method.stub?.isSelfMethod?.let { return it }
+        val node = method.node
+        var sawReceiver = false
+        var child = node.firstChildNode
+        while (child != null) {
+            when (child.elementType) {
+                CrystalTypes.LPAREN, CrystalTypes.METHOD_BODY, CrystalTypes.COLON -> break
+                CrystalTypes.SELF, CrystalTypes.CONSTANT -> sawReceiver = true
+                CrystalTypes.DOT -> if (sawReceiver) return true
+            }
+            child = child.treeNext
+        }
+        return false
+    }
+
+    /**
+     * Returns the explicit constant receiver of a method definition header, if
+     * any: `def Time::Location.new` → `"Time::Location"`, `def Float64.new` →
+     * `"Float64"`. Returns null for `self` receivers, macro-interpolated
+     * receivers, and receiver-less definitions. Only strict
+     * `CONSTANT (:: CONSTANT)*` shapes qualify, mirroring the grammar.
+     */
+    fun explicitMethodReceiverQualifiedName(method: CrystalMethodDefinition): String? {
+        val segments = mutableListOf<String>()
+        var expectConstant = true
+        var child = method.node.firstChildNode
+        while (child != null) {
+            when (child.elementType) {
+                CrystalTypes.LPAREN, CrystalTypes.METHOD_BODY, CrystalTypes.COLON -> break
+                CrystalTypes.DOT -> return segments.joinToString("::").takeIf { segments.isNotEmpty() }
+                CrystalTypes.CONSTANT -> {
+                    if (!expectConstant) return null
+                    segments.add(child.text)
+                    expectConstant = false
+                }
+                CrystalTypes.DOUBLE_COLON -> {
+                    if (expectConstant) return null
+                    expectConstant = true
+                }
+                com.intellij.psi.TokenType.WHITE_SPACE -> Unit
+                else -> {
+                    // SELF, macro interpolation, or the method target itself:
+                    // only a DOT-terminated constant path is an explicit owner.
+                    if (segments.isNotEmpty()) return null
+                }
+            }
+            child = child.treeNext
+        }
+        return null
+    }
+
+    /**
+     * Returns the qualified owner governing a method definition: the explicit
+     * receiver first (`def Time::Location.new` inside any scope belongs to
+     * `Time::Location`), otherwise the lexically enclosing type or record.
+     */
+    fun methodOwnerQualifiedName(method: CrystalMethodDefinition): String? {
+        explicitMethodReceiverQualifiedName(method)?.let { return it }
+        return getEnclosingType(method)?.let(::buildQualifiedName)
+    }
+
+    /**
+     * Returns the qualified owner governing an unqualified call site: the
+     * explicit receiver of the enclosing method definition first (so `load`
+     * inside `def Time::Location.new` resolves against `Time::Location`),
+     * otherwise the lexically enclosing type.
+     */
+    fun callSiteOwnerQualifiedName(context: PsiElement): String? {
+        val enclosingMethod = PsiTreeUtil.getParentOfType(context, CrystalMethodDefinition::class.java)
+        if (enclosingMethod != null) {
+            explicitMethodReceiverQualifiedName(enclosingMethod)?.let { return it }
+        }
+        return getEnclosingType(context)?.let(::buildQualifiedName)
     }
 
     /**

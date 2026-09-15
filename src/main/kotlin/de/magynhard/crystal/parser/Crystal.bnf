@@ -437,16 +437,29 @@ private method_name ::= BACKTICK
                | IDENTIFIER
                | SELF DOT macro_spliced_name [ASSIGN]
                | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
-              // `def Float64.new(...)` — qualified method names inside the type's
-              // own scope (float.cr); optional ASSIGN covers `def Float64.round=`.
-              | CONSTANT DOT (IDENTIFIER ASSIGN | keyword_identifier ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
-              // `def &{{op.id}}(other : {{int2.id}}) : self` — operator-headed
-              // generated names inside {% for %} bodies (primitives.cr bitwise
-              // ops). Must PRECEDE the bare operator alternative: PEG commits
-              // `operator_method_name` alone and strands the interpolation.
-              | operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
-               | keyword_as_method
-               | operator_method_name
+               // Explicitly qualified receivers (`def Time::Location.new(...)` in
+               // json/from_json.cr and yaml/from_yaml.cr): a constant path of one
+               // or more segments followed by the method target. Starts with
+               // CONSTANT (no leading `::`, which the compiler rejects) and
+               // admits no generic arguments. Positioned exactly where the old
+               // single-segment `CONSTANT DOT` alternative was, after the
+               // CONSTANT-leading macro-spliced forms (PEG longest-match-first).
+               | CONSTANT (DOUBLE_COLON CONSTANT)* DOT qualified_method_target
+               // `def &{{op.id}}(other : {{int2.id}}) : self` — operator-headed
+               // generated names inside {% for %} bodies (primitives.cr bitwise
+               // ops). Must PRECEDE the bare operator alternative: PEG commits
+               // `operator_method_name` alone and strands the interpolation.
+               | operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
+                | keyword_as_method
+                | operator_method_name
+
+// Method target after an explicit receiver: the same identifier, setter,
+// keyword, and operator shapes the single-segment and `self` receivers accept.
+private qualified_method_target ::= IDENTIFIER ASSIGN
+                                  | keyword_identifier ASSIGN
+                                  | IDENTIFIER
+                                  | keyword_as_method
+                                  | operator_method_name
 
 private operator_method_name ::= PLUS | MINUS | STAR | SLASH | PERCENT | AMPERSAND | PIPE | CARET | TILDE
                                | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR

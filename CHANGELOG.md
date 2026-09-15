@@ -5,6 +5,21 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Explicitly qualified method receivers (`def Time::Location.new`)** — `method_name`
+  now accepts a constant path receiver (`CONSTANT (:: CONSTANT)* DOT target`) with the
+  same identifier, setter, keyword, and operator targets as single-segment receivers,
+  matching the compiler's `parse_def_helper` (`json/from_json.cr`, `yaml/from_yaml.cr`).
+  Leading `::` and generic receivers stay parse errors. The method name is the target
+  after the receiver DOT (`Float64.new` is `new`, fixing the previous `Float64`
+  misnaming); constant receivers classify as static methods; the stub persists the
+  explicit receiver as the method owner (generalizing the record-only owner field,
+  same binary layout), so qualified definitions index under the receiver's simple
+  name and never leak into top-level lookup — also when nested in an unrelated type.
+  Unqualified call sites resolve against the same owner. The stub version is bumped
+  to 19. Covered by the QualifiedReceiverMethodDefinitions golden, negative receiver
+  tests, PSI naming/index/hierarchy regressions, and real-file canaries. The indexed
+  corpus drops from 25 errors in 24 files to 23 in 22, with `json/from_json.cr` and
+  `yaml/from_yaml.cr` fully repaired and zero newly failing files.
 - **Macro-controlled hash and named-tuple entries** — `hash_entry_list` now accepts
   `{% ... %}` macro control tags before, between, and after entries, matching the
   compiler's macro expansion for hash literals (`named_tuple.cr`'s `def self.new(**options : **T)`

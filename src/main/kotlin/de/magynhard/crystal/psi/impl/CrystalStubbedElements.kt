@@ -26,21 +26,41 @@ private fun findNameIdentifierInTypeName(element: PsiElement): PsiElement? {
 
 private fun findNameIdentifierInMethodName(element: PsiElement): PsiElement? {
     // method_name is now private (inlined), IDENTIFIER/CONSTANT tokens are direct children of the definition node.
-    // We want the first IDENTIFIER or CONSTANT token (the method name).
-    // DEF, SELF, DOT, and whitespace tokens are skipped.
+    // With an explicit receiver (`def self.tanzen`, `def Float64.new`,
+    // `def Time::Location.new`) the name is the first IDENTIFIER or CONSTANT
+    // AFTER the header DOT; without a receiver it is the first such leaf.
+    // DEF, SELF, DOT, receiver constants, and whitespace tokens are skipped.
     // Operator methods (def self.+) and keyword methods (def self.require) have
     // no single IDENTIFIER/CONSTANT leaf — they are composed in the fallback
     // path of `getNameFromMethodName`. Returning null here is correct for them
     // (and preserves the existing behaviour of operator method naming).
-    var child = element.node.firstChildNode
+    var child = methodNameRegionStart(element)
     while (child != null) {
         val type = child.elementType
+        if (type == CrystalTypes.LPAREN || type == CrystalTypes.METHOD_BODY) break
         if (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT) {
             return child.psi
         }
         child = child.treeNext
     }
     return null
+}
+
+/**
+ * Returns the first header node of the method target: the node after the last
+ * DOT preceding the parameter list or body, or the definition's first child
+ * when the header has no receiver DOT (`def foo`, macro-generated names).
+ */
+private fun methodNameRegionStart(element: PsiElement): ASTNode? {
+    var lastDot: ASTNode? = null
+    var child = element.node.firstChildNode
+    while (child != null) {
+        val type = child.elementType
+        if (type == CrystalTypes.LPAREN || type == CrystalTypes.METHOD_BODY) break
+        if (type == CrystalTypes.DOT) lastDot = child
+        child = child.treeNext
+    }
+    return lastDot?.treeNext ?: element.node.firstChildNode
 }
 
 private fun getNameFromTypeName(element: PsiElement): String? {
@@ -77,17 +97,25 @@ private fun getNameFromMethodName(element: PsiElement): String? {
 
     // Fallback: operator methods (def self.+, def self.[]) and keyword methods
     // (def self.require, def self.class) have no single IDENTIFIER/CONSTANT
-    // leaf. Compose from the header tokens, but STOP at the parameter list
+    // leaf. Compose from the method-target tokens, but STOP at the parameter list
     // (LPAREN) and method body — previously the loop walked the entire node,
     // producing "def require(path)\nend" for `def self.require` (the body
-    // source got included in the name). Skip DEF, SELF, DOT, and whitespace
-    // tokens (none of them are part of the method name).
+    // source got included in the name). Receiver tokens (SELF, CONSTANT path
+    // segments, DOUBLE_COLON, DOT) precede the target region and are excluded;
+    // without a receiver, DEF, SELF, DOT, and whitespace tokens are skipped
+    // (none of them are part of the method name).
+    val regionStart = methodNameRegionStart(element)
+    val hasReceiver = regionStart !== element.node.firstChildNode
     val sb = StringBuilder()
-    var child = element.node.firstChildNode
+    var child = regionStart
     while (child != null) {
         val type = child.elementType
         if (type == CrystalTypes.LPAREN || type == CrystalTypes.METHOD_BODY) break
-        if (type != CrystalTypes.DEF && type != CrystalTypes.SELF && type != CrystalTypes.DOT &&
+        if (hasReceiver) {
+            if (type != com.intellij.psi.TokenType.WHITE_SPACE) {
+                sb.append(child.psi.text)
+            }
+        } else if (type != CrystalTypes.DEF && type != CrystalTypes.SELF && type != CrystalTypes.DOT &&
             type != com.intellij.psi.TokenType.WHITE_SPACE
         ) {
             sb.append(child.psi.text)

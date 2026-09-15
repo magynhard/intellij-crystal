@@ -27,7 +27,12 @@ class CrystalParserDefinition : ParserDefinition {
             // persisted indexes must rebuild.
             // v18: macro-generated type names (`struct {{num.id}}`) parse as real
             // type definitions and contribute interpolation-compound index keys.
-            override fun getStubVersion(): Int = 18
+            // v19: explicitly qualified method receivers (`def Time::Location.new`)
+            // parse with the receiver path in the header; method stubs carry the
+            // explicit receiver as the owner, constant receivers classify as
+            // self (static) methods, and method names resolve to the target
+            // after the receiver DOT — all three change index keys.
+            override fun getStubVersion(): Int = 19
         }
     }
 

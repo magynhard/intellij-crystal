@@ -7271,16 +7271,21 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                | IDENTIFIER
   //                | SELF DOT macro_spliced_name [ASSIGN]
   //                | SELF DOT (IDENTIFIER | CONSTANT | keyword_as_method | operator_method_name | macro_interpolation)
-  //               // `def Float64.new(...)` — qualified method names inside the type's
-  //               // own scope (float.cr); optional ASSIGN covers `def Float64.round=`.
-  //               | CONSTANT DOT (IDENTIFIER ASSIGN | keyword_identifier ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
-  //               // `def &{{op.id}}(other : {{int2.id}}) : self` — operator-headed
-  //               // generated names inside {% for %} bodies (primitives.cr bitwise
-  //               // ops). Must PRECEDE the bare operator alternative: PEG commits
-  //               // `operator_method_name` alone and strands the interpolation.
-  //               | operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
-  //                | keyword_as_method
-  //                | operator_method_name
+  //                // Explicitly qualified receivers (`def Time::Location.new(...)` in
+  //                // json/from_json.cr and yaml/from_yaml.cr): a constant path of one
+  //                // or more segments followed by the method target. Starts with
+  //                // CONSTANT (no leading `::`, which the compiler rejects) and
+  //                // admits no generic arguments. Positioned exactly where the old
+  //                // single-segment `CONSTANT DOT` alternative was, after the
+  //                // CONSTANT-leading macro-spliced forms (PEG longest-match-first).
+  //                | CONSTANT (DOUBLE_COLON CONSTANT)* DOT qualified_method_target
+  //                // `def &{{op.id}}(other : {{int2.id}}) : self` — operator-headed
+  //                // generated names inside {% for %} bodies (primitives.cr bitwise
+  //                // ops). Must PRECEDE the bare operator alternative: PEG commits
+  //                // `operator_method_name` alone and strands the interpolation.
+  //                | operator_method_name macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
+  //                 | keyword_as_method
+  //                 | operator_method_name
   static boolean method_name(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_name")) return false;
     boolean result_;
@@ -7411,38 +7416,36 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // CONSTANT DOT (IDENTIFIER ASSIGN | keyword_identifier ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name)
+  // CONSTANT (DOUBLE_COLON CONSTANT)* DOT qualified_method_target
   private static boolean method_name_10(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_name_10")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeTokens(builder_, 0, CONSTANT, DOT);
-    result_ = result_ && method_name_10_2(builder_, level_ + 1);
+    result_ = consumeToken(builder_, CONSTANT);
+    result_ = result_ && method_name_10_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, DOT);
+    result_ = result_ && qualified_method_target(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // IDENTIFIER ASSIGN | keyword_identifier ASSIGN | IDENTIFIER | keyword_as_method | operator_method_name
-  private static boolean method_name_10_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "method_name_10_2")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = parseTokens(builder_, 0, IDENTIFIER, ASSIGN);
-    if (!result_) result_ = method_name_10_2_1(builder_, level_ + 1);
-    if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
-    if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
-    if (!result_) result_ = operator_method_name(builder_, level_ + 1);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
+  // (DOUBLE_COLON CONSTANT)*
+  private static boolean method_name_10_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_name_10_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!method_name_10_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "method_name_10_1", pos_)) break;
+    }
+    return true;
   }
 
-  // keyword_identifier ASSIGN
-  private static boolean method_name_10_2_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "method_name_10_2_1")) return false;
+  // DOUBLE_COLON CONSTANT
+  private static boolean method_name_10_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_name_10_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = keyword_identifier(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, ASSIGN);
+    result_ = consumeTokens(builder_, 0, DOUBLE_COLON, CONSTANT);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -10017,6 +10020,36 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, ASSIGN);
     result_ = result_ && expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // IDENTIFIER ASSIGN
+  //                                   | keyword_identifier ASSIGN
+  //                                   | IDENTIFIER
+  //                                   | keyword_as_method
+  //                                   | operator_method_name
+  static boolean qualified_method_target(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "qualified_method_target")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = parseTokens(builder_, 0, IDENTIFIER, ASSIGN);
+    if (!result_) result_ = qualified_method_target_1(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = keyword_as_method(builder_, level_ + 1);
+    if (!result_) result_ = operator_method_name(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // keyword_identifier ASSIGN
+  private static boolean qualified_method_target_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "qualified_method_target_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = keyword_identifier(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, ASSIGN);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
