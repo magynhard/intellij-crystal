@@ -1239,24 +1239,34 @@ grouped_expression ::= LPAREN NLS expression [assign_op NLS expression] [postfix
 // as a type body: unlike an ordinary runtime block it may contain definitions.
 // Keep it a method_call_expression so existing record constructor resolution,
 // completion, navigation, and inspections continue to consume its arguments.
+// Bare pseudo-method callees on implicit self (`is_a?(T)`,
+// `responds_to?(:foo)` in macros/methods.cr and humanize.cr): the compiler
+// routes them through parse_var_or_call like ordinary calls
+// (parser.cr:4393), so they join the callee groups below. IS_A and
+// RESPONDS_TO are distinct tokens (never IDENTIFIER), so no PEG-ordering
+// hazard arises; AS/AS_QUESTION/NIL_QUESTION stay excluded (no audit
+// evidence) and keyword_as_method stays DOT-only.
+private call_callee ::= IDENTIFIER | CONSTANT | SELECT | IS_A | RESPONDS_TO
+private bare_call_callee ::= IDENTIFIER | CONSTANT | IS_A | RESPONDS_TO
+
 method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare_argument_list) DO class_body END
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list [block]
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) call_args [block]
+                          | [DOUBLE_COLON] call_callee !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list [block]
+                          | [DOUBLE_COLON] call_callee call_args [block]
                          // The lookahead uses Crystal's unary-operator whitespace rule:
                          // `shift -span.to_i, -span.nanoseconds` (time.cr) negates its
                          // first bare argument; a spaced binary operator still blocks the
                          // bare-argument alternative so `width + height` stays binary.
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
-                         // Tight-`[` is the index postfix (see dot_call_access), never
-                         // the receiver's own array argument.
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list [block]
-                         // Loose (whitespace-separated) bare array argument with no
-                        // comma: `parse_args [\n ... \n]` is a call with the array as
-                        // its only argument; the looseness predicate keeps a tight
-                        // `[` (`foo["key"]`) on the index postfix path.
-                         | [DOUBLE_COLON] (IDENTIFIER | CONSTANT | SELECT) !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list [block]
-                          | [DOUBLE_COLON] (IDENTIFIER | CONSTANT) block
-                          | (IDENTIFIER | CONSTANT) block
+                          | [DOUBLE_COLON] call_callee !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
+                          // Tight-`[` is the index postfix (see dot_call_access), never
+                          // the receiver's own array argument.
+                          | [DOUBLE_COLON] call_callee !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list [block]
+                          // Loose (whitespace-separated) bare array argument with no
+                         // comma: `parse_args [\n ... \n]` is a call with the array as
+                         // its only argument; the looseness predicate keeps a tight
+                         // `[` (`foo["key"]`) on the index postfix path.
+                          | [DOUBLE_COLON] call_callee !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list [block]
+                           | [DOUBLE_COLON] bare_call_callee block
+                           | bare_call_callee block
                           // Block-only super/previous_def (`super { |i| yield i }`
                           // in range.cr, slice.cr): the compiler routes super
                           // through the normal call path and always parses a
@@ -1508,17 +1518,17 @@ private bare_primary_expression ::= grouped_expression
 // bogus multi-assignment statement (broke stdlib http/client.cr). The guards mirror
 // method_call_expression: no member access, no index, and no binary-operator lookahead,
 // so `width + height` stays a binary expression instead of becoming call arguments.
-bare_method_call_expression ::= (IDENTIFIER | CONSTANT) call_args
+bare_method_call_expression ::= bare_call_callee call_args
                               // !isDotBareArgsBinaryOp refines the old !nested_call_lookahead
                               // with Crystal's unary whitespace rule: `shift -span.to_i,
                               // -span.nanoseconds` (time.cr) negates its first bare argument,
                               // while a spaced `+`/`-`/`*` still starts a binary expression.
-                              | (IDENTIFIER | CONSTANT) !DOT !LBRACKET !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isHeredocBodyOpener>> bare_argument_list
-                              | (IDENTIFIER | CONSTANT) !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list
+                              | bare_call_callee !DOT !LBRACKET !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isHeredocBodyOpener>> bare_argument_list
+                              | bare_call_callee !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list
                               // Loose (whitespace-separated) bare array argument with
                               // no comma (`parse_args [\n ... \n]`); the tight `[`
                               // stays on the index postfix path.
-                              | (IDENTIFIER | CONSTANT) !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list {
+                              | bare_call_callee !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !DOTDOT !DOTDOTDOT !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list {
   mixin="de.magynhard.crystal.psi.impl.CrystalBareMethodCallExpressionMixin"
 }
 

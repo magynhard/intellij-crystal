@@ -975,6 +975,16 @@ corpus drops from 23 errors in 22 files to 18 in 17, with
 `exception/call_stack/libunwind.cr`, `xml.cr`, and `spec/helpers/string.cr`
 fully repaired and zero newly failing files.
 
+Bare pseudo-method callees parse on implicit self: `is_a?(T)` and
+`responds_to?(:sym)` join the call callee groups (`call_callee` /
+`bare_call_callee`), matching the compiler's `parse_var_or_call`
+(`compiler/crystal/macros/methods.cr` calls `is_a?(...)` inside a brace
+block; `humanize.cr` calls `responds_to?(...)` inside `||` operands).
+Downstream handling matches the DOT form, so no mixin, stub, or index
+change. Covered by the BarePredicateCallees golden and real-file canaries.
+The pinned indexed corpus drops from 18 errors in 17 files to 16 in 15,
+with both files fully repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

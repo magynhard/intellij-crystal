@@ -185,6 +185,19 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         assertParsesCleanly(helper)
     }
 
+    fun testMacrosMethodsCrParsesWithoutErrors() {
+        // compiler/crystal/macros/methods.cr calls bare `is_a?(...)` inside a
+        // brace block (`interpret_check_args { BoolLiteral.new(...) }`).
+        val methods = findStdlibFile("compiler/crystal/macros/methods.cr") ?: return
+        assertParsesCleanly(methods)
+    }
+
+    fun testHumanizeCrParsesWithoutErrors() {
+        // humanize.cr calls bare `responds_to?(...)` inside `||` operands.
+        val humanize = findStdlibFile("humanize.cr") ?: return
+        assertParsesCleanly(humanize)
+    }
+
     fun testJsonFromJsonCrParsesWithoutErrors() {
         // json/from_json.cr defines `def Time::Location.new` (line ~481): an
         // explicitly qualified receiver owning the method outside any lexical

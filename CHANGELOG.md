@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Bare `is_a?`/`responds_to?` callees on implicit self** — `is_a?(T)` and
+  `responds_to?(:sym)` without a receiver parse as ordinary calls via shared
+  `call_callee`/`bare_call_callee` groups, matching the compiler's
+  `parse_var_or_call` (`compiler/crystal/macros/methods.cr`,
+  `humanize.cr`). `AS`/`AS_QUESTION`/`NIL_QUESTION` stay excluded (no audit
+  evidence); downstream handling matches the long-supported DOT form, so no
+  mixin, stub, or index change. Covered by the BarePredicateCallees golden and
+  real-file canaries. The indexed corpus drops from 18 errors in 17 files to 16
+  in 15, with both files fully repaired and zero newly failing files.
 - **Embedded lexer-state literal and operator coverage** — the `MACRO_INTERPOLATION`
   and `MACRO_CONTROL` states lex hex/octal/binary literals, integer suffixes, and
   floats exactly like plain code (`{{ Limb == UInt64 ? 27_u32 : 13_u32 }}`,
