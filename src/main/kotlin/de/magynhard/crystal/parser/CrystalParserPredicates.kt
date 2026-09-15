@@ -98,14 +98,21 @@ object CrystalParserPredicates {
         builder: PsiBuilder,
         @Suppress("UNUSED_PARAMETER") level: Int,
     ): Boolean = when (builder.tokenType) {
-        CrystalTypes.PLUS, CrystalTypes.STAR, CrystalTypes.SLASH,
-        CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT, CrystalTypes.DOUBLE_STAR,
+        CrystalTypes.PLUS, CrystalTypes.SLASH,
+        CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT,
         CrystalTypes.DOTDOT, CrystalTypes.DOTDOTDOT,
         -> true
+        CrystalTypes.STAR, CrystalTypes.DOUBLE_STAR,
         CrystalTypes.MINUS -> {
-            // Spaced minus = binary operator; tight minus (`-ZIP_TAIL_SIZE`,
-            // `-span.to_i`) = the unary negation of the first bare argument.
-            val next = builder.originalText.getOrNull(builder.currentOffset + 1)
+            // Tight splats are call arguments (`start_attribute *args,
+            // **nargs` in xml/builder.cr — the compiler only rejects `*`/`**`
+            // followed by whitespace in parse_call_args_space_consumed); spaced
+            // forms stay binary operators, and tight `a*b` still binds through
+            // the index-postfix tightness guard, never the bare-argument path.
+            // Tight minus behaves the same (`-span.to_i` negates the first
+            // bare argument, ` - ` is binary).
+            val tokenLength = builder.tokenText?.length ?: 1
+            val next = builder.originalText.getOrNull(builder.currentOffset + tokenLength)
             next == ' ' || next == '\t' || next == '\n' || next == '\r'
         }
         else -> false

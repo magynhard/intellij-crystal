@@ -1049,6 +1049,14 @@ tests, and a real-file canary. The pinned indexed corpus drops from 10 errors
 in 9 files to 9 in 8, with `string/formatter.cr` fully repaired and zero newly
 failing files.
 
+Tight `*`/`**` after a call name are splat arguments unless followed by
+whitespace (`start_attribute *args, **nargs` in `xml/builder.cr`), matching
+the compiler's call-argument space rule; spaced forms stay binary operators
+and tight `a*b` keeps binding through the index-postfix tightness guard. No
+BNF, stub, or index change. Covered by the BareSplatCallArguments golden and
+a real-file canary. The pinned indexed corpus drops from 9 errors in 8 files
+to 8 in 7, with `xml/builder.cr` fully repaired and zero newly failing files.
+
 Constant assignments attach queued heredoc bodies at statement level just like
 ordinary assignments: `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` retain their
 body PSI and do not strand body content or subsequent declarations. Index

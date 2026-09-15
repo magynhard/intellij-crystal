@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Tight bare splat arguments** — `*`/`**` after a call name are splat
+  arguments unless followed by whitespace (`start_attribute *args, **nargs` in
+  `xml/builder.cr`), matching the compiler's `parse_call_args_space_consumed`;
+  spaced forms stay binary operators and tight `a*b` keeps binding through the
+  index-postfix tightness guard. No BNF, stub, or index change. Covered by the
+  BareSplatCallArguments golden and a real-file canary. The indexed corpus
+  drops from 9 errors in 8 files to 8 in 7, with `xml/builder.cr` fully
+  repaired and zero newly failing files.
 - **Chained postfix modifiers** — `if`/`unless`/`rescue` modifiers nest
   right-recursively (`str_size += 1 if small_gap if e_index` in
   `string/formatter.cr`), matching the compiler's expression-suffix loop; the
