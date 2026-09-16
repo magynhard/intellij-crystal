@@ -1395,6 +1395,16 @@ comparison with zero newly failing files; 4 still-failing files
 118 files to 159 errors in 117 files (`empty.cr` fully clean, `lib_unwind.cr`
 3 → 2).
 
+The indexed corpus drops from 7 errors in 6 files to 6 in 5 with
+`float/printer/hexfloat.cr` fully repaired. Two gaps close: (1)
+`starred_type_expression` gains `&<<isTokenTightAfterPreviousToken>>` after
+`type_path` so `F::MAX_EXP * 2` stops being consumed as a C-pointer type
+(the space before `*` is not tight); (2) `PERCENT_LITERAL` state switches
+from hardcoded `yybegin(YYINITIAL)` to `popState()`, all DEFAULT-state
+entries use `pushState()`, and `MACRO_INTERPOLATION` gains a dedicated
+`%` + opening-delimiter rule — so `%( or )` inside `{{ }}` correctly opens
+and closes the percent literal without eating the interpolation end tag.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

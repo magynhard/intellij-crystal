@@ -10525,35 +10525,46 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // type_path (STAR | DOUBLE_STAR)+
+  // type_path &<<isTokenTightAfterPreviousToken>> (STAR | DOUBLE_STAR)+
   static boolean starred_type_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "starred_type_expression")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = type_path(builder_, level_ + 1);
     result_ = result_ && starred_type_expression_1(builder_, level_ + 1);
+    result_ = result_ && starred_type_expression_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // (STAR | DOUBLE_STAR)+
+  // &<<isTokenTightAfterPreviousToken>>
   private static boolean starred_type_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "starred_type_expression_1")) return false;
     boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // (STAR | DOUBLE_STAR)+
+  private static boolean starred_type_expression_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "starred_type_expression_2")) return false;
+    boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = starred_type_expression_1_0(builder_, level_ + 1);
+    result_ = starred_type_expression_2_0(builder_, level_ + 1);
     while (result_) {
       int pos_ = current_position_(builder_);
-      if (!starred_type_expression_1_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "starred_type_expression_1", pos_)) break;
+      if (!starred_type_expression_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "starred_type_expression_2", pos_)) break;
     }
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // STAR | DOUBLE_STAR
-  private static boolean starred_type_expression_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "starred_type_expression_1_0")) return false;
+  private static boolean starred_type_expression_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "starred_type_expression_2_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, STAR);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);

@@ -1399,10 +1399,11 @@ argument ::= STAR expression
 
 // C pointer suffixes inside generic type arguments used as call arguments:
 // `Pointer(UInt8*)`, `Pointer(LibC::SizeT)`-style receivers in stdlib code
-// (string.cr#encode). A trailing STAR has no expression meaning (binary *
-// requires a right operand), so this alternative fails fast on every regular
-// argument and can never shadow normal calls.
-private starred_type_expression ::= type_path (STAR | DOUBLE_STAR)+
+// (string.cr#encode). The tightness predicate ensures the STAR is adjacent to
+// the type (`Int32*`) and not a spaced binary operator (`F::MAX_EXP * 2`),
+// which would otherwise be greedily consumed as a pointer-star argument and
+// strand the right operand.
+private starred_type_expression ::= type_path &<<isTokenTightAfterPreviousToken>> (STAR | DOUBLE_STAR)+
 
 // Call arguments are whitespace-sensitive in Crystal: `name: value` is a named
 // expression, while `name : Type` is a type-shaped declaration-macro argument.

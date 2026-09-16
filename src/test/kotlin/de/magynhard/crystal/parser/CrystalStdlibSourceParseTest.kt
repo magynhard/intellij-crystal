@@ -276,4 +276,31 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val fromYaml = findStdlibFile("yaml/from_yaml.cr") ?: return
         assertParsesCleanly(fromYaml)
     }
+
+    fun testIndexableMutableCrParsesWithoutErrors() {
+        // indexable/mutable.cr wraps method definitions inside
+        // {% begin %}/{% if %} macro control blocks.
+        val mutable = findStdlibFile("indexable/mutable.cr") ?: return
+        assertParsesCleanly(mutable)
+    }
+
+    fun testProcCrParsesWithoutErrors() {
+        // proc.cr uses {% begin %} macro control inside a proc literal body.
+        val proc = findStdlibFile("proc.cr") ?: return
+        assertParsesCleanly(proc)
+    }
+
+    fun testHexfloatCrParsesWithoutErrors() {
+        // float/printer/hexfloat.cr: ternary disambiguation (starred_type_expression
+        // tightness predicate) and %() percent literal inside {{ }} macro interpolation
+        // (pushState/popState for PERCENT_LITERAL state stack).
+        val hexfloat = findStdlibFile("float/printer/hexfloat.cr") ?: return
+        assertParsesCleanly(hexfloat)
+    }
+
+    fun testToSCrParsesWithoutErrors() {
+        // compiler/crystal/syntax/to_s.cr cascade error
+        val toS = findStdlibFile("compiler/crystal/syntax/to_s.cr") ?: return
+        assertParsesCleanly(toS)
+    }
 }

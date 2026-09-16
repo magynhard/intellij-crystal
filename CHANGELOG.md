@@ -632,6 +632,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 - **User-defined enums join the compiler-imposed base hierarchy** — a user-defined `enum Status` is now chained to the compiler-imposed base (`Status → Enum → Value → Object`, verified against the compiler: `Status < Enum`, NOT `Struct`), completing the receiver families of the base hierarchy after classes and structs. Enum-typed parameters (`def render(s : Status)` → `s.to_json` after `require "json"`) no longer produce false argument diagnostics — `Object#to_json : String` (the zero-argument dispatch target in json/to_json.cr's reopened `class Object`) and `Enum#to_json(json : JSON::Builder)` are in the overload pool — and `Enum#to_s`, `Enum#hash`, `Enum#<=>` become reachable for completion and navigation on enum receivers. An enum's `: Type` suffix (`enum Color : UInt8`) is treated as the underlying storage type, never as a superclass; enum bodies contribute their own `def`/`def self` members; the edge degrades gracefully when `Enum`/`Value`/`Object` declarations are not in the caller's require closure. Covered by new `CrystalMethodHierarchyTest` enum cases (chain, body methods, suffix neutrality) and real-stdlib `CrystalStdlibObjectHierarchyTest` integration cases (Crystal-gated).
 
 - **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
+- **`hexfloat.cr` ternary disambiguation and macro percent literals** — two grammar gaps
+  in `float/printer/hexfloat.cr` are closed: (1) `starred_type_expression` now requires
+  the `type_path` to be immediately tight (no whitespace) after the preceding token via
+  `&<<isTokenTightAfterPreviousToken>>`, preventing `F::MAX_EXP * 2` from being consumed
+  as a C-pointer type; (2) percent literals (`%( or )`) inside `{{ }}` macro interpolations
+  now work correctly: the `PERCENT_LITERAL` state uses `pushState`/`popState` instead of
+  hardcoded `YYINITIAL` return, so `%(` in `MACRO_INTERPOLATION` state returns to the
+  interpolation after the literal closes, and a dedicated `MACRO_INTERPOLATION` rule
+  recognizes `%` + opening delimiter as a percent literal begin. No stub or index change.
+  Covered by a real-file canary. The indexed corpus drops from 7 errors in 6 files to
+  6 in 5, with `hexfloat.cr` fully repaired.
 
 ### Added
 - **`Number`-family bracket calls infer `Array(Type)`** — `ary = Int64[]` /
