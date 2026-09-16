@@ -488,6 +488,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroConditionalMethodDefinition() {
+        doTest(true)
+    }
+
     fun testMacroForLoop() {
         doTest(true)
     }

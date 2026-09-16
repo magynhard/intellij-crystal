@@ -236,6 +236,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitMacroBranchMethodHeader(@NotNull CrystalMacroBranchMethodHeader o) {
+    visitPsiElement(o);
+  }
+
   public void visitMacroControl(@NotNull CrystalMacroControl o) {
     visitPsiElement(o);
   }

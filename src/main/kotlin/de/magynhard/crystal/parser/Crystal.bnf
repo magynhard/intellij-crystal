@@ -305,6 +305,7 @@ private class_member ::= NEWLINE
                         | SEMICOLON
                         | annotation_usage
                         | annotation_definition
+                        | macro_conditional_method_definition
                         | method_definition
                         | macro_definition
                         | class_definition
@@ -400,6 +401,12 @@ lib_union_definition ::= UNION CONSTANT lib_union_body END
 
 // ==================== Methods ====================
 
+// A macro conditional may select between method headers while sharing one body:
+// `{% if ... %} def map!(& : T -> _) {% else %} def map!(&) {% end %} ... end`
+// (indexable/mutable.cr). Keep the first DEF as the METHOD_DEFINITION root so
+// method naming and stubs use the selected-current-version header, and try the
+// conditional form before the ordinary body (PEG): method_body would otherwise
+// consume the branch tags as statements and strand the second DEF.
 method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*]
                     | DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*] method_body END {
   pin(".*")=2
@@ -407,6 +414,13 @@ method_definition ::= ABSTRACT DEF method_name [LPAREN NLS parameter_list NLS RP
   mixin="de.magynhard.crystal.psi.impl.CrystalStubbedMethodDefinitionImpl"
   implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
+
+macro_conditional_method_definition ::= &(method_definition_header NLS macro_branch_method_header) DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*] NLS macro_branch_method_header+ NLS macro_end_tag method_body END {
+  elementType=method_definition
+  pin=3
+}
+private method_definition_header ::= DEF method_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] [FORALL CONSTANT (COMMA CONSTANT)*]
+macro_branch_method_header ::= macro_branch_tag NLS method_definition_header
 
 // PEG longest-match-first: setter definitions (def host=, def self.env=) must be
 // tried before plain IDENTIFIER, otherwise the parser consumes only the name and

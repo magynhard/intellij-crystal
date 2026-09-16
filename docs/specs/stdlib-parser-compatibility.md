@@ -1405,6 +1405,13 @@ entries use `pushState()`, and `MACRO_INTERPOLATION` gains a dedicated
 `%` + opening-delimiter rule — so `%( or )` inside `{{ }}` correctly opens
 and closes the percent literal without eating the interpolation end tag.
 
+The indexed corpus drops from 6 errors in 5 files to 5 in 4 with
+`indexable/mutable.cr` fully repaired. A method definition may now have its
+header selected by adjacent `{% if %}`/`{% else %}` branches before one shared
+body. The first `def` remains the owning `CrystalMethodDefinition`; alternate
+headers are nested PSI nodes so the existing singular parameter/type accessors,
+method naming, stubs, and normal-method recovery stay unchanged.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

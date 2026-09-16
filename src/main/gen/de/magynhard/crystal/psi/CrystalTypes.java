@@ -67,6 +67,7 @@ public interface CrystalTypes {
   IElementType LIB_TYPE_ALIAS = new CrystalElementType("LIB_TYPE_ALIAS");
   IElementType LIB_UNION_DEFINITION = new CrystalElementType("LIB_UNION_DEFINITION");
   IElementType MACRO_BODY = new CrystalElementType("MACRO_BODY");
+  IElementType MACRO_BRANCH_METHOD_HEADER = new CrystalElementType("MACRO_BRANCH_METHOD_HEADER");
   IElementType MACRO_CONTROL = new CrystalElementType("MACRO_CONTROL");
   IElementType MACRO_CONTROL_ESCAPED = new CrystalElementType("MACRO_CONTROL_ESCAPED");
   IElementType MACRO_DEFINITION = CrystalStubElementTypeFactory.create("MACRO_DEFINITION");
@@ -468,6 +469,9 @@ public interface CrystalTypes {
       }
       else if (type == MACRO_BODY) {
         return new CrystalMacroBodyImpl(node);
+      }
+      else if (type == MACRO_BRANCH_METHOD_HEADER) {
+        return new CrystalMacroBranchMethodHeaderImpl(node);
       }
       else if (type == MACRO_CONTROL) {
         return new CrystalMacroControlImpl(node);

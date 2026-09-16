@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro-conditional method headers** — a compile-time conditional may select
+  between multiple `def` headers before one shared method body, as in
+  `indexable/mutable.cr`'s version-dependent `map!` block parameter restriction.
+  Alternative headers are isolated in their own PSI nodes while the first
+  header remains the owning `CrystalMethodDefinition`, preserving method naming,
+  parameter access, stubs, and normal-method error recovery. Covered by the
+  MacroConditionalMethodDefinition golden and a real-file canary. The indexed
+  corpus drops from 6 errors in 5 files to 5 in 4, with
+  `indexable/mutable.cr` fully repaired and zero newly failing files.
 - **Bare macro-generated multi-assignment targets** — `{{operand.var}}, ip = ...`
   in `disassembler.cr` parses with the interpolation as a structured assignment
   target (verified against the real compiler: `{{a}}, b = 1, 2` assigns the

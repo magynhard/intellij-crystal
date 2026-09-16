@@ -278,8 +278,8 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
     }
 
     fun testIndexableMutableCrParsesWithoutErrors() {
-        // indexable/mutable.cr wraps method definitions inside
-        // {% begin %}/{% if %} macro control blocks.
+        // indexable/mutable.cr selects between two method headers with a macro
+        // conditional, then gives the selected definition one shared body.
         val mutable = findStdlibFile("indexable/mutable.cr") ?: return
         assertParsesCleanly(mutable)
     }
