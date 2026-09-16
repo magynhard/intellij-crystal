@@ -7,6 +7,9 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalProcLiteral extends PsiElement {
 
+  @NotNull
+  List<CrystalMacroControl> getMacroControlList();
+
   @Nullable
   CrystalParameterList getParameterList();
 

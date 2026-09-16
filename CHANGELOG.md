@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro-generated proc parameters** — parenthesized proc literals now accept
+  compile-time control tags around their parameter list and structured names
+  such as `arg{{i}} : {{T[i + U.size]}}`, matching `proc.cr`'s `partial`
+  implementation. The generated-name rule requires a literal identifier prefix,
+  so a bare `{{x}}` parameter remains invalid. Ordinary def, block, and proc
+  parameter behavior is unchanged. Covered by the MacroControlledProcParameters
+  golden, existing invalid-parameter tests, and a real-file canary. The indexed
+  corpus drops from 5 errors in 4 files to 4 in 3, with `proc.cr` fully repaired
+  and zero newly failing files.
 - **Macro-conditional method headers** — a compile-time conditional may select
   between multiple `def` headers before one shared method body, as in
   `indexable/mutable.cr`'s version-dependent `map!` block parameter restriction.

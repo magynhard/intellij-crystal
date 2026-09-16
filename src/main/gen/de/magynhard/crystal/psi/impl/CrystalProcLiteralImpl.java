@@ -28,6 +28,12 @@ public class CrystalProcLiteralImpl extends ASTWrapperPsiElement implements Crys
   }
 
   @Override
+  @NotNull
+  public List<CrystalMacroControl> getMacroControlList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
+  }
+
+  @Override
   @Nullable
   public CrystalParameterList getParameterList() {
     return PsiTreeUtil.getChildOfType(this, CrystalParameterList.class);

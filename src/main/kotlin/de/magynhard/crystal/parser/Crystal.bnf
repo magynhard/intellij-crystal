@@ -660,6 +660,10 @@ private param_prefix ::= annotation_usage
 // `def self.common_descendent_union(type, union)`) and joins the
 // starred/splat name group (`*union`, `&of`).
 parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+            // Macro loops generate proc parameters such as
+            // `arg{{i}} : {{T[i + U.size]}}` in proc.cr. Require a literal
+            // identifier prefix so bare `{{ x }}` remains an invalid parameter.
+            | param_prefix* macro_spliced_parameter_name [COLON type_reference] [ASSIGN expression]
             | param_prefix* keyword_parameter_name [COLON type_reference] [ASSIGN expression]
             | param_prefix* AMPERSAND IDENTIFIER COLON type_union COMMA type_union (COMMA type_union)* ARROW [type_reference]
             // A double-splat parameter may carry a double-splat restriction
@@ -683,6 +687,7 @@ parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | inst
             | param_prefix* macro_interpolation &<<isMacroSplatFragment>> [&<<isTokenTightAfterPreviousToken>> STAR] {
   mixin="de.magynhard.crystal.psi.impl.CrystalParameterMixin"
 }
+private macro_spliced_parameter_name ::= IDENTIFIER macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
 
 // ==================== Property Declarations ====================
@@ -1604,11 +1609,16 @@ block ::= DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* 
 // so the variable alternative keeps its DOT mandatory while the plain
 // identifier/constant form stays as-is. Raw leaves match the existing
 // token-based pointer branch: no new PSI element, no stub change.
-proc_literal ::= ARROW LPAREN NLS parameter_list NLS RPAREN LBRACE statement_list RBRACE
-               | ARROW LPAREN NLS parameter_list NLS RPAREN DO [statement_list] END
+proc_literal ::= ARROW LPAREN proc_parameter_trivia parameter_list proc_parameter_trivia RPAREN LBRACE statement_list RBRACE
+               | ARROW LPAREN proc_parameter_trivia parameter_list proc_parameter_trivia RPAREN DO [statement_list] END
                | ARROW LBRACE statement_list RBRACE
                | ARROW (INSTANCE_VAR | CLASS_VAR) DOT (IDENTIFIER | CONSTANT) [LPAREN type_reference (COMMA type_reference)* RPAREN]
                | ARROW (IDENTIFIER | CONSTANT) [DOT (IDENTIFIER | CONSTANT)] [LPAREN type_reference (COMMA type_reference)* RPAREN] {pin=1}
+
+// Compile-time loops may emit proc parameters between `{% for %}` and
+// `{% end %}` tags. Restrict macro controls to the parenthesized parameter
+// region; ordinary parameter_list remains unchanged for defs and blocks.
+private proc_parameter_trivia ::= (NEWLINE | macro_control)*
 
 // ==================== Literals ====================
 

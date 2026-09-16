@@ -285,7 +285,8 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
     }
 
     fun testProcCrParsesWithoutErrors() {
-        // proc.cr uses {% begin %} macro control inside a proc literal body.
+        // proc.cr generates `arg{{i}} : {{T[...]}}` parameters inside a
+        // `{% for %}` loop in a parenthesized proc literal.
         val proc = findStdlibFile("proc.cr") ?: return
         assertParsesCleanly(proc)
     }

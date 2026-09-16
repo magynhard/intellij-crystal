@@ -1412,6 +1412,13 @@ body. The first `def` remains the owning `CrystalMethodDefinition`; alternate
 headers are nested PSI nodes so the existing singular parameter/type accessors,
 method naming, stubs, and normal-method recovery stay unchanged.
 
+The indexed corpus drops from 5 errors in 4 files to 4 in 3 with `proc.cr`
+fully repaired. Parenthesized proc literals admit newlines and macro-control
+tags around their parameter list, and a parameter name may combine a literal
+identifier prefix with macro interpolation (`arg{{i}}`). The prefix requirement
+keeps a bare interpolation invalid, while macro-interpolated type restrictions
+continue through the existing `type_reference` rule.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

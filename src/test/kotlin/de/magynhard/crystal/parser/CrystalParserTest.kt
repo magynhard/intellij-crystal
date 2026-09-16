@@ -399,6 +399,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroControlledProcParameters() {
+        doTest(true)
+    }
+
     fun testCommandLiterals() {
         doTest(true)
     }
