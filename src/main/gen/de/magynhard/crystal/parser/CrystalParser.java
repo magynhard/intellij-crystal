@@ -5521,6 +5521,18 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // DOT IDENTIFIER
+  public static boolean lib_external_var_access(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "lib_external_var_access")) return false;
+    if (!nextTokenIs(builder_, DOT)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokens(builder_, 0, DOT, IDENTIFIER);
+    exit_section_(builder_, marker_, DOT_CALL_ACCESS, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // lib_field_name (COMMA NLS lib_field_name)* COLON type_reference
   public static boolean lib_field(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "lib_field")) return false;
@@ -10020,6 +10032,31 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // pointerof_lib_receiver lib_external_var_access
+  static boolean pointerof_lib_external_var(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_lib_external_var")) return false;
+    if (!nextTokenIs(builder_, CONSTANT)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = pointerof_lib_receiver(builder_, level_ + 1);
+    result_ = result_ && lib_external_var_access(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // CONSTANT
+  public static boolean pointerof_lib_receiver(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "pointerof_lib_receiver")) return false;
+    if (!nextTokenIs(builder_, CONSTANT)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, CONSTANT);
+    exit_section_(builder_, marker_, VARIABLE_REFERENCE, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // (instance_var_access | class_var_access | variable_reference) pointerof_receiver_access* pointerof_terminal_ivar_access
   static boolean pointerof_qualified_instance_var(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "pointerof_qualified_instance_var")) return false;
@@ -10102,6 +10139,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // pointerof_qualified_instance_var
+  //                            | pointerof_lib_external_var
   //                            | instance_var_access
   //                            | class_var_access
   //                            | variable_reference
@@ -10109,6 +10147,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "pointerof_target")) return false;
     boolean result_;
     result_ = pointerof_qualified_instance_var(builder_, level_ + 1);
+    if (!result_) result_ = pointerof_lib_external_var(builder_, level_ + 1);
     if (!result_) result_ = instance_var_access(builder_, level_ + 1);
     if (!result_) result_ = class_var_access(builder_, level_ + 1);
     if (!result_) result_ = variable_reference(builder_, level_ + 1);

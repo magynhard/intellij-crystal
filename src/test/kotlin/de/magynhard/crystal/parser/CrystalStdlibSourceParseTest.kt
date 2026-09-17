@@ -340,4 +340,11 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val instructions = findStdlibFile("compiler/crystal/interpreter/instructions.cr") ?: return
         assertParsesCleanly(instructions)
     }
+
+    fun testFfiTypeCrParsesWithoutErrors() {
+        // compiler/crystal/ffi/type.cr takes addresses of lib external vars
+        // (`pointerof(LibFFI.ffi_type_void)`).
+        val ffiType = findStdlibFile("compiler/crystal/ffi/type.cr") ?: return
+        assertParsesCleanly(ffiType)
+    }
 }

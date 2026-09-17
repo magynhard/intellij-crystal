@@ -1909,22 +1909,40 @@ pointerof_expression ::= POINTEROF LPAREN NLS pointerof_target NLS RPAREN {pin=1
 
 // `pointerof` targets: the compiler parses a full assignment-level expression
 // (parse_pointerof, parser.cr:6069) but only accepts variables, constants, and
-// read-instance-variables semantically (pointerof_var, main_visitor.cr:2687).
+// read-instance-variables semantically (pointerof_var, main_visitor.cr:2673).
 // The qualified alternative therefore admits exactly chains that end in
 // `.@ivar` (`fiber.@context`, `buf.value.@privileges`), reusing the existing
 // dot_call_access PSI. Ordinary calls, index access, literals, and `self`
 // stay rejected; so does `foo.@bar.baz` (an ivar may not appear mid-chain).
-// Lib-external-var targets (`pointerof(LibFFI.ffi_type_void)`) are a separate
-// family: syntactically indistinguishable from ordinary calls, they need a
-// semantic approach, not a wider rule here.
-// PEG: the qualified form precedes the plain forms, otherwise `fiber` wins
-// first-match and strands the dot. The `*` repetition is possessive, so the
-// lookaheads keep intermediate links (non-ivar names) disjoint from the
-// terminal `.@ivar` — a bare `dot_call_access*` would swallow the terminal.
+// Lib-external-var targets (`pointerof(LibFFI.ffi_type_void)` in ffi/type.cr)
+// are the Call case of pointerof_var (main_visitor.cr:2694-2706): a call with
+// no arguments, no named arguments, and no block on a lib-type receiver.
+// Syntactically that is a CONSTANT receiver with a bare identifier —
+// distinguishable from the rejected `foo.bar` by the constant receiver, so a
+// narrow rule suffices and no semantic approach is needed. Calls with
+// arguments or blocks, `?`-suffixed access, keyword setters, deeper chains,
+// and `::` prefixes stay rejected (no corpus evidence). Both aliases reuse
+// established PSI, mirroring an ordinary `LibC.foo` call shape with the
+// receiver as previous sibling: resolution and highlighting behave
+// identically. Documented leniency: a non-lib constant receiver
+// (`pointerof(String.foo)`) parses and is rejected only by the compiler,
+// exactly like the pre-existing `pointerof(foo?)` leniency.
+// PEG: the qualified and lib-external forms precede the plain forms,
+// otherwise `fiber`/`LibFFI` wins first-match and strands the dot. The `*`
+// repetition is possessive, so the lookaheads keep intermediate links
+// (non-ivar names) disjoint from the terminal `.@ivar` — a bare
+// `dot_call_access*` would swallow the terminal.
 private pointerof_target ::= pointerof_qualified_instance_var
+                           | pointerof_lib_external_var
                            | instance_var_access
                            | class_var_access
                            | variable_reference
+
+private pointerof_lib_external_var ::= pointerof_lib_receiver lib_external_var_access
+
+pointerof_lib_receiver ::= CONSTANT {elementType=variable_reference}
+
+lib_external_var_access ::= DOT IDENTIFIER {elementType=dot_call_access}
 
 private pointerof_qualified_instance_var ::= (instance_var_access | class_var_access | variable_reference) pointerof_receiver_access* pointerof_terminal_ivar_access
 

@@ -1456,9 +1456,14 @@ file are covered alongside: macro-control hash values, comma-less macro
 separators between entries, and spliced `name{{n}}:` hash keys.
 `compiler/crystal/interpreter/instructions.cr` is fully repaired.
 
-The indexed corpus reports 2 errors in 1 file. The complete 1,625-file
-distribution currently reports 2 errors in 1 file: only the deferred
-`compiler/crystal/ffi/type.cr` cluster remains.
+`pointerof` accepts lib external vars (`pointerof(LibFFI.ffi_type_void)`),
+matching the compiler's zero-argument-call-on-lib-type case with a narrow
+constant-receiver rule; both aliases reuse the established call PSI.
+`compiler/crystal/ffi/type.cr` is fully repaired.
+
+The indexed corpus reports 0 errors in 650 files. The complete 1,625-file
+distribution currently reports 0 errors: both audits pass with no deferred
+clusters remaining.
 
 ## Fix Requirements
 

@@ -143,6 +143,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPointerofLibExternalVar() {
+        doTest(true)
+    }
+
     fun testSpecFile() {
         doTest(true)
     }

@@ -5,6 +5,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Lib external vars as `pointerof` targets** — `pointerof(LibFFI.ffi_type_void)`
+  in `compiler/crystal/ffi/type.cr` now parses: the compiler's `pointerof_var`
+  accepts zero-argument calls on lib types, which is syntactically a constant
+  receiver with a bare identifier. The narrow rule admits exactly that shape —
+  ordinary `foo.bar` calls and calls with arguments stay rejected — and both
+  aliases reuse the established variable-reference and dot-call PSI, mirroring
+  an ordinary `LibC.foo` call. Covered by the PointerofLibExternalVar golden,
+  target isolation/rejection tests, and a real-file canary. Both corpora reach
+  zero parse errors (650 indexed, 1,625 distribution files), with `ffi/type.cr`
+  fully repaired and zero newly failing files.
 - **Type declarations as array elements** — arrays now accept `value : Int64`
   elements (`operands: [value : Int64]` in
   `compiler/crystal/interpreter/instructions.cr`), matching the compiler, which
