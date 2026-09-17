@@ -61,38 +61,9 @@
   (`range.match /re/`), nested-callee (`x.should match /re/`), and keyword (`when /^get_/`)
   contexts are covered by lexer heuristics; a correct general solution needs parse-context
   feedback into lexing.
-- [x] **Preserve declarations after incomplete binary operators** — done
-  2026-09-17: malformed `value = !~ other` / `value = other !~` keep their error
-  element, and following declarations stay structured. Two narrow mechanisms,
-  no `recoverWhile`, no valid-tree changes (full suite byte-identical): a silent
-  single-token `stray_operator` alternative (last resort in statement loops,
-  gated by `isAfterAssignOp` so it only fires where the assignment pin already
-  errored — leading/trailing operators elsewhere keep erroring as before), plus
-  pinned `comparison_tail`/`bare_comparison_tail` rules so a stranded comparison
-  operator records its missing-operand error and consumes forward. Other
-  operator families (and/or, arithmetic, bitwise) keep prior behavior; class and
-  lib bodies are not covered. Pinned by the IncompleteBinaryOperatorRecovery
-  golden and def-preservation tests.
-- [x] **Keep postfix bare calls from consuming heredoc body openers** — done
-  2026-09-17: the plain method-call bare-argument alternative now carries the
-  established `!<<isHeredocBodyOpener>>` guard (the one of seven entry points
-  that lacked it), so `value = <<-TEXT rescue puts fallback` and
-  `VALUE = <<-TEXT if enabled` attach their bodies to the assignment while
-  header markers (`fail <<-MSG, file, line`) keep binding as bare arguments.
-  Pinned by the HeredocModifierBodies golden and body-owner tests.
 
 ## Call Argument Inspection Follow-up
 
-- [x] **Resolve `Pointer(T).malloc(size, value)` overloads for generic-type receivers** —
-  closed 2026-09-17 as cannot-reproduce: a headless audit once flagged "Too many
-  arguments: expected at most 1, got 2" at stdlib array.cr:156, but three faithful
-  harnesses (local generic struct, real pointer.cr minimal, real pointer.cr with
-  index refresh and require closure) all resolve cleanly. Pool dump proves all
-  three `self.malloc` overloads arrive with correct arities, and the evaluator
-  accepts the binary call while still flagging genuine excess arity. Likely fixed
-  in passing by later resolver work; pinned by `testGenericStaticOverloadsAllContribute`
-  and its excess-arity control. Reopen with a fresh headless-audit trace if it
-  ever reappears.
 - [ ] **De-fuse binary operand mismatch from untyped-parameter constants** — stdlib
   array.cr:2175 (`offset = @capacity - old_capacity` with both sides derived from untyped
   parameters) produces "Type mismatch: expected 'UInt64', got 'Int32'". Track
@@ -262,27 +233,7 @@
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,
   separate approach.
-- [x] **Deferred stdlib parse-error clusters** — both repaired; both audits pass
-  with zero errors (2026-09-17):
-  1. ~~**`ffi/type.cr` `pointerof(LibFFI.ffi_type_void)`**~~ — repaired with a
-     narrow constant-receiver rule: the compiler's `pointerof_var` Call case
-     (zero-argument call on a lib type) is syntactically a constant receiver
-     with a bare identifier, so no semantic approach was needed after all.
-     Aliases reuse the variable-reference and dot-call PSI.
-  2. ~~**`instructions.cr` type-declaration array elements** (`operands:
-     [value : Int64]`)~~ — turned out to be ordinary Crystal syntax (the
-     compiler reads array elements with `parse_op_assign_no_control` and builds
-     a `TypeDeclaration` on a following colon), repaired with a targeted
-     `array_type_declaration` rule plus macro-tolerant hash separators and
-     spliced hash keys. The earlier "compiler-internal DSL" assessment was
-     wrong.
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).
-- [x] **Trace the last shard argument-count finding** — traced 2026-09-17 in the
-  kemal re-audit: `arg` in excessive_allocations_spec:10 ("expected at most 0,
-  got 1") sits in a `<<-CRYSTAL` sample (`"Alice".chars.each(arg)`) where `arg`
-  is deliberately undefined — the sample exercises ameba's own rule, and `each`
-  takes no positional arguments, so the finding is arguably correct and not
-  actionable. kemal's own sources (src/ + spec/, including static_file_handler_spec.etag_with_coding:135), ameba's typos.cr `as:` DSL finding, and the ameba `as_node <<-CRYSTAL` pool (variable_spec:102) are clear. (Fixed along the way: extractArguments now handles the bare (parenthesis-free) argument-list form of CrystalBareMethodCallExpression — the heredoc-header marker argument of `as_node <<-CRYSTAL` used to vanish, so the def saw zero arguments and reported "Missing 'source'"; earlier: macro-invocation block bodies are macro data via CrystalMacroContext.isInsideMacroCallBlock, the tight bracket after a dot-call method name always binds as the receiver's index postfix, `Reference.new(node, scope)` resolves the sibling `Ameba::AST::Reference` through the program closure, macro-call arguments are no longer checked as runtime calls, and proc-literal parameters resolve as local declarations.)
 - [ ] **Cover real-world ECR templates (`content_for ... do`, HTML/code interleave)** — the 2026-09-17 kemal re-audit reports 17 parse errors plus 5 unused-variable findings in the shipped `exception_page` shard template (`lib/exception_page/src/exception_page/exception_page.ecr`) and 1 parse error in kemal's own `spec/asset/hello_with_content_for.ecr`. Block-form `content_for "meta" do ... end` and surrounding markup exceed current ECR support. Reproduce with minimized fixtures, extend the ECR grammar/states narrowly, and keep existing ECR goldens green.
 - [ ] **Standalone chained-call argument checks** — the resolved-env.status(...).json(...) chains are clean now (the hash-key fix); when chained-call receivers gain exact typing, wire the standalone chain forms into the same argument checks with the regression shape `env.status(:not_found).json({error: "User not found"})`.
 ## IDE / Incremental Lexing Follow-up
@@ -319,21 +270,6 @@
   supports identifier external names only. Add a delimiter-safe non-interpolating string-name
   rule, reject empty/interpolated names, and preserve the decoded call-site label separately
   from the internal binding.
-- [x] **Parse comma-separated assignments inside parenthesized calls (`compute(x = 5, y = 6)`)** — done
-  2026-09-17 via a dedicated `assignment_argument` rule (aliased to the established
-  assignment PSI, without the statement-only postfix-modifier/heredoc tails the
-  compiler rejects in call arguments). The old single-assignment shape (bare call
-  with grouped expression) now routes through call_args like the multi form; the
-  rescue-state analyzer covers it
-  (`testRescueSeesPostArgumentAssignmentStateWhenEnclosingCallRaises` green).
-  Member targets (`x.y = 5`, valid Crystal) stay a follow-up with no corpus case.
-- [x] **Support brace blocks after `&.` shorthand (`f &.m { }`)** — verified
-  2026-09-17: no grammar change needed. Both `do` and brace blocks already bind
-  inside the `&.` proc (`implicit_object_call` carries the `[block]` tail),
-  matching the compiler (`parse_call_block_arg_after_dot` attaches `do` to the
-  inner call; `frame` infers as the `each` element type). Pinned by the
-  ProcShorthandDoBlock golden (8+ stdlib sites use the `do` idiom) and block
-  owner/resolution tests; no stale misattachment found.
 - [ ] **Handle `Foo::bar` with lowercase identifiers as method calls** — `namespace_access` only matches
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
   call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);

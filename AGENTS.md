@@ -162,8 +162,9 @@ access. Mechanics, output semantics, and known limits are in `docs/specs/headles
   When an entry is required, follow `.agents/skills/changelog-entry/SKILL.md`.
 - Update `docs/specs/` when an established behavior contract or durable architecture decision changes.
   Pure refactors need no spec edit unless existing text becomes false.
-- Add to `TODO.md` only for concrete unresolved work or deliberately deferred approved scope. Remove or
-  update entries when that work is completed. Documentation-only tasks do not recursively require
+- Add to `TODO.md` only for concrete unresolved work or deliberately deferred approved scope. When that
+  work is completed, remove its entry entirely — never mark completed entries (no `[x]`), so the file
+  only ever lists open work. Documentation-only tasks do not recursively require
   additional documentation artifacts.
 
 ## Handoff
