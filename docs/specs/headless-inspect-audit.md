@@ -137,3 +137,41 @@ The 2026-09-05 audit after the pointer-shaped macro-argument and indexed-value
 flow repairs reports 18 Crystal findings: 17 argument-count findings and one
 type mismatch. The former `static_file_handler_spec.cr` lib-fun false positive
 no longer reproduces; the other three classes above remain.
+
+## Findings from the kemal re-audit (0.2.8 build, 2026-09-17)
+
+Target `kemalcr/kemal @ be453d6` with locked shard deps installed, parse
+preflight green (458 files, 0 errors). Result: 418 Crystal problems in `.cr`
+files plus 26 filtered non-`.cr` noise — a count jump explained entirely by
+scope, not regressions: this run covers `lib/` dependency specs (notably
+ameba's), whose `<<-CRYSTAL` samples intentionally contain invalid code.
+
+- All four previously documented false-positive classes are gone: no
+  `run_spec` monotonic finding, no `status_code` chains, no
+  `static_file_handler` lib-fun case, no `exception_page` constructor case,
+  and no type-mismatch findings at all.
+- `CrystalUnusedVariable` (334): all inside `lib/ameba/spec` sample code
+  (specs for lint rules intentionally declare unused vars, e.g. `a = 1` in a
+  `<<-CRYSTAL` sample) plus 5 in `exception_page.ecr` (see below). Zero in
+  kemal's own `src/` and `spec/`.
+- `CrystalParseError` in `.cr` files (~86): all inside ameba spec samples —
+  intentionally invalid fragments (`if (); end`, `()`), non-ASCII identifiers
+  under test (`space_👾`), `# ^^^ error:` annotations, and `%`-fragments.
+  Zero in kemal's own `.cr` code.
+- `CrystalArgumentCount` (1): the already-tracked
+  `excessive_allocations_spec.cr:10` (`"Alice".chars.each(arg)` in a sample
+  with undefined `arg`; `each` takes no positional args, so the finding is
+  arguably correct). Traced, not actionable — TODO item closed accordingly.
+- `CrystalColonSpacing` (2): true positives per `crystal tool format`
+  ("space required before colon in type restriction" on `&on_message:
+  Callback`), but inside abstract-def samples — validates the inspection,
+  no action.
+- Genuine follow-up family: `lib/exception_page/.../exception_page.ecr`
+  (17 parse + 5 unused-var) and kemal's `spec/asset/hello_with_content_for.ecr`
+  (1 parse) — block-form `content_for ... do` and HTML/code interleave exceed
+  current ECR support. Real shipped/spec-asset templates, tracked in TODO.md.
+
+Note on running the audit at all: the `lib/<shard>/lib -> ..` symlinks that
+`shards install` leaves behind trip the target snapshotter's directory-cycle
+guard; they were moved aside for the run (nothing requires through them) and
+restored afterwards with a clean worktree.
