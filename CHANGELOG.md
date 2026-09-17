@@ -5,6 +5,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Class variable assignments and visibility-modified methods in enum bodies** —
+  enum bodies now accept `@@kind_ids = ...` assignments (plain `=` only) and
+  `private`/`protected` method or macro definitions, as in `llvm/enums.cr`. Both
+  forms alias their established assignment and visibility-modifier PSI types, so
+  resolution, rename, and highlighting keep working; type declarations,
+  op-assignments, and other statements stay invalid at enum-body level. Covered
+  by the EnumClassVarAndVisibility golden, enum-body rejection tests, an
+  enum-ownership test, and a real-file canary. The distribution corpus drops
+  from 7 errors in 5 files to 5 in 4, with `enums.cr` fully repaired and zero
+  newly failing files.
 - **Float literals without underscore suffix** — integer-written floats such as
   `1f32` and `1f64` in `crystal/compiler_rt/pow.cr` now lex as a single
   `FLOAT_LITERAL`, matching the existing `1_f32` form. The underscore before the

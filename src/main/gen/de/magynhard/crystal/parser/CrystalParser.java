@@ -3655,6 +3655,30 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // CLASS_VAR ASSIGN NLS (assignment | nested_indexed_assignment | expression)
+  public static boolean enum_class_var_assignment(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "enum_class_var_assignment")) return false;
+    if (!nextTokenIs(builder_, CLASS_VAR)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokens(builder_, 0, CLASS_VAR, ASSIGN);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && enum_class_var_assignment_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, ASSIGNMENT, result_);
+    return result_;
+  }
+
+  // assignment | nested_indexed_assignment | expression
+  private static boolean enum_class_var_assignment_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "enum_class_var_assignment_3")) return false;
+    boolean result_;
+    result_ = assignment(builder_, level_ + 1);
+    if (!result_) result_ = nested_indexed_assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // (CONSTANT | macro_interpolation) [ASSIGN expression]
   public static boolean enum_constant(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "enum_constant")) return false;
@@ -3730,7 +3754,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation !ASSIGN | macro_interpolation_escaped | enum_constant | method_definition
+  // NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation !ASSIGN | macro_interpolation_escaped | enum_constant | method_definition | enum_class_var_assignment | enum_visibility_method
   static boolean enum_member(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "enum_member")) return false;
     boolean result_;
@@ -3744,6 +3768,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = macro_interpolation_escaped(builder_, level_ + 1);
     if (!result_) result_ = enum_constant(builder_, level_ + 1);
     if (!result_) result_ = method_definition(builder_, level_ + 1);
+    if (!result_) result_ = enum_class_var_assignment(builder_, level_ + 1);
+    if (!result_) result_ = enum_visibility_method(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -3766,6 +3792,37 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !consumeToken(builder_, ASSIGN);
     exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // (PRIVATE | PROTECTED) (method_definition | macro_definition)
+  public static boolean enum_visibility_method(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "enum_visibility_method")) return false;
+    if (!nextTokenIs(builder_, "<enum visibility method>", PRIVATE, PROTECTED)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, VISIBILITY_MODIFIER, "<enum visibility method>");
+    result_ = enum_visibility_method_0(builder_, level_ + 1);
+    result_ = result_ && enum_visibility_method_1(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // PRIVATE | PROTECTED
+  private static boolean enum_visibility_method_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "enum_visibility_method_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, PRIVATE);
+    if (!result_) result_ = consumeToken(builder_, PROTECTED);
+    return result_;
+  }
+
+  // method_definition | macro_definition
+  private static boolean enum_visibility_method_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "enum_visibility_method_1")) return false;
+    boolean result_;
+    result_ = method_definition(builder_, level_ + 1);
+    if (!result_) result_ = macro_definition(builder_, level_ + 1);
     return result_;
   }
 

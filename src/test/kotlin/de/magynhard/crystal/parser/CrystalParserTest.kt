@@ -127,6 +127,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testEnumClassVarAndVisibility() {
+        doTest(true)
+    }
+
     fun testSpecFile() {
         doTest(true)
     }

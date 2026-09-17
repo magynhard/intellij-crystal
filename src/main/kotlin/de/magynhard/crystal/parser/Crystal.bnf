@@ -331,9 +331,24 @@ enum_body ::= enum_member*
 // The !ASSIGN guard keeps `{{value.id}} = LibC::{{value.id}}` (errno.cr)
 // flowing into enum_constant: without it PEG commits the bare interpolation
 // member and strands the `=`.
-private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation !ASSIGN | macro_interpolation_escaped | enum_constant | method_definition
+private enum_member ::= NEWLINE | SEMICOLON | annotation_usage | macro_control | macro_control_escaped | macro_interpolation !ASSIGN | macro_interpolation_escaped | enum_constant | method_definition | enum_class_var_assignment | enum_visibility_method
 
 enum_constant ::= (CONSTANT | macro_interpolation) [ASSIGN expression]
+
+// Enum bodies accept class variable assignments (`@@kind_ids = ...` in
+// llvm/enums.cr); the compiler's parse_enum_body_expressions binds CLASS_VAR
+// + OP_EQ with an op-assign RHS (parser.cr:6339-6347). Only plain `=` is
+// admitted: `||=`, op-assign, type declarations, and other statements stay
+// invalid at enum-body level. The alias keeps the established ASSIGNMENT PSI
+// so resolution, rename, and highlighting reuse their accessors.
+enum_class_var_assignment ::= CLASS_VAR ASSIGN NLS (assignment | nested_indexed_assignment | expression) {elementType=assignment}
+
+// Enum bodies accept visibility-modified methods (`protected def self.kind_ids`
+// in llvm/enums.cr); the compiler wraps the following def/macro in a
+// visibility modifier and rejects anything else (parser.cr:6311-6335), so only
+// method and macro definitions join this rule. The alias reuses the
+// established VISIBILITY_MODIFIER PSI.
+enum_visibility_method ::= (PRIVATE | PROTECTED) (method_definition | macro_definition) {elementType=visibility_modifier}
 
 // Canonical PSI schema for lib-shaped bodies. The concrete outer-lib, struct,
 // and union rules below all use this element type, preserving their shared

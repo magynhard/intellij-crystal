@@ -1432,11 +1432,16 @@ before the `f32`/`f64` suffix (`1f32`, `1f64` alongside `1_f32`), mirrored in
 plain code, string interpolation, macro interpolation, and macro control, so
 `crystal/compiler_rt/pow.cr` is fully repaired.
 
-The complete 1,625-file distribution currently reports 7 errors in 5 files.
+Enum bodies admit class variable assignments with plain `=` (`@@kind_ids = ...`)
+and `private`/`protected` method or macro definitions, mirroring the compiler's
+`parse_enum_body_expressions`; both alias their established PSI types. Type
+declarations, op-assignments, and other statements remain invalid at enum-body
+level, so `llvm/enums.cr` is fully repaired.
+
+The complete 1,625-file distribution currently reports 5 errors in 4 files.
 Besides the two indexed deferred files (`compiler/crystal/ffi/type.cr` and
 `compiler/crystal/interpreter/instructions.cr`), the remaining distribution-only
-clusters are `crystal/system/thread_linked_list.cr`, `gc/boehm.cr`, and
-`llvm/enums.cr`.
+clusters are `crystal/system/thread_linked_list.cr` and `gc/boehm.cr`.
 
 ## Fix Requirements
 

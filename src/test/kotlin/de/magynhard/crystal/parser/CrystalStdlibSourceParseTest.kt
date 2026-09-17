@@ -312,4 +312,11 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val pow = findStdlibFile("crystal/compiler_rt/pow.cr") ?: return
         assertParsesCleanly(pow)
     }
+
+    fun testEnumsCrParsesWithoutErrors() {
+        // llvm/enums.cr assigns class variables and declares private/protected
+        // methods directly in the enum body.
+        val enums = findStdlibFile("llvm/enums.cr") ?: return
+        assertParsesCleanly(enums)
+    }
 }
