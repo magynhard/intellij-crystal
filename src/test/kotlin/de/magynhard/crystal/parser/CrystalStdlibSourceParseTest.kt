@@ -300,7 +300,8 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
     }
 
     fun testToSCrParsesWithoutErrors() {
-        // compiler/crystal/syntax/to_s.cr cascade error
+        // syntax/to_s.cr passes a loose grouped expression with postfix access
+        // as the first argument of a multi-argument bare call.
         val toS = findStdlibFile("compiler/crystal/syntax/to_s.cr") ?: return
         assertParsesCleanly(toS)
     }

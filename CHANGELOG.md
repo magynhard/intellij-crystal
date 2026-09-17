@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Loose grouped postfix arguments** — bare calls now parse a whitespace-separated
+  grouped first argument with a postfix chain before subsequent comma arguments,
+  such as `write_extra_newlines (a || b).end_location, b.location` in compiler
+  `syntax/to_s.cr`. PEG-first branches for ordinary, receiver, and nested bare
+  calls prevent `call_args` from committing the parenthesized prefix and
+  stranding the postfix/comma; tight `foo(...)` calls remain unchanged. Covered by the
+  LooseGroupedPostfixArguments golden and a real-file canary. The indexed corpus
+  drops from 4 errors in 3 files to 3 in 2, with `to_s.cr` fully repaired and
+  zero newly failing files.
 - **Macro-generated proc parameters** — parenthesized proc literals now accept
   compile-time control tags around their parameter list and structured names
   such as `arg{{i}} : {{T[i + U.size]}}`, matching `proc.cr`'s `partial`

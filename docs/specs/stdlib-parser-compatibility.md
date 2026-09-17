@@ -1419,6 +1419,20 @@ identifier prefix with macro interpolation (`arg{{i}}`). The prefix requirement
 keeps a bare interpolation invalid, while macro-interpolated type restrictions
 continue through the existing `type_reference` rule.
 
+The indexed corpus drops from 4 errors in 3 files to 3 in 2 with compiler
+`syntax/to_s.cr` fully repaired. PEG-specific branches for ordinary, receiver,
+and nested bare calls now own a loose parenthesized first bare argument when it
+has a postfix chain and is followed by more comma-separated arguments
+(`(a || b).end_location, b.location`). They precede ordinary `call_args`, which
+otherwise commits the grouped prefix; tight parenthesized calls and grouped
+expressions without postfix access remain unchanged.
+
+The complete 1,625-file distribution currently reports 8 errors in 6 files.
+Besides the two indexed deferred files (`compiler/crystal/ffi/type.cr` and
+`compiler/crystal/interpreter/instructions.cr`), the remaining distribution-only
+clusters are `crystal/compiler_rt/pow.cr`,
+`crystal/system/thread_linked_list.cr`, `gc/boehm.cr`, and `llvm/enums.cr`.
+
 ## Fix Requirements
 
 Each repaired syntax family must have a minimized parser golden that contains

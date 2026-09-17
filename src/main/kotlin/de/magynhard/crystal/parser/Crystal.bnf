@@ -1157,7 +1157,8 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // from the index postfix (config["envs"] has no comma and keeps binding as
 // index).
 dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | AT macro_interpolation | keyword_as_method | macro_interpolation) [&<<isTokenTightAfterPreviousToken>> QUESTION]
-                           [!<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
+                            [!<<isTokenTightAfterPreviousToken>> loose_grouped_postfix_argument_list
+                            | !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
                            | call_args
                            // The lookahead mirrors method_call_expression's bare
                            // alternative with Crystal's unary-operator whitespace rule:
@@ -1309,7 +1310,14 @@ private call_callee ::= IDENTIFIER | CONSTANT | SELECT | IS_A | RESPONDS_TO
 private bare_call_callee ::= IDENTIFIER | CONSTANT | IS_A | RESPONDS_TO
 
 method_call_expression ::= &<<isRecordDeclaration>> IDENTIFIER (call_args | bare_argument_list) DO class_body END
-                          | [DOUBLE_COLON] call_callee !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list [block]
+                          // A loose parenthesized first bare argument may carry
+                          // postfix access before later comma arguments:
+                          // `write_extra_newlines (a || b).end_location, b.location`
+                          // (compiler syntax/to_s.cr). This must precede call_args,
+                          // which would commit `(a || b)` as the call's complete
+                          // parenthesized argument list and strand the postfix/comma.
+                           | [DOUBLE_COLON] call_callee !<<isTokenTightAfterPreviousToken>> loose_grouped_postfix_argument_list [block]
+                           | [DOUBLE_COLON] call_callee !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list [block]
                           | [DOUBLE_COLON] call_callee call_args [block]
                          // The lookahead uses Crystal's unary-operator whitespace rule:
                          // `shift -span.to_i, -span.nanoseconds` (time.cr) negates its
@@ -1452,6 +1460,12 @@ private out_argument ::= OUT NLS (IDENTIFIER | INSTANCE_VAR)
 // keep their NEWLINE unconsumed.
 bare_argument_list ::= bare_argument (macro_argument_trivia COMMA macro_argument_trivia bare_argument)* [COMMA macro_argument_trivia]
 
+// The first argument's LPAREN is a grouped expression, not call_args. Alias the
+// complete sequence to BARE_ARGUMENT_LIST so every call consumer sees all
+// arguments through the established PSI accessor.
+loose_grouped_postfix_argument_list ::= loose_grouped_postfix_argument (macro_argument_trivia COMMA macro_argument_trivia bare_argument)+ [COMMA macro_argument_trivia] {elementType=bare_argument_list}
+loose_grouped_postfix_argument ::= grouped_expression bare_postfix_op+ {elementType=bare_argument}
+
 // `out` is also an ordinary variable now, so the forwarding form must
 // precede the expression alternatives: `receive out target` would otherwise
 // commit a bare `out` variable and strand `target` (PEG never retries).
@@ -1583,7 +1597,8 @@ private bare_primary_expression ::= grouped_expression
 // bogus multi-assignment statement (broke stdlib http/client.cr). The guards mirror
 // method_call_expression: no member access, no index, and no binary-operator lookahead,
 // so `width + height` stays a binary expression instead of becoming call arguments.
-bare_method_call_expression ::= bare_call_callee call_args
+bare_method_call_expression ::= bare_call_callee !<<isTokenTightAfterPreviousToken>> loose_grouped_postfix_argument_list
+                               | bare_call_callee call_args
                               // !isDotBareArgsBinaryOp refines the old !nested_call_lookahead
                               // with Crystal's unary whitespace rule: `shift -span.to_i,
                               // -span.nanoseconds` (time.cr) negates its first bare argument,

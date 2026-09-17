@@ -119,6 +119,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testLooseGroupedPostfixArguments() {
+        doTest(true)
+    }
+
     fun testSpecFile() {
         doTest(true)
     }
