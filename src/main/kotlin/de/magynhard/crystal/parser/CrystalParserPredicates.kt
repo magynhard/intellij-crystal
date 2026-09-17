@@ -43,6 +43,48 @@ object CrystalParserPredicates {
     }
 
     /**
+     * True when the previous significant token is an assignment operator
+     * (`=`, `||=`, `+=`, …). Gates the stray-operator recovery alternative:
+     * right after `variable assign_op`, a purely infix-capable operator can
+     * never start a valid right-hand side, so the pinned assignment rule has
+     * already recorded its error there and the stray token may be consumed
+     * silently to resync parsing. Anywhere else (leading `&& x`, trailing
+     * `a &&`, block-param bars) no upstream error exists, and swallowing the
+     * token would mask a genuine syntax error — so the gate stays closed and
+     * the previous error behavior is preserved. Only whitespace and newlines
+     * are skipped looking back; comments or anything else fail closed.
+     */
+    @JvmStatic
+    fun isAfterAssignOp(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        var step = -1
+        while (true) {
+            val token = builder.rawLookup(step) ?: return false
+            if (token === TokenType.WHITE_SPACE || token === CrystalTypes.NEWLINE) {
+                step--
+                continue
+            }
+            return token === CrystalTypes.ASSIGN ||
+                token === CrystalTypes.PLUS_ASSIGN ||
+                token === CrystalTypes.MINUS_ASSIGN ||
+                token === CrystalTypes.STAR_ASSIGN ||
+                token === CrystalTypes.SLASH_ASSIGN ||
+                token === CrystalTypes.PERCENT_ASSIGN ||
+                token === CrystalTypes.AMPERSAND_ASSIGN ||
+                token === CrystalTypes.PIPE_ASSIGN ||
+                token === CrystalTypes.CARET_ASSIGN ||
+                token === CrystalTypes.DOUBLE_STAR_ASSIGN ||
+                token === CrystalTypes.DOUBLE_SLASH_ASSIGN ||
+                token === CrystalTypes.LSHIFT_ASSIGN ||
+                token === CrystalTypes.RSHIFT_ASSIGN ||
+                token === CrystalTypes.OR_OR_ASSIGN ||
+                token === CrystalTypes.AND_AND_ASSIGN
+        }
+    }
+
+    /**
      * Binary-operator lookahead for dot-call bare arguments, honoring Crystal's
      * whitespace rule for unary operators: `Time.monotonic - start` is the
      * binary minus (spaced after the operator), while `file.seek -ZIP_TAIL_SIZE`

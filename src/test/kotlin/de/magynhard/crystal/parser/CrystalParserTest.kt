@@ -51,6 +51,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testIncompleteBinaryOperatorRecovery() {
+        doTest(true)
+    }
+
     fun testPostfixIndexedAssignments() {
         doTest(true)
     }

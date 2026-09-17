@@ -225,6 +225,7 @@ private top_level_statement ::= NEWLINE
                               | macro_control_escaped
                               | macro_interpolation_escaped
                               | statement
+                              | stray_operator
 
 // ==================== Require / Include / Extend ====================
 
@@ -722,7 +723,30 @@ visibility_modifier ::= (PRIVATE | PROTECTED) (method_definition | macro_definit
 
 statement_list ::= statement_or_separator*
 
-private statement_or_separator ::= NEWLINE | SEMICOLON | statement
+private statement_or_separator ::= NEWLINE | SEMICOLON | statement | stray_operator
+
+// Boundary-aware error recovery for stranded infix operators (`value = !~
+// other`, `value = other !~`): after the pinned rule records its error, the
+// offending token would otherwise end every enclosing statement loop and
+// collapse the rest of the file into recovery debris, swallowing following
+// declarations. This alternative consumes exactly one such token so parsing
+// resumes at the next statement; it creates no error element itself because
+// the upstream pinned rule already recorded one. It is tried strictly last,
+// so valid files never reach it (every reachable position there matches a
+// real statement or a structural token first) — no valid tree can change.
+// The assign-op gate is load-bearing: it admits the stray token only right
+// after `variable assign_op`, where a purely infix-capable operator can never
+// start a valid right-hand side (so the assignment pin has always errored
+// there first). Anywhere else — leading `&& x`, trailing `a &&`, block-param
+// bars — no upstream error exists, and swallowing the token would mask a
+// genuine syntax error; the gate stays closed there and previous behavior is
+// preserved. Only purely infix-capable operators qualify: unary-capable
+// tokens (PLUS, MINUS, STAR, CARET, AMPERSAND, TILDE, BANG), PIPE (block-param
+// bars like `|out|` must keep erroring), closers, COLON, DOTs, and all
+// keywords stay excluded so blocks, calls, symbols, and structural boundaries
+// (END, DEF, NEWLINE) keep their meaning. This is deliberately not
+// `recoverWhile`: a fixed single token per step, no skipping loop.
+private stray_operator ::= &<<isAfterAssignOp>> (AND_AND | OR_OR | BANG_TILDE | CASE_EQ | MATCH_OP | SPACESHIP | EQ | NEQ | LT | LTE | GT | GTE)
 
 statement ::= !WHEN statement_body
 
@@ -1080,7 +1104,18 @@ private or_expression ::= and_expression (OR_OR NLS and_expression)*
 // The level is gone; the and/or rows reference comparison directly.
 private and_expression ::= comparison_expression (AND_AND NLS comparison_expression)*
 
-private comparison_expression ::= range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression)*
+private comparison_expression ::= range_expression comparison_tail*
+
+// A stranded comparison operator (`value = other !~` at end of line) records
+// a precise error for the missing right-hand side and consumes the operator,
+// so the enclosing statement loop resyncs at the newline instead of
+// collapsing the rest of the file. Pin commits after the operator: without
+// a right-hand side there is no valid continuation to backtrack into, and
+// valid `a OP b` (including newline-continued) trees stay byte-identical
+// because the private tail inlines. Other operator families (and/or,
+// arithmetic, bitwise) keep their current behavior: same disease, no corpus
+// case — extend here only with evidence.
+private comparison_tail ::= (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression {pin=1}
 
 private range_expression ::= (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
                            | or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]]
@@ -1572,7 +1607,12 @@ private bare_or_expression ::= bare_and_expression (OR_OR NLS bare_and_expressio
 
 private bare_and_expression ::= bare_comparison_expression (AND_AND NLS bare_comparison_expression)*
 
-private bare_comparison_expression ::= bare_range_expression ((EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression)*
+private bare_comparison_expression ::= bare_range_expression bare_comparison_tail*
+
+// Bare-call mirror of comparison_tail: a stranded operator inside bare
+// arguments records its error and consumes forward the same way, keeping
+// bare and parenthesized expression families consistent.
+private bare_comparison_tail ::= (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression {pin=1}
 
 private bare_range_expression ::= (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
                                | bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]]

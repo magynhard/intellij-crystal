@@ -61,10 +61,18 @@
   (`range.match /re/`), nested-callee (`x.should match /re/`), and keyword (`when /^get_/`)
   contexts are covered by lexer heuristics; a correct general solution needs parse-context
   feedback into lexing.
-- [ ] **Preserve declarations after incomplete binary operators** — malformed prefix/postfix forms such as
-  `value = !~ other` and `value = other !~` produce a `PsiErrorElement` but can consume a following
-  declaration during pinned assignment recovery. Add boundary-aware recovery without `recoverWhile` or
-  weakening valid consecutive-statement parsing, then assert the trailing declaration remains structured.
+- [x] **Preserve declarations after incomplete binary operators** — done
+  2026-09-17: malformed `value = !~ other` / `value = other !~` keep their error
+  element, and following declarations stay structured. Two narrow mechanisms,
+  no `recoverWhile`, no valid-tree changes (full suite byte-identical): a silent
+  single-token `stray_operator` alternative (last resort in statement loops,
+  gated by `isAfterAssignOp` so it only fires where the assignment pin already
+  errored — leading/trailing operators elsewhere keep erroring as before), plus
+  pinned `comparison_tail`/`bare_comparison_tail` rules so a stranded comparison
+  operator records its missing-operand error and consumes forward. Other
+  operator families (and/or, arithmetic, bitwise) keep prior behavior; class and
+  lib bodies are not covered. Pinned by the IncompleteBinaryOperatorRecovery
+  golden and def-preservation tests.
 - [x] **Keep postfix bare calls from consuming heredoc body openers** — done
   2026-09-17: the plain method-call bare-argument alternative now carries the
   established `!<<isHeredocBodyOpener>>` guard (the one of seven entry points
