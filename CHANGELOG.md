@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Keyword setter names in member assignments** — nested member assignments
+  now accept keyword method names (`@tail = tail.next = node` in
+  `crystal/system/thread_linked_list.cr`), matching ordinary dot calls. Only
+  word keywords join the member-assignment alternative; operators stay invalid
+  in this nested position. Covered by the KeywordMemberAssignment golden,
+  isolation and rejection tests, and a real-file canary. The distribution
+  corpus drops from 4 errors in 3 files to 3 in 2, with `thread_linked_list.cr`
+  fully repaired and zero newly failing files.
 - **Parameterless proc literals with `do` bodies** — `-> do ... end` without
   parentheses now parses as a proc literal, as in `gc/boehm.cr`'s
   `LibGC.set_start_callback -> do` callback. The body stays optional exactly

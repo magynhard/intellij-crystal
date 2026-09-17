@@ -135,6 +135,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testKeywordMemberAssignment() {
+        doTest(true)
+    }
+
     fun testSpecFile() {
         doTest(true)
     }

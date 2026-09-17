@@ -1444,10 +1444,13 @@ arrow (`LibGC.set_start_callback -> do ... end`), mirroring the compiler's
 `do` never attaches as a block to the outer call. `gc/boehm.cr` is fully
 repaired.
 
-The complete 1,625-file distribution currently reports 4 errors in 3 files.
-Besides the two indexed deferred files (`compiler/crystal/ffi/type.cr` and
-`compiler/crystal/interpreter/instructions.cr`), the remaining distribution-only
-cluster is `crystal/system/thread_linked_list.cr`.
+Member assignments accept keyword setter names (`@tail = tail.next = node`),
+matching ordinary dot calls while keeping operators invalid in this nested
+position; `crystal/system/thread_linked_list.cr` is fully repaired.
+
+The complete 1,625-file distribution currently reports 3 errors in 2 files,
+exactly the two indexed deferred files (`compiler/crystal/ffi/type.cr` and
+`compiler/crystal/interpreter/instructions.cr`).
 
 ## Fix Requirements
 

@@ -326,4 +326,11 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val boehm = findStdlibFile("gc/boehm.cr") ?: return
         assertParsesCleanly(boehm)
     }
+
+    fun testThreadLinkedListCrParsesWithoutErrors() {
+        // crystal/system/thread_linked_list.cr nests a keyword member
+        // assignment (`@tail = tail.next = node`) inside a `synchronize` block.
+        val linkedList = findStdlibFile("crystal/system/thread_linked_list.cr") ?: return
+        assertParsesCleanly(linkedList)
+    }
 }

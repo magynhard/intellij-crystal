@@ -10018,12 +10018,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
   //                      | NLS bang_suffix
-  //                      // PEG: member assignment must precede ordinary dot-call access, otherwise
-  //                      // `config.server ||= value` commits to `.server` and strands the assign op.
-  //                      // Plain ASSIGN covers setter calls as nested assignment values
-  //                      // (`x = node.exp.visibility = node.modifier`, ameba scope_visitor);
-  //                      // top-level setter statements keep binding through the statement suffix.
-  //                      | NLS DOT IDENTIFIER (compound_assign_op | ASSIGN) expression
+  //                       // PEG: member assignment must precede ordinary dot-call access, otherwise
+  //                       // `config.server ||= value` commits to `.server` and strands the assign op.
+  //                       // Plain ASSIGN covers setter calls as nested assignment values
+  //                       // (`x = node.exp.visibility = node.modifier`, ameba scope_visitor);
+  //                       // top-level setter statements keep binding through the statement suffix.
+  //                       // Member assignment also accepts keyword setter names
+  //                       // (`@tail = tail.next = node` in thread_linked_list.cr): `next`
+  //                       // lexes as NEXT, but Crystal allows keyword method names as
+  //                       // setters exactly like ordinary dot calls. keyword_identifier
+  //                       // admits word keywords only — operators stay invalid in this
+  //                       // nested position (they bind through the statement-level
+  //                       // expression_assign_suffix instead).
+  //                       | NLS DOT (IDENTIFIER | keyword_identifier) (compound_assign_op | ASSIGN) expression
   //                      | NLS dot_call_access [block]
   //                      // Nil-question chain on non-identifier receivers (`$1?.presence`,
   //                      // ameba admonition): tight only, so the spaced ternary `a ? b : c`
@@ -10092,16 +10099,26 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // NLS DOT IDENTIFIER (compound_assign_op | ASSIGN) expression
+  // NLS DOT (IDENTIFIER | keyword_identifier) (compound_assign_op | ASSIGN) expression
   private static boolean postfix_op_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op_2")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = NLS(builder_, level_ + 1);
-    result_ = result_ && consumeTokens(builder_, 0, DOT, IDENTIFIER);
+    result_ = result_ && consumeToken(builder_, DOT);
+    result_ = result_ && postfix_op_2_2(builder_, level_ + 1);
     result_ = result_ && postfix_op_2_3(builder_, level_ + 1);
     result_ = result_ && expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // IDENTIFIER | keyword_identifier
+  private static boolean postfix_op_2_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_2_2")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
     return result_;
   }
 
