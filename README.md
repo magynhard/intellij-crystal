@@ -4,10 +4,10 @@
 
 # Crystal Language Plugin for JetBrains IDEs
 
-[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.2.8-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=purple&label=JetBrains)](https://plugins.jetbrains.com/plugin/32180-crystal-language)
-[![IntelliJ Platform](https://img.shields.io/badge/Platform-2026.2+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=black&label=IntelliJ)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
-[![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=darkslategray&label=Crystal)](https://crystal-lang.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg?style=plastic&logo=mit&labelColor=beige)](LICENSE)
+[![JetBrains Plugin](https://img.shields.io/badge/Plugin-v0.2.8-gray?style=plastic&logo=jetbrains&logoColor=white&labelColor=ec01cd&label=JetBrains%20Plugin)](https://plugins.jetbrains.com/plugin/32180-crystal-language)
+[![IntelliJ Platform](https://img.shields.io/badge/Platform-2026.2+-gray?style=plastic&logo=intellijidea&logoColor=white&labelColor=blue&label=IntelliJ%20Platform)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
+[![Crystal](https://img.shields.io/badge/Crystal-1.x-gray?style=plastic&logo=crystal&logoColor=white&labelColor=black&label=Crystal)](https://crystal-lang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-gray.svg?style=plastic&logo=mit&labelColor=gold)](LICENSE)
 
 Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compatible JetBrains IDEs. The plugin provides editing, navigation, code intelligence, testing, and debugging through a native IntelliJ Platform integration without requiring a language server.
 
