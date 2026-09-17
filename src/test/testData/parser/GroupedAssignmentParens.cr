@@ -1,6 +1,8 @@
-# Regression anchor: assignments inside parentheses route through grouped
-# expressions (bare path), NOT through call_args. The rescue-state analyzer
-# (CrystalTypeSetResolver) depends on this exact shape.
+# Regression anchor: a parenthesized assignment argument routes through
+# call_args as ARGUMENT > ASSIGNMENT (matching the compiler's parse_op_assign
+# in argument position), NOT through the bare grouped-expression fallback.
+# The rescue-state analyzer covers this shape directly
+# (CrystalTypeSetResolverTest.testRescueSeesPostArgumentAssignmentStateWhenEnclosingCallRaises).
 def use
   value = 1
   begin

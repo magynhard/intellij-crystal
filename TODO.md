@@ -281,11 +281,11 @@
 
 ## Parser Follow-up
 
-- [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — reduce the indexed
+- [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — the indexed
   `stdlibParseAudit` corpus (pinned 650 production-indexed sources, compiler tree
-  included) from the current 175 errors in 126 files to zero, then parse the whole
-  distribution without errors. Once both are green, add
-  mandatory CI jobs that download the pinned official archive, verify SHA-256
+  included) and the whole distribution (1,625 files) both parse with zero errors
+  since 2026-09-17 (the "175 errors in 126 files" baseline is resolved). Remaining:
+  add mandatory CI jobs that download the pinned official archive, verify SHA-256
   `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both
   scopes. Keep raw `PsiErrorElement` collection and exact file counts; do not add an
   error allowlist or accepted nonzero threshold. See `docs/specs/stdlib-parser-compatibility.md`.
@@ -298,13 +298,14 @@
   supports identifier external names only. Add a delimiter-safe non-interpolating string-name
   rule, reject empty/interpolated names, and preserve the decoded call-site label separately
   from the internal binding.
-- [ ] **Parse comma-separated assignments inside parenthesized calls (`compute(x = 5, y = 6)`)** — valid Crystal
-  (verified: compiles and evaluates both assignments in order), but neither the bare-argument path (grouped
-  expressions hold at most one assignment) nor `argument_list` (`argument` cannot consume `id = expr`) accepts it.
-  PRE-EXISTING gap, verified against the baseline grammar while landing heredoc marker support (v12). Fix likely:
-  extend `argument` with an assignment alternative mirroring grouped-expression semantics, or route multi-group
-  lists through a dedicated `assignment_argument` element — careful with `named_argument {pin=2}` interplay.
-  Single-assignment form `consume(value = "ready")` works (see docs/specs/heredoc-calls.md binding matrix).
+- [x] **Parse comma-separated assignments inside parenthesized calls (`compute(x = 5, y = 6)`)** — done
+  2026-09-17 via a dedicated `assignment_argument` rule (aliased to the established
+  assignment PSI, without the statement-only postfix-modifier/heredoc tails the
+  compiler rejects in call arguments). The old single-assignment shape (bare call
+  with grouped expression) now routes through call_args like the multi form; the
+  rescue-state analyzer covers it
+  (`testRescueSeesPostArgumentAssignmentStateWhenEnclosingCallRaises` green).
+  Member targets (`x.y = 5`, valid Crystal) stay a follow-up with no corpus case.
 - [ ] **Support brace blocks after `&.` shorthand (`f &.m { }`)** — `implicit_object_call` accepts no
   trailing `[block]`, so the unparenthesized proc-plus-block form (`select &.even? { }`) fails to parse.
   Parenthesized usage (`select(&.even?)`) is unaffected. Rare in real code; extend the rule with a

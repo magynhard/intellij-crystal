@@ -5,6 +5,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Assignment arguments in parenthesized calls** — `compute(x = 5, y = 6)` now
+  parses via a dedicated `assignment_argument` rule aliased to the established
+  assignment PSI, so assigned locals resolve and rename like statement
+  assignments. Chained and op-assign right-hand sides work; the statement-only
+  postfix-modifier and heredoc tails are excluded exactly as the compiler
+  rejects them in call arguments. The previous single-assignment bare-grouped
+  shape now routes through call_args uniformly, with the rescue-state analyzer
+  covered by its dedicated tests. Covered by the AssignmentCallArguments
+  golden, isolation/boundary tests, and analyzer regression runs. Both audits
+  stay at zero errors with zero newly failing files.
 - **Lib external vars as `pointerof` targets** — `pointerof(LibFFI.ffi_type_void)`
   in `compiler/crystal/ffi/type.cr` now parses: the compiler's `pointerof_var`
   accepts zero-argument calls on lib types, which is syntactically a constant

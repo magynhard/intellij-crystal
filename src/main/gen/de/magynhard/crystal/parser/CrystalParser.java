@@ -328,6 +328,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //            | named_type_argument
   //            | named_argument
   //            | starred_type_expression
+  //            | assignment_argument
   //            | expression
   public static boolean argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "argument")) return false;
@@ -340,6 +341,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = named_type_argument(builder_, level_ + 1);
     if (!result_) result_ = named_argument(builder_, level_ + 1);
     if (!result_) result_ = starred_type_expression(builder_, level_ + 1);
+    if (!result_) result_ = assignment_argument(builder_, level_ + 1);
     if (!result_) result_ = expression(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
@@ -1116,6 +1118,31 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "assignment_5")) return false;
     heredoc_bodies(builder_, level_ + 1);
     return true;
+  }
+
+  /* ********************************************************** */
+  // variable assign_op NLS (assignment | nested_indexed_assignment | expression)
+  public static boolean assignment_argument(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_argument")) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _COLLAPSE_, ASSIGNMENT, "<assignment argument>");
+    result_ = variable(builder_, level_ + 1);
+    result_ = result_ && assign_op(builder_, level_ + 1);
+    pinned_ = result_; // pin = 2
+    result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
+    result_ = pinned_ && assignment_argument_3(builder_, level_ + 1) && result_;
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
+  }
+
+  // assignment | nested_indexed_assignment | expression
+  private static boolean assignment_argument_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "assignment_argument_3")) return false;
+    boolean result_;
+    result_ = assignment(builder_, level_ + 1);
+    if (!result_) result_ = nested_indexed_assignment(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
   }
 
   /* ********************************************************** */

@@ -1441,9 +1441,27 @@ argument ::= STAR expression
            | named_type_argument
            | named_argument
            | starred_type_expression
+           | assignment_argument
            | expression
            {
   mixin="de.magynhard.crystal.psi.impl.CrystalAccessorArgumentMixin"
+}
+
+// Assignment arguments (`compute(x = 5, y = 6)`): valid Crystal — the call
+// passes each assigned value in order. The shape mirrors `assignment`
+// (variable targets, chained and op-assign right-hand sides) but deliberately
+// drops its `[postfix_modifier]` and `[heredoc_bodies]` tails: the compiler
+// rejects a bare trailing modifier in call arguments (`compute(x = 5 if c)`
+// is "expecting token ')', not 'if'"). Member targets (`x.y = 5`, valid
+// Crystal) stay a separate follow-up: no corpus case needs them. The alias
+// keeps the established ASSIGNMENT PSI so the assigned local resolves and
+// renames exactly like a statement assignment; call-value consumers keep
+// working because they already tolerate a missing direct expression child.
+// PEG: precedes plain `expression`, which would otherwise commit the `x`
+// prefix and strand the `=`; ASSIGN versus COLON keeps it disjoint from both
+// named-argument forms (their pin commits only after the colon).
+assignment_argument ::= variable assign_op NLS (assignment | nested_indexed_assignment | expression) {pin=2
+  elementType=assignment
 }
 
 // C pointer suffixes inside generic type arguments used as call arguments:

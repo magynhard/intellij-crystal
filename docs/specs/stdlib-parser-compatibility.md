@@ -1490,6 +1490,14 @@ constants, literals, and member accesses are not valid out targets. Out values
 are valid only for `lib fun` calls; call resolution and diagnostics for FFI
 functions remain tracked in `TODO.md`.
 
+Parenthesized calls accept assignment arguments (`compute(x = 5, y = 6)`),
+each carried as an assignment inside its argument so the assigned local
+resolves like a statement assignment. Chained and op-assign right-hand sides
+are admitted; bare trailing postfix modifiers and heredoc bodies are not
+(the compiler rejects them in call arguments), and member targets stay a
+follow-up. The alternative precedes the plain expression and stays disjoint
+from both named-argument forms via assign-versus-colon.
+
 Parameters with assignment shorthand carry three distinct names. In
 `public_name @internal_name`, `public_name` is the call-site label,
 `internal_name` is the local binding available in the method body, and
