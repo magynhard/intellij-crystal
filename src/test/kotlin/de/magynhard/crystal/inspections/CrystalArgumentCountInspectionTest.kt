@@ -2480,6 +2480,74 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testGenericStaticOverloadsAllContribute() {
+        // Guards the array.cr:156 shape (`Pointer(T).malloc(size, value)`)
+        // against a stale headless-audit finding: the binary overload must be
+        // in the resolved pool. Needs the real pointer.cr plus index refresh;
+        // without the require the receiver does not resolve at all.
+        val src = java.io.File("/usr/lib/crystal")
+        if (!src.isDirectory) return
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
+        myFixture.addFileToProject("real-stdlib/pointer.cr", java.io.File(src, "pointer.cr").readText())
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) {
+            myFixture.addFileToProject("real-stdlib/.keep", "").virtualFile.parent
+        }
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.installVersionForTests(project, testRootDisposable) { "Crystal 1.21.0" }
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.clearCachedStdlibPath(project)
+        val rootVFile = de.magynhard.crystal.sdk.CrystalStdlibResolver.resolveStdlibPath(project)
+        de.magynhard.crystal.sdk.CrystalStdlibIndexRefresher.refresh(
+            project,
+            emptyList(),
+            de.magynhard.crystal.sdk.CrystalStdlibRoots.enumerate(rootVFile!!),
+        )
+        myFixture.configureByText("test.cr", """
+            require "./real-stdlib/pointer"
+
+            class Box(T)
+              def initialize(size : Int32, value : T)
+                @buffer = Pointer(T).malloc(size, value)
+              end
+            end
+        """.trimIndent())
+        val nothingFlagged = myFixture.doHighlighting().none {
+            it.description?.contains("Too many arguments") == true
+        }
+        assertTrue(
+            "The binary malloc overload must accept the call (array.cr:156 shape)",
+            nothingFlagged,
+        )
+    }
+
+    fun testGenericStaticOverloadExcessStillFlagged() {
+        // Control for the overload test above: three arguments exceed every
+        // malloc overload, so the inspection must still report.
+        val src = java.io.File("/usr/lib/crystal")
+        if (!src.isDirectory) return
+        de.magynhard.crystal.CrystalTestVfsRoots.ensureStdlibRootAllowed()
+        myFixture.addFileToProject("real-stdlib/pointer.cr", java.io.File(src, "pointer.cr").readText())
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) {
+            myFixture.addFileToProject("real-stdlib/.keep", "").virtualFile.parent
+        }
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.installVersionForTests(project, testRootDisposable) { "Crystal 1.21.0" }
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.clearCachedStdlibPath(project)
+        val rootVFile = de.magynhard.crystal.sdk.CrystalStdlibResolver.resolveStdlibPath(project)
+        de.magynhard.crystal.sdk.CrystalStdlibIndexRefresher.refresh(
+            project,
+            emptyList(),
+            de.magynhard.crystal.sdk.CrystalStdlibRoots.enumerate(rootVFile!!),
+        )
+        myFixture.configureByText("test.cr", """
+            require "./real-stdlib/pointer"
+
+            Pointer(Int32).malloc(1, 2, 3)
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "Three arguments exceed every malloc overload and must be flagged",
+            highlights.any { it.description?.contains("Too many arguments") == true },
+        )
+    }
+
     fun testMacroSplatFragmentParameterSuppressesCountDiagnostics() {
         myFixture.configureByText("test.cr", """
             def generated({{ items.splat }})

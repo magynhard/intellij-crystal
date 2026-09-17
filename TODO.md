@@ -83,12 +83,16 @@
 
 ## Call Argument Inspection Follow-up
 
-- [ ] **Resolve `Pointer(T).malloc(size, value)` overloads for generic-type receivers** —
-  headless audit of stdlib array.cr:156 flags "Too many arguments: expected at most 1,
-  got 2" for `Pointer(T).malloc(size, value)`, although pointer.cr declares the 2-arg
-  version. The receiver resolution apparently loses generic Pointer's unary
-  `def self.malloc(size : Int)` overload pairing — needs the dot-call method pool for
-  instantiated generics to contribute class methods with their arity.
+- [x] **Resolve `Pointer(T).malloc(size, value)` overloads for generic-type receivers** —
+  closed 2026-09-17 as cannot-reproduce: a headless audit once flagged "Too many
+  arguments: expected at most 1, got 2" at stdlib array.cr:156, but three faithful
+  harnesses (local generic struct, real pointer.cr minimal, real pointer.cr with
+  index refresh and require closure) all resolve cleanly. Pool dump proves all
+  three `self.malloc` overloads arrive with correct arities, and the evaluator
+  accepts the binary call while still flagging genuine excess arity. Likely fixed
+  in passing by later resolver work; pinned by `testGenericStaticOverloadsAllContribute`
+  and its excess-arity control. Reopen with a fresh headless-audit trace if it
+  ever reappears.
 - [ ] **De-fuse binary operand mismatch from untyped-parameter constants** — stdlib
   array.cr:2175 (`offset = @capacity - old_capacity` with both sides derived from untyped
   parameters) produces "Type mismatch: expected 'UInt64', got 'Int32'". Track
