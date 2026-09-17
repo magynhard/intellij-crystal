@@ -1438,10 +1438,16 @@ and `private`/`protected` method or macro definitions, mirroring the compiler's
 declarations, op-assignments, and other statements remain invalid at enum-body
 level, so `llvm/enums.cr` is fully repaired.
 
-The complete 1,625-file distribution currently reports 5 errors in 4 files.
+Parameterless proc literals accept a `do ... end` body directly after the
+arrow (`LibGC.set_start_callback -> do ... end`), mirroring the compiler's
+`parse_fun_literal`; the body keeps the established proc-literal PSI so the
+`do` never attaches as a block to the outer call. `gc/boehm.cr` is fully
+repaired.
+
+The complete 1,625-file distribution currently reports 4 errors in 3 files.
 Besides the two indexed deferred files (`compiler/crystal/ffi/type.cr` and
 `compiler/crystal/interpreter/instructions.cr`), the remaining distribution-only
-clusters are `crystal/system/thread_linked_list.cr` and `gc/boehm.cr`.
+cluster is `crystal/system/thread_linked_list.cr`.
 
 ## Fix Requirements
 

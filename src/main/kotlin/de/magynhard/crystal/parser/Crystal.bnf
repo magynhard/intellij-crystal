@@ -1639,8 +1639,13 @@ block ::= DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* 
 // so the variable alternative keeps its DOT mandatory while the plain
 // identifier/constant form stays as-is. Raw leaves match the existing
 // token-based pointer branch: no new PSI element, no stub change.
+// Parameterless procs also take a `do ... end` body (`LibGC.set_start_callback
+// -> do ... end` in gc/boehm.cr); the compiler's parse_fun_literal skips the
+// parameter list and accepts `do` directly (parser.cr:1959-1963). The body
+// stays optional exactly like the parenthesized `do` form.
 proc_literal ::= ARROW LPAREN proc_parameter_trivia parameter_list proc_parameter_trivia RPAREN LBRACE statement_list RBRACE
                | ARROW LPAREN proc_parameter_trivia parameter_list proc_parameter_trivia RPAREN DO [statement_list] END
+               | ARROW DO [statement_list] END
                | ARROW LBRACE statement_list RBRACE
                | ARROW (INSTANCE_VAR | CLASS_VAR) DOT (IDENTIFIER | CONSTANT) [LPAREN type_reference (COMMA type_reference)* RPAREN]
                | ARROW (IDENTIFIER | CONSTANT) [DOT (IDENTIFIER | CONSTANT)] [LPAREN type_reference (COMMA type_reference)* RPAREN] {pin=1}

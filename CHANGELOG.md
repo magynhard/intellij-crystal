@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Parameterless proc literals with `do` bodies** — `-> do ... end` without
+  parentheses now parses as a proc literal, as in `gc/boehm.cr`'s
+  `LibGC.set_start_callback -> do` callback. The body stays optional exactly
+  like the parenthesized `do` form and keeps the established `PROC_LITERAL`
+  PSI, so the `do` attaches to the proc argument instead of the outer call.
+  Covered by the ParameterlessDoProcLiteral golden, block-attachment and
+  rejection tests, and a real-file canary. The distribution corpus drops from
+  5 errors in 4 files to 4 in 3, with `boehm.cr` fully repaired and zero newly
+  failing files.
 - **Class variable assignments and visibility-modified methods in enum bodies** —
   enum bodies now accept `@@kind_ids = ...` assignments (plain `=` only) and
   `private`/`protected` method or macro definitions, as in `llvm/enums.cr`. Both

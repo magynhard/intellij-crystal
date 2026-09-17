@@ -319,4 +319,11 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val enums = findStdlibFile("llvm/enums.cr") ?: return
         assertParsesCleanly(enums)
     }
+
+    fun testBoehmCrParsesWithoutErrors() {
+        // gc/boehm.cr passes a parameterless `-> do ... end` proc literal to
+        // a bare call.
+        val boehm = findStdlibFile("gc/boehm.cr") ?: return
+        assertParsesCleanly(boehm)
+    }
 }
