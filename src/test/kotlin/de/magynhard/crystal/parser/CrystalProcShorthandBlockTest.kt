@@ -16,6 +16,28 @@ class CrystalProcShorthandBlockTest : BasePlatformTestCase() {
         assertBlockOwner(file, "each")
     }
 
+    fun testBraceBlockBindsInsideShorthand() {
+        val file = assertParsesCleanly(
+            "list.select &.even? { |x| x }",
+        )
+        assertBlockOwner(file, "even?")
+    }
+
+    fun testBraceBlockParameterResolvesInsideShorthand() {
+        myFixture.configureByText(
+            "test.cr",
+            "list.select &.even? { |x| <caret>x }",
+        )
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)
+        assertNotNull("Expected an element at caret", element)
+        val resolved = element!!.reference?.resolve()
+            ?: element.parent?.reference?.resolve()
+        assertNotNull("Expected x to resolve, got null", resolved)
+        val block = PsiTreeUtil.getParentOfType(resolved, CrystalBlock::class.java)
+        assertNotNull("Resolved target must sit inside the shorthand block", block)
+        assertBlockOwner(myFixture.file, "even?")
+    }
+
     fun testBlockParameterResolvesInsideShorthand() {
         myFixture.configureByText(
             "test.cr",

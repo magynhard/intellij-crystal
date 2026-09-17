@@ -306,10 +306,13 @@
   rescue-state analyzer covers it
   (`testRescueSeesPostArgumentAssignmentStateWhenEnclosingCallRaises` green).
   Member targets (`x.y = 5`, valid Crystal) stay a follow-up with no corpus case.
-- [ ] **Support brace blocks after `&.` shorthand (`f &.m { }`)** — `implicit_object_call` accepts no
-  trailing `[block]`, so the unparenthesized proc-plus-block form (`select &.even? { }`) fails to parse.
-  Parenthesized usage (`select(&.even?)`) is unaffected. Rare in real code; extend the rule with a
-  `[block]` tail (and cover it in a parser test) when a real-world case appears.
+- [x] **Support brace blocks after `&.` shorthand (`f &.m { }`)** — verified
+  2026-09-17: no grammar change needed. Both `do` and brace blocks already bind
+  inside the `&.` proc (`implicit_object_call` carries the `[block]` tail),
+  matching the compiler (`parse_call_block_arg_after_dot` attaches `do` to the
+  inner call; `frame` infers as the `each` element type). Pinned by the
+  ProcShorthandDoBlock golden (8+ stdlib sites use the `do` idiom) and block
+  owner/resolution tests; no stale misattachment found.
 - [ ] **Handle `Foo::bar` with lowercase identifiers as method calls** — `namespace_access` only matches
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
   call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);
