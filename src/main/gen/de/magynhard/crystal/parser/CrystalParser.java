@@ -7201,7 +7201,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                          // `shift -span.to_i, -span.nanoseconds` (time.cr) negates its
   //                          // first bare argument; a spaced binary operator still blocks the
   //                          // bare-argument alternative so `width + height` stays binary.
-  //                           | [DOUBLE_COLON] call_callee !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
+  //                          // A queued heredoc body opener never starts a bare argument
+  //                          // list either: `other = <<-OTHER if enabled` must leave the
+  //                          // opener for the assignment's [heredoc_bodies] instead of
+  //                          // binding it as an empty argument of `enabled` (which
+  //                          // strands the body content). Header markers carry
+  //                          // delimiter text, so `fail <<-MSG, file, line` keeps
+  //                          // working through the same alternative.
+  //                           | [DOUBLE_COLON] call_callee !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list [block]
   //                           // Tight-`[` is the index postfix (see dot_call_access), never
   //                           // the receiver's own array argument.
   //                           | [DOUBLE_COLON] call_callee !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list [block]
@@ -7384,7 +7391,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // [DOUBLE_COLON] call_callee !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> bare_argument_list [block]
+  // [DOUBLE_COLON] call_callee !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list [block]
   private static boolean method_call_expression_4(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "method_call_expression_4")) return false;
     boolean result_;
@@ -7395,8 +7402,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = result_ && method_call_expression_4_3(builder_, level_ + 1);
     result_ = result_ && method_call_expression_4_4(builder_, level_ + 1);
     result_ = result_ && method_call_expression_4_5(builder_, level_ + 1);
+    result_ = result_ && method_call_expression_4_6(builder_, level_ + 1);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
-    result_ = result_ && method_call_expression_4_7(builder_, level_ + 1);
+    result_ = result_ && method_call_expression_4_8(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -7448,9 +7456,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
+  // !<<isHeredocBodyOpener>>
+  private static boolean method_call_expression_4_6(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_call_expression_4_6")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NOT_);
+    result_ = !isHeredocBodyOpener(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
   // [block]
-  private static boolean method_call_expression_4_7(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "method_call_expression_4_7")) return false;
+  private static boolean method_call_expression_4_8(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "method_call_expression_4_8")) return false;
     block(builder_, level_ + 1);
     return true;
   }

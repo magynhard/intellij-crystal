@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Heredoc bodies under postfix modifiers** — `value = <<-TEXT rescue puts
+  fallback` and `VALUE = <<-TEXT if enabled` no longer strand the body content:
+  the plain method-call bare-argument alternative now refuses a queued body
+  opener, so it stays for the assignment's `[heredoc_bodies]` instead of
+  binding as an empty argument (e.g. of `enabled`). Header markers carry
+  delimiter text and keep binding as ordinary bare arguments. Covered by the
+  HeredocModifierBodies golden and body-owner regression tests. Both audits
+  stay at zero errors with zero newly failing files.
 - **Assignment arguments in parenthesized calls** — `compute(x = 5, y = 6)` now
   parses via a dedicated `assignment_argument` rule aliased to the established
   assignment PSI, so assigned locals resolve and rename like statement

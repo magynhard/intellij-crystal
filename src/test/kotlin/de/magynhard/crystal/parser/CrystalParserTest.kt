@@ -492,6 +492,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testHeredocModifierBodies() {
+        doTest(true)
+    }
+
     fun testIndexedAccessTernary() {
         doTest(true)
     }

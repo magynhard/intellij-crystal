@@ -65,10 +65,13 @@
   `value = !~ other` and `value = other !~` produce a `PsiErrorElement` but can consume a following
   declaration during pinned assignment recovery. Add boundary-aware recovery without `recoverWhile` or
   weakening valid consecutive-statement parsing, then assert the trailing declaration remains structured.
-- [ ] **Keep postfix bare calls from consuming heredoc body openers** — valid code such as
-  `value = <<-TEXT rescue puts fallback` and `VALUE = <<-TEXT if enabled` currently treats the newline
-  `HEREDOC_START` body opener as another bare argument of `puts` or `enabled`, leaving the body content
-  detached. Preserve the marker/body pairing while keeping ordinary closeless heredoc-call arguments valid.
+- [x] **Keep postfix bare calls from consuming heredoc body openers** — done
+  2026-09-17: the plain method-call bare-argument alternative now carries the
+  established `!<<isHeredocBodyOpener>>` guard (the one of seven entry points
+  that lacked it), so `value = <<-TEXT rescue puts fallback` and
+  `VALUE = <<-TEXT if enabled` attach their bodies to the assignment while
+  header markers (`fail <<-MSG, file, line`) keep binding as bare arguments.
+  Pinned by the HeredocModifierBodies golden and body-owner tests.
 
 ## Call Argument Inspection Follow-up
 

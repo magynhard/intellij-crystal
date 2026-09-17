@@ -229,14 +229,22 @@ background indexing.
 - Postfix chains after a heredoc body are impossible in Crystal itself; the
   completion coverage therefore uses a variable holding the heredoc
   (see `CrystalCompletionTest.testDirectAndGroupedScalarLiteralCompletion`).
-- `compute(x = 5, y = 6)` (two comma-separated assignments inside parens) is a
-  PRE-EXISTING grammar gap — tracked separately in TODO.md.
+- A queued body opener never starts a bare argument list: `other = <<-OTHER
+  if enabled` leaves the opener for the assignment's `[heredoc_bodies]`
+  instead of binding it as an empty argument of `enabled` (which stranded the
+  body content). Header markers carry delimiter text and keep binding as
+  ordinary bare arguments (`fail <<-MSG, file, line`).
+- `compute(x = 5, y = 6)` (two comma-separated assignments inside parens) is
+  repaired via `assignment_argument` — tracked as done in TODO.md.
 
 ## Tests
 
 - `HeredocClosingParenCalls.cr/.txt` — matrix incl. MULTI (two same-line
   delimiters) and MIXED (heredoc + normal args + closer) rows; zero
   `PsiErrorElement`.
+- `HeredocModifierBodies.cr/.txt` — heredoc assignments under `rescue`/`if`
+  postfix modifiers; bodies attach to the assignment, the modifier condition
+  keeps no call arguments; zero `PsiErrorElement`.
 - `SpecModulesWithHeredocs.cr/.txt` — real spec-file layout regression.
 - `GroupedAssignmentParens.cr/.txt` — grouped-expression route for assignments.
 - `CrystalArgumentCountInspectionTest` — complete closeless-style call unflagged;
