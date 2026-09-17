@@ -425,7 +425,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   // Numbers (float before int since float is more specific with dot)
   {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
   {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTypes.FLOAT_LITERAL; }
-  {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} "_"? "f" ("32" | "64")                                                { return CrystalTypes.FLOAT_LITERAL; }
   {INTEGER}            { return CrystalTypes.INTEGER_LITERAL; }
 
   // Heredoc header: <<-IDENTIFIER or <<-'IDENTIFIER'. Emits a MARKER token
@@ -745,6 +745,11 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   {INSTANCE_VAR}       { return CrystalTypes.INSTANCE_VAR; }
   {CLASS_VAR}          { return CrystalTypes.CLASS_VAR; }
   {GLOBAL_VAR}         { return CrystalTypes.GLOBAL_VAR; }
+  // Numbers (float before int since float is more specific with dot) —
+  // mirror YYINITIAL so interpolated floats (`"#{1f32}"`) lex identically.
+  {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} "_"? "f" ("32" | "64")                                                { return CrystalTypes.FLOAT_LITERAL; }
   {DEC_INT}            { return CrystalTypes.INTEGER_LITERAL; }
   // Invalid multi-character single-quote string (same guard as YYINITIAL)
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
@@ -946,7 +951,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   // suffixed integers (`27_u32`) and floats exactly like plain code.
   {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
   {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTypes.FLOAT_LITERAL; }
-  {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} "_"? "f" ("32" | "64")                                                { return CrystalTypes.FLOAT_LITERAL; }
   {INTEGER}            { return CrystalTypes.INTEGER_LITERAL; }
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
@@ -1054,7 +1059,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   // integers and floats exactly like plain code (`{% if x == 0x20 %}`).
   {DEC_INT} "." {DEC_INT} (("e" | "E") ("+" | "-")? {DEC_INT})? {FLOAT_SUFFIX}  { return CrystalTypes.FLOAT_LITERAL; }
   {DEC_INT} ("e" | "E") ("+" | "-")? {DEC_INT} {FLOAT_SUFFIX}                    { return CrystalTypes.FLOAT_LITERAL; }
-  {DEC_INT} "_f" ("32" | "64")                                                    { return CrystalTypes.FLOAT_LITERAL; }
+  {DEC_INT} "_"? "f" ("32" | "64")                                                { return CrystalTypes.FLOAT_LITERAL; }
   {INTEGER}            { return CrystalTypes.INTEGER_LITERAL; }
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }

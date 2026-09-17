@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Float literals without underscore suffix** — integer-written floats such as
+  `1f32` and `1f64` in `crystal/compiler_rt/pow.cr` now lex as a single
+  `FLOAT_LITERAL`, matching the existing `1_f32` form. The underscore before the
+  `f32`/`f64` suffix is optional in plain code, string interpolation, macro
+  interpolation, and macro control; ordinary integers and space-separated
+  sequences (`1 f32`) are unchanged. Covered by lexer regression tests, the
+  FloatSuffixWithoutUnderscore golden, and a real-file canary. The distribution
+  corpus drops from 8 errors in 6 files to 7 in 5, with `pow.cr` fully repaired
+  and zero newly failing files.
 - **Loose grouped postfix arguments** — bare calls now parse a whitespace-separated
   grouped first argument with a postfix chain before subsequent comma arguments,
   such as `write_extra_newlines (a || b).end_location, b.location` in compiler

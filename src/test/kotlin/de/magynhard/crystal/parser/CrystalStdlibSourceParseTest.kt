@@ -305,4 +305,11 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val toS = findStdlibFile("compiler/crystal/syntax/to_s.cr") ?: return
         assertParsesCleanly(toS)
     }
+
+    fun testPowCrParsesWithoutErrors() {
+        // crystal/compiler_rt/pow.cr passes integer-written float literals
+        // without an underscore (`1f32`, `1f64`) to a bare macro call.
+        val pow = findStdlibFile("crystal/compiler_rt/pow.cr") ?: return
+        assertParsesCleanly(pow)
+    }
 }

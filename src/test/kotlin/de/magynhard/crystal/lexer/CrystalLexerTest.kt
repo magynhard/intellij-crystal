@@ -211,12 +211,50 @@ class CrystalLexerTest {
             "3.14" to CrystalTypes.FLOAT_LITERAL,
             "1.0e10" to CrystalTypes.FLOAT_LITERAL,
             "1_f32" to CrystalTypes.FLOAT_LITERAL,
+            "1_f64" to CrystalTypes.FLOAT_LITERAL,
+            "1f32" to CrystalTypes.FLOAT_LITERAL,
+            "1f64" to CrystalTypes.FLOAT_LITERAL,
         )
         for ((text, expected) in cases) {
             val tokens = nonWhitespaceTokens(text)
             assertEquals("Number '$text' should produce one token, got: $tokens", 1, tokens.size)
             assertEquals("Number '$text'", expected, tokens[0].first)
         }
+    }
+
+    @Test
+    fun testSuffixedFloatWithoutUnderscoreInExpressionLexerStates() {
+        val inputs = mapOf(
+            "__pow_impl(__powisf2, 1f32, Float32)" to 1,
+            "\"#{1f32}\"" to 1,
+            "{{ 1f32 }}" to 1,
+            "{% if 1f32 == 0 %}" to 1,
+        )
+
+        for ((input, expectedCount) in inputs) {
+            val tokens = nonWhitespaceTokens(input).filter {
+                it.first == CrystalTypes.FLOAT_LITERAL && (it.second == "1f32" || it.second == "1f64")
+            }
+            assertEquals(
+                "Should emit $expectedCount suffixed float token(s) in '$input', got: ${nonWhitespaceTokens(input)}",
+                expectedCount,
+                tokens.size,
+            )
+        }
+    }
+
+    @Test
+    fun testSuffixedFloatBoundaries() {
+        val separated = nonWhitespaceTokens("1 f32")
+        assertEquals(
+            "Space-separated '1 f32' stays two tokens, got: $separated",
+            listOf(CrystalTypes.INTEGER_LITERAL, CrystalTypes.IDENTIFIER),
+            separated.map { it.first },
+        )
+
+        val integer = nonWhitespaceTokens("42")
+        assertEquals(1, integer.size)
+        assertEquals(CrystalTypes.INTEGER_LITERAL, integer.single().first)
     }
 
     @Test

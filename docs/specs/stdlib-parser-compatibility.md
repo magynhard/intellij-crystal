@@ -1427,11 +1427,16 @@ has a postfix chain and is followed by more comma-separated arguments
 otherwise commits the grouped prefix; tight parenthesized calls and grouped
 expressions without postfix access remain unchanged.
 
-The complete 1,625-file distribution currently reports 8 errors in 6 files.
+The lexer accepts integer-written float literals with an optional underscore
+before the `f32`/`f64` suffix (`1f32`, `1f64` alongside `1_f32`), mirrored in
+plain code, string interpolation, macro interpolation, and macro control, so
+`crystal/compiler_rt/pow.cr` is fully repaired.
+
+The complete 1,625-file distribution currently reports 7 errors in 5 files.
 Besides the two indexed deferred files (`compiler/crystal/ffi/type.cr` and
 `compiler/crystal/interpreter/instructions.cr`), the remaining distribution-only
-clusters are `crystal/compiler_rt/pow.cr`,
-`crystal/system/thread_linked_list.cr`, `gc/boehm.cr`, and `llvm/enums.cr`.
+clusters are `crystal/system/thread_linked_list.cr`, `gc/boehm.cr`, and
+`llvm/enums.cr`.
 
 ## Fix Requirements
 

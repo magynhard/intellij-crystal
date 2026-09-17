@@ -123,6 +123,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testFloatSuffixWithoutUnderscore() {
+        doTest(true)
+    }
+
     fun testSpecFile() {
         doTest(true)
     }
