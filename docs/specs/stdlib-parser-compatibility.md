@@ -1448,9 +1448,17 @@ Member assignments accept keyword setter names (`@tail = tail.next = node`),
 matching ordinary dot calls while keeping operators invalid in this nested
 position; `crystal/system/thread_linked_list.cr` is fully repaired.
 
-The complete 1,625-file distribution currently reports 3 errors in 2 files,
-exactly the two indexed deferred files (`compiler/crystal/ffi/type.cr` and
-`compiler/crystal/interpreter/instructions.cr`).
+Array elements admit type declarations (`operands: [value : Int64]`),
+mirroring the compiler's element reader; only identifier/ivar/cvar targets
+qualify. The shared expression-list shape is preserved and the declaration
+reuses the property-declaration PSI. Macro-generated table shapes in the same
+file are covered alongside: macro-control hash values, comma-less macro
+separators between entries, and spliced `name{{n}}:` hash keys.
+`compiler/crystal/interpreter/instructions.cr` is fully repaired.
+
+The indexed corpus reports 2 errors in 1 file. The complete 1,625-file
+distribution currently reports 2 errors in 1 file: only the deferred
+`compiler/crystal/ffi/type.cr` cluster remains.
 
 ## Fix Requirements
 

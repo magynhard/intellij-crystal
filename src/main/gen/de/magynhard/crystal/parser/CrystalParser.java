@@ -446,7 +446,73 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference]
+  // array_type_declaration | expression
+  static boolean array_element(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_element")) return false;
+    boolean result_;
+    result_ = array_type_declaration(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // macro_argument_trivia array_element (macro_argument_trivia COMMA macro_argument_trivia array_element)* [COMMA macro_argument_trivia]
+  public static boolean array_element_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_element_list")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, EXPRESSION_LIST, "<array element list>");
+    result_ = macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && array_element(builder_, level_ + 1);
+    result_ = result_ && array_element_list_2(builder_, level_ + 1);
+    result_ = result_ && array_element_list_3(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // (macro_argument_trivia COMMA macro_argument_trivia array_element)*
+  private static boolean array_element_list_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_element_list_2")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!array_element_list_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "array_element_list_2", pos_)) break;
+    }
+    return true;
+  }
+
+  // macro_argument_trivia COMMA macro_argument_trivia array_element
+  private static boolean array_element_list_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_element_list_2_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COMMA);
+    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && array_element(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [COMMA macro_argument_trivia]
+  private static boolean array_element_list_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_element_list_3")) return false;
+    array_element_list_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // COMMA macro_argument_trivia
+  private static boolean array_element_list_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_element_list_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COMMA);
+    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // LBRACKET NLS [array_element_list] NLS RBRACKET [OF type_reference]
   public static boolean array_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "array_literal")) return false;
     if (!nextTokenIs(builder_, LBRACKET)) return false;
@@ -462,10 +528,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [expression_list]
+  // [array_element_list]
   private static boolean array_literal_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "array_literal_2")) return false;
-    expression_list(builder_, level_ + 1);
+    array_element_list(builder_, level_ + 1);
     return true;
   }
 
@@ -483,6 +549,48 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, OF);
     result_ = result_ && type_reference(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // (instance_var_access | class_var_access | IDENTIFIER) COLON type_reference [ASSIGN expression]
+  public static boolean array_type_declaration(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_type_declaration")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, PROPERTY_DECLARATION, "<array type declaration>");
+    result_ = array_type_declaration_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COLON);
+    result_ = result_ && type_reference(builder_, level_ + 1);
+    result_ = result_ && array_type_declaration_3(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // instance_var_access | class_var_access | IDENTIFIER
+  private static boolean array_type_declaration_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_type_declaration_0")) return false;
+    boolean result_;
+    result_ = instance_var_access(builder_, level_ + 1);
+    if (!result_) result_ = class_var_access(builder_, level_ + 1);
+    if (!result_) result_ = consumeToken(builder_, IDENTIFIER);
+    return result_;
+  }
+
+  // [ASSIGN expression]
+  private static boolean array_type_declaration_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_type_declaration_3")) return false;
+    array_type_declaration_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // ASSIGN expression
+  private static boolean array_type_declaration_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "array_type_declaration_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, ASSIGN);
+    result_ = result_ && expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -4270,12 +4378,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // expression (DOUBLE_ARROW | COLON) expression
+  // hash_key (DOUBLE_ARROW | COLON) expression
   public static boolean hash_entry(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "hash_entry")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, HASH_ENTRY, "<hash entry>");
-    result_ = expression(builder_, level_ + 1);
+    result_ = hash_key(builder_, level_ + 1);
     result_ = result_ && hash_entry_1(builder_, level_ + 1);
     result_ = result_ && expression(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
@@ -4292,8 +4400,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // macro_trivia hash_entry (macro_trivia COMMA macro_trivia hash_entry)* [macro_trivia COMMA] macro_trivia
-  //                   | macro_only_hash_entry_list
+  // macro_trivia hash_entry (hash_entry_separator hash_entry)* [macro_trivia COMMA] macro_trivia
+  //                    | macro_only_hash_entry_list
   public static boolean hash_entry_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "hash_entry_list")) return false;
     boolean result_;
@@ -4304,7 +4412,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // macro_trivia hash_entry (macro_trivia COMMA macro_trivia hash_entry)* [macro_trivia COMMA] macro_trivia
+  // macro_trivia hash_entry (hash_entry_separator hash_entry)* [macro_trivia COMMA] macro_trivia
   private static boolean hash_entry_list_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "hash_entry_list_0")) return false;
     boolean result_;
@@ -4318,7 +4426,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (macro_trivia COMMA macro_trivia hash_entry)*
+  // (hash_entry_separator hash_entry)*
   private static boolean hash_entry_list_0_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "hash_entry_list_0_2")) return false;
     while (true) {
@@ -4329,14 +4437,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // macro_trivia COMMA macro_trivia hash_entry
+  // hash_entry_separator hash_entry
   private static boolean hash_entry_list_0_2_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "hash_entry_list_0_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = macro_trivia(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, COMMA);
-    result_ = result_ && macro_trivia(builder_, level_ + 1);
+    result_ = hash_entry_separator(builder_, level_ + 1);
     result_ = result_ && hash_entry(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
@@ -4357,6 +4463,113 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = macro_trivia(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // macro_trivia COMMA macro_trivia
+  //                                | NEWLINE* macro_control (NEWLINE | macro_control)* [COMMA] (NEWLINE | macro_control)*
+  static boolean hash_entry_separator(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = hash_entry_separator_0(builder_, level_ + 1);
+    if (!result_) result_ = hash_entry_separator_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // macro_trivia COMMA macro_trivia
+  private static boolean hash_entry_separator_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = macro_trivia(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, COMMA);
+    result_ = result_ && macro_trivia(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // NEWLINE* macro_control (NEWLINE | macro_control)* [COMMA] (NEWLINE | macro_control)*
+  private static boolean hash_entry_separator_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = hash_entry_separator_1_0(builder_, level_ + 1);
+    result_ = result_ && macro_control(builder_, level_ + 1);
+    result_ = result_ && hash_entry_separator_1_2(builder_, level_ + 1);
+    result_ = result_ && hash_entry_separator_1_3(builder_, level_ + 1);
+    result_ = result_ && hash_entry_separator_1_4(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // NEWLINE*
+  private static boolean hash_entry_separator_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_1_0")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!consumeToken(builder_, NEWLINE)) break;
+      if (!empty_element_parsed_guard_(builder_, "hash_entry_separator_1_0", pos_)) break;
+    }
+    return true;
+  }
+
+  // (NEWLINE | macro_control)*
+  private static boolean hash_entry_separator_1_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_1_2")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!hash_entry_separator_1_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "hash_entry_separator_1_2", pos_)) break;
+    }
+    return true;
+  }
+
+  // NEWLINE | macro_control
+  private static boolean hash_entry_separator_1_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_1_2_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    return result_;
+  }
+
+  // [COMMA]
+  private static boolean hash_entry_separator_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_1_3")) return false;
+    consumeToken(builder_, COMMA);
+    return true;
+  }
+
+  // (NEWLINE | macro_control)*
+  private static boolean hash_entry_separator_1_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_1_4")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!hash_entry_separator_1_4_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "hash_entry_separator_1_4", pos_)) break;
+    }
+    return true;
+  }
+
+  // NEWLINE | macro_control
+  private static boolean hash_entry_separator_1_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_entry_separator_1_4_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, NEWLINE);
+    if (!result_) result_ = macro_control(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // spliced_hash_key | expression
+  static boolean hash_key(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "hash_key")) return false;
+    boolean result_;
+    result_ = spliced_hash_key(builder_, level_ + 1);
+    if (!result_) result_ = expression(builder_, level_ + 1);
     return result_;
   }
 
@@ -11169,6 +11382,50 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_, level_, _AND_);
     result_ = colonHasLeadingDeclarationWhitespace(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // (IDENTIFIER | CONSTANT) macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
+  public static boolean spliced_hash_key(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "spliced_hash_key")) return false;
+    if (!nextTokenIs(builder_, "<spliced hash key>", CONSTANT, IDENTIFIER)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, EXPRESSION, "<spliced hash key>");
+    result_ = spliced_hash_key_0(builder_, level_ + 1);
+    result_ = result_ && macro_interpolation(builder_, level_ + 1);
+    result_ = result_ && spliced_hash_key_2(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // IDENTIFIER | CONSTANT
+  private static boolean spliced_hash_key_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "spliced_hash_key_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    return result_;
+  }
+
+  // (IDENTIFIER | CONSTANT | macro_interpolation)*
+  private static boolean spliced_hash_key_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "spliced_hash_key_2")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!spliced_hash_key_2_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "spliced_hash_key_2", pos_)) break;
+    }
+    return true;
+  }
+
+  // IDENTIFIER | CONSTANT | macro_interpolation
+  private static boolean spliced_hash_key_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "spliced_hash_key_2_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, IDENTIFIER);
+    if (!result_) result_ = consumeToken(builder_, CONSTANT);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
     return result_;
   }
 

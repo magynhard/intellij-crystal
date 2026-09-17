@@ -1729,7 +1729,22 @@ private percent_symbol_content ::= SYMBOL_LITERAL | interpolation_expression | N
 symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
                             | COLON &<<isTokenTightAfterPreviousToken>> macro_interpolation
 
-array_literal ::= LBRACKET NLS [expression_list] NLS RBRACKET [OF type_reference]
+array_literal ::= LBRACKET NLS [array_element_list] NLS RBRACKET [OF type_reference]
+
+// Array elements admit type declarations (`operands: [value : Int64]` in
+// instructions.cr): the compiler reads elements with parse_op_assign_no_control
+// and builds a TypeDeclaration on a following colon (parser.cr:2527-2546,
+// 4524-4535). Only identifier/ivar/cvar targets — `self.x : T` is a compiler
+// syntax error there, so the SELF DOT form stays excluded. The specific
+// declaration precedes the plain expression (PEG). The list aliases the
+// shared EXPRESSION_LIST type so the array-literal tree shape and its
+// accessors stay unchanged; the element alias reuses the established
+// PROPERTY_DECLARATION PSI so resolution and inspections treat the declared
+// name identically. Other expression_list positions (case/in, tuples, typed
+// literals) are untouched: no compiler evidence covers them.
+array_element_list ::= macro_argument_trivia array_element (macro_argument_trivia COMMA macro_argument_trivia array_element)* [COMMA macro_argument_trivia] {elementType=expression_list}
+private array_element ::= array_type_declaration | expression
+array_type_declaration ::= (instance_var_access | class_var_access | IDENTIFIER) COLON type_reference [ASSIGN expression] {elementType=property_declaration}
 
 hash_literal ::= LBRACE NLS [hash_entry_list] NLS RBRACE [OF type_reference DOUBLE_ARROW type_reference]
 
@@ -1746,13 +1761,40 @@ private typed_collection_literal ::= type_path LBRACE NLS [hash_entry_list | exp
 // named_tuple.cr). The trivia mirrors the macro_argument_trivia pattern
 // from call argument lists. A macro-only alternative covers conditionally
 // empty entry lists (`{% if flag %} key: value, {% end %}`).
-hash_entry_list ::= macro_trivia hash_entry (macro_trivia COMMA macro_trivia hash_entry)* [macro_trivia COMMA] macro_trivia
-                  | macro_only_hash_entry_list
+// Inside `{% begin %}` bodies the compiler also accepts macro blocks between
+// entries without adjacent commas (`},` newline `{% for n in ... %} ...`
+// `{% end %}` newline next entry in instructions.cr): the whole block becomes
+// one macro node, so no comma is required around it. The second separator
+// admits exactly that shape — a comma-less gap must contain at least one
+// macro_control, so `a: 1 b: 2` stays invalid. It is tried after the plain
+// comma separator (PEG), leaving every previously successful parse untouched.
+hash_entry_list ::= macro_trivia hash_entry (hash_entry_separator hash_entry)* [macro_trivia COMMA] macro_trivia
+                   | macro_only_hash_entry_list
+private hash_entry_separator ::= macro_trivia COMMA macro_trivia
+                               | NEWLINE* macro_control (NEWLINE | macro_control)* [COMMA] (NEWLINE | macro_control)*
 
 private macro_trivia ::= (NEWLINE | macro_control)*
 private macro_only_hash_entry_list ::= NEWLINE* macro_control (NEWLINE | macro_control)*
 
-hash_entry ::= expression (DOUBLE_ARROW | COLON) expression
+// Hash and named-tuple values stay plain expressions: `{% if %} A {% else %}`
+// `B {% end %}` values (`code: ...` in instructions.cr) arrive through the
+// existing macro_if_envelope inside expression, and admitting a lone
+// macro_control first would commit the opening tag and strand the branch
+// bodies (PEG never retries the expression alternative).
+hash_entry ::= hash_key (DOUBLE_ARROW | COLON) expression
+
+// The key is usually a plain expression. Macro-generated `{% for %}` bodies
+// fuse a literal prefix with interpolations (`bitreverse{{n}}:` in
+// instructions.cr), mirroring macro_spliced_name for generated def/fun
+// names. Only valid pre-expansion inside macro bodies (the compiler rejects
+// it at top level), admitted here structurally like other macro-generated
+// members. The specific spliced form precedes the plain expression (PEG);
+// normal keys keep their exact tree because hash_key inlines. The alias wraps
+// the fused key in the established EXPRESSION type so the entry's key
+// identifiers stay inside its first expression for the existing
+// call/highlight guards; the bare prefix leaf itself carries no reference.
+private hash_key ::= spliced_hash_key | expression
+spliced_hash_key ::= (IDENTIFIER | CONSTANT) macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)* {elementType=expression}
 
 // ==================== Variable References ====================
 

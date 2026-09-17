@@ -333,4 +333,11 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val linkedList = findStdlibFile("crystal/system/thread_linked_list.cr") ?: return
         assertParsesCleanly(linkedList)
     }
+
+    fun testInstructionsCrParsesWithoutErrors() {
+        // compiler/crystal/interpreter/instructions.cr uses type declarations
+        // (`[value : Int64]`) as array elements in its instruction table.
+        val instructions = findStdlibFile("compiler/crystal/interpreter/instructions.cr") ?: return
+        assertParsesCleanly(instructions)
+    }
 }

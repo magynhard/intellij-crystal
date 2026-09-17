@@ -247,19 +247,20 @@
   interpolated receivers/calls), (b) lib-external-var `pointerof` targets
   (`pointerof(LibFFI.ffi_type_void)`) — needs a semantic distinction from ordinary calls,
   separate approach.
-- [ ] **Deferred stdlib parse-error clusters** — two indexed-corpus errors require
-  design-level changes beyond narrow grammar admission:
-  1. **`instructions.cr` type-declaration hash values** (`operands: [value : Int64]`) —
-     `value : Int64` is not a valid Crystal expression; it is compiler-internal DSL
-     syntax. Requires either a new `type_declaration_in_hash_value` rule or a
-     broader `recoverWhile`/catch-all, both of which conflict with established
-     GrammarKit invariants. Defer until a clean admission path surfaces.
-  2. **`ffi/type.cr` `pointerof(LibFFI.ffi_type_void)`** — `pointerof` special form
+- [ ] **Deferred stdlib parse-error clusters** — one indexed-corpus error requires
+  a design-level change beyond narrow grammar admission:
+  1. **`ffi/type.cr` `pointerof(LibFFI.ffi_type_void)`** — `pointerof` special form
      accepts only Var/IVar/CVar targets; `LibFFI.ffi_type_void` is a dot-separated
      constant path. Needs a semantic distinction (constant paths as valid
      `pointerof` targets) that cannot be resolved at the PEG grammar level alone.
      See also: receiver-qualified ivar `pointerof` targets above (already done for
      `.@ivar` chains).
+  (Repaired: **`instructions.cr` type-declaration array elements** (`operands:
+  [value : Int64]`) turned out to be ordinary Crystal syntax — the compiler reads
+  array elements with `parse_op_assign_no_control` and builds a `TypeDeclaration`
+  on a following colon — so a targeted `array_type_declaration` rule plus
+  macro-tolerant hash separators and spliced hash keys repaired the file with no
+  catch-all. The earlier "compiler-internal DSL" assessment was wrong.)
 - [ ] **Trace the last shard argument-count finding** — the bidirectional decorator rename is implemented (define the full scope boundary in `docs/specs/accessor-rename.md`); remaining readers/setters: a receiver chain `obj.nested.foo = v` participates only when a single-level receiver resolves exactly (deeper chain-shape shape matching is future work); the same-name accessor of a re-opened body in another file resolves through the exact type identity, but the word-based scan小结 participants — cross-file setter call sites only participate when the receiver resolves in the same file; rename of a REOPENED type's accessor from its own argument only (class args across relocated files are follow-up work with the crystal class index).
 - [ ] **Trace the last shard argument-count finding** — kemal's own sources (src/ + spec/, including static_file_handler_spec.etag_with_coding:135), ameba's typos.cr `as:` DSL finding, and the ameba `as_node <<-CRYSTAL` pool (variable_spec:102) are clear. The one remaining finding is `arg` in excessive_allocations_spec:10 ("expected at most 0, got 1"), needing its own trace. (Fixed along the way: extractArguments now handles the bare (parenthesis-free) argument-list form of CrystalBareMethodCallExpression — the heredoc-header marker argument of `as_node <<-CRYSTAL` used to vanish, so the def saw zero arguments and reported "Missing 'source'"; earlier: macro-invocation block bodies are macro data via CrystalMacroContext.isInsideMacroCallBlock, the tight bracket after a dot-call method name always binds as the receiver's index postfix, `Reference.new(node, scope)` resolves the sibling `Ameba::AST::Reference` through the program closure, macro-call arguments are no longer checked as runtime calls, and proc-literal parameters resolve as local declarations.)
 - [ ] **Standalone chained-call argument checks** — the resolved-env.status(...).json(...) chains are clean now (the hash-key fix); when chained-call receivers gain exact typing, wire the standalone chain forms into the same argument checks with the regression shape `env.status(:not_found).json({error: "User not found"})`.

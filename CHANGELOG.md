@@ -5,6 +5,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Type declarations as array elements** — arrays now accept `value : Int64`
+  elements (`operands: [value : Int64]` in
+  `compiler/crystal/interpreter/instructions.cr`), matching the compiler, which
+  reads array elements with `parse_op_assign_no_control` and builds a type
+  declaration on a following colon. Only identifier/ivar/cvar targets qualify;
+  `self.x : T` stays invalid. The list keeps its shared expression-list shape
+  while the declaration reuses the established property-declaration PSI.
+  Macro-generated table shapes in the same file are covered too: macro-control
+  hash values, comma-less macro separators between entries, and spliced
+  `name{{n}}:` hash keys. Covered by the TypeDeclarationArrayElements golden,
+  focused declaration/hash-entry tests, and a real-file canary. Both corpora
+  drop to 2 errors in 1 file, with `instructions.cr` fully repaired and zero
+  newly failing files; only the deferred `ffi/type.cr` cluster remains.
 - **Keyword setter names in member assignments** — nested member assignments
   now accept keyword method names (`@tail = tail.next = node` in
   `crystal/system/thread_linked_list.cr`), matching ordinary dot calls. Only
