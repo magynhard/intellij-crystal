@@ -91,6 +91,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroGeneratedOperators() {
+        doTest(true)
+    }
+
     fun testPercentLiterals() {
         doTest(true)
     }

@@ -361,4 +361,12 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val generator = findCrystalCheckoutFile("scripts/generate_grapheme_break_specs.cr") ?: return
         assertParsesCleanly(generator)
     }
+
+    fun testRaytracerSampleParsesWithoutErrors() {
+        // samples/sdl/raytracer.cr generates operator methods in a {% for %}
+        // loop over %w(+ - * /) with juxtaposed macro operators
+        // (`@x {{op.id}} other.x`) in their bodies.
+        val raytracer = findCrystalCheckoutFile("samples/sdl/raytracer.cr") ?: return
+        assertParsesCleanly(raytracer)
+    }
 }

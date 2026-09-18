@@ -762,6 +762,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Macro-generated operators and `%w()` iterables parse** — `samples/sdl/raytracer.cr`
+  failed at `{% for op in %w(+ - * /) %}` for two independent reasons, both repaired:
+  juxtaposed macro operators (`@x {{op.id}} other.x`, proven by evaluation to be one
+  binary expression) now bind as a postfix tail, so the receiver keeps its node while
+  existing call shapes (e.g. `foo {{x}} bar`) still match first; and `%w`/`%W`/`%i`/`%I`/
+  `%q`/`%Q`/`%r`/`%x`/bare-`%` openers now exist in the `MACRO_CONTROL` lexer state, so a
+  later `/` after an operator no longer lexes as regex-begin and derails the tag.
+  Covered by the MacroGeneratedOperators golden, lexer regression tests, call-shape
+  boundary tests, and a real-file canary. Two neighboring goldens regenerated for the
+  corrected `%w()` tag tokens only. Both audits stay at zero errors with zero newly failing files.
 - **Trailing bare arguments after parenthesized calls are counted** — `restrict (X), context`
   (`restrictions.cr:989`) was falsely flagged with "Missing required argument(s): 'context'"
   because the post-comma tail lives outside `call_args` and argument extraction stopped at

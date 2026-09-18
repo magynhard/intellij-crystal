@@ -6395,6 +6395,15 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //     // `{% elsif prop_stringified =~ /^(Int|Float)\d+$/ %}` (ameba rule_config).
   //     | COMMAND_BEGIN | COMMAND_LITERAL | COMMAND_END | BACKTICK
   //     | REGEX_BEGIN | REGEX_LITERAL | REGEX_END
+  //     // Percent literals appear inside macro control tags (`{% for op in
+  //     // %w(+ - * /) %}` in raytracer.cr): the lexer opens them as one literal,
+  //     // so the soup admits their delimiters; content arrives as ordinary
+  //     // literal tokens already listed above. macro_control only consumes tokens
+  //     // without reconstructing PSI, so widening the token set cannot change
+  //     // existing successful parses.
+  //     | PERCENT_LITERAL_BEGIN | PERCENT_LITERAL_END
+  //     | PERCENT_WORD_ARRAY_BEGIN | PERCENT_WORD_ARRAY_END
+  //     | PERCENT_SYMBOL_BEGIN | PERCENT_SYMBOL_END
   //     | TRUE | FALSE | NIL
   //     | IF | ELSE | ELSIF | END | FOR | IN | UNLESS | WHILE | UNTIL | RESCUE | BEGIN | YIELD | REQUIRE | VERBATIM
   //     // Declaration keywords appear inside macro control blocks: single-line
@@ -6432,6 +6441,12 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, REGEX_BEGIN);
     if (!result_) result_ = consumeToken(builder_, REGEX_LITERAL);
     if (!result_) result_ = consumeToken(builder_, REGEX_END);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_LITERAL_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_LITERAL_END);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_WORD_ARRAY_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_WORD_ARRAY_END);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_SYMBOL_BEGIN);
+    if (!result_) result_ = consumeToken(builder_, PERCENT_SYMBOL_END);
     if (!result_) result_ = consumeToken(builder_, TRUE);
     if (!result_) result_ = consumeToken(builder_, FALSE);
     if (!result_) result_ = consumeToken(builder_, NIL);
@@ -10347,6 +10362,24 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                      // only: spaced `f []` stays a call with an empty array argument.
   //                      | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
   //                      | call_args [block]
+  //                      // Macro-operator juxtaposition (`@x {{op.id}} other.x` in
+  //                      // {% for %} bodies, e.g. raytracer.cr): the interpolation
+  //                      // expands to a binary operator — proven by evaluation
+  //                      // (`1 {{op.id}} 2` with op `+` yields 3). Modeled as a
+  //                      // postfix tail so the receiver keeps its node and the
+  //                      // shape stays flat like ordinary binary operators (which
+  //                      // also inline as leaves). Tried last among postfix tails,
+  //                      // and none of the existing tails starts with `{{`, so
+  //                      // every previously successful parse is untouched; in
+  //                      // particular `foo {{x}} bar` still binds as a bare call
+  //                      // because method_call_expression matches first, deep
+  //                      // inside primary. The operand is required (a lone
+  //                      // `@x {{op}}` keeps failing as before), and no NLS may
+  //                      // intervene: a newline breaks the chain into separate
+  //                      // statements instead of gluing them. Bare-argument
+  //                      // positions (`bare_postfix_op`) deliberately have no
+  //                      // twin: no corpus case needs it.
+  //                      | macro_interpolation postfix_expression
   static boolean postfix_op(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "postfix_op")) return false;
     boolean result_;
@@ -10360,6 +10393,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = postfix_op_6(builder_, level_ + 1);
     if (!result_) result_ = postfix_op_7(builder_, level_ + 1);
     if (!result_) result_ = postfix_op_8(builder_, level_ + 1);
+    if (!result_) result_ = postfix_op_9(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -10550,6 +10584,17 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!recursion_guard_(builder_, level_, "postfix_op_8_1")) return false;
     block(builder_, level_ + 1);
     return true;
+  }
+
+  // macro_interpolation postfix_expression
+  private static boolean postfix_op_9(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "postfix_op_9")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = macro_interpolation(builder_, level_ + 1);
+    result_ = result_ && postfix_expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
   }
 
   /* ********************************************************** */

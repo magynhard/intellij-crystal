@@ -485,6 +485,39 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testWordArrayInMacroControlTag() {
+        // `{% for op in %w(+ - * /) %}` (raytracer.cr): the `%w(` must open
+        // one word array instead of splitting, or a later `/` after an
+        // operator lexes as REGEX_BEGIN via isRegexAllowed and derails the tag.
+        val tokens = nonWhitespaceTokens("{% for op in %w(+ - * /) %}")
+        val begin = tokens.first { it.first == CrystalTypes.PERCENT_WORD_ARRAY_BEGIN }
+        assertEquals("%w(", begin.second)
+        val end = tokens.last { it.first == CrystalTypes.PERCENT_WORD_ARRAY_END }
+        assertEquals(")", end.second)
+        assertTrue(tokens.any { it.first == CrystalTypes.MACRO_CONTROL_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.MACRO_CONTROL_END })
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
+    fun testRawPercentLiteralInMacroControlTag() {
+        // `%q(+ - * /)` family proof alongside `%w`: same opener mechanics.
+        val tokens = nonWhitespaceTokens("{% if s == %q(+ - * /) %}")
+        val begin = tokens.first { it.first == CrystalTypes.PERCENT_LITERAL_BEGIN }
+        assertEquals("%q(", begin.second)
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
+    fun testSpacedPercentWordInMacroControlStaysSplit() {
+        // `%w ==` (modulo plus variable) must not become a word array: the
+        // opener requires a tight delimiter.
+        val tokens = nonWhitespaceTokens("{% if a %w == b %}")
+        assertTrue(tokens.any { it.first == CrystalTypes.PERCENT })
+        assertFalse(tokens.any { it.first == CrystalTypes.PERCENT_WORD_ARRAY_BEGIN })
+    }
+
+    @Test
     fun testModuloInStringInterpolationStaysPercent() {
         // `"#{a % b}"`: spaced `%` remains the modulo operator, never a
         // percent literal opener.

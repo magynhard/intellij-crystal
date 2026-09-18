@@ -1135,6 +1135,121 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "..."                { return CrystalTypes.DOTDOTDOT; }
   "::"                 { return CrystalTypes.DOUBLE_COLON; }
   "%"                  { return CrystalTypes.PERCENT; }
+  // Percent literals inside macro control tags: `{% for op in %w(+ - * /) %}`
+  // (raytracer.cr). Without these, `%w(` splits and a later `/` after an
+  // operator (`* /`) lexes as REGEX_BEGIN via isRegexAllowed, derailing the
+  // tag and everything after it. Mirrors the YYINITIAL family (same token
+  // types, same PERCENT_LITERAL state handling); like the MACRO_INTERPOLATION
+  // rule there is no percentStartsMethodName guard. Longest-match keeps
+  // `%w ==` (modulo plus variable) and `%` (modulo) on their old paths.
+  "%w" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                          percentInterpolation = false;
+                          percentWordArray = true;
+                          percentAllowEscapes = false;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_WORD_ARRAY_BEGIN;
+                        }
+  "%W" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                          percentInterpolation = true;
+                          percentWordArray = true;
+                          percentAllowEscapes = true;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_WORD_ARRAY_BEGIN;
+                        }
+  "%i" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.SYMBOL_LITERAL;
+                          percentInterpolation = false;
+                          percentWordArray = false;
+                          percentAllowEscapes = false;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_SYMBOL_BEGIN;
+                        }
+  "%I" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.SYMBOL_LITERAL;
+                          percentInterpolation = true;
+                          percentWordArray = false;
+                          percentAllowEscapes = true;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_SYMBOL_BEGIN;
+                        }
+  "%q" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                          percentInterpolation = false;
+                          percentWordArray = false;
+                          percentAllowEscapes = false;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                        }
+  "%Q" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                          percentInterpolation = true;
+                          percentWordArray = false;
+                          percentAllowEscapes = true;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                        }
+  "%r" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.REGEX_LITERAL;
+                          percentInterpolation = true;
+                          percentWordArray = false;
+                          percentAllowEscapes = true;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                        }
+  "%x" [\(\[\{<|]     {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.COMMAND_LITERAL;
+                          percentInterpolation = true;
+                          percentWordArray = false;
+                          percentAllowEscapes = true;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                        }
+  "%" [\(\[\{<|]      {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                          percentInterpolation = true;
+                          percentWordArray = false;
+                          percentAllowEscapes = true;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                        }
   [^]                  { return TokenType.BAD_CHARACTER; }
 }
 
