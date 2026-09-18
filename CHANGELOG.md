@@ -762,6 +762,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Receiver-less `new` checks against the constructor pool** — `new [name], global`
+  (`compiler/crystal/syntax/ast.cr:1918/1922`) was falsely flagged with `Type mismatch:
+  expected 'String', got 'Array(String)'` because the name index only sees the written
+  `def self.new` overloads. A receiver-less `new` in class context now resolves through
+  the shared exact constructor pool (explicit `self.new` plus implicit `initialize`
+  forwarders, like the DOT-call path and the argument-count inspection), so the array
+  argument matches `initialize(@names : Array, ...)`. Calls with an explicit receiver
+  (`X.new`) and instance-method bodies keep their established paths, and genuine
+  mismatches still report against the full pool. When the pool is not authoritative
+  (incomplete hierarchy, unresolvable superclass, abstract type), the inspection stays
+  silent instead of guessing from project-wide name matches. Covered by forwarding, mismatch, and
+  count regression tests plus a real-file canary over the `Path` region. Both audits
+  stay at zero errors with zero newly failing files.
 - **Endless ranges no longer swallow the next line** — `(indent + shift).clamp 0..`
   (`lib/reply/src/reader.cr`) failed with `<statement> expected, got 'do'` because the
   range rules accepted a newline before the right-hand side, consuming the following

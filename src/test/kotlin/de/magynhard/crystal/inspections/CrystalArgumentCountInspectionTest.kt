@@ -2599,6 +2599,32 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBareNewWithLeadingArrayCountsAgainstInitialize() {
+        // ast.cr: `new [name], global` forwards to `initialize(@names, @global)`,
+        // so both arguments are consumed and no arity diagnostic may fire.
+        myFixture.configureByText("test.cr", """
+            class DocPath
+              def initialize(@names : Array(String), @global : Bool = false)
+              end
+              def self.new(name : String, global = false)
+                new [name], global
+              end
+              def self.new(name1 : String, name2 : String, global = false)
+                new [name1, name2], global
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "Forwarded bare `new` calls must not flag argument counts, got: " +
+                highlights.mapNotNull { it.description },
+            highlights.none {
+                it.description?.contains("Too many arguments") == true ||
+                    it.description?.contains("Missing required argument") == true
+            },
+        )
+    }
+
     fun testMacroSplatFragmentParameterSuppressesCountDiagnostics() {
         myFixture.configureByText("test.cr", """
             def generated({{ items.splat }})

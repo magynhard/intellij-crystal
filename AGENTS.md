@@ -77,6 +77,9 @@ IntelliJ Platform, and plugin versions.
   issue; investigate plugin initialization, descriptor, and different task failures normally.
 - Crystal should be available on `PATH` or configured in the plugin. Some integration tests and audits
   require an installed Crystal distribution and stdlib; report tests skipped because it is absent.
+- Hierarchy-dependent inspection and resolution tests must declare resolvable superclasses (stub them
+  when the fixture omits the hierarchy); otherwise the resolver degrades to its fallback path and the
+  test silently measures the wrong behavior.
 
 ## Generated Sources
 

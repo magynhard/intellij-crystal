@@ -5,7 +5,11 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
+import de.magynhard.crystal.analysis.CrystalTypeIdentity
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.analysis.CrystalTypeText
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.psi.*
@@ -119,6 +123,42 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             }
         }
 
+        // A receiver-less `new` inside a type's class context resolves through
+        // the shared exact constructor pool — explicit `def self.new` overloads
+        // plus implicit initializer forwarders — exactly like the DOT-call path
+        // and the argument-count inspection. The plain method index only
+        // contains written `new` definitions, so `new [name], global` (ast.cr)
+        // was measured against `(name : String, ...)` alone and falsely
+        // reported `Array(String)` vs `String`. When the pool is not
+        // authoritative (incomplete hierarchy, unresolvable superclass,
+        // abstract or non-instantiable type), the inspection stays silent
+        // instead of guessing from project-wide name matches: argument
+        // diagnostics require exact resolution.
+        if (methodName == "new" && isBareNewInSelfContext(callExpr)) {
+            val enclosingType = CrystalPsiUtils.getEnclosingType(callExpr)
+            val qualifiedName = enclosingType?.let(CrystalPsiUtils::buildQualifiedName)
+            if (qualifiedName != null) {
+                val identity = CrystalTypeIdentity(
+                    qualifiedName.substringAfterLast("::"),
+                    qualifiedName,
+                )
+                when (val resolution = CrystalTypeSetResolver.session(callExpr).resolveConstructor(identity)) {
+                    is CrystalConstructorResolution.Methods -> {
+                        checkOverloadTypes(resolution.methods, arguments, holder, callExpr)
+                        return
+                    }
+                    is CrystalConstructorResolution.Record -> {
+                        val fieldArguments = CrystalPsiUtils.recordFieldArguments(resolution.recordDefinition)
+                        if (fieldArguments.isNotEmpty()) {
+                            checkRecordTypeArgs(recordParamsFrom(fieldArguments), arguments, holder)
+                        }
+                        return
+                    }
+                    else -> return
+                }
+            }
+        }
+
         if (methods.isEmpty()) {
             return
         }
@@ -187,6 +227,26 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 )
             }
         }
+    }
+
+    /**
+     * Whether [callExpr] is a receiver-less `new` in class context (`def self.*`
+     * or class body): the shape whose target is the enclosing type's implicit
+     * constructor. Calls with an explicit receiver (`X.new`, `foo.new`) keep
+     * their established paths; instance-method bodies reject bare `new` in the
+     * compiler, so their diagnostics stay untouched.
+     */
+    private fun isBareNewInSelfContext(callExpr: PsiElement): Boolean {
+        var child = callExpr.firstChild
+        while (child != null) {
+            val type = child.node?.elementType
+            if (type == CrystalTypes.DOT) return false
+            if ((type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT) && child.text == "new") break
+            child = child.nextSibling
+        }
+        val enclosingMethod = PsiTreeUtil.getParentOfType(callExpr, CrystalMethodDefinition::class.java)
+        if (enclosingMethod != null && enclosingMethod.node.findChildByType(CrystalTypes.SELF) == null) return false
+        return CrystalPsiUtils.getEnclosingType(callExpr) != null
     }
 
     /**

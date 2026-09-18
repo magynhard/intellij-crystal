@@ -910,4 +910,85 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Bare `new` with leading array ====================
+
+    fun testBareNewWithLeadingArrayUsesInitializeOverload() {
+        // ast.cr: `def self.new(name : String, ...)` calls `new [name], global`.
+        // The receiver-less `new` resolves to the implicit constructor
+        // (`initialize(@names : Array, ...)`), not to the `self.new` overloads.
+        myFixture.configureByText("test.cr", """
+            class DocPath
+              def initialize(@names : Array(String), @global : Bool = false)
+              end
+              def self.new(name : String, global = false)
+                new [name], global
+              end
+              def self.new(name1 : String, name2 : String, global = false)
+                new [name1, name2], global
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBareNewWithGenuineMismatchStillReports() {
+        // The constructor pool must not swallow real mismatches: `123` fits
+        // neither `self.new(name : String, ...)` nor `initialize(@names : Array, ...)`.
+        myFixture.configureByText("test.cr", """
+            class DocPath
+              def initialize(@names : Array(String), @global : Bool = false)
+              end
+              def self.new(name : String, global = false)
+                new <error descr="Type mismatch: expected 'String' or 'Array(String)', got 'Int32'">123</error>, global
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testAstCrPathForwardingNewHasNoMismatch() {
+        // Real-file canary for ast.cr (`Path.new [name], global`): extracts the
+        // `Path` class region up to the second `def self.new` from the installed
+        // compiler sources, preserving the exact annotations (bare `@names : Array`).
+        // Skips gracefully when no local Crystal distribution is found.
+        val ast = findCompilerFile("compiler/crystal/syntax/ast.cr") ?: return
+        val region = extractPathRegion(ast.readLines()) ?: return
+        // The region ends after the second `def self.new`; close the class and
+        // the module wrapper around it. The `ASTNode` superclass is stubbed so
+        // the constructor-hierarchy traversal completes exactly as in the real
+        // project, where `ASTNode` is declared in the same file.
+        myFixture.configureByText(
+            "ast_path_region.cr",
+            "module Crystal\nclass ASTNode\nend\n$region\nend\nend\n",
+        )
+        myFixture.checkHighlighting()
+    }
+
+    private fun findCompilerFile(name: String): java.io.File? =
+        listOf("/usr/lib/crystal", "/usr/local/lib/crystal", "/opt/crystal/lib/crystal")
+            .map { java.io.File(it, name) }
+            .firstOrNull { it.isFile }
+
+    private fun extractPathRegion(lines: List<String>): String? {
+        val region = mutableListOf<String>()
+        var inRegion = false
+        var defDepth = 0
+        var selfNewSeen = 0
+        for (line in lines) {
+            if (!inRegion) {
+                if (line.trim() == "class Path < ASTNode") inRegion = true else continue
+            }
+            region.add(line)
+            val trimmed = line.trim()
+            if (trimmed.startsWith("def ")) {
+                defDepth++
+                if (trimmed.startsWith("def self.new")) selfNewSeen++
+            } else if (trimmed == "end") {
+                defDepth--
+                if (selfNewSeen >= 2 && defDepth == 0) return region.joinToString("\n")
+            }
+        }
+        return null
+    }
 }
