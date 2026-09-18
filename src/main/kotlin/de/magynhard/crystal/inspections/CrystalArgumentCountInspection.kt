@@ -490,6 +490,12 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     for (arg in CrystalPsiCallArguments.getArguments(callArgs)) {
                         result.add(extractArgInfo(arg))
                     }
+                    // The trailing bare tail of the `call_args COMMA
+                    // bare_argument_list` shape (`restrict (X), context`)
+                    // lives outside `call_args` and must be counted too.
+                    for (bare in CrystalPsiCallArguments.trailingBareArguments(callArgs)) {
+                        result.add(extractBareArgInfo(bare))
+                    }
                     // (v12: heredoc headers are ordinary marker arguments inside
                     // the list — no extra terminator accounting needed.)
                     return result

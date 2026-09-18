@@ -901,4 +901,13 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testTrailingBareTailArgumentIsTypeChecked() {
+        myFixture.configureByText("test.cr", """
+            def take(x : Int32, y : Int32)
+            end
+            take((1), <error descr="Type mismatch: expected 'Int32', got 'String'">"s"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

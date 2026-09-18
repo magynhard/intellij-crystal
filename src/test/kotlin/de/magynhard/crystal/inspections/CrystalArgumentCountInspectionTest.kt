@@ -2548,6 +2548,57 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testLooseGroupedFirstArgCountsTrailingBareTail() {
+        // `restrict (X), context` parses as call_args plus a trailing bare
+        // tail outside the parens; both halves must count, or the present
+        // second argument is reported missing (restrictions.cr:989 shape).
+        myFixture.configureByText("test.cr", """
+            def restrict(other, context)
+            end
+
+            restrict (flag || other), context
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "Both arguments are present and must be counted",
+            highlights.any {
+                it.description?.contains("Too many arguments") == true ||
+                    it.description?.contains("Missing required argument") == true
+            },
+        )
+    }
+
+    fun testMultipleTrailingBareArgsCounted() {
+        myFixture.configureByText("test.cr", """
+            def take(a, b, c, d)
+            end
+
+            take((a), b, c, d)
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertFalse(
+            "All four arguments are present and must be counted",
+            highlights.any {
+                it.description?.contains("Too many arguments") == true ||
+                    it.description?.contains("Missing required argument") == true
+            },
+        )
+    }
+
+    fun testGenuineUnderArityStillReported() {
+        myFixture.configureByText("test.cr", """
+            def take(a, b)
+            end
+
+            take((a))
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "A genuinely missing argument must still be reported",
+            highlights.any { it.description?.contains("Missing required argument") == true },
+        )
+    }
+
     fun testMacroSplatFragmentParameterSuppressesCountDiagnostics() {
         myFixture.configureByText("test.cr", """
             def generated({{ items.splat }})

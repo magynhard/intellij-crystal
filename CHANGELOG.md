@@ -762,6 +762,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Trailing bare arguments after parenthesized calls are counted** — `restrict (X), context`
+  (`restrictions.cr:989`) was falsely flagged with "Missing required argument(s): 'context'"
+  because the post-comma tail lives outside `call_args` and argument extraction stopped at
+  the closing paren. A `trailingBareArguments` counterpart to the established leading-array
+  handling now feeds the tail into argument-count and type checks (dot-call, method-call,
+  and bare-call paths); genuine under-arity still reports. Covered by count, boundary, and
+  tail type-check regression tests. Both audits stay at zero errors with zero newly failing files.
 - **Percent literals inside string interpolation parse** — `"#{ %(pending "GB9c" { ) if pending }"`
   (`scripts/generate_grapheme_break_specs.cr:69`) failed with `<expression> expected, got '%'`
   because the `INTERPOLATION` lexer state had no percent-literal opener (only `{{ }}` did since

@@ -55,6 +55,30 @@ object CrystalPsiCallArguments {
         return previousSignificantSibling(comma) as? CrystalArrayLiteral
     }
 
+    /**
+     * The trailing bare arguments of the `call_args COMMA bare_argument_list`
+     * shape (`restrict (X), context`): the grammar keeps the post-comma list
+     * outside `call_args` (so a complete parenthesized list never absorbs a
+     * trailing bare tail), and consumers must not lose it — otherwise the
+     * tail vanishes from arity checks and a present argument is reported
+     * missing. Empty unless a comma plus a bare list directly follow.
+     */
+    fun trailingBareArguments(callArgs: CrystalCallArgs): List<CrystalBareArgument> {
+        val comma = nextSignificantSibling(callArgs)
+            ?.takeIf { it.node?.elementType == CrystalTypes.COMMA } ?: return emptyList()
+        val bareList = nextSignificantSibling(comma) as? CrystalBareArgumentList
+            ?: return emptyList()
+        return bareList.bareArgumentList.toList()
+    }
+
+    private fun nextSignificantSibling(element: PsiElement): PsiElement? {
+        var current = element.nextSibling
+        while (current != null && (current is PsiWhiteSpace || current.node?.elementType == CrystalTypes.NEWLINE)) {
+            current = current.nextSibling
+        }
+        return current
+    }
+
     private fun previousSignificantSibling(element: PsiElement): PsiElement? {
         var current = element.prevSibling
         while (current != null && (current is PsiWhiteSpace || current.node?.elementType == CrystalTypes.NEWLINE)) {

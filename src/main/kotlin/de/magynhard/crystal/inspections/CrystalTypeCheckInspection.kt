@@ -243,6 +243,13 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 else -> result.add(ArgumentInfo(element))
             }
         }
+        if (argsElement is CrystalCallArgs) {
+            // The trailing bare tail of the `call_args COMMA
+            // bare_argument_list` shape lives outside `call_args`.
+            for (bare in CrystalPsiCallArguments.trailingBareArguments(argsElement)) {
+                result.add(extractBareArgumentInfo(bare))
+            }
+        }
         return result
     }
 
@@ -528,6 +535,12 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     for (arg in CrystalPsiCallArguments.getArguments(callArgs)) {
                         extractArgumentInfo(arg)?.let { result.add(it) }
                     }
+                    // Trailing bare tail of the `call_args COMMA
+                    // bare_argument_list` shape (same blind spot as the
+                    // argument-count inspection).
+                    for (bare in CrystalPsiCallArguments.trailingBareArguments(callArgs)) {
+                        result.add(extractBareArgumentInfo(bare))
+                    }
                     return result
                 }
                 // Try bare_argument_list
@@ -547,6 +560,11 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 if (callArgs != null) {
                     for (arg in CrystalPsiCallArguments.getArguments(callArgs)) {
                         extractArgumentInfo(arg)?.let { result.add(it) }
+                    }
+                    // No grammar shape puts a bare tail here today; kept for
+                    // parity so a future one cannot silently drop arguments.
+                    for (bare in CrystalPsiCallArguments.trailingBareArguments(callArgs)) {
+                        result.add(extractBareArgumentInfo(bare))
                     }
                 }
             }
