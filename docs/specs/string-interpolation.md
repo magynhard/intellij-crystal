@@ -56,6 +56,13 @@ The `INTERPOLATION` state (Crystal.flex:393) handles `{`/`}` brace-depth trackin
 |---|---|---|---|---|
 | 16 | Macro body `#{}` | `MACRO_BODY` (line 511) | ❌ Returns `MACRO_BODY_CONTENT` | ✅ Correct (macros use `{{ }}` / `{% %}`) |
 
+### Percent Literals Inside Interpolation (expression position)
+
+| # | Crystal Syntax | Lexer State | Status |
+|---|---|---|---|
+| 17 | `"#{ %(a) if b }"` | `INTERPOLATION` | ✅ Done — bare `%` opener mirrored from `MACRO_INTERPOLATION`; spaced `%` stays modulo via longest match |
+| 18 | `{{ ch.join(%( or )) }}` | `MACRO_INTERPOLATION` | ✅ Done earlier (hexfloat.cr) |
+
 ---
 
 ## Detailed Behavior by Type

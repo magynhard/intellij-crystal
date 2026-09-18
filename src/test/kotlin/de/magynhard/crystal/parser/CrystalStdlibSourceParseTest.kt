@@ -21,6 +21,13 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
             .map { File(it, name) }
             .firstOrNull { it.isFile }
 
+    private fun findCrystalCheckoutFile(name: String): File? =
+        listOfNotNull(
+            System.getenv("CRYSTAL_CHECKOUT"),
+            "${System.getProperty("user.home")}/dev/github.com/crystal-lang/crystal",
+        ).map { File(it, name) }
+            .firstOrNull { it.isFile }
+
     private fun assertParsesCleanly(file: File) {
         myFixture.configureByText(file.name, file.readText())
         val errors = PsiTreeUtil.collectElementsOfType(myFixture.file, PsiErrorElement::class.java)
@@ -346,5 +353,12 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         // (`pointerof(LibFFI.ffi_type_void)`).
         val ffiType = findStdlibFile("compiler/crystal/ffi/type.cr") ?: return
         assertParsesCleanly(ffiType)
+    }
+
+    fun testGraphemeBreakSpecsGeneratorParsesWithoutErrors() {
+        // scripts/generate_grapheme_break_specs.cr interpolates a percent
+        // literal with a postfix `if` inside a string (`"#{ %(...) if ... }"`).
+        val generator = findCrystalCheckoutFile("scripts/generate_grapheme_break_specs.cr") ?: return
+        assertParsesCleanly(generator)
     }
 }

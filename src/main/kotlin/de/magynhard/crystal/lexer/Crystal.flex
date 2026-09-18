@@ -781,6 +781,24 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "*"                  { return CrystalTypes.STAR; }
   "/"                  { return CrystalTypes.SLASH; }
   "%"                  { return CrystalTypes.PERCENT; }
+  // Percent literals inside string interpolations: `"#{ %(a) if b }"`
+  // (generate_grapheme_break_specs.cr). Without this, `%(` splits into
+  // PERCENT plus LPAREN and the interpolation fails with "<expression>
+  // expected, got '%'". Mirrors the MACRO_INTERPOLATION rule; like there,
+  // a tight `obj.%(...)` method call keeps its old shape (documented
+  // boundary, consistent across both interpolation states).
+  "%" [\(\[\{<|]      {
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                          percentInterpolation = true;
+                          percentWordArray = false;
+                          percentAllowEscapes = true;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                        }
   "<"                  { return CrystalTypes.LT; }
   ">"                  { return CrystalTypes.GT; }
   "&"                  { return CrystalTypes.AMPERSAND; }

@@ -472,6 +472,30 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testPercentLiteralInStringInterpolation() {
+        // `"#{ %(a) if b }"` (generate_grapheme_break_specs.cr): the `%(` must
+        // open one percent literal instead of splitting into PERCENT + LPAREN.
+        val tokens = nonWhitespaceTokens("\"#{ %(a) if b }\"")
+        assertTrue(tokens.any { it.first == CrystalTypes.STRING_INTERPOLATION_BEGIN })
+        val begin = tokens.first { it.first == CrystalTypes.PERCENT_LITERAL_BEGIN }
+        assertEquals("%(", begin.second)
+        val end = tokens.last { it.first == CrystalTypes.PERCENT_LITERAL_END }
+        assertEquals(")", end.second)
+        assertTrue(tokens.any { it.first == CrystalTypes.STRING_INTERPOLATION_END })
+    }
+
+    @Test
+    fun testModuloInStringInterpolationStaysPercent() {
+        // `"#{a % b}"`: spaced `%` remains the modulo operator, never a
+        // percent literal opener.
+        val tokens = nonWhitespaceTokens("\"#{a % b}\"")
+        val percents = tokens.filter { it.first == CrystalTypes.PERCENT }
+        assertEquals(1, percents.size)
+        assertEquals("%", percents.single().second)
+        assertFalse(tokens.any { it.first == CrystalTypes.PERCENT_LITERAL_BEGIN })
+    }
+
+    @Test
     fun testRawPercentLiteralBackslashDoesNotEscapeCloser() {
         // %q is raw (compiler allow_escapes: false): the backslash is literal
         // content and the `)` after it still closes the literal.

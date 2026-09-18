@@ -762,6 +762,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Percent literals inside string interpolation parse** — `"#{ %(pending "GB9c" { ) if pending }"`
+  (`scripts/generate_grapheme_break_specs.cr:69`) failed with `<expression> expected, got '%'`
+  because the `INTERPOLATION` lexer state had no percent-literal opener (only `{{ }}` did since
+  the hexfloat fix). The bare-`%` opener is now mirrored there, so one rule covers `"..."`,
+  `/.../`, and `` `...` `` interpolations alike; spaced `%` stays modulo by longest match.
+  Covered by lexer regression tests, the PercentLiteralInStringInterpolation golden, and a
+  real-file canary. Both audits stay at zero errors with zero newly failing files.
 - **Inspect Code results no longer crash on selection** — clicking any Crystal
   inspection result threw `PluginException: Inspection #X has no description`
   because no inspection shipped a description. All ten inspections now provide
