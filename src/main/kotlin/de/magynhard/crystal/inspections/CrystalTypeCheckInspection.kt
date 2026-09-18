@@ -27,6 +27,17 @@ import de.magynhard.crystal.stubs.CrystalIndexService
  */
 class CrystalTypeCheckInspection : LocalInspectionTool() {
 
+    // The plugin.xml registration, audit profiles, and user suppressions all
+    // use "CrystalTypeMismatch"; without this override the effective short
+    // name would fall back to the class-name default ("CrystalTypeCheck"),
+    // silently detaching the tool from its description, profile entries, and
+    // suppressions.
+    override fun getShortName(): String = "CrystalTypeMismatch"
+
+    // Wires the inspectionDescriptions/<shortName>.html resource into the
+    // platform's description loading; without it the Inspect Code results
+    // view crashes when a result node is selected.
+    override fun getDescriptionFileName(): String = "$shortName.html"
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {

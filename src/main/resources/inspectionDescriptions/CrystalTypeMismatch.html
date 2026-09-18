@@ -1,0 +1,6 @@
+<html><body>
+Reports arguments whose inferred type is incompatible with the corresponding parameter type
+in Crystal method calls. A call is only reported when <b>all</b> overloads are incompatible,
+following Crystal's lossless numeric widening, union, and nilable-type rules.
+<p>Example: <code>take("text")</code> for <code>def take(n : Int32)</code>.</p>
+</body></html>

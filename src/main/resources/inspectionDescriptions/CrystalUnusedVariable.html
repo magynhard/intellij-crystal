@@ -1,0 +1,7 @@
+<html><body>
+Reports local variables that are assigned but never read, and individual assignments whose
+value is overwritten before being read. Variables starting with <code>_</code> are treated
+as intentionally unused. Method parameters, instance variables, class variables, and
+globals are not checked.
+<p>Example: <code>x = compute; puts "done"</code> reports <code>x</code>.</p>
+</body></html>

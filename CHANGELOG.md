@@ -762,6 +762,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Inspect Code results no longer crash on selection** — clicking any Crystal
+  inspection result threw `PluginException: Inspection #X has no description`
+  because no inspection shipped a description. All ten inspections now provide
+  `inspectionDescriptions/<shortName>.html` resources wired through
+  `getDescriptionFileName()`, and a consistency test pins the full contract
+  (file present, short name matches the `plugin.xml` registration, loaded
+  description non-blank). The test also exposed that
+  `CrystalTypeCheckInspection` was effectively registered as `CrystalTypeCheck`
+  instead of `CrystalTypeMismatch`, silently detaching it from its audit
+  profile, settings, and suppressions — it now reports its registered short
+  name.
 - **Macro-generated type definitions and operator-headed compound methods parse** —
   `struct {{num.id}}` in `{% for %}` bodies (primitives.cr:435/480/560,
   compiler_rt.cr, log/format.cr, io/byte_format.cr, ast.cr, init.cr,

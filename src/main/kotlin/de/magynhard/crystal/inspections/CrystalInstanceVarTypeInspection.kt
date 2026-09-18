@@ -30,6 +30,11 @@ import de.magynhard.crystal.psi.CrystalStructDefinition
  */
 class CrystalInstanceVarTypeInspection : LocalInspectionTool() {
 
+    // Wires the inspectionDescriptions/<shortName>.html resource into the
+    // platform's description loading; without it the Inspect Code results
+    // view crashes when a result node is selected.
+    override fun getDescriptionFileName(): String = "$shortName.html"
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
