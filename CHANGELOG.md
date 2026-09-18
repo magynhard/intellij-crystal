@@ -762,6 +762,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Endless ranges no longer swallow the next line** — `(indent + shift).clamp 0..`
+  (`lib/reply/src/reader.cr`) failed with `<statement> expected, got 'do'` because the
+  range rules accepted a newline before the right-hand side, consuming the following
+  statement as the range end and derailing the enclosing `do` block. `range_expression`
+  and `bare_range_expression` no longer allow `NLS` after `..`/`...`, matching the
+  compiler's `new_range`, which skips only spaces before building an endless range
+  (`x = 0..\n  10` is `Range(Int32, Nil)` plus a separate statement, verified by
+  `crystal run`). A backslash continuation still keeps one logical line (`1..\<newline>5`
+  stays a full range — the lexer emits it as whitespace, not `NEWLINE`). Covered by the
+  EndlessRangeNewlineBoundary golden, boundary isolation tests, and a real-file canary.
+  The LineContinuation and PatternMatching goldens now record the endless shapes
+  (`in 65..` keeps its body as the clause body). Both audits stay at zero errors with
+  zero newly failing files.
 - **Macro-generated operators and `%w()` iterables parse** — `samples/sdl/raytracer.cr`
   failed at `{% for op in %w(+ - * /) %}` for two independent reasons, both repaired:
   juxtaposed macro operators (`@x {{op.id}} other.x`, proven by evaluation to be one

@@ -221,6 +221,21 @@ operators are binary-only in Crystal and always bind to the left expression
 `0.seconds(..1.day)`); Crystal rejects a leading `..` in bare argument
 position. The range-as-bare-argument form (`f 1..2`) keeps parsing.
 
+A range never continues past a plain newline: `range_expression` and
+`bare_range_expression` no longer accept `NLS` between the operator and the
+right-hand side, matching the compiler's `new_range`, which skips only
+spaces before giving up and building an endless range
+(`x = 0..\n  10` is `Range(Int32, Nil)` followed by a separate `10`
+statement). Previously the grammar swallowed the next line
+(`(indent + shift).clamp 0..` in `lib/reply/src/reader.cr` consumed the
+following statement as the range end and failed the enclosing `do` block;
+`in 65..`/`in 11..` case patterns swallowed their bodies). A backslash
+continuation still keeps one logical line (`backslash_range = 1..\<newline>5`
+stays a full range — the lexer emits backslash-newline as whitespace, not
+`NEWLINE`). Covered by the EndlessRangeNewlineBoundary golden, boundary
+isolation tests, and a real-file canary; the LineContinuation and
+PatternMatching goldens now record the endless shapes.
+
 The shared call resolution merges return types across overloads when every
 overload declares the same return annotation (all seven `String#gsub`
 overloads declare `: String` — the chain type is determinable), while

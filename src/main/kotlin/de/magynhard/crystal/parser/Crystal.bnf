@@ -1126,8 +1126,14 @@ private comparison_expression ::= range_expression comparison_tail*
 // case — extend here only with evidence.
 private comparison_tail ::= (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS range_expression {pin=1}
 
-private range_expression ::= (DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]
-                           | or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [or_bitwise_expression]]
+// Ranges never continue across newlines: the compiler's new_range skips
+// only spaces after `..`/`...` and builds an endless range on newline
+// (parser.cr new_range), so `(indent + shift).clamp 0..` followed by another
+// statement must not swallow that statement as the right operand (which
+// stranded the `do` of an enclosing call in reply's reader.cr). Spaces still
+// separate freely via automatic whitespace skipping.
+private range_expression ::= (DOTDOT | DOTDOTDOT) [or_bitwise_expression]
+                           | or_bitwise_expression [(DOTDOT | DOTDOTDOT) [or_bitwise_expression]]
 
 private or_bitwise_expression ::= xor_expression (PIPE NLS xor_expression)*
 
@@ -1641,8 +1647,10 @@ private bare_comparison_expression ::= bare_range_expression bare_comparison_tai
 // bare and parenthesized expression families consistent.
 private bare_comparison_tail ::= (EQ | NEQ | LT | GT | LTE | GTE | SPACESHIP | CASE_EQ | MATCH_OP | BANG_TILDE) NLS bare_range_expression {pin=1}
 
-private bare_range_expression ::= (DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]
-                               | bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) NLS [bare_or_bitwise_expression]]
+// Bare mirror of range_expression: same newline boundary, keeping bare
+// and parenthesized expression families consistent.
+private bare_range_expression ::= (DOTDOT | DOTDOTDOT) [bare_or_bitwise_expression]
+                               | bare_or_bitwise_expression [(DOTDOT | DOTDOTDOT) [bare_or_bitwise_expression]]
 
 private bare_or_bitwise_expression ::= bare_xor_expression (PIPE NLS bare_xor_expression)*
 

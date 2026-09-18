@@ -95,6 +95,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testEndlessRangeNewlineBoundary() {
+        doTest(true)
+    }
+
     fun testPercentLiterals() {
         doTest(true)
     }

@@ -369,4 +369,12 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val raytracer = findCrystalCheckoutFile("samples/sdl/raytracer.cr") ?: return
         assertParsesCleanly(raytracer)
     }
+
+    fun testReplyReaderCrParsesWithoutErrors() {
+        // lib/reply/src/reader.cr passes an endless range across a line
+        // break (`(indent + shift).clamp 0..` followed by the next statement
+        // inside an `@editor.update do` block).
+        val reader = findCrystalCheckoutFile("lib/reply/src/reader.cr") ?: return
+        assertParsesCleanly(reader)
+    }
 }

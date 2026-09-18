@@ -9,12 +9,17 @@ result = 1 + \
   2 + \
   3
 
-# Range with newline after operator
-full_range = 0..
+# A plain newline after the operator ends the range: the compiler reads
+# these as endless ranges followed by separate statements
+endless_range = 0..
   10
 
-exclusive = 0...
+exclusive_endless = 0...
   array_size
+
+# Backslash after the operator keeps one logical line: still a full range
+backslash_range = 1..\
+  5
 
 # Method chaining across newlines (DOT at line start)
 filtered = items
