@@ -1438,7 +1438,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // bare_argument (macro_argument_trivia COMMA macro_argument_trivia bare_argument)* [COMMA macro_argument_trivia]
+  // bare_argument (macro_argument_trivia COMMA macro_argument_trivia [interleaved_heredoc_bodies macro_argument_trivia] bare_argument)* [COMMA macro_argument_trivia]
   public static boolean bare_argument_list(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_argument_list")) return false;
     boolean result_;
@@ -1450,7 +1450,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (macro_argument_trivia COMMA macro_argument_trivia bare_argument)*
+  // (macro_argument_trivia COMMA macro_argument_trivia [interleaved_heredoc_bodies macro_argument_trivia] bare_argument)*
   private static boolean bare_argument_list_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_argument_list_1")) return false;
     while (true) {
@@ -1461,7 +1461,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // macro_argument_trivia COMMA macro_argument_trivia bare_argument
+  // macro_argument_trivia COMMA macro_argument_trivia [interleaved_heredoc_bodies macro_argument_trivia] bare_argument
   private static boolean bare_argument_list_1_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_argument_list_1_0")) return false;
     boolean result_;
@@ -1469,7 +1469,26 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = macro_argument_trivia(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
     result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
+    result_ = result_ && bare_argument_list_1_0_3(builder_, level_ + 1);
     result_ = result_ && bare_argument(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [interleaved_heredoc_bodies macro_argument_trivia]
+  private static boolean bare_argument_list_1_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_argument_list_1_0_3")) return false;
+    bare_argument_list_1_0_3_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // interleaved_heredoc_bodies macro_argument_trivia
+  private static boolean bare_argument_list_1_0_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_argument_list_1_0_3_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = interleaved_heredoc_bodies(builder_, level_ + 1);
+    result_ = result_ && macro_argument_trivia(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
@@ -5356,6 +5375,43 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // (&<<isHeredocBodyOpener>> heredoc_literal)+
+  public static boolean interleaved_heredoc_bodies(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "interleaved_heredoc_bodies")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, HEREDOC_BODIES, "<interleaved heredoc bodies>");
+    result_ = interleaved_heredoc_bodies_0(builder_, level_ + 1);
+    while (result_) {
+      int pos_ = current_position_(builder_);
+      if (!interleaved_heredoc_bodies_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "interleaved_heredoc_bodies", pos_)) break;
+    }
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // &<<isHeredocBodyOpener>> heredoc_literal
+  private static boolean interleaved_heredoc_bodies_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "interleaved_heredoc_bodies_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = interleaved_heredoc_bodies_0_0(builder_, level_ + 1);
+    result_ = result_ && heredoc_literal(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isHeredocBodyOpener>>
+  private static boolean interleaved_heredoc_bodies_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "interleaved_heredoc_bodies_0_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isHeredocBodyOpener(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // STRING_INTERPOLATION_BEGIN expression [postfix_modifier] STRING_INTERPOLATION_END
   static boolean interpolation_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "interpolation_expression")) return false;
@@ -8652,7 +8708,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values [postfix_modifier]
+  // multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values [postfix_modifier] [heredoc_bodies]
   public static boolean multi_assignment(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assignment")) return false;
     boolean result_, pinned_;
@@ -8665,7 +8721,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     pinned_ = result_; // pin = 5
     result_ = result_ && report_error_(builder_, NLS(builder_, level_ + 1));
     result_ = pinned_ && report_error_(builder_, multi_assign_values(builder_, level_ + 1)) && result_;
-    result_ = pinned_ && multi_assignment_7(builder_, level_ + 1) && result_;
+    result_ = pinned_ && report_error_(builder_, multi_assignment_7(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && multi_assignment_8(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
@@ -8674,6 +8731,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean multi_assignment_7(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "multi_assignment_7")) return false;
     postfix_modifier(builder_, level_ + 1);
+    return true;
+  }
+
+  // [heredoc_bodies]
+  private static boolean multi_assignment_8(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "multi_assignment_8")) return false;
+    heredoc_bodies(builder_, level_ + 1);
     return true;
   }
 
@@ -13663,7 +13727,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier]
+  // YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] [heredoc_bodies]
   public static boolean yield_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "yield_statement")) return false;
     if (!nextTokenIs(builder_, YIELD)) return false;
@@ -13672,7 +13736,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, YIELD);
     pinned_ = result_; // pin = 1
     result_ = result_ && report_error_(builder_, yield_statement_1(builder_, level_ + 1));
-    result_ = pinned_ && yield_statement_2(builder_, level_ + 1) && result_;
+    result_ = pinned_ && report_error_(builder_, yield_statement_2(builder_, level_ + 1)) && result_;
+    result_ = pinned_ && yield_statement_3(builder_, level_ + 1) && result_;
     exit_section_(builder_, level_, marker_, result_, pinned_, null);
     return result_ || pinned_;
   }
@@ -13711,6 +13776,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   private static boolean yield_statement_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "yield_statement_2")) return false;
     postfix_modifier(builder_, level_ + 1);
+    return true;
+  }
+
+  // [heredoc_bodies]
+  private static boolean yield_statement_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "yield_statement_3")) return false;
+    heredoc_bodies(builder_, level_ + 1);
     return true;
   }
 

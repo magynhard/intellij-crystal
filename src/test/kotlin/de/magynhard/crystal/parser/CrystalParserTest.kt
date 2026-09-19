@@ -107,6 +107,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testHeredocInterleavedBodies() {
+        doTest(true)
+    }
+
     fun testPercentLiterals() {
         doTest(true)
     }

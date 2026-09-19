@@ -2667,6 +2667,30 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testHeredocMarkerCommaBodyKeepsArity() {
+        // ast.cr/spec shape: `assert_error <<-CRYSTAL,` + body + trailing arg.
+        // The body interrupts the argument list but is not an argument itself,
+        // so both call arguments are counted and no arity diagnostic may fire.
+        myFixture.configureByText("test.cr", """
+            def assert_error(data, message)
+            end
+
+            exc = assert_error <<-CRYSTAL,
+              body line
+              CRYSTAL
+              "must be implemented"
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "Interrupted heredoc bodies must not disturb argument counts, got: " +
+                highlights.mapNotNull { it.description },
+            highlights.none {
+                it.description?.contains("Too many arguments") == true ||
+                    it.description?.contains("Missing required argument") == true
+            },
+        )
+    }
+
     fun testMacroSplatFragmentParameterSuppressesCountDiagnostics() {
         myFixture.configureByText("test.cr", """
             def generated({{ items.splat }})

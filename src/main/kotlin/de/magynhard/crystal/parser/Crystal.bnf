@@ -941,7 +941,7 @@ nested_assignment ::= variable assign_op NLS (nested_assignment | nested_indexed
 // CrystalAssignment into lists (GrammarKit @NotNull inference).
 nested_indexed_assignment ::= indexed_assignment_target (LBRACKET indexed_assignment_index RBRACKET)+ assign_op NLS (indexed_assignment | nested_assignment | expression)
 
-yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] {pin=1}
+yield_statement ::= YIELD [LPAREN argument_list RPAREN | bare_argument_list] [postfix_modifier] [heredoc_bodies] {pin=1}
 // Yield in expression position may pass multiple values (`memo = found ? (yield memo, elem) : elem`).
 // PEG longest-match-first: the single-expression form is tried BEFORE the parenthesized
 // argument list, so `yield (a) + b` still parses as one argument expression; when a
@@ -1013,7 +1013,7 @@ private assignment_target ::= SELF
 // `=` commits the assignment shape. Member targets made the prefix greedier
 // (`transitions.empty?,`), so pinning any earlier strands the expression-list
 // fallback behind the pin.
-multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values [postfix_modifier] {pin=5}
+multi_assignment ::= multi_assign_target COMMA NLS multi_assign_target_list ASSIGN NLS multi_assign_values [postfix_modifier] [heredoc_bodies] {pin=5}
 private multi_assign_target_list ::= multi_assign_target (COMMA NLS multi_assign_target)*
 multi_assign_target ::= STAR (multi_assign_indexed_target | multi_assign_member_target | variable | UNDERSCORE)
                        | multi_assign_indexed_target
@@ -1575,7 +1575,7 @@ private out_argument ::= OUT NLS (IDENTIFIER | INSTANCE_VAR)
 // stdlib `record ToUnsignedInfo(T),\n  value : T,\n  ...` need newline tolerance
 // between entries, while statement boundaries after an untrailing bare call must
 // keep their NEWLINE unconsumed.
-bare_argument_list ::= bare_argument (macro_argument_trivia COMMA macro_argument_trivia bare_argument)* [COMMA macro_argument_trivia]
+bare_argument_list ::= bare_argument (macro_argument_trivia COMMA macro_argument_trivia [interleaved_heredoc_bodies macro_argument_trivia] bare_argument)* [COMMA macro_argument_trivia]
 
 // The first argument's LPAREN is a grouped expression, not call_args. Alias the
 // complete sequence to BARE_ARGUMENT_LIST so every call consumer sees all
@@ -1815,6 +1815,18 @@ private heredoc_marker ::= HEREDOC_START
 // String bodies for heredoc headers used as call arguments: bound after the
 // owning call's statement. Marker N-th (argument order) pairs with body N-th.
 heredoc_bodies ::= heredoc_literal+
+
+// Bodies interrupting a comma-separated argument list (`f <<-X,\n body\n X\n y`):
+// each body opens at the newline after its marker line. Invisible to argument
+// consumers (typed accessors only see ARGUMENT/BARE_ARGUMENT nodes); aliased to
+// the established HEREDOC_BODIES composite — mirroring the
+// loose_grouped_postfix_argument_list precedent — so header pairing (document
+// order) and language injection keep working. Every literal is individually
+// guarded so a following marker (`<<-B`) still parses as an argument, never
+// as a body. A second comma after the body stays rejected exactly like the
+// compiler (`f <<-X,\n body\n X\n, y` is "unexpected token ','"); parenthesized
+// mid-list bodies are rejected the same way ("unterminated call").
+interleaved_heredoc_bodies ::= (&<<isHeredocBodyOpener>> heredoc_literal)+ {elementType=heredoc_bodies}
 
 // Word arrays (%w/%W) get their own BEGIN/END pair so type inference can
 // distinguish Array(String) from plain %q/%Q strings sharing PERCENT_LITERAL_*.

@@ -10,6 +10,9 @@ public interface CrystalMultiAssignment extends PsiElement {
   @NotNull
   List<CrystalExpression> getExpressionList();
 
+  @Nullable
+  CrystalHeredocBodies getHeredocBodies();
+
   @NotNull
   List<CrystalMultiAssignTarget> getMultiAssignTargetList();
 

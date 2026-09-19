@@ -377,4 +377,12 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val reader = findCrystalCheckoutFile("lib/reply/src/reader.cr") ?: return
         assertParsesCleanly(reader)
     }
+
+    fun testAbstractDefSpecParsesWithoutErrors() {
+        // spec/compiler/semantic/abstract_def_spec.cr interrupts bare calls
+        // with heredoc bodies (`exc = assert_error <<-CRYSTAL,` with the body
+        // before the trailing message argument).
+        val spec = findCrystalCheckoutFile("spec/compiler/semantic/abstract_def_spec.cr") ?: return
+        assertParsesCleanly(spec)
+    }
 }

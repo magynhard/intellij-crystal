@@ -11,6 +11,9 @@ public interface CrystalBareArgumentList extends PsiElement {
   List<CrystalBareArgument> getBareArgumentList();
 
   @NotNull
+  List<CrystalHeredocBodies> getHeredocBodiesList();
+
+  @NotNull
   List<CrystalMacroControl> getMacroControlList();
 
 }

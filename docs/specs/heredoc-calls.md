@@ -50,6 +50,15 @@ the `HEREDOC_TAIL_CLOSE`/`HEREDOC_TAIL_MISC` experiments are REMOVED. The
     newline after the header line).
   - Bare/assignment statements: `[heredoc_bodies]` suffix on
     `expression_statement` and `assignment`.
+  - Bodies interrupting a comma-separated bare list (`assert_error <<-CRYSTAL,`
+    with the body before the trailing argument): `interleaved_heredoc_bodies`
+    inside `bare_argument_list`, aliased to the same `HEREDOC_BODIES`
+    composite, so header pairing (document order) and injection keep working.
+    Every literal is individually guarded, so a following marker still parses
+    as an argument. A second comma after the body stays rejected exactly like
+    the compiler, as do parenthesized mid-list bodies ("unterminated call").
+  - `multi_assignment` and `yield_statement` carry the `[heredoc_bodies]` tail
+    for bodies after the complete construct.
 - The whole former closeless machinery (`heredoc_closeless_*`, guards,
   recursive pairs) is DELETED: with the real `RPAREN` present, every heredoc
   call parses through the strict paths.
@@ -236,12 +245,19 @@ background indexing.
   ordinary bare arguments (`fail <<-MSG, file, line`).
 - `compute(x = 5, y = 6)` (two comma-separated assignments inside parens) is
   repaired via `assignment_argument` — tracked as done in TODO.md.
+- Mixed flows (one body interrupting the list plus another body after the
+  complete call) parse without errors, but header pairing stays positional:
+  flow analysis may miss the statement-level body. No corpus case needs more;
+  identifier-based pairing is deferred work.
 
 ## Tests
 
 - `HeredocClosingParenCalls.cr/.txt` — matrix incl. MULTI (two same-line
   delimiters) and MIXED (heredoc + normal args + closer) rows; zero
   `PsiErrorElement`.
+- `HeredocInterleavedBodies.cr/.txt` — bodies interrupting bare argument lists
+  (bare and assignment), multi-assignment and yield tails, plus same-line
+  controls that keep statement-level attachment; zero `PsiErrorElement`.
 - `HeredocModifierBodies.cr/.txt` — heredoc assignments under `rescue`/`if`
   postfix modifiers; bodies attach to the assignment, the modifier condition
   keeps no call arguments; zero `PsiErrorElement`.

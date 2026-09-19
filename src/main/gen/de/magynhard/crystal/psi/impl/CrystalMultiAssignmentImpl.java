@@ -34,6 +34,12 @@ public class CrystalMultiAssignmentImpl extends ASTWrapperPsiElement implements 
   }
 
   @Override
+  @Nullable
+  public CrystalHeredocBodies getHeredocBodies() {
+    return PsiTreeUtil.getChildOfType(this, CrystalHeredocBodies.class);
+  }
+
+  @Override
   @NotNull
   public List<CrystalMultiAssignTarget> getMultiAssignTargetList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMultiAssignTarget.class);

@@ -762,6 +762,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Heredoc bodies interrupting argument lists parse** — `assert_error <<-CRYSTAL,`
+  with the body before the trailing argument (spec suite `assert_error`/`assert_warning`
+  shape, 11 external-audit errors) leaked the body as code: after a comma the parser
+  never looked past the body opener for the next argument. A guarded
+  `interleaved_heredoc_bodies` slot (one body-opener check per literal, aliased to the
+  established `HEREDOC_BODIES` composite) now tiles bodies mid-list in `bare_argument_list`,
+  invisible to argument consumers — header pairing and language injection keep working
+  unchanged. `multi_assignment` and `yield_statement` gained the `[heredoc_bodies]` tail
+  for bodies after the complete construct. A second comma after the body and parenthesized
+  mid-list bodies stay rejected exactly like the compiler ("unexpected token ','" /
+  "unterminated call", both probed). Covered by the HeredocInterleavedBodies golden,
+  arity silence and injection-pairing tests, plus a real-file canary. Both audits stay
+  at zero errors with zero newly failing files.
 - **`& (...)` after an operand reads as binary bitand** — `self.address & (&-boundary)`
   (pointer.cr) parsed as a bare call with a block-pass argument instead of binary `&`
   with a grouped right-hand side (same greediness family as the wrapping-operator fix:

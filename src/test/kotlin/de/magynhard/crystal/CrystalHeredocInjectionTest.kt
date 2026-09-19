@@ -180,4 +180,13 @@ class CrystalHeredocInjectionTest : BasePlatformTestCase() {
             registrar.language.id
         })
     }
+
+    fun testInterleavedBodyPairsWithItsMarker() {
+        // `foo <<-SQL,\n body\n SQL\n "msg"`: the body interrupts the argument
+        // list but must still pair with its SQL marker for injection.
+        val info = singlePlaceLanguage("foo <<-SQL,\nSELECT 1\nSQL\n \"msg\"\n")
+        assertNotNull("Expected an injection for the interleaved <<-SQL body", info)
+        assertEquals("SQL", info!!.first)
+        assertEquals("SELECT 1\n", info.second)
+    }
 }

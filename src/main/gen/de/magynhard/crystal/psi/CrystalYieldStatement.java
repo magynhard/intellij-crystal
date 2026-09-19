@@ -14,6 +14,9 @@ public interface CrystalYieldStatement extends PsiElement {
   CrystalBareArgumentList getBareArgumentList();
 
   @Nullable
+  CrystalHeredocBodies getHeredocBodies();
+
+  @Nullable
   CrystalPostfixModifier getPostfixModifier();
 
 }

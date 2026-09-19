@@ -35,6 +35,12 @@ public class CrystalBareArgumentListImpl extends ASTWrapperPsiElement implements
 
   @Override
   @NotNull
+  public List<CrystalHeredocBodies> getHeredocBodiesList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalHeredocBodies.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalMacroControl> getMacroControlList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroControl.class);
   }
