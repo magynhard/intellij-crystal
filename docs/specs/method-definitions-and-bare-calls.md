@@ -169,6 +169,12 @@ in pointer.cr). A newline between operand and operator keeps the established beh
 and bare `&+` alone is not a block argument (the compiler rejects `reduce(&+)`, and
 the plugin agrees).
 
+Deliberate leniency: prefix `&-`/`&+` before literals (`&-2`) is rejected by the
+compiler, but the plugin keeps parsing it as unary without complaint. Mirroring the
+rejection would require a per-literal probe matrix (int/float/string/char, tight and
+spaced, both operators), and an incomplete one risks false errors on valid code —
+invalid code already fails at compile time, so silence there is the honest trade-off.
+
 **Bitand-versus-block-pass protection:** `&` after an operand reads as block-pass
 only with whitespace before `&` plus a tight operand (`foo &block`, `foo &(blk)`);
 every other arrangement is binary (`x & (y | z)`, `size & (limit)`, all-tight
