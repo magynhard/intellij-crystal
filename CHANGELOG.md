@@ -762,6 +762,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **`& (...)` after an operand reads as binary bitand** — `self.address & (&-boundary)`
+  (pointer.cr) parsed as a bare call with a block-pass argument instead of binary `&`
+  with a grouped right-hand side (same greediness family as the wrapping-operator fix:
+  the argument-level `AMPERSAND` alternative committed before the binary continuation).
+  A compiler-verified spacing matrix now governs the reading: block-pass needs whitespace
+  before `&` plus a tight operand (`foo &block`, `foo &(blk)`), every other arrangement
+  after an operand is binary (`x & (y | z)`, `size & (limit)`, all-tight `foo&bar`);
+  positions without a preceding operand keep the block reading. The new `isBlockPassAllowed`
+  predicate gates the `argument`, `bare_argument`, and both unary `AMPERSAND` alternatives,
+  so the shape can no longer sneak back through the unary backdoor. Bare `&+` alone stays
+  what it was (the compiler rejects `reduce(&+)`, and the plugin agrees — no block-pass
+  rule was ever missing). Covered by the AmpersandBlockPassBoundary golden (binary rows
+  plus block-pass controls) and the corrected `nested` tree in WrappingOperators. Both
+  audits stay at zero errors with zero newly failing files.
 - **Wrapping operators after an operand read as binary** — `size &+ s.size`
   (`src/float/fast_float/bigint.cr:110`) was flagged with `Too many arguments:
   expected at most 0, got 1` because the greedy bare-call alternative bound `&+ ...`

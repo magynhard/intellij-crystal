@@ -169,6 +169,14 @@ in pointer.cr). A newline between operand and operator keeps the established beh
 and bare `&+` alone is not a block argument (the compiler rejects `reduce(&+)`, and
 the plugin agrees).
 
+**Bitand-versus-block-pass protection:** `&` after an operand reads as block-pass
+only with whitespace before `&` plus a tight operand (`foo &block`, `foo &(blk)`);
+every other arrangement is binary (`x & (y | z)`, `size & (limit)`, all-tight
+`foo&bar`) — compiler-verified across the full spacing matrix. The `isBlockPassAllowed`
+predicate gates the `argument`, `bare_argument`, and both unary `AMPERSAND`
+alternatives, so the block reading cannot sneak back through the unary backdoor the
+wrapping fix closed. Positions without a preceding operand keep the block reading.
+
 ## Macro-interpolated callees (`{{method.id}} path, form: body`)
 
 Stdlib code generates methods inside `{% for %}` loops and calls them through macro

@@ -219,4 +219,38 @@ object CrystalParserPredicates {
         if (token === CrystalTypes.NEWLINE || token == null) return true
         return token !in OPERAND_END_TOKENS
     }
+
+    /**
+     * Block-pass `&` needs a tight operand (`foo &block`, `foo &(blk)`):
+     * after an operand on the same line a spaced `&` continues binary
+     * (`size & (limit)`, `x & (y | z)`), and without whitespace before `&`
+     * there is no argument boundary at all (`foo&bar`). Positions without a
+     * preceding operand (`= &(blk)`, `(&blk)`, after `,` or an operator) keep
+     * the block reading; newlines and anything unrecognized fail open to the
+     * established behavior. (Compiler-verified spacing matrix: space-before
+     * plus tight-after captures the block, every other arrangement reads
+     * binary.)
+     */
+    @JvmStatic
+    fun isBlockPassAllowed(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        if (builder.tokenType !== CrystalTypes.AMPERSAND) return true
+        val after = builder.originalText.getOrNull(builder.currentOffset + 1)
+        val tightAfter = after != null && after != ' ' && after != '\t' && after != '\r' && after != '\n'
+        var step = -1
+        var sawSpace = false
+        while (true) {
+            val token = builder.rawLookup(step) ?: return true
+            if (token === TokenType.WHITE_SPACE) {
+                sawSpace = true
+                step--
+                continue
+            }
+            if (token === CrystalTypes.NEWLINE) return true
+            if (token !in OPERAND_END_TOKENS) return true
+            return sawSpace && tightAfter
+        }
+    }
 }

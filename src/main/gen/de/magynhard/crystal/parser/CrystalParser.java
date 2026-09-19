@@ -1374,7 +1374,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                 | named_bare_argument
   //                 | STAR bare_expression
   //                 | DOUBLE_STAR bare_expression
-  //                 | AMPERSAND bare_expression
+  //                 | &<<isBlockPassAllowed>> AMPERSAND bare_expression
   //                 | assignment
   //                 | bare_expression
   public static boolean bare_argument(PsiBuilder builder_, int level_) {
@@ -1415,14 +1415,25 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // AMPERSAND bare_expression
+  // &<<isBlockPassAllowed>> AMPERSAND bare_expression
   private static boolean bare_argument_5(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_argument_5")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, AMPERSAND);
+    result_ = bare_argument_5_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, AMPERSAND);
     result_ = result_ && bare_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isBlockPassAllowed>>
+  private static boolean bare_argument_5_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_argument_5_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isBlockPassAllowed(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 
@@ -2416,7 +2427,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (PLUS | MINUS | TILDE | AMPERSAND | STAR | BANG) bare_unary_expression
+  // (PLUS | MINUS | TILDE | STAR | BANG) bare_unary_expression
+  //                                 | &<<isBlockPassAllowed>> AMPERSAND bare_unary_expression
   //                                 | &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) bare_unary_expression
   //                                 | bare_postfix_expression
   static boolean bare_unary_expression(PsiBuilder builder_, int level_) {
@@ -2425,12 +2437,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = bare_unary_expression_0(builder_, level_ + 1);
     if (!result_) result_ = bare_unary_expression_1(builder_, level_ + 1);
+    if (!result_) result_ = bare_unary_expression_2(builder_, level_ + 1);
     if (!result_) result_ = bare_postfix_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // (PLUS | MINUS | TILDE | AMPERSAND | STAR | BANG) bare_unary_expression
+  // (PLUS | MINUS | TILDE | STAR | BANG) bare_unary_expression
   private static boolean bare_unary_expression_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_unary_expression_0")) return false;
     boolean result_;
@@ -2441,34 +2454,55 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // PLUS | MINUS | TILDE | AMPERSAND | STAR | BANG
+  // PLUS | MINUS | TILDE | STAR | BANG
   private static boolean bare_unary_expression_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_unary_expression_0_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, PLUS);
     if (!result_) result_ = consumeToken(builder_, MINUS);
     if (!result_) result_ = consumeToken(builder_, TILDE);
-    if (!result_) result_ = consumeToken(builder_, AMPERSAND);
     if (!result_) result_ = consumeToken(builder_, STAR);
     if (!result_) result_ = consumeToken(builder_, BANG);
     return result_;
   }
 
-  // &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) bare_unary_expression
+  // &<<isBlockPassAllowed>> AMPERSAND bare_unary_expression
   private static boolean bare_unary_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_unary_expression_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = bare_unary_expression_1_0(builder_, level_ + 1);
-    result_ = result_ && bare_unary_expression_1_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, AMPERSAND);
+    result_ = result_ && bare_unary_expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isBlockPassAllowed>>
+  private static boolean bare_unary_expression_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_unary_expression_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isBlockPassAllowed(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) bare_unary_expression
+  private static boolean bare_unary_expression_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_unary_expression_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = bare_unary_expression_2_0(builder_, level_ + 1);
+    result_ = result_ && bare_unary_expression_2_1(builder_, level_ + 1);
     result_ = result_ && bare_unary_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // &<<isWrapUnaryAllowed>>
-  private static boolean bare_unary_expression_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_unary_expression_1_0")) return false;
+  private static boolean bare_unary_expression_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_unary_expression_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _AND_);
     result_ = isWrapUnaryAllowed(builder_, level_ + 1);
@@ -2477,8 +2511,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // WRAP_PLUS | WRAP_MINUS
-  private static boolean bare_unary_expression_1_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "bare_unary_expression_1_1")) return false;
+  private static boolean bare_unary_expression_2_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_unary_expression_2_1")) return false;
     boolean result_;
     result_ = consumeToken(builder_, WRAP_PLUS);
     if (!result_) result_ = consumeToken(builder_, WRAP_MINUS);
@@ -12985,7 +13019,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | BANG) unary_expression
+  // (PLUS | MINUS | TILDE | STAR | CARET | BANG) unary_expression
+  //                            | &<<isBlockPassAllowed>> AMPERSAND unary_expression
   //                            | &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) unary_expression
   //                             | postfix_expression
   static boolean unary_expression(PsiBuilder builder_, int level_) {
@@ -12994,12 +13029,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = unary_expression_0(builder_, level_ + 1);
     if (!result_) result_ = unary_expression_1(builder_, level_ + 1);
+    if (!result_) result_ = unary_expression_2(builder_, level_ + 1);
     if (!result_) result_ = postfix_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
-  // (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | BANG) unary_expression
+  // (PLUS | MINUS | TILDE | STAR | CARET | BANG) unary_expression
   private static boolean unary_expression_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "unary_expression_0")) return false;
     boolean result_;
@@ -13010,35 +13046,56 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | BANG
+  // PLUS | MINUS | TILDE | STAR | CARET | BANG
   private static boolean unary_expression_0_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "unary_expression_0_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, PLUS);
     if (!result_) result_ = consumeToken(builder_, MINUS);
     if (!result_) result_ = consumeToken(builder_, TILDE);
-    if (!result_) result_ = consumeToken(builder_, AMPERSAND);
     if (!result_) result_ = consumeToken(builder_, STAR);
     if (!result_) result_ = consumeToken(builder_, CARET);
     if (!result_) result_ = consumeToken(builder_, BANG);
     return result_;
   }
 
-  // &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) unary_expression
+  // &<<isBlockPassAllowed>> AMPERSAND unary_expression
   private static boolean unary_expression_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "unary_expression_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = unary_expression_1_0(builder_, level_ + 1);
-    result_ = result_ && unary_expression_1_1(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, AMPERSAND);
+    result_ = result_ && unary_expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isBlockPassAllowed>>
+  private static boolean unary_expression_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "unary_expression_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isBlockPassAllowed(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) unary_expression
+  private static boolean unary_expression_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "unary_expression_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = unary_expression_2_0(builder_, level_ + 1);
+    result_ = result_ && unary_expression_2_1(builder_, level_ + 1);
     result_ = result_ && unary_expression(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // &<<isWrapUnaryAllowed>>
-  private static boolean unary_expression_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "unary_expression_1_0")) return false;
+  private static boolean unary_expression_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "unary_expression_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _AND_);
     result_ = isWrapUnaryAllowed(builder_, level_ + 1);
@@ -13047,8 +13104,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // WRAP_PLUS | WRAP_MINUS
-  private static boolean unary_expression_1_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "unary_expression_1_1")) return false;
+  private static boolean unary_expression_2_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "unary_expression_2_1")) return false;
     boolean result_;
     result_ = consumeToken(builder_, WRAP_PLUS);
     if (!result_) result_ = consumeToken(builder_, WRAP_MINUS);
