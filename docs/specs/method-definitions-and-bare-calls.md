@@ -160,6 +160,15 @@ alternative is therefore blocked by `nested_call_lookahead`, which extends
 bare calls keep using plain `binary_op_lookahead`, so leading-range arguments remain
 valid (`consume ..last` still parses as a call with one range argument).
 
+**Wrapping-operator protection:** `&+` / `&-` after an operand on the same line read
+as binary (`size &+ s.size`, `new_len &- @length`, tight `x &-y`), never as a bare
+call with a unary wrapping argument — `size(&+...)` falsely measured the operand
+against a parameterless method in bigint.cr. The `isWrapUnaryAllowed` predicate gates
+both unary rules, so genuine prefix positions keep the unary reading (`(&-boundary)`
+in pointer.cr). A newline between operand and operator keeps the established behavior,
+and bare `&+` alone is not a block argument (the compiler rejects `reduce(&+)`, and
+the plugin agrees).
+
 ## Macro-interpolated callees (`{{method.id}} path, form: body`)
 
 Stdlib code generates methods inside `{% for %}` loops and calls them through macro

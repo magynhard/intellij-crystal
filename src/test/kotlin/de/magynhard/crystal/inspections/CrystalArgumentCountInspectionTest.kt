@@ -2625,6 +2625,48 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testWrapPlusAfterBareCallIsBinary() {
+        // bigint.cr: `size &+ s.size` is a binary wrapping add, not a call
+        // `size(...)` with a unary argument — no arity diagnostic may fire.
+        myFixture.configureByText("test.cr", """
+            class Vec
+              def size : Int32
+                0
+              end
+              def capacity : Int32
+                0
+              end
+              def try_extend(s) : Bool
+                if size &+ s.size <= capacity
+                  true
+                else
+                  false
+                end
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "Binary wrapping operators must not flag argument counts, got: " +
+                highlights.mapNotNull { it.description },
+            highlights.none {
+                it.description?.contains("Too many arguments") == true ||
+                    it.description?.contains("Missing required argument") == true
+            },
+        )
+    }
+
+    fun testGenuineExtraArgumentStillReported() {
+        myFixture.configureByText("test.cr", """
+            def size : Int32
+              0
+            end
+
+            size(<error descr="Too many arguments: expected at most 0, got 2">1</error>, <error descr="Too many arguments: expected at most 0, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testMacroSplatFragmentParameterSuppressesCountDiagnostics() {
         myFixture.configureByText("test.cr", """
             def generated({{ items.splat }})

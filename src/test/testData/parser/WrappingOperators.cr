@@ -17,7 +17,8 @@ h = a &** 31
 x = a &+ b &* c
 
 # Unary wrapping operators (compiler parse_prefix): `&-` and `&+` are prefix
-# operators exactly like `-` and `+`; `&*`/`&**` stay binary.
+# operators exactly like `-` and `+`; `&*`/`&**` stay binary. After an operand
+# on the same line they read as binary instead (`a &- b` never becomes `a(&-b)`).
 negative = &-value
 positive = &+value
 spaced = &- value

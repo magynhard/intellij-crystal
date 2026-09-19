@@ -762,6 +762,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Wrapping operators after an operand read as binary** — `size &+ s.size`
+  (`src/float/fast_float/bigint.cr:110`) was flagged with `Too many arguments:
+  expected at most 0, got 1` because the greedy bare-call alternative bound `&+ ...`
+  as a unary wrapping argument (`size(&+...)`) instead of a binary operator. The new
+  `isWrapUnaryAllowed` predicate gates both unary rules: after an operand on the same
+  line `&+`/`&-` are binary (spaced and tight, compiler-verified), while genuine prefix
+  positions keep the unary reading (`(&-boundary)` in pointer.cr). Bare `&+` alone is
+  not a block argument — the compiler rejects `reduce(&+)` and the plugin agrees, so
+  no block-pass rule was needed. Covered by the WrapOperatorBinaryBoundary golden
+  (plus corrected WrappingOperators trees, where `a &+ b &* c` and `a &- b` are binary
+  again), count silence/regression tests, and compiler probes for every position. Both
+  audits stay at zero errors with zero newly failing files.
 - **Receiver-less `new` checks against the constructor pool** — `new [name], global`
   (`compiler/crystal/syntax/ast.cr:1918/1922`) was falsely flagged with `Type mismatch:
   expected 'String', got 'Array(String)'` because the name index only sees the written

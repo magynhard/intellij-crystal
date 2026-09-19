@@ -1154,7 +1154,8 @@ private power_expression ::= unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) 
 // compiler parse_prefix, parser_spec.cr:294/295). `&*` and `&**` stay binary
 // and as compound operators — the compiler rejects `value = &*operand` — and
 // the token starts are disjoint from the existing unary set, so no PEG hazard.
-private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | WRAP_PLUS | WRAP_MINUS | BANG) unary_expression
+private unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | CARET | BANG) unary_expression
+                           | &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) unary_expression
                             | postfix_expression
 
 private postfix_expression ::= primary_expression postfix_op*
@@ -1666,7 +1667,8 @@ private bare_multiplicative_expression ::= bare_power_expression ((STAR | SLASH 
 
 private bare_power_expression ::= bare_unary_expression ((DOUBLE_STAR | WRAP_DOUBLE_STAR) NLS bare_unary_expression)*
 
-private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | WRAP_PLUS | WRAP_MINUS | BANG) bare_unary_expression
+private bare_unary_expression ::= (PLUS | MINUS | TILDE | AMPERSAND | STAR | BANG) bare_unary_expression
+                                | &<<isWrapUnaryAllowed>> (WRAP_PLUS | WRAP_MINUS) bare_unary_expression
                                 | bare_postfix_expression
 
 private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*

@@ -182,4 +182,41 @@ object CrystalParserPredicates {
                 source[index] == '\\' && (next == '\r' || next == '\n')
         }
     }
+
+    /** Tokens that end an operand, after which `&+`/`&-` read as binary. */
+    private val OPERAND_END_TOKENS = setOf(
+        CrystalTypes.IDENTIFIER, CrystalTypes.CONSTANT,
+        CrystalTypes.INTEGER_LITERAL, CrystalTypes.FLOAT_LITERAL, CrystalTypes.CHAR_LITERAL,
+        CrystalTypes.STRING_LITERAL,
+        CrystalTypes.RPAREN, CrystalTypes.RBRACKET, CrystalTypes.RBRACE,
+        CrystalTypes.END, CrystalTypes.TRUE, CrystalTypes.FALSE, CrystalTypes.NIL,
+        CrystalTypes.SELF, CrystalTypes.INSTANCE_VAR, CrystalTypes.CLASS_VAR, CrystalTypes.GLOBAL_VAR,
+    )
+
+    /**
+     * Wrapping operators are binary after an operand on the same line
+     * (`size &+ s.size`, `new_len &- @length`): the compiler reads the left
+     * side as a complete operand, so a prefix reading would swallow the
+     * following expression into a phantom call argument. A prefix position
+     * (after `(`, `,`, `=`, an operator, or a newline) keeps the unary
+     * reading (`(&-boundary)` in pointer.cr). Only whitespace is skipped
+     * looking back; comments or anything else fail open to the established
+     * behavior, as does a newline between operand and operator (leading
+     * operator continuation is a separate concern).
+     */
+    @JvmStatic
+    fun isWrapUnaryAllowed(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        if (builder.tokenType !== CrystalTypes.WRAP_PLUS && builder.tokenType !== CrystalTypes.WRAP_MINUS) return true
+        var step = -1
+        var token = builder.rawLookup(step)
+        while (token === TokenType.WHITE_SPACE) {
+            step--
+            token = builder.rawLookup(step)
+        }
+        if (token === CrystalTypes.NEWLINE || token == null) return true
+        return token !in OPERAND_END_TOKENS
+    }
 }

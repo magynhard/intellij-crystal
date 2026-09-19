@@ -99,6 +99,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testWrapOperatorBinaryBoundary() {
+        doTest(true)
+    }
+
     fun testPercentLiterals() {
         doTest(true)
     }
