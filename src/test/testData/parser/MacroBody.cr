@@ -128,3 +128,8 @@ macro log(*args)
   {% end %}
   puts
 end
+
+# Percent literal inside macro interpolation (raw %q, no escapes)
+macro raw_label
+  label = {{ %q(macro\ttab) }}
+end

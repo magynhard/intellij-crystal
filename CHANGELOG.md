@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Raw `%q(…)` inside interpolation** — `"#{%q(a\tb\nc).inspect}"` no longer
+  splits into `%` + `q(` and strands the interpolation: the raw percent-string
+  opener (no escapes, no interpolation) is mirrored from YYINITIAL into the
+  `<INTERPOLATION>` and `<MACRO_INTERPOLATION>` states
+  (`spec/expectations_spec.cr`). Covered by the
+  PercentLiteralInStringInterpolation/MacroBody goldens and a lexer regression.
 - **Visibility-modified lib definitions** — `private lib LibPointerSpec` (and
   `protected lib`, also nested in type bodies) no longer breaks the parse at
   the `lib` keyword: `visibility_modifier` now accepts `lib_definition`, so the

@@ -959,6 +959,21 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   // expected, got '%'". Mirrors the MACRO_INTERPOLATION rule; like there,
   // a tight `obj.%(...)` method call keeps its old shape (documented
   // boundary, consistent across both interpolation states).
+  "%q" [\(\[\{<|]      {
+                          // Raw percent string (`spec/expectations_spec.cr`
+                          // interpolates `#{%q(a\tb\nc).inspect}`): no escapes,
+                          // no interpolation, exactly like YYINITIAL's `%q`.
+                          char c = yycharat(yylength() - 1);
+                          percentOpenChar = c;
+                          percentCloseChar = closingChar(c);
+                          percentDepth = 1;
+                          percentTokenType = CrystalTypes.STRING_LITERAL;
+                          percentInterpolation = false;
+                          percentWordArray = false;
+                          percentAllowEscapes = false;
+                          pushState(PERCENT_LITERAL);
+                          return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                        }
   "%" [\(\[\{<|]      {
                           char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
@@ -1198,10 +1213,24 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
    "&"                  { return CrystalTypes.AMPERSAND; }
    "?"                  { return CrystalTypes.QUESTION; }
    "!"                  { return CrystalTypes.BANG; }
-   // Percent literals inside macro interpolations: `{{ ch.join(%( or )) }}`
-   // (hexfloat.cr check_ch macro). Without this, `%(` splits into PERCENT
-   // plus LPAREN and the interpolation fails to close.
-   "%" [\(\[\{<|]      {
+    // Percent literals inside macro interpolations: `{{ ch.join(%( or )) }}`
+    // (hexfloat.cr check_ch macro). Without this, `%(` splits into PERCENT
+    // plus LPAREN and the interpolation fails to close.
+    "%q" [\(\[\{<|]      {
+                           // Raw percent string, mirroring `<INTERPOLATION>` and
+                           // YYINITIAL (`%q` takes no escapes and no interpolation).
+                           char c = yycharat(yylength() - 1);
+                           percentOpenChar = c;
+                           percentCloseChar = closingChar(c);
+                           percentDepth = 1;
+                           percentTokenType = CrystalTypes.STRING_LITERAL;
+                           percentInterpolation = false;
+                           percentWordArray = false;
+                           percentAllowEscapes = false;
+                           pushState(PERCENT_LITERAL);
+                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
+                         }
+    "%" [\(\[\{<|]      {
                            char c = yycharat(yylength() - 1);
                            percentOpenChar = c;
                            percentCloseChar = closingChar(c);

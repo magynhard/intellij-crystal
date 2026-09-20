@@ -554,6 +554,25 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testRawPercentLiteralInInterpolation() {
+        // `"#{%q(a\tb\nc).inspect}"` (expectations_spec.cr): raw `%q(` must
+        // open one percent literal instead of splitting into PERCENT, and the
+        // backslashes stay literal content (no STRING_ESCAPE).
+        val tokens = nonWhitespaceTokens("\"#{%q(a\\tb\\nc).inspect}\"")
+        assertTrue(tokens.any { it.first == CrystalTypes.STRING_INTERPOLATION_BEGIN })
+        val begin = tokens.first { it.first == CrystalTypes.PERCENT_LITERAL_BEGIN }
+        assertEquals("%q(", begin.second)
+        val end = tokens.last { it.first == CrystalTypes.PERCENT_LITERAL_END }
+        assertEquals(")", end.second)
+        assertFalse(tokens.any { it.first == CrystalTypes.STRING_ESCAPE })
+        // The macro-interpolation mirror opens the same literal.
+        val macroTokens = nonWhitespaceTokens("{{ %q(a\\tb) }}")
+        val macroBegin = macroTokens.first { it.first == CrystalTypes.PERCENT_LITERAL_BEGIN }
+        assertEquals("%q(", macroBegin.second)
+        assertFalse(macroTokens.any { it.first == CrystalTypes.STRING_ESCAPE })
+    }
+
+    @Test
     fun testWordArrayInMacroControlTag() {
         // `{% for op in %w(+ - * /) %}` (raytracer.cr): the `%w(` must open
         // one word array instead of splitting, or a later `/` after an
