@@ -5,6 +5,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Regex literals inside interpolation** — `"#{v.id.gsub(/_f32$/, "")}"` now
+  lexes the regex as one literal instead of `SLASH` + tokens (a `$` in the
+  pattern previously became `BAD_CHARACTER` and collapsed the enclosing
+  macro/heredoc): `/` uses the operator-position decision in `<INTERPOLATION>`
+  and `<MACRO_INTERPOLATION>` (`float_printer/shortest_spec.cr`,
+  `formatter_spec.cr`). Covered by the MacroInterpolationBareCall golden and a
+  lexer regression.
 - **Macro-spliced numeric literals** — `Slice.literal(1_{{ suffix.id }},
   2_{{ suffix.id }})` now parses as a single literal instead of stranding the
   interpolation (`primitives/slice_spec.cr`): `literal` gained a

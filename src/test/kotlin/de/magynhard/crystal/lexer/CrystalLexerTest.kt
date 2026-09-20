@@ -573,6 +573,21 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testRegexLiteralInStringInterpolation() {
+        // `"#{v.id.gsub(/_f32$/, "")}"` (shortest_spec.cr, formatter_spec.cr):
+        // the `/` opens a regex literal so `$` stays pattern content instead of
+        // becoming BAD_CHARACTER.
+        val tokens = nonWhitespaceTokens("\"#{v.id.gsub(/_f32\$/,\"\")}\"")
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_END })
+        assertFalse(tokens.any { it.first == TokenType.BAD_CHARACTER })
+        // Division stays division.
+        val division = nonWhitespaceTokens("\"#{a / b}\"")
+        assertTrue(division.any { it.first == CrystalTypes.SLASH })
+        assertFalse(division.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
     fun testWordArrayInMacroControlTag() {
         // `{% for op in %w(+ - * /) %}` (raytracer.cr): the `%w(` must open
         // one word array instead of splitting, or a later `/` after an

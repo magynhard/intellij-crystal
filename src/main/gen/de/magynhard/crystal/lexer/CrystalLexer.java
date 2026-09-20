@@ -123,40 +123,40 @@ class CrystalLexer implements FlexLexer {
     "\1\34\6\35\1\47\1\40\1\50\2\51\1\52\1\1"+
     "\2\53\1\54\1\55\3\56\1\55\6\57\2\60\2\61"+
     "\1\62\1\63\1\2\1\63\20\62\1\64\1\7\1\13"+
-    "\1\16\1\65\1\24\1\25\1\26\1\30\1\66\1\37"+
-    "\1\41\1\7\1\30\6\35\1\37\1\67\1\70\3\71"+
-    "\1\72\1\73\3\0\6\74\1\75\1\76\1\77\1\100"+
-    "\1\101\2\0\1\102\1\103\1\104\1\105\1\106\1\107"+
-    "\1\110\1\111\10\0\1\112\2\113\1\114\1\115\1\116"+
-    "\1\117\1\120\1\121\1\122\1\0\1\123\2\2\1\0"+
-    "\1\124\4\35\1\125\5\35\1\126\6\35\1\127\1\130"+
-    "\6\35\1\131\20\35\1\132\1\133\1\134\1\135\1\136"+
-    "\1\137\1\0\3\137\1\140\1\141\1\0\1\75\1\110"+
-    "\1\115\1\116\4\35\1\135\1\142\1\143\1\144\4\145"+
-    "\1\60\1\62\1\146\1\147\20\62\1\150\1\0\1\102"+
-    "\1\114\1\122\1\151\1\152\6\0\1\153\1\35\1\130"+
-    "\1\35\1\154\1\155\1\74\1\156\1\157\1\160\1\161"+
-    "\1\162\1\163\1\164\1\165\1\166\1\167\1\0\1\170"+
-    "\4\0\1\171\1\172\1\173\1\174\1\0\1\174\1\21"+
-    "\5\0\3\21\1\175\2\113\1\0\1\176\1\177\1\200"+
-    "\1\201\1\202\1\123\1\203\1\204\3\35\1\205\1\206"+
-    "\4\35\1\207\1\35\1\210\4\35\1\211\1\212\3\35"+
-    "\1\213\3\35\1\214\1\35\1\215\26\35\1\216\1\137"+
-    "\2\0\1\137\1\217\1\35\1\145\2\0\1\145\1\147"+
-    "\4\62\2\220\1\221\1\62\2\222\7\62\1\223\1\152"+
-    "\1\224\1\225\1\211\1\214\1\226\4\0\1\174\2\0"+
-    "\1\227\1\202\5\35\1\230\1\35\1\231\2\35\1\232"+
-    "\10\35\1\233\1\234\12\35\1\235\3\35\1\236\1\237"+
-    "\6\35\1\240\1\35\1\241\1\35\4\0\2\62\2\242"+
-    "\1\243\6\62\2\0\1\35\1\244\1\35\1\245\1\246"+
-    "\1\247\1\250\2\35\1\251\3\35\1\252\1\253\15\35"+
-    "\1\254\2\35\1\255\1\35\1\256\1\35\1\257\1\260"+
-    "\2\0\3\62\1\261\2\35\1\262\1\263\1\264\2\35"+
-    "\1\265\6\35\1\266\1\35\1\267\1\270\1\271\1\272"+
-    "\1\273\1\35\1\274\1\35\1\62\2\35\1\275\4\35"+
-    "\1\276\1\35\1\277\3\35\1\62\1\300\2\35\1\301"+
-    "\5\35\1\302\1\62\2\35\1\303\1\35\1\304\2\35"+
-    "\1\151\11\35\1\305\1\306\2\35\1\307\1\35\1\310";
+    "\1\16\1\46\1\24\1\25\1\26\1\30\1\65\1\37"+
+    "\1\41\1\7\1\30\6\35\1\37\1\66\1\67\3\70"+
+    "\1\71\1\72\3\0\6\73\1\74\1\75\1\76\1\77"+
+    "\1\100\2\0\1\101\1\102\1\103\1\104\1\105\1\106"+
+    "\1\107\1\110\10\0\1\111\2\112\1\113\1\114\1\115"+
+    "\1\116\1\117\1\120\1\121\1\0\1\122\2\2\1\0"+
+    "\1\123\4\35\1\124\5\35\1\125\6\35\1\126\1\127"+
+    "\6\35\1\130\20\35\1\131\1\132\1\133\1\134\1\135"+
+    "\1\136\1\0\3\136\1\137\1\140\1\0\1\74\1\107"+
+    "\1\114\1\115\4\35\1\134\1\141\1\142\1\143\4\144"+
+    "\1\60\1\62\1\145\1\146\20\62\1\147\1\0\1\101"+
+    "\1\113\1\121\1\150\1\151\6\0\1\152\1\35\1\127"+
+    "\1\35\1\153\1\154\1\73\1\155\1\156\1\157\1\160"+
+    "\1\161\1\162\1\163\1\164\1\165\1\166\1\0\1\167"+
+    "\4\0\1\170\1\171\1\172\1\173\1\0\1\173\1\21"+
+    "\5\0\3\21\1\174\2\112\1\0\1\175\1\176\1\177"+
+    "\1\200\1\201\1\122\1\202\1\203\3\35\1\204\1\205"+
+    "\4\35\1\206\1\35\1\207\4\35\1\210\1\211\3\35"+
+    "\1\212\3\35\1\213\1\35\1\214\26\35\1\215\1\136"+
+    "\2\0\1\136\1\216\1\35\1\144\2\0\1\144\1\146"+
+    "\4\62\2\217\1\220\1\62\2\221\7\62\1\222\1\151"+
+    "\1\223\1\224\1\210\1\213\1\225\4\0\1\173\2\0"+
+    "\1\226\1\201\5\35\1\227\1\35\1\230\2\35\1\231"+
+    "\10\35\1\232\1\233\12\35\1\234\3\35\1\235\1\236"+
+    "\6\35\1\237\1\35\1\240\1\35\4\0\2\62\2\241"+
+    "\1\242\6\62\2\0\1\35\1\243\1\35\1\244\1\245"+
+    "\1\246\1\247\2\35\1\250\3\35\1\251\1\252\15\35"+
+    "\1\253\2\35\1\254\1\35\1\255\1\35\1\256\1\257"+
+    "\2\0\3\62\1\260\2\35\1\261\1\262\1\263\2\35"+
+    "\1\264\6\35\1\265\1\35\1\266\1\267\1\270\1\271"+
+    "\1\272\1\35\1\273\1\35\1\62\2\35\1\274\4\35"+
+    "\1\275\1\35\1\276\3\35\1\62\1\277\2\35\1\300"+
+    "\5\35\1\301\1\62\2\35\1\302\1\35\1\303\2\35"+
+    "\1\150\11\35\1\304\1\305\2\35\1\306\1\35\1\307";
 
   private static int [] zzUnpackAction() {
     int [] result = new int[646];
@@ -1811,12 +1811,12 @@ class CrystalLexer implements FlexLexer {
             { return TokenType.BAD_CHARACTER;
             }
           // fall through
-          case 201: break;
+          case 200: break;
           case 2:
             { return TokenType.WHITE_SPACE;
             }
           // fall through
-          case 202: break;
+          case 201: break;
           case 3:
             { PendingHeredoc ph = pendingHeredocs.pollFirst();
                          if (ph != null) { heredocId = ph.id; heredocRaw = ph.raw; yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_START; } // body opener
@@ -1824,189 +1824,189 @@ class CrystalLexer implements FlexLexer {
                          return CrystalTypes.NEWLINE;
             }
           // fall through
-          case 203: break;
+          case 202: break;
           case 4:
             { return CrystalTypes.BANG;
             }
           // fall through
-          case 204: break;
+          case 203: break;
           case 5:
             { pushState(STRING); return CrystalTypes.STRING_LITERAL;
             }
           // fall through
-          case 205: break;
+          case 204: break;
           case 6:
             { return CrystalTypes.LINE_COMMENT;
             }
           // fall through
-          case 206: break;
+          case 205: break;
           case 7:
             { return CrystalTypes.PERCENT;
             }
           // fall through
-          case 207: break;
+          case 206: break;
           case 8:
             { return CrystalTypes.AMPERSAND;
             }
           // fall through
-          case 208: break;
+          case 207: break;
           case 9:
             { return CrystalTypes.LPAREN;
             }
           // fall through
-          case 209: break;
+          case 208: break;
           case 10:
             { return CrystalTypes.RPAREN;
             }
           // fall through
-          case 210: break;
+          case 209: break;
           case 11:
             { return CrystalTypes.STAR;
             }
           // fall through
-          case 211: break;
+          case 210: break;
           case 12:
             { return CrystalTypes.PLUS;
             }
           // fall through
-          case 212: break;
+          case 211: break;
           case 13:
             { return CrystalTypes.COMMA;
             }
           // fall through
-          case 213: break;
+          case 212: break;
           case 14:
             { return CrystalTypes.MINUS;
             }
           // fall through
-          case 214: break;
+          case 213: break;
           case 15:
             { return CrystalTypes.DOT;
             }
           // fall through
-          case 215: break;
+          case 214: break;
           case 16:
             { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; }
                            return CrystalTypes.SLASH;
             }
           // fall through
-          case 216: break;
+          case 215: break;
           case 17:
             { return CrystalTypes.INTEGER_LITERAL;
             }
           // fall through
-          case 217: break;
+          case 216: break;
           case 18:
             { return CrystalTypes.COLON;
             }
           // fall through
-          case 218: break;
+          case 217: break;
           case 19:
             { return CrystalTypes.SEMICOLON;
             }
           // fall through
-          case 219: break;
+          case 218: break;
           case 20:
             { return CrystalTypes.LT;
             }
           // fall through
-          case 220: break;
+          case 219: break;
           case 21:
             { return CrystalTypes.ASSIGN;
             }
           // fall through
-          case 221: break;
+          case 220: break;
           case 22:
             { return CrystalTypes.GT;
             }
           // fall through
-          case 222: break;
+          case 221: break;
           case 23:
             { return CrystalTypes.QUESTION;
             }
           // fall through
-          case 223: break;
+          case 222: break;
           case 24:
             { return CrystalTypes.AT;
             }
           // fall through
-          case 224: break;
+          case 223: break;
           case 25:
             { return CrystalTypes.CONSTANT;
             }
           // fall through
-          case 225: break;
+          case 224: break;
           case 26:
             { return CrystalTypes.LBRACKET;
             }
           // fall through
-          case 226: break;
+          case 225: break;
           case 27:
             { return CrystalTypes.RBRACKET;
             }
           // fall through
-          case 227: break;
+          case 226: break;
           case 28:
             { return CrystalTypes.CARET;
             }
           // fall through
-          case 228: break;
+          case 227: break;
           case 29:
             { return CrystalTypes.IDENTIFIER;
             }
           // fall through
-          case 229: break;
+          case 228: break;
           case 30:
             { if (isBacktickMethodName()) { return CrystalTypes.BACKTICK; }
                            pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN;
             }
           // fall through
-          case 230: break;
+          case 229: break;
           case 31:
             { return CrystalTypes.LBRACE;
             }
           // fall through
-          case 231: break;
+          case 230: break;
           case 32:
             { return CrystalTypes.PIPE;
             }
           // fall through
-          case 232: break;
+          case 231: break;
           case 33:
             { return CrystalTypes.RBRACE;
             }
           // fall through
-          case 233: break;
+          case 232: break;
           case 34:
             { return CrystalTypes.TILDE;
             }
           // fall through
-          case 234: break;
+          case 233: break;
           case 35:
             { return CrystalTypes.STRING_LITERAL;
             }
           // fall through
-          case 235: break;
+          case 234: break;
           case 36:
             { popState(); return CrystalTypes.STRING_LITERAL;
             }
           // fall through
-          case 236: break;
+          case 235: break;
           case 37:
             { return CrystalTypes.NEWLINE;
             }
           // fall through
-          case 237: break;
+          case 236: break;
           case 38:
-            { return CrystalTypes.SLASH;
+            { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.SLASH;
             }
           // fall through
-          case 238: break;
+          case 237: break;
           case 39:
             { interpolationDepth++; return CrystalTypes.LBRACE;
             }
           // fall through
-          case 239: break;
+          case 238: break;
           case 40:
             { interpolationDepth--;
                          if (interpolationDepth == 0) {
@@ -2017,27 +2017,27 @@ class CrystalLexer implements FlexLexer {
                          return CrystalTypes.RBRACE;
             }
           // fall through
-          case 240: break;
+          case 239: break;
           case 41:
             { return CrystalTypes.REGEX_LITERAL;
             }
           // fall through
-          case 241: break;
+          case 240: break;
           case 42:
             { popState(); return CrystalTypes.REGEX_END;
             }
           // fall through
-          case 242: break;
+          case 241: break;
           case 43:
             { return CrystalTypes.COMMAND_LITERAL;
             }
           // fall through
-          case 243: break;
+          case 242: break;
           case 44:
             { popState(); return CrystalTypes.COMMAND_END;
             }
           // fall through
-          case 244: break;
+          case 243: break;
           case 45:
             { char c = yycharat(0);
                           if (c == percentCloseChar) {
@@ -2060,17 +2060,17 @@ class CrystalLexer implements FlexLexer {
                           return percentTokenType;
             }
           // fall through
-          case 245: break;
+          case 244: break;
           case 46:
             { return percentTokenType;
             }
           // fall through
-          case 246: break;
+          case 245: break;
           case 47:
             { return CrystalTypes.HEREDOC_CONTENT;
             }
           // fall through
-          case 247: break;
+          case 246: break;
           case 48:
             { String text = yytext().toString().trim();
                          if (text.equals(heredocId)) {
@@ -2087,53 +2087,48 @@ class CrystalLexer implements FlexLexer {
                          return CrystalTypes.HEREDOC_CONTENT;
             }
           // fall through
-          case 248: break;
+          case 247: break;
           case 49:
             { yybegin(HEREDOC_BODY); return CrystalTypes.HEREDOC_START;
             }
           // fall through
-          case 249: break;
+          case 248: break;
           case 50:
             { macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT;
             }
           // fall through
-          case 250: break;
+          case 249: break;
           case 51:
             { macroBodyAtLineStart = true; return CrystalTypes.NEWLINE;
             }
           // fall through
-          case 251: break;
+          case 250: break;
           case 52:
             { return CrystalTypes.HASH;
             }
           // fall through
-          case 252: break;
+          case 251: break;
           case 53:
-            { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.SLASH;
-            }
-          // fall through
-          case 253: break;
-          case 54:
             { pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN;
             }
           // fall through
-          case 254: break;
-          case 55:
+          case 252: break;
+          case 54:
             { return CrystalTypes.NEQ;
             }
           // fall through
-          case 255: break;
-          case 56:
+          case 253: break;
+          case 55:
             { return CrystalTypes.BANG_TILDE;
             }
           // fall through
-          case 256: break;
-          case 57:
+          case 254: break;
+          case 56:
             { return CrystalTypes.GLOBAL_VAR;
             }
           // fall through
-          case 257: break;
-          case 58:
+          case 255: break;
+          case 57:
             { if (percentStartsMethodName()) {
                             yypushback(1);
                             return CrystalTypes.PERCENT;
@@ -2150,34 +2145,34 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 258: break;
-          case 59:
+          case 256: break;
+          case 58:
             { return CrystalTypes.PERCENT_ASSIGN;
             }
           // fall through
-          case 259: break;
-          case 60:
+          case 257: break;
+          case 59:
             { if (freshVariableAllowed()) { return CrystalTypes.MACRO_FRESH_VAR; }
                           return CrystalTypes.PERCENT;
             }
           // fall through
-          case 260: break;
-          case 61:
+          case 258: break;
+          case 60:
             { return CrystalTypes.AND_AND;
             }
           // fall through
-          case 261: break;
-          case 62:
+          case 259: break;
+          case 61:
             { return CrystalTypes.WRAP_STAR;
             }
           // fall through
-          case 262: break;
-          case 63:
+          case 260: break;
+          case 62:
             { return CrystalTypes.WRAP_PLUS;
             }
           // fall through
-          case 263: break;
-          case 64:
+          case 261: break;
+          case 63:
             { if (zzMarkedPos < zzBuffer.length() && zzBuffer.charAt(zzMarkedPos) == '>') {
                            yypushback(1);
                            return CrystalTypes.AMPERSAND;
@@ -2185,168 +2180,168 @@ class CrystalLexer implements FlexLexer {
                          return CrystalTypes.WRAP_MINUS;
             }
           // fall through
-          case 264: break;
-          case 65:
+          case 262: break;
+          case 64:
             { return CrystalTypes.AMPERSAND_ASSIGN;
             }
           // fall through
-          case 265: break;
-          case 66:
+          case 263: break;
+          case 65:
             { return CrystalTypes.DOUBLE_STAR;
             }
           // fall through
-          case 266: break;
-          case 67:
+          case 264: break;
+          case 66:
             { return CrystalTypes.STAR_ASSIGN;
             }
           // fall through
-          case 267: break;
-          case 68:
+          case 265: break;
+          case 67:
             { return CrystalTypes.PLUS_ASSIGN;
             }
           // fall through
-          case 268: break;
-          case 69:
+          case 266: break;
+          case 68:
             { return CrystalTypes.MINUS_ASSIGN;
             }
           // fall through
-          case 269: break;
-          case 70:
+          case 267: break;
+          case 69:
             { return CrystalTypes.ARROW;
             }
           // fall through
-          case 270: break;
-          case 71:
+          case 268: break;
+          case 70:
             { return CrystalTypes.DOTDOT;
             }
           // fall through
-          case 271: break;
-          case 72:
+          case 269: break;
+          case 71:
             { if (isEmptyRegexAllowed()) { yypushback(1); pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.DOUBLE_SLASH;
             }
           // fall through
-          case 272: break;
-          case 73:
+          case 270: break;
+          case 72:
             { return CrystalTypes.SLASH_ASSIGN;
             }
           // fall through
-          case 273: break;
-          case 74:
+          case 271: break;
+          case 73:
             { return CrystalTypes.DOUBLE_COLON;
             }
           // fall through
-          case 274: break;
-          case 75:
+          case 272: break;
+          case 74:
             { return symbolLiteral();
             }
           // fall through
-          case 275: break;
-          case 76:
+          case 273: break;
+          case 75:
             { return CrystalTypes.LSHIFT;
             }
           // fall through
-          case 276: break;
-          case 77:
+          case 274: break;
+          case 76:
             { return CrystalTypes.LTE;
             }
           // fall through
-          case 277: break;
-          case 78:
+          case 275: break;
+          case 77:
             { return CrystalTypes.EQ;
             }
           // fall through
-          case 278: break;
-          case 79:
+          case 276: break;
+          case 78:
             { return CrystalTypes.DOUBLE_ARROW;
             }
           // fall through
-          case 279: break;
-          case 80:
+          case 277: break;
+          case 79:
             { return CrystalTypes.MATCH_OP;
             }
           // fall through
-          case 280: break;
-          case 81:
+          case 278: break;
+          case 80:
             { return CrystalTypes.GTE;
             }
           // fall through
-          case 281: break;
-          case 82:
+          case 279: break;
+          case 81:
             { return CrystalTypes.RSHIFT;
             }
           // fall through
-          case 282: break;
-          case 83:
+          case 280: break;
+          case 82:
             { return CrystalTypes.INSTANCE_VAR;
             }
           // fall through
-          case 283: break;
-          case 84:
+          case 281: break;
+          case 83:
             { return CrystalTypes.CARET_ASSIGN;
             }
           // fall through
-          case 284: break;
-          case 85:
+          case 282: break;
+          case 84:
             { return CrystalTypes.AS;
             }
           // fall through
-          case 285: break;
-          case 86:
+          case 283: break;
+          case 85:
             { return CrystalTypes.DO;
             }
           // fall through
-          case 286: break;
-          case 87:
+          case 284: break;
+          case 86:
             { return CrystalTypes.IF;
             }
           // fall through
-          case 287: break;
-          case 88:
+          case 285: break;
+          case 87:
             { return CrystalTypes.IN;
             }
           // fall through
-          case 288: break;
-          case 89:
+          case 286: break;
+          case 88:
             { return CrystalTypes.OF;
             }
           // fall through
-          case 289: break;
-          case 90:
+          case 287: break;
+          case 89:
             { pushState(MACRO_CONTROL); return CrystalTypes.MACRO_CONTROL_BEGIN;
             }
           // fall through
-          case 290: break;
-          case 91:
+          case 288: break;
+          case 90:
             { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN;
             }
           // fall through
-          case 291: break;
-          case 92:
+          case 289: break;
+          case 91:
             { return CrystalTypes.PIPE_ASSIGN;
             }
           // fall through
-          case 292: break;
-          case 93:
+          case 290: break;
+          case 92:
             { return CrystalTypes.OR_OR;
             }
           // fall through
-          case 293: break;
-          case 94:
+          case 291: break;
+          case 93:
             { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN;
             }
           // fall through
-          case 294: break;
-          case 95:
+          case 292: break;
+          case 94:
             { return CrystalTypes.STRING_ESCAPE;
             }
           // fall through
-          case 295: break;
-          case 96:
+          case 293: break;
+          case 95:
             { if (macroControlDepth > 0) { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN; } return CrystalTypes.STRING_LITERAL;
             }
           // fall through
-          case 296: break;
-          case 97:
+          case 294: break;
+          case 96:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2359,13 +2354,13 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 297: break;
-          case 98:
+          case 295: break;
+          case 97:
             { if (percentInterpolation) { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return percentTokenType;
             }
           // fall through
-          case 298: break;
-          case 99:
+          case 296: break;
+          case 98:
             { if (!percentAllowEscapes && !percentWordArray && percentTokenType == CrystalTypes.STRING_LITERAL) {
                              // Raw %q literal: the backslash is literal content and the
                              // char after it lexes normally, so `)` still closes the
@@ -2377,28 +2372,28 @@ class CrystalLexer implements FlexLexer {
                            if (percentTokenType == CrystalTypes.STRING_LITERAL || percentTokenType == CrystalTypes.COMMAND_LITERAL) { return CrystalTypes.STRING_ESCAPE; } return percentTokenType;
             }
           // fall through
-          case 299: break;
-          case 100:
+          case 297: break;
+          case 99:
             { if (!heredocRaw) { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; } return CrystalTypes.HEREDOC_CONTENT;
             }
           // fall through
-          case 300: break;
-          case 101:
+          case 298: break;
+          case 100:
             { if (!heredocRaw) { return CrystalTypes.STRING_ESCAPE; } return CrystalTypes.HEREDOC_CONTENT;
             }
           // fall through
-          case 301: break;
-          case 102:
+          case 299: break;
+          case 101:
             { return CrystalTypes.MACRO_BODY_CONTENT;
             }
           // fall through
-          case 302: break;
-          case 103:
+          case 300: break;
+          case 102:
             { macroBodyAtLineStart = false; return CrystalTypes.MACRO_FRESH_VAR;
             }
           // fall through
-          case 303: break;
-          case 104:
+          case 301: break;
+          case 103:
             { char c = yycharat(yylength() - 1);
                            percentOpenChar = c;
                            percentCloseChar = closingChar(c);
@@ -2411,23 +2406,23 @@ class CrystalLexer implements FlexLexer {
                            return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 304: break;
-          case 105:
+          case 302: break;
+          case 104:
             { return CrystalTypes.ANNOTATION;
             }
           // fall through
-          case 305: break;
-          case 106:
+          case 303: break;
+          case 105:
             { popState(); return CrystalTypes.MACRO_INTERPOLATION_END;
             }
           // fall through
-          case 306: break;
-          case 107:
+          case 304: break;
+          case 106:
             { updateMacroControlDepth(); popState(); return CrystalTypes.MACRO_CONTROL_END;
             }
           // fall through
-          case 307: break;
-          case 108:
+          case 305: break;
+          case 107:
             { char c = yycharat(yylength() - 1);
                            percentOpenChar = c;
                            percentCloseChar = closingChar(c);
@@ -2440,8 +2435,8 @@ class CrystalLexer implements FlexLexer {
                            return CrystalTypes.PERCENT_SYMBOL_BEGIN;
             }
           // fall through
-          case 308: break;
-          case 109:
+          case 306: break;
+          case 108:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2454,8 +2449,8 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_WORD_ARRAY_BEGIN;
             }
           // fall through
-          case 309: break;
-          case 110:
+          case 307: break;
+          case 109:
             { char c = yycharat(yylength() - 1);
                            percentOpenChar = c;
                            percentCloseChar = closingChar(c);
@@ -2468,8 +2463,8 @@ class CrystalLexer implements FlexLexer {
                            return CrystalTypes.PERCENT_SYMBOL_BEGIN;
             }
           // fall through
-          case 310: break;
-          case 111:
+          case 308: break;
+          case 110:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2482,8 +2477,8 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 311: break;
-          case 112:
+          case 309: break;
+          case 111:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2496,8 +2491,8 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 312: break;
-          case 113:
+          case 310: break;
+          case 112:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2510,8 +2505,8 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_WORD_ARRAY_BEGIN;
             }
           // fall through
-          case 313: break;
-          case 114:
+          case 311: break;
+          case 113:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2524,151 +2519,151 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 314: break;
-          case 115:
+          case 312: break;
+          case 114:
             { return CrystalTypes.AND_AND_ASSIGN;
             }
           // fall through
-          case 315: break;
-          case 116:
+          case 313: break;
+          case 115:
             { return CrystalTypes.WRAP_DOUBLE_STAR;
             }
           // fall through
-          case 316: break;
-          case 117:
+          case 314: break;
+          case 116:
             { return CrystalTypes.WRAP_STAR_ASSIGN;
             }
           // fall through
-          case 317: break;
-          case 118:
+          case 315: break;
+          case 117:
             { return CrystalTypes.WRAP_PLUS_ASSIGN;
             }
           // fall through
-          case 318: break;
-          case 119:
+          case 316: break;
+          case 118:
             { return CrystalTypes.WRAP_MINUS_ASSIGN;
             }
           // fall through
-          case 319: break;
-          case 120:
+          case 317: break;
+          case 119:
             { return CrystalTypes.CHAR_LITERAL;
             }
           // fall through
-          case 320: break;
-          case 121:
+          case 318: break;
+          case 120:
             { return CrystalTypes.DOUBLE_STAR_ASSIGN;
             }
           // fall through
-          case 321: break;
-          case 122:
+          case 319: break;
+          case 121:
             { return CrystalTypes.DOTDOTDOT;
             }
           // fall through
-          case 322: break;
-          case 123:
+          case 320: break;
+          case 122:
             { return CrystalTypes.DOUBLE_SLASH_ASSIGN;
             }
           // fall through
-          case 323: break;
-          case 124:
+          case 321: break;
+          case 123:
             { return CrystalTypes.FLOAT_LITERAL;
             }
           // fall through
-          case 324: break;
-          case 125:
+          case 322: break;
+          case 124:
             // lookahead expression with fixed base length
             zzMarkedPos = Character.offsetByCodePoints
                 (zzBufferL, zzStartRead, 2);
             { pushState(STRING); return CrystalTypes.SYMBOL_COLON;
             }
           // fall through
-          case 325: break;
-          case 126:
+          case 323: break;
+          case 125:
             { return CrystalTypes.LSHIFT_ASSIGN;
             }
           // fall through
-          case 326: break;
-          case 127:
+          case 324: break;
+          case 126:
             { return CrystalTypes.SPACESHIP;
             }
           // fall through
-          case 327: break;
-          case 128:
+          case 325: break;
+          case 127:
             { return CrystalTypes.CASE_EQ;
             }
           // fall through
-          case 328: break;
-          case 129:
+          case 326: break;
+          case 128:
             { return CrystalTypes.RSHIFT_ASSIGN;
             }
           // fall through
-          case 329: break;
-          case 130:
+          case 327: break;
+          case 129:
             { return CrystalTypes.CLASS_VAR;
             }
           // fall through
-          case 330: break;
-          case 131:
+          case 328: break;
+          case 130:
             { pushState(MACRO_CONTROL); return CrystalTypes.MACRO_CONTROL_ESCAPED_BEGIN;
             }
           // fall through
-          case 331: break;
-          case 132:
+          case 329: break;
+          case 131:
             { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_ESCAPED_BEGIN;
             }
           // fall through
-          case 332: break;
-          case 133:
+          case 330: break;
+          case 132:
             { return CrystalTypes.AS_QUESTION;
             }
           // fall through
-          case 333: break;
-          case 134:
+          case 331: break;
+          case 133:
             { return CrystalTypes.ASM;
             }
           // fall through
-          case 334: break;
-          case 135:
+          case 332: break;
+          case 134:
             { return CrystalTypes.DEF;
             }
           // fall through
-          case 335: break;
-          case 136:
+          case 333: break;
+          case 135:
             { return CrystalTypes.END;
             }
           // fall through
-          case 336: break;
-          case 137:
+          case 334: break;
+          case 136:
             { return CrystalTypes.FOR;
             }
           // fall through
-          case 337: break;
-          case 138:
+          case 335: break;
+          case 137:
             { return CrystalTypes.FUN;
             }
           // fall through
-          case 338: break;
-          case 139:
+          case 336: break;
+          case 138:
             { return CrystalTypes.LIB;
             }
           // fall through
-          case 339: break;
-          case 140:
+          case 337: break;
+          case 139:
             { return CrystalTypes.NIL;
             }
           // fall through
-          case 340: break;
-          case 141:
+          case 338: break;
+          case 140:
             { return CrystalTypes.OUT;
             }
           // fall through
-          case 341: break;
-          case 142:
+          case 339: break;
+          case 141:
             { return CrystalTypes.OR_OR_ASSIGN;
             }
           // fall through
-          case 342: break;
-          case 143:
+          case 340: break;
+          case 142:
             { // Raw percent string (`spec/expectations_spec.cr`
                           // interpolates `#{%q(a\tb\nc).inspect}`): no escapes,
                           // no interpolation, exactly like YYINITIAL's `%q`.
@@ -2684,30 +2679,30 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 343: break;
-          case 144:
+          case 341: break;
+          case 143:
             // lookahead expression with fixed lookahead length
             zzMarkedPos = Character.offsetByCodePoints
                 (zzBufferL, zzMarkedPos, -1);
             { macroBodyDepth++; macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT;
             }
           // fall through
-          case 344: break;
-          case 145:
+          case 342: break;
+          case 144:
             { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yybegin(YYINITIAL); return CrystalTypes.END; }
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT;
             }
           // fall through
-          case 345: break;
-          case 146:
+          case 343: break;
+          case 145:
             // lookahead expression with fixed lookahead length
             zzMarkedPos = Character.offsetByCodePoints
                 (zzBufferL, zzMarkedPos, -1);
             { if (macroBodyAtLineStart) { macroBodyDepth++; } macroBodyAtLineStart = false; return CrystalTypes.MACRO_BODY_CONTENT;
             }
           // fall through
-          case 346: break;
-          case 147:
+          case 344: break;
+          case 146:
             { // Raw percent string, mirroring `<INTERPOLATION>` and
                            // YYINITIAL (`%q` takes no escapes and no interpolation).
                            char c = yycharat(yylength() - 1);
@@ -2722,8 +2717,8 @@ class CrystalLexer implements FlexLexer {
                            return CrystalTypes.PERCENT_LITERAL_BEGIN;
             }
           // fall through
-          case 347: break;
-          case 148:
+          case 345: break;
+          case 147:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2736,8 +2731,8 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_SYMBOL_BEGIN;
             }
           // fall through
-          case 348: break;
-          case 149:
+          case 346: break;
+          case 148:
             { char c = yycharat(yylength() - 1);
                           percentOpenChar = c;
                           percentCloseChar = closingChar(c);
@@ -2750,70 +2745,70 @@ class CrystalLexer implements FlexLexer {
                           return CrystalTypes.PERCENT_SYMBOL_BEGIN;
             }
           // fall through
-          case 349: break;
-          case 150:
+          case 347: break;
+          case 149:
             { return CrystalTypes.WRAP_DOUBLE_STAR_ASSIGN;
             }
           // fall through
-          case 350: break;
-          case 151:
+          case 348: break;
+          case 150:
             { String text = yytext().toString();
                          pendingHeredocs.addLast(new PendingHeredoc(text.substring(3), false));
                          return CrystalTypes.HEREDOC_START;
             }
           // fall through
-          case 351: break;
-          case 152:
+          case 349: break;
+          case 151:
             { return CrystalTypes.CASE;
             }
           // fall through
-          case 352: break;
-          case 153:
+          case 350: break;
+          case 152:
             { return CrystalTypes.ELSE;
             }
           // fall through
-          case 353: break;
-          case 154:
+          case 351: break;
+          case 153:
             { return CrystalTypes.ENUM;
             }
           // fall through
-          case 354: break;
-          case 155:
+          case 352: break;
+          case 154:
             { return CrystalTypes.NEXT;
             }
           // fall through
-          case 355: break;
-          case 156:
+          case 353: break;
+          case 155:
             { return CrystalTypes.NIL_QUESTION;
             }
           // fall through
-          case 356: break;
-          case 157:
+          case 354: break;
+          case 156:
             { return CrystalTypes.SELF;
             }
           // fall through
-          case 357: break;
-          case 158:
+          case 355: break;
+          case 157:
             { return CrystalTypes.THEN;
             }
           // fall through
-          case 358: break;
-          case 159:
+          case 356: break;
+          case 158:
             { return CrystalTypes.TRUE;
             }
           // fall through
-          case 359: break;
-          case 160:
+          case 357: break;
+          case 159:
             { return CrystalTypes.WHEN;
             }
           // fall through
-          case 360: break;
-          case 161:
+          case 358: break;
+          case 160:
             { return CrystalTypes.WITH;
             }
           // fall through
-          case 361: break;
-          case 162:
+          case 359: break;
+          case 161:
             // lookahead expression with fixed base length
             zzMarkedPos = Character.offsetByCodePoints
                 (zzBufferL, zzStartRead, 3);
@@ -2821,200 +2816,200 @@ class CrystalLexer implements FlexLexer {
                          macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT;
             }
           // fall through
-          case 362: break;
-          case 163:
+          case 360: break;
+          case 162:
             { macroBodyAtLineStart = false; if (macroBodyDepth == 0) { yypushback(yylength() - 3); yybegin(YYINITIAL); return CrystalTypes.END; }
                           macroBodyDepth--; return CrystalTypes.MACRO_BODY_CONTENT;
             }
           // fall through
-          case 363: break;
-          case 164:
+          case 361: break;
+          case 163:
             { return CrystalTypes.ALIAS;
             }
           // fall through
-          case 364: break;
-          case 165:
+          case 362: break;
+          case 164:
             { return CrystalTypes.BEGIN;
             }
           // fall through
-          case 365: break;
-          case 166:
+          case 363: break;
+          case 165:
             { return CrystalTypes.BREAK;
             }
           // fall through
-          case 366: break;
-          case 167:
+          case 364: break;
+          case 166:
             { return CrystalTypes.CLASS;
             }
           // fall through
-          case 367: break;
-          case 168:
+          case 365: break;
+          case 167:
             { return CrystalTypes.ELSIF;
             }
           // fall through
-          case 368: break;
-          case 169:
+          case 366: break;
+          case 168:
             { return CrystalTypes.FALSE;
             }
           // fall through
-          case 369: break;
-          case 170:
+          case 367: break;
+          case 169:
             { return CrystalTypes.IS_A;
             }
           // fall through
-          case 370: break;
-          case 171:
+          case 368: break;
+          case 170:
             { if (isMacroDefinitionStart()) { macroHeaderSeen = true; macroHeaderStart = zzStartRead; } return CrystalTypes.MACRO;
             }
           // fall through
-          case 371: break;
-          case 172:
+          case 369: break;
+          case 171:
             { return CrystalTypes.SUPER;
             }
           // fall through
-          case 372: break;
-          case 173:
+          case 370: break;
+          case 172:
             { return CrystalTypes.UNION;
             }
           // fall through
-          case 373: break;
-          case 174:
+          case 371: break;
+          case 173:
             { return CrystalTypes.UNTIL;
             }
           // fall through
-          case 374: break;
-          case 175:
+          case 372: break;
+          case 174:
             { return CrystalTypes.WHILE;
             }
           // fall through
-          case 375: break;
-          case 176:
+          case 373: break;
+          case 175:
             { return CrystalTypes.YIELD;
             }
           // fall through
-          case 376: break;
-          case 177:
+          case 374: break;
+          case 176:
             { String text = yytext().toString();
                          pendingHeredocs.addLast(new PendingHeredoc(text.substring(4, text.length() - 1), true));
                          return CrystalTypes.HEREDOC_START;
             }
           // fall through
-          case 377: break;
-          case 178:
+          case 375: break;
+          case 177:
             { return CrystalTypes.ENSURE;
             }
           // fall through
-          case 378: break;
-          case 179:
+          case 376: break;
+          case 178:
             { return CrystalTypes.EXTEND;
             }
           // fall through
-          case 379: break;
-          case 180:
+          case 377: break;
+          case 179:
             { return CrystalTypes.FORALL;
             }
           // fall through
-          case 380: break;
-          case 181:
+          case 378: break;
+          case 180:
             { return CrystalTypes.MODULE;
             }
           // fall through
-          case 381: break;
-          case 182:
+          case 379: break;
+          case 181:
             { return CrystalTypes.RESCUE;
             }
           // fall through
-          case 382: break;
-          case 183:
+          case 380: break;
+          case 182:
             { return CrystalTypes.RETURN;
             }
           // fall through
-          case 383: break;
-          case 184:
+          case 381: break;
+          case 183:
             { return CrystalTypes.SELECT;
             }
           // fall through
-          case 384: break;
-          case 185:
+          case 382: break;
+          case 184:
             { return CrystalTypes.SIZEOF;
             }
           // fall through
-          case 385: break;
-          case 186:
+          case 383: break;
+          case 185:
             { return CrystalTypes.STRUCT;
             }
           // fall through
-          case 386: break;
-          case 187:
+          case 384: break;
+          case 186:
             { return CrystalTypes.TYPEOF;
             }
           // fall through
-          case 387: break;
-          case 188:
+          case 385: break;
+          case 187:
             { return CrystalTypes.UNLESS;
             }
           // fall through
-          case 388: break;
-          case 189:
+          case 386: break;
+          case 188:
             { return CrystalTypes.INCLUDE;
             }
           // fall through
-          case 389: break;
-          case 190:
+          case 387: break;
+          case 189:
             { return CrystalTypes.PRIVATE;
             }
           // fall through
-          case 390: break;
-          case 191:
+          case 388: break;
+          case 190:
             { return CrystalTypes.REQUIRE;
             }
           // fall through
-          case 391: break;
-          case 192:
+          case 389: break;
+          case 191:
             { return CrystalTypes.ABSTRACT;
             }
           // fall through
-          case 392: break;
-          case 193:
+          case 390: break;
+          case 192:
             { return CrystalTypes.OFFSETOF;
             }
           // fall through
-          case 393: break;
-          case 194:
+          case 391: break;
+          case 193:
             { return CrystalTypes.VERBATIM;
             }
           // fall through
-          case 394: break;
-          case 195:
+          case 392: break;
+          case 194:
             { return CrystalTypes.POINTEROF;
             }
           // fall through
-          case 395: break;
-          case 196:
+          case 393: break;
+          case 195:
             { return CrystalTypes.PROTECTED;
             }
           // fall through
-          case 396: break;
-          case 197:
+          case 394: break;
+          case 196:
             { return CrystalTypes.PREVIOUS_DEF;
             }
           // fall through
-          case 397: break;
-          case 198:
+          case 395: break;
+          case 197:
             { return CrystalTypes.RESPONDS_TO;
             }
           // fall through
-          case 398: break;
-          case 199:
+          case 396: break;
+          case 198:
             { return CrystalTypes.UNINITIALIZED;
             }
           // fall through
-          case 399: break;
-          case 200:
+          case 397: break;
+          case 199:
             { return CrystalTypes.INSTANCE_SIZEOF;
             }
           // fall through
-          case 400: break;
+          case 398: break;
           default:
             zzScanError(ZZ_NO_MATCH);
           }

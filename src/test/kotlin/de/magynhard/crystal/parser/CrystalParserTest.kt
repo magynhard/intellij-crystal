@@ -708,6 +708,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroInterpolationBareCall() {
+        doTest(true)
+    }
+
     fun testMacroExpressions() {
         doTest(true)
     }

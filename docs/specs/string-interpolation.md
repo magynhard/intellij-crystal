@@ -64,6 +64,7 @@ The `INTERPOLATION` state (Crystal.flex:393) handles `{`/`}` brace-depth trackin
 | 18 | `{{ ch.join(%( or )) }}` | `MACRO_INTERPOLATION` | ✅ Done earlier (hexfloat.cr) |
 | 19 | `"a {{ x }} b"` inside `{% %}` block bodies | `STRING` + macro-control depth | ✅ Done — `{{` pushes `MACRO_INTERPOLATION` only past depth 0 (compiler-verified: plain strings keep `{{ }}` literal); `\{{` never reaches the rule (escape consumes the brace first) |
 | 20 | `"#{%q(a\tb\nc).inspect}"` | `INTERPOLATION` | ✅ Done — raw `%q(…)` opener mirrored from YYINITIAL (no escapes, no interpolation); the `MACRO_INTERPOLATION` rule mirrors it as well |
+| 21 | `"#{v.id.gsub(/_f32$/, "")}"` | `INTERPOLATION` | ✅ Done — `/` uses the operator-position `isRegexAllowed` decision (mirrored in `MACRO_INTERPOLATION`); otherwise the slash lexes as `SLASH` and a `$` in the pattern becomes `BAD_CHARACTER` |
 
 ---
 

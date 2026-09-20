@@ -951,7 +951,10 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "+"                  { return CrystalTypes.PLUS; }
   "-"                  { return CrystalTypes.MINUS; }
   "*"                  { return CrystalTypes.STAR; }
-  "/"                  { return CrystalTypes.SLASH; }
+  // Regex literals inside interpolations: `#{v.id.gsub(/_f32$/, "")}`
+  // (float_printer/shortest_spec.cr). Without the operator-position decision a
+  // leading `/` lexes as SLASH and a `$` in the pattern becomes BAD_CHARACTER.
+  "/"                  { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.SLASH; }
   "%"                  { return CrystalTypes.PERCENT; }
   // Percent literals inside string interpolations: `"#{ %(a) if b }"`
   // (generate_grapheme_break_specs.cr). Without this, `%(` splits into
@@ -1198,7 +1201,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "*"                  { return CrystalTypes.STAR; }
   "//="                { return CrystalTypes.DOUBLE_SLASH_ASSIGN; }
   "//"                 { if (isEmptyRegexAllowed()) { yypushback(1); pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.DOUBLE_SLASH; }
-   "/"                  { return CrystalTypes.SLASH; }
+   // Regex literals mirror the INTERPOLATION state (`{{ v.id.gsub(/x/, "") }}`).
+   "/"                  { if (isRegexAllowed()) { pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.SLASH; }
    "::"                 { return CrystalTypes.DOUBLE_COLON; }
    ":"                  { return CrystalTypes.COLON; }
    "=="                 { return CrystalTypes.EQ; }
