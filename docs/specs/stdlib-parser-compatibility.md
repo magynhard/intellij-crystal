@@ -1576,6 +1576,19 @@ the parser performance canary, and the external kemal inspection audit. The
 stub version is incremented once when the newly parsed declarations become part
 of persisted indexing semantics.
 
+The external 1.21.0 repository corpus (the full crystal-lang checkout, an
+unpinned scope) also reaches zero `PsiErrorElement` — `Status: PASS` in
+`build/reports/stdlib-parse-audit/external/report.txt`. The final repairs in
+that sweep are documented alongside the syntax family they belong to:
+visibility-modified lib definitions, comma-separated macro-if branches,
+generic typed collection literals, and macro-spliced numeric literals in this
+spec; spaced leading-`::` bare arguments in
+`docs/specs/method-definitions-and-bare-calls.md`; and raw `%q(…)`, regex
+literals, and backtick commands inside interpolation in
+`docs/specs/string-interpolation.md`. The audit is a diagnostic gate, not a
+substitute for the inspection audit: it asserts structural parse completeness
+only.
+
 The pinned download and both zero-error invocations become mandatory CI jobs
 only when the indexed corpus reaches zero. Enabling them earlier would make
 every unrelated branch fail against a known nonzero baseline.
