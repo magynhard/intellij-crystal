@@ -5,6 +5,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Macro-spliced numeric literals** — `Slice.literal(1_{{ suffix.id }},
+  2_{{ suffix.id }})` now parses as a single literal instead of stranding the
+  interpolation (`primitives/slice_spec.cr`): `literal` gained a
+  `macro_spliced_literal` alternative ahead of the plain numeric literals.
+  Covered by the MacroSplicedLiterals golden.
 - **Generic typed collection literals** — `Set(String){"a", "b"}` and
   `Deque(Int32){1, 2, 3}` now parse: `typed_collection_literal` accepts
   `type_path [type_arguments]` before the brace (`json/serializable_spec.cr`),

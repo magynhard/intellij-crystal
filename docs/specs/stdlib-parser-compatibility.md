@@ -333,7 +333,13 @@ these names are never validated pre-expansion; the plugin mirrors
 `!ASSIGN` guard on bare enum interpolation members keeps PEG from
 committing the prefix and stranding the `=` (errno.cr). The
 `LibC::{{value.id}}` right-hand side reuses the existing interpolated
-`type_path_piece`. Stub name fallbacks already report generated names
+`type_path_piece`. Numeric literals splice the same way
+(`Slice.literal(1_{{ suffix.id }}, 2_{{ suffix.id }})`,
+primitives/slice_spec.cr): `literal` gains a private `macro_spliced_literal`
+(`(INTEGER_LITERAL | FLOAT_LITERAL) &tight macro_interpolation ...`) that must
+precede the plain numeric alternatives because PEG commits the first match, and
+the tight guard keeps `1 {{ x }}` as two tokens. Stub name fallbacks already
+report generated names
 verbatim without claiming resolution, so no stub change and no
 stub-version bump; generation only adds `getMacroInterpolation[List]()`
 accessors. Covered by the MacroSplicedNames parser golden (all real shapes

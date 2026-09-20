@@ -1806,7 +1806,8 @@ private proc_parameter_trivia ::= (NEWLINE | macro_control)*
 
 // ==================== Literals ====================
 
-private literal ::= INTEGER_LITERAL
+private literal ::= macro_spliced_literal
+                  | INTEGER_LITERAL
                   | FLOAT_LITERAL
                   | CHAR_LITERAL
                   | string_expression
@@ -1823,6 +1824,13 @@ private literal ::= INTEGER_LITERAL
                   | PREVIOUS_DEF
                   | heredoc_marker
                   | percent_literal
+
+// Macro-spliced numeric literal: `Slice.literal(1_{{ suffix.id }}, ...)`
+// (primitives/slice_spec.cr). The number is macro-body text concatenated with
+// an interpolation, so it is never validated pre-expansion. Must precede the
+// plain INTEGER_LITERAL/FLOAT_LITERAL alternatives (PEG commits the first
+// match); the tight guard keeps `1 {{ x }}` as two tokens.
+private macro_spliced_literal ::= (INTEGER_LITERAL | FLOAT_LITERAL) &<<isTokenTightAfterPreviousToken>> macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
 
 private interpolation_expression ::= STRING_INTERPOLATION_BEGIN expression [postfix_modifier] STRING_INTERPOLATION_END
 
