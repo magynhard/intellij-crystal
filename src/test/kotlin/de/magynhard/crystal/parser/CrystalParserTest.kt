@@ -123,6 +123,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testEmptyRegexLiteral() {
+        doTest(true)
+    }
+
     fun testPercentLiterals() {
         doTest(true)
     }

@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Empty regex literals (`//`)** — `"foo".index(//, 3)` or `x = //` no longer
+  devolves into integer division followed by a swallowed rest of file: the
+  lexer opens an empty regex wherever a single slash would be allowed and
+  keeps `a // b`, `a //b`, `7 // 2`, and chained division as `//` operators.
+  A colon-glued `://` stays an operator symbol via the label-colon logic.
+  Covered by the EmptyRegexLiteral golden and a dedicated lexer regression.
 - **Heredoc bodies under postfix modifiers** — `value = <<-TEXT rescue puts
   fallback` and `VALUE = <<-TEXT if enabled` no longer strand the body content:
   the plain method-call bare-argument alternative now refuses a queued body

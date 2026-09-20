@@ -302,6 +302,21 @@ division.
 These rules are covered by `DotCompoundAssignment`, `DotRegexDivision`, and
 `KemalRangeBlock` parser goldens plus dedicated lexer tests.
 
+## Empty Regex Literals (`//`)
+
+An empty regex (`"foo".index(//, 3)`, `x = //` — `spec.cr _top_buf`,
+`expressions.cr`) has no content or terminator to inspect, so unlike single
+`/` only the preceding token can decide. The lexer opens an empty regex
+everywhere single `/` would (file start, openers, commas, operators,
+operand-taking keywords, `?`/`:`); after an operand end the token stays
+integer division (`a // b`, `a //b`, `7 // 2`, chained `//`), which also
+shields against later slashes on the line. A `//` tightly glued to a colon
+reuses the label-colon logic from single `/`, keeping `://` an operator
+symbol. `//i`-style flags on an empty regex remain a documented limitation.
+
+These rules are covered by the `EmptyRegexLiteral` parser golden and the
+`testEmptyDoubleSlashRegexLiteral` lexer regression.
+
 ## Operator Symbols (`:+`, `:==`, `:[]?`)
 
 The lexer keeps `:` and the operator separate and the parser composes them via

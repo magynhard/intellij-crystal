@@ -1126,33 +1126,7 @@ class CrystalLexer implements FlexLexer {
     // parser-driven wants_symbol flag, never after a key). Anything else
     // (`? b :/re/`, `1:/re/`, `"a":/re/`) folds and fails downstream, also
     // exactly like the compiler.
-    if (zzStartRead > 0 && zzBuffer.charAt(zzStartRead - 1) == ':') {
-      int identEnd = zzStartRead - 2;
-      while (identEnd >= 0) {
-        char b = zzBuffer.charAt(identEnd);
-        if (b != ' ' && b != '\t' && b != '\r' && b != '\n') break;
-        identEnd--;
-      }
-      int identStart = identEnd;
-      while (identStart >= 0) {
-        char b = zzBuffer.charAt(identStart);
-        if (!Character.isLetterOrDigit(b) && b != '_') break;
-        identStart--;
-      }
-      if (identStart < identEnd) {
-        int before = identStart;
-        while (before >= 0) {
-          char b = zzBuffer.charAt(before);
-          if (b != ' ' && b != '\t' && b != '\r' && b != '\n') break;
-          before--;
-        }
-        if (before >= 0) {
-          char b = zzBuffer.charAt(before);
-          if (b == '(' || b == '{' || b == '[' || b == ',') return true;
-        }
-      }
-      return false;
-    }
+    if (zzStartRead > 0 && zzBuffer.charAt(zzStartRead - 1) == ':') return isTightColonLabel();
     // Check the character immediately before the current token (skip whitespace already consumed)
     int pos = zzStartRead - 1;
     boolean separatedByWhitespace = false;
@@ -1198,6 +1172,108 @@ class CrystalLexer implements FlexLexer {
       start--;
     }
     return start < end ? start + 1 : -1;
+  }
+
+  /**
+   * A slash tightly glued to a preceding colon describes the `label:/regex/`
+   * colon (regex reads win) rather than the `:/op/` symbol colon. Returned
+   * true means the regex reading is allowed.
+   */
+  private boolean isTightColonLabel() {
+    // Shifts the window one left so lookback addresses an absolute world: the
+    // colon sits at zzStartRead (or [pos] for the empty-regex `//` variant).
+    int identEnd = zzStartRead - 2;
+    while (identEnd >= 0) {
+      char b = zzBuffer.charAt(identEnd);
+      if (b != ' ' && b != '\t' && b != '\r' && b != '\n') break;
+      identEnd--;
+    }
+    int identStart = identEnd;
+    while (identStart >= 0) {
+      char b = zzBuffer.charAt(identStart);
+      if (!Character.isLetterOrDigit(b) && b != '_') break;
+      identStart--;
+    }
+    if (identStart < identEnd) {
+      int before = identStart;
+      while (before >= 0) {
+        char b = zzBuffer.charAt(before);
+        if (b != ' ' && b != '\t' && b != '\r' && b != '\n') break;
+        before--;
+      }
+      if (before >= 0) {
+        char b = zzBuffer.charAt(before);
+        if (b == '(' || b == '{' || b == '[' || b == ',') return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Empty-regex disambiguation for `//`: an empty regex (`foo(//)`, `x = //`)
+   * has no content or terminator to inspect, so unlike single `/` only the
+   * preceding token decides. Division keeps everything it has today — after an
+   * operand end the token stays DOUBLE_SLASH (`a // b`, `a //b`, `7 // 2`,
+   * chained `a // b / c`), which also shields against later slashes on the
+   * line. Everywhere else (file start, openers, commas, operators, keywords
+   * that take operands, `?`/`:`) it opens an empty regex; the REGEX state's
+   * `/` closer handles zero content. `//i`-style flags stay a documented
+   * limitation.
+   */
+  private boolean isEmptyRegexAllowed() {
+    int pos = zzStartRead - 1;
+    while (pos >= 0) {
+      char c = zzBuffer.charAt(pos);
+      if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != '\\') break;
+      pos--;
+    }
+    if (pos < 0) return true;
+    char c = zzBuffer.charAt(pos);
+    if (c == ')' || c == ']' || c == '"' || c == '\'') return false;
+    if (c == '.' || c == '$' || c == '@') return false;
+    if (c == ':') return isTightColonLabel();
+    if (Character.isLetterOrDigit(c) || c == '_' || c == '?' || c == '!') {
+      int start = pos;
+      boolean hasWordChar = false;
+      while (start >= 0) {
+        char w = zzBuffer.charAt(start);
+        if (!Character.isLetterOrDigit(w) && w != '_' && w != '?' && w != '!') break;
+        if (Character.isLetterOrDigit(w) || w == '_') hasWordChar = true;
+        start--;
+      }
+      // A bare `!`/`?` run (`!//`, `? //`) is an operator, never a division
+      // left-hand side.
+      if (!hasWordChar) return true;
+      if (start < pos) {
+        String word = zzBuffer.subSequence(start + 1, pos + 1).toString();
+        switch (word) {
+          case "when":
+          case "if":
+          case "unless":
+          case "elsif":
+          case "while":
+          case "until":
+          case "return":
+          case "break":
+          case "next":
+          case "raise":
+          case "yield":
+          case "do":
+          case "else":
+          case "begin":
+          case "then":
+          case "and":
+          case "or":
+          case "not":
+          case "defined?":
+            return true;
+          default:
+            break;
+        }
+      }
+      return false;
+    }
+    return true;
   }
 
   private boolean isRegexOperandKeyword(int start, int end) {
@@ -2142,7 +2218,7 @@ class CrystalLexer implements FlexLexer {
           // fall through
           case 269: break;
           case 72:
-            { return CrystalTypes.DOUBLE_SLASH;
+            { if (isEmptyRegexAllowed()) { yypushback(1); pushState(REGEX); return CrystalTypes.REGEX_BEGIN; } return CrystalTypes.DOUBLE_SLASH;
             }
           // fall through
           case 270: break;

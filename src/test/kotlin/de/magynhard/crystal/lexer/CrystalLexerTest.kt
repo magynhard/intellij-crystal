@@ -157,6 +157,30 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testEmptyDoubleSlashRegexLiteral() {
+        // `"foo".index(//, 3)`, `x = //` (spec.cr _top_buf, expressions.cr):
+        // an empty regex has no content or terminator, so only the preceding
+        // token can decide — everywhere the single slash would lex a regex it
+        // opens an empty one; after an operand end `//` stays integer division.
+        val regexSites = listOf("p! (\"foo\".index(//, 3))", "empty = //\n", "foo(//)")
+        for (text in regexSites) {
+            val tokens = nonWhitespaceTokens(text)
+            assertTrue("Begin in '$text'", tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+            assertTrue("End in '$text'", tokens.any { it.first == CrystalTypes.REGEX_END })
+        }
+        val division = listOf("a // b", "a //b", "7 // 2", "x // y / z")
+        for (input in division) {
+            val tokens = nonWhitespaceTokens(input)
+            assertTrue("Division in '$input'", tokens.any { it.first == CrystalTypes.DOUBLE_SLASH })
+            assertFalse("No regex in '$input'", tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        }
+        // Division stays division inside string interpolation.
+        val interTokens = nonWhitespaceTokens("\"#{amount // 100}\"")
+        assertTrue(interTokens.any { it.first == CrystalTypes.DOUBLE_SLASH })
+        assertFalse(interTokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
     fun testMultilineBareRegexArgumentAfterDotCall() {
         val tokens = nonWhitespaceTokens("text.match /foo\nbar/")
         assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
