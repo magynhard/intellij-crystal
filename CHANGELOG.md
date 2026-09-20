@@ -4,6 +4,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ## [0.2.9] — 2026-xx-xx
 
+### Changed
+- **Release gate** — `rake release` now runs the pinned Crystal 1.21.0 stdlib
+  parse audits (`indexed` + `distribution`) and the full test suite before it
+  bumps, tags, or pushes, so a parser regression can no longer be released;
+  `SKIP_STDLIB_AUDIT=1` bypasses the audit. A pull-request workflow
+  (`.github/workflows/stdlib-parse-audit.yml`) runs the same audits against the
+  SHA-256-verified official archive.
+
 ### Added
 - **Backtick commands inside interpolation** — `"FileCheck#{File.basename(
   `#{__DIR__}/find-llvm-config.sh`).lchop("llvm-config")}"` now parses: the

@@ -107,17 +107,6 @@
 
 ## Parser Follow-up
 
-- [ ] **Finish the Crystal 1.21.0 parser compatibility gates** — the indexed
-  `stdlibParseAudit` corpus (pinned 650 production-indexed sources, compiler tree
-  included) and the whole distribution (1,625 files) both parse with zero errors
-  since 2026-09-17 (the "175 errors in 126 files" baseline is resolved); the
-  external crystal-lang 1.21.0 checkout (2,396 files) also reaches zero
-  (`Status: PASS`, see `docs/specs/stdlib-parser-compatibility.md`, Release
-  Gates). Remaining: add mandatory CI jobs that download the pinned official
-  archive, verify SHA-256
-  `cc407bd071915cc7b5d9348281e669a911d20a1f4b9fac52a62088660eb22208`, and run both
-  scopes. Keep raw `PsiErrorElement` collection and exact file counts; do not add an
-  error allowlist or accepted nonzero threshold.
 - [ ] **Enforce named-argument ordering in call grammar** — once the first named argument appears,
   Crystal rejects later positional, splat, and positional `out` arguments. The current generic
   `argument_list` also accepts this pre-existing invalid ordering for ordinary named arguments;

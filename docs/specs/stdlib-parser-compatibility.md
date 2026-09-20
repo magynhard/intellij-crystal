@@ -1589,6 +1589,12 @@ literals, and backtick commands inside interpolation in
 substitute for the inspection audit: it asserts structural parse completeness
 only.
 
-The pinned download and both zero-error invocations become mandatory CI jobs
-only when the indexed corpus reaches zero. Enabling them earlier would make
-every unrelated branch fail against a known nonzero baseline.
+The pinned download and both zero-error invocations are enforced in two places.
+`rake release` runs them as a precondition — together with `./gradlew test` —
+before it bumps, tags, or pushes, so a broken parser can never be released.
+The `.github/workflows/stdlib-parse-audit.yml` workflow runs the same two
+scopes for every pull request against the same SHA-256-verified archive
+(`crystal-1.21.0-1-linux-x86_64-bundled.tar.gz`), extracting it to
+`share/crystal/src`. Local release runs resolve the corpus from
+`crystal env CRYSTAL_PATH` or an explicit `CRYSTAL_STDLIB_ROOT`, and
+`SKIP_STDLIB_AUDIT=1` is the documented bypass for the release precondition.

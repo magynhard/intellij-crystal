@@ -2,6 +2,41 @@
 require 'dotenv/load'
 require 'tmpdir'
 
+STDLIB_AUDIT_VERSION = "1.21.0"
+STDLIB_AUDIT_CORPORA = %w[indexed distribution].freeze
+
+# Resolve the Crystal stdlib source root for the parse audits. An explicit
+# CRYSTAL_STDLIB_ROOT wins; otherwise the first absolute CRYSTAL_PATH entry
+# that carries a VERSION file (the installed distribution root).
+def resolve_stdlib_root
+  override = ENV['CRYSTAL_STDLIB_ROOT']
+  return override unless override.nil? || override.empty?
+
+  crystal_path = `crystal env CRYSTAL_PATH 2>/dev/null`.strip
+  abort "ERROR: 'crystal' is not on PATH and CRYSTAL_STDLIB_ROOT is not set" if crystal_path.empty?
+
+  root = crystal_path.split(':').reject(&:empty?).find do |entry|
+    File.absolute_path?(entry) && File.file?(File.join(entry, 'VERSION'))
+  end
+  abort "ERROR: no absolute Crystal stdlib root with a VERSION file in CRYSTAL_PATH=#{crystal_path}" if root.nil?
+
+  root
+end
+
+def stdlib_audit_root
+  root = resolve_stdlib_root
+  version_file = File.join(root, 'VERSION')
+  abort "ERROR: Crystal stdlib root has no VERSION file: #{root}" unless File.file?(version_file)
+
+  version = File.read(version_file).strip
+  unless version == STDLIB_AUDIT_VERSION
+    abort "ERROR: Crystal #{STDLIB_AUDIT_VERSION} is required, found '#{version}' at #{root} " \
+          "(set CRYSTAL_STDLIB_ROOT to a #{STDLIB_AUDIT_VERSION} source root)"
+  end
+
+  root
+end
+
 #
 # Create a crystal test project and create a .env file in this project
 # and add the path inside, e.g.:
@@ -49,8 +84,28 @@ task :build do |t|
   system("./gradlew", "buildPlugin")
 end
 
-desc "Full release: bump version, build, tag, push, and create GitHub release"
-task :release => :bump_version do |t|
+desc "Run the pinned Crystal #{STDLIB_AUDIT_VERSION} stdlib parse audits (indexed + distribution)"
+task :stdlib_parse_audit do
+  if ENV['SKIP_STDLIB_AUDIT'] == '1'
+    puts "SKIP_STDLIB_AUDIT=1 — skipping stdlib parse audits"
+    next
+  end
+
+  root = stdlib_audit_root
+  STDLIB_AUDIT_CORPORA.each do |corpus|
+    puts "Stdlib parse audit (#{corpus}) against #{root}..."
+    system("./gradlew", "stdlibParseAudit", "-PcrystalCorpus=#{corpus}", "-PcrystalStdlibRoot=#{root}") or
+      abort "ERROR: stdlib parse audit (#{corpus}) failed — see build/reports/stdlib-parse-audit/#{corpus}/report.txt"
+  end
+end
+
+desc "Run the full Gradle test suite"
+task :test do
+  system("./gradlew", "test") or abort "ERROR: test suite failed"
+end
+
+desc "Full release: run the stdlib parse audits and tests, bump version, build, tag, push, and create GitHub release"
+task :release => [:stdlib_parse_audit, :test, :bump_version] do |t|
   # Read new version
   props = File.read("gradle.properties")
   version = props.match(/^version\s*=\s*(\S+)/)[1]
