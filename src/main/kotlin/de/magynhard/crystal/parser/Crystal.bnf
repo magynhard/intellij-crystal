@@ -616,6 +616,11 @@ private macro_control_token ::= IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR
     | ASSIGN | PLUS | MINUS | STAR | DOUBLE_STAR | SLASH | DOUBLE_SLASH | DOUBLE_SLASH_ASSIGN | LSHIFT | RSHIFT | QUESTION | BANG | DOTDOT | DOTDOTDOT
     | DOUBLE_COLON | PERCENT
     | NEWLINE | SEMICOLON | HASH | AT | ARROW | DOUBLE_ARROW | ANNOTATION
+    // Interpolations inside strings under macro depth (`\{% raise "…{{x}}…" %}`
+    // lex as real macro nodes, so the soup accepts the composite last — plain
+    // tokens still match first, and the alternative only engages where the
+    // lexer actually emitted the delimiters.
+    | macro_interpolation
 
 macro_definition ::= MACRO method_name [LPAREN NLS parameter_list NLS RPAREN] macro_body END {
   pin=1
@@ -1806,7 +1811,12 @@ private interpolation_expression ::= STRING_INTERPOLATION_BEGIN expression [post
 // interpolations. The expression is a PsiLanguageInjectionHost
 // (CrystalStringExpressionMixin) so `# language=<id>` comments can inject an
 // embedded language into the string content (between the quotes).
-string_expression ::= (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+ {
+// A string always starts with a quote, escape, or `#{}` interpolation —
+// never with a bare `{{ }}` (that is a macro_interpolation_call, e.g.
+// `{{method.id}} path, ...`). The macro alternative therefore joins only
+// after the first element; every real string starts with a STRING_LITERAL
+// quote token anyway.
+string_expression ::= (STRING_LITERAL | STRING_ESCAPE | interpolation_expression) (STRING_LITERAL | STRING_ESCAPE | interpolation_expression | macro_interpolation)* {
   mixin="de.magynhard.crystal.psi.impl.CrystalStringExpressionMixin"
   implements="com.intellij.psi.PsiLanguageInjectionHost"
 }

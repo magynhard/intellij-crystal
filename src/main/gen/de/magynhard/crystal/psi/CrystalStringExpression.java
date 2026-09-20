@@ -12,6 +12,9 @@ public interface CrystalStringExpression extends PsiLanguageInjectionHost {
   List<CrystalExpression> getExpressionList();
 
   @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
+  @NotNull
   List<CrystalPostfixModifier> getPostfixModifierList();
 
 }

@@ -6598,6 +6598,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //     | ASSIGN | PLUS | MINUS | STAR | DOUBLE_STAR | SLASH | DOUBLE_SLASH | DOUBLE_SLASH_ASSIGN | LSHIFT | RSHIFT | QUESTION | BANG | DOTDOT | DOTDOTDOT
   //     | DOUBLE_COLON | PERCENT
   //     | NEWLINE | SEMICOLON | HASH | AT | ARROW | DOUBLE_ARROW | ANNOTATION
+  //     // Interpolations inside strings under macro depth (`\{% raise "…{{x}}…" %}`
+  //     // lex as real macro nodes, so the soup accepts the composite last — plain
+  //     // tokens still match first, and the alternative only engages where the
+  //     // lexer actually emitted the delimiters.
+  //     | macro_interpolation
   static boolean macro_control_token(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_control_token")) return false;
     boolean result_;
@@ -6707,6 +6712,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, ARROW);
     if (!result_) result_ = consumeToken(builder_, DOUBLE_ARROW);
     if (!result_) result_ = consumeToken(builder_, ANNOTATION);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
     return result_;
   }
 
@@ -12038,17 +12044,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
+  // (STRING_LITERAL | STRING_ESCAPE | interpolation_expression) (STRING_LITERAL | STRING_ESCAPE | interpolation_expression | macro_interpolation)*
   public static boolean string_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "string_expression")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, STRING_EXPRESSION, "<string expression>");
     result_ = string_expression_0(builder_, level_ + 1);
-    while (result_) {
-      int pos_ = current_position_(builder_);
-      if (!string_expression_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "string_expression", pos_)) break;
-    }
+    result_ = result_ && string_expression_1(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
@@ -12060,6 +12062,28 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, STRING_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     if (!result_) result_ = interpolation_expression(builder_, level_ + 1);
+    return result_;
+  }
+
+  // (STRING_LITERAL | STRING_ESCAPE | interpolation_expression | macro_interpolation)*
+  private static boolean string_expression_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_expression_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!string_expression_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "string_expression_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // STRING_LITERAL | STRING_ESCAPE | interpolation_expression | macro_interpolation
+  private static boolean string_expression_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_expression_1_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
+    if (!result_) result_ = interpolation_expression(builder_, level_ + 1);
+    if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
     return result_;
   }
 

@@ -62,6 +62,7 @@ The `INTERPOLATION` state (Crystal.flex:393) handles `{`/`}` brace-depth trackin
 |---|---|---|---|
 | 17 | `"#{ %(a) if b }"` | `INTERPOLATION` | ✅ Done — bare `%` opener mirrored from `MACRO_INTERPOLATION`; spaced `%` stays modulo via longest match |
 | 18 | `{{ ch.join(%( or )) }}` | `MACRO_INTERPOLATION` | ✅ Done earlier (hexfloat.cr) |
+| 19 | `"a {{ x }} b"` inside `{% %}` block bodies | `STRING` + macro-control depth | ✅ Done — `{{` pushes `MACRO_INTERPOLATION` only past depth 0 (compiler-verified: plain strings keep `{{ }}` literal); `\{{` never reaches the rule (escape consumes the brace first) |
 
 ---
 

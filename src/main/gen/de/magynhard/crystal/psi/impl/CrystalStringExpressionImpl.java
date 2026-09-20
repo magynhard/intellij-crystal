@@ -34,6 +34,12 @@ public class CrystalStringExpressionImpl extends CrystalStringExpressionMixin im
 
   @Override
   @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalPostfixModifier> getPostfixModifierList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalPostfixModifier.class);
   }

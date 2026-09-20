@@ -186,6 +186,30 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testDoubleBraceInStringInterpolatesOnlyInMacroCode() {
+        // `"a {{ op }} b"` inside `{% for %}`: the braces interpolate.
+        val macroTokens = nonWhitespaceTokens("{% for a in [1] %}\n  x = \"a {{ op }} b\"\n{% end %}\n")
+        assertTrue(macroTokens.any { it.first == CrystalTypes.MACRO_INTERPOLATION_BEGIN })
+        assertTrue(macroTokens.any { it.first == CrystalTypes.MACRO_INTERPOLATION_END })
+        // Same text in plain code: braces stay literal string content.
+        val plainTokens = nonWhitespaceTokens("x = \"a {{ op }} b\"\n")
+        assertFalse(
+            "No interpolation in plain strings",
+            plainTokens.any { it.first == CrystalTypes.MACRO_INTERPOLATION_BEGIN },
+        )
+    }
+
+    @Test
+    fun testEscapedDoubleBraceInMacroStringStaysLiteral() {
+        // `\{{` never opens interpolation, even with macro depth behind it.
+        val tokens = nonWhitespaceTokens("{% for a in [1] %}\n  x = \"a \\{{ op }} b\"\n{% end %}\n")
+        assertFalse(
+            "Escaped braces stay literal",
+            tokens.any { it.first == CrystalTypes.MACRO_INTERPOLATION_BEGIN },
+        )
+    }
+
+    @Test
     fun testPostfixIfKeywordInExpressionLexerStates() {
         val inputs = listOf(
             "\"#{require \"./dependency\" if true}\"",

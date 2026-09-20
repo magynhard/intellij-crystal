@@ -28,9 +28,9 @@ public class CrystalMacroBranchMethodHeaderImpl extends ASTWrapperPsiElement imp
   }
 
   @Override
-  @Nullable
-  public CrystalMacroInterpolation getMacroInterpolation() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
   }
 
   @Override

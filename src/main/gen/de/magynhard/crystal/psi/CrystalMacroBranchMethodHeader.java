@@ -7,8 +7,8 @@ import com.intellij.psi.PsiElement;
 
 public interface CrystalMacroBranchMethodHeader extends PsiElement {
 
-  @Nullable
-  CrystalMacroInterpolation getMacroInterpolation();
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
 
   @Nullable
   CrystalParameterList getParameterList();

@@ -10,4 +10,7 @@ public interface CrystalMacroIfEnvelope extends PsiElement {
   @NotNull
   List<CrystalExpression> getExpressionList();
 
+  @NotNull
+  List<CrystalMacroInterpolation> getMacroInterpolationList();
+
 }

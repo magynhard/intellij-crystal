@@ -385,4 +385,11 @@ class CrystalStdlibSourceParseTest : BasePlatformTestCase() {
         val spec = findCrystalCheckoutFile("spec/compiler/semantic/abstract_def_spec.cr") ?: return
         assertParsesCleanly(spec)
     }
+
+    fun testMacroExpanderSpecParsesWithoutErrors() {
+        // spec/compiler/macro/macro_expander_spec.cr interpolates `{{ }}`
+        // with nested quotes inside strings in `{% for %}` bodies.
+        val spec = findCrystalCheckoutFile("spec/compiler/macro/macro_expander_spec.cr") ?: return
+        assertParsesCleanly(spec)
+    }
 }

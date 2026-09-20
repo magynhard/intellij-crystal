@@ -222,6 +222,62 @@ import com.intellij.psi.TokenType;
   private int macroHeaderStart = -1;
   private int macroBodyDepth = 0;
   private boolean macroBodyAtLineStart = false;
+
+  // Tracks `{% %}` block depth (for/if/unless/... bodies lex following code
+  // with macro interpolation active inside strings). Balanced inline tags net
+  // to zero; the counter never drops below zero. Single `{{ }}` interpolation
+  // never touches it (different delimiters).
+  private int macroControlDepth = 0;
+
+  /**
+   * Classifies the `{% ... %}` tag closing at the current position by scanning
+   * back to its `{%` opener and reading the first word. Block openers nest
+   * macro code whose strings interpolate `{{ }}`; `end` closes one level;
+   * anything else (else/elsif/inline statements) leaves the depth unchanged.
+   * A `{%` inside a tag string or comment misclassifies — accepted limitation
+   * (bounded blast radius: string `{{` gating only, fail-open to literal).
+   */
+  private void updateMacroControlDepth() {
+    int i = zzStartRead - 1;
+    int openPos = -1;
+    while (i >= 1) {
+      if (zzBuffer.charAt(i - 1) == '{' && zzBuffer.charAt(i) == '%') { openPos = i - 1; break; }
+      i--;
+    }
+    if (openPos < 0) return;
+    int w = openPos + 2;
+    int len = zzBuffer.length();
+    while (w < len) {
+      char c = zzBuffer.charAt(w);
+      if (c != ' ' && c != '\t' && c != '\r' && c != '\n') break;
+      w++;
+    }
+    if (w < len && zzBuffer.charAt(w) == '#') return;
+    int start = w;
+    while (w < len) {
+      char c = zzBuffer.charAt(w);
+      if (!Character.isLetterOrDigit(c) && c != '_') break;
+      w++;
+    }
+    if (start >= w) return;
+    String word = zzBuffer.subSequence(start, w).toString();
+    switch (word) {
+      case "for":
+      case "if":
+      case "unless":
+      case "while":
+      case "until":
+      case "begin":
+      case "case":
+        macroControlDepth++;
+        break;
+      case "end":
+        if (macroControlDepth > 0) macroControlDepth--;
+        break;
+      default:
+        break;
+    }
+  }
   private int macroNestingLevel = 0;
   private StringBuilder macroBodyBuffer = new StringBuilder();
 
@@ -707,6 +763,11 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
 <STRING> {
   \"                   { popState(); return CrystalTypes.STRING_LITERAL; }
   "#{"                 { depthStack.push(interpolationDepth); interpolationDepth = 1; pushState(INTERPOLATION); return CrystalTypes.STRING_INTERPOLATION_BEGIN; }
+  // `{{` inside strings interpolates only in macro code (`{% %}` block bodies
+  // and the like — verified against the compiler): in plain code it stays
+  // literal text. An escape always consumes the first brace first (the `\`
+  // catch-all below), so `\{{` can never reach this rule.
+  "{{"                 { if (macroControlDepth > 0) { pushState(MACRO_INTERPOLATION); return CrystalTypes.MACRO_INTERPOLATION_BEGIN; } return CrystalTypes.STRING_LITERAL; }
   "\\" [abefnrtv\\\"\\'0]  { return CrystalTypes.STRING_ESCAPE; }
   "\\" "u" "{" {HEX_DIGIT}+ "}"  { return CrystalTypes.STRING_ESCAPE; }
   "\\" "u" {HEX_DIGIT}{4}        { return CrystalTypes.STRING_ESCAPE; }
@@ -715,7 +776,8 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "\\\n"               { return CrystalTypes.STRING_ESCAPE; }
   "\\\r\n"             { return CrystalTypes.STRING_ESCAPE; }
   "\\" .               { return CrystalTypes.STRING_ESCAPE; }
-  [^\"\#\\]+           { return CrystalTypes.STRING_LITERAL; }
+  [^\"\#\\{]+          { return CrystalTypes.STRING_LITERAL; }
+  "{"                  { return CrystalTypes.STRING_LITERAL; }
   "#"                  { return CrystalTypes.STRING_LITERAL; }
 }
 
@@ -1079,7 +1141,7 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
 }
 
 <MACRO_CONTROL> {
-  "%}"                 { popState(); return CrystalTypes.MACRO_CONTROL_END; }
+  "%}"                 { updateMacroControlDepth(); popState(); return CrystalTypes.MACRO_CONTROL_END; }
   {WHITE_SPACE}        { return TokenType.WHITE_SPACE; }
   {NEWLINE}            { return CrystalTypes.NEWLINE; }
   {SYMBOL}             { return symbolLiteral(); }

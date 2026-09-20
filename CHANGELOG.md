@@ -762,6 +762,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **`{{ }}` interpolates inside strings in macro code** — `assert_error <<-CRYSTAL,
+  "argument to ... {{ op == "sizeof" ? ... }} ..."` (macro_expander_spec, 3 errors)
+  failed because `{{` inside `"..."` always stayed literal text, so nested quotes
+  terminated the string early. The compiler interpolates `{{ }}` in strings inside
+  macro bodies (verified semantically: `{% for t in [7] %} puts "val {{ t }} end"`
+  prints the value, plain `"a {{ x }} b"` prints verbatim), so the lexer now tracks
+  `{% %}` block depth and pushes `MACRO_INTERPOLATION` on `{{` in `STRING` state only
+  past depth 0; `\{{` never reaches the rule (the escape consumes the brace first).
+  The parser accepts the interpolation inside `string_expression`, requiring a leading
+  literal so bare `{{method.id}} path` keeps resolving as a macro call. A companion
+  `macro_interpolation` alternative in `macro_control_token` covers `\{% raise "…{{x}}…"
+  %}` escaped tags. Covered by the MacroStringInterpolation golden, lexer regression
+  tests, and a real-file canary. External audit drops the 3 macro_expander rows;
+  both standard audits stay at zero errors with zero newly failing files.
 - **Operator symbols parse as symbols** — `run_op_tests {{ int1 }}, {{ int2 }}, :+`
   (int_spec) failed with `MACRO_INTERPOLATION_BEGIN expected, got '+'` because the
   lexer only knew `:name` symbols. The parser now composes `:` plus any operator
