@@ -202,7 +202,7 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - A record instance method until record values use exact generated-signature resolution.
 - A macro-interpolated receiver, method name, or constructor target.
 
-Macro interpolation contained only inside an argument does not suppress an otherwise exact target. Task 4 decides whether and how that argument can be validated.
+Macro interpolation contained only inside an argument does not suppress an otherwise exact target. The argument cannot be validated before expansion, so a call whose argument list starts an argument with `{{ … }}` is exempt from arity diagnostics (see Macro context).
 
 Unknown methods and calls with no exact receiver-specific declaration are likewise suppressed, except that constructor resolution can produce the implicit zero-argument signature defined above. A resolved declaration may still reject the supplied arguments and produce a diagnostic. The inspection must prefer no diagnostic over a name-only guess.
 
@@ -313,6 +313,15 @@ by macro expansion, not typed values. Resolution and diagnostics rules:
   the same name (e.g. `Catalyst::CLI.run`) are NOT candidates there.
 - Argument-count and type-check inspections suppress all argument
   diagnostics for calls inside macro context.
+- A macro-spliced argument (`{{ … }}`) outside macro context makes the call's
+  arity unknowable before expansion: the splice may expand to zero or more
+  arguments, or to an operator between operands. `to_f32 {{ op.id }} other`
+  (`crystal/compiler_rt.cr`) expands to `to_f32 + other`, so the splice is not
+  an argument at all and the zero-argument `to_f32` must not report "Too many
+  arguments". Calls whose argument list starts an argument with a macro splice
+  are therefore exempt from arity diagnostics, while the target still resolves.
+  A splice nested deeper inside an argument (`foo(bar({{ x }}))`) leaves the
+  argument count known and stays checked.
 - Qualified calls outside macro context keep full diagnostics
   (`Catalyst::CLI.run("str")` still reports the `Array(String)` mismatch,
   highlighted on the offending argument).

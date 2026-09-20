@@ -150,6 +150,13 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val methodName = CrystalCallExtractor.extractMethodName(callExpr) ?: return
         val arguments = extractArguments(callExpr)
 
+        // A macro-spliced argument (`{{ … }}`) makes the arity unknowable before
+        // expansion: it may expand to zero or more arguments, or to an operator
+        // between operands (`to_f32 {{ op.id }} other` in crystal/compiler_rt.cr
+        // expands to `to_f32 + other`). Skip arity diagnostics; the target still
+        // resolves.
+        if (arguments.any { CrystalMacroContext.isMacroSplicedArgument(it.element) }) return
+
         val methodNameElement = CrystalCallExtractor.findMethodNameElement(callExpr) ?: return
 
         val project = callExpr.project
@@ -221,6 +228,10 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             DotCallResolution.Suppressed, DotCallResolution.Unresolved -> return
         }
         val arguments = extractArgumentsFromArgsElement(call.argumentHolder)
+
+        // Same macro-splice rule as the bare-call path: a `{{ … }}`-led argument
+        // makes the arity unknowable before expansion.
+        if (arguments.any { CrystalMacroContext.isMacroSplicedArgument(it.element) }) return
 
         when (resolution) {
             is DotCallResolution.Methods -> checkArgumentCount(

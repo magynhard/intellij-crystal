@@ -2,6 +2,7 @@ package de.magynhard.crystal.psi
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.inspections.CrystalCallExtractor
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -27,6 +28,37 @@ object CrystalMacroContext {
             current = current.parent
         }
         return false
+    }
+
+    /**
+     * True when an argument starts with a `{{ … }}` macro splice. Its arity is
+     * unknowable before expansion: the splice may expand to zero or more
+     * arguments, or to an operator between operands — `to_f32 {{ op.id }} other`
+     * (`crystal/compiler_rt.cr`) expands to `to_f32 + other`, so the splice is
+     * not an argument at all. Consumers must therefore skip argument-count
+     * diagnostics for calls whose argument list contains such a splice, while
+     * the target still resolves. Only a splice at the start of the argument
+     * counts: a splice nested deeper (`foo(bar({{ x }}))`) leaves the argument
+     * count known.
+     */
+    fun isMacroSplicedArgument(element: PsiElement): Boolean {
+        var current: PsiElement = element
+        while (true) {
+            val child = significantFirstChild(current) ?: return false
+            when (child) {
+                is CrystalMacroInterpolation -> return true
+                is CrystalExpression, is CrystalArgument, is CrystalBareArgument -> current = child
+                else -> return false
+            }
+        }
+    }
+
+    private fun significantFirstChild(element: PsiElement): PsiElement? {
+        var child: PsiElement? = element.firstChild
+        while (child is PsiWhiteSpace || child?.node?.elementType == CrystalTypes.NEWLINE) {
+            child = child.nextSibling
+        }
+        return child
     }
 
     /**

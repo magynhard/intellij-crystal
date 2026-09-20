@@ -101,6 +101,26 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testMacroSplicedOperatorArgumentIsNotCounted() {
+        // crystal/compiler_rt.cr: `to_f32 {{ op.id }} other` expands to
+        // `to_f32 + other` inside the generated operator bodies. The spliced
+        // operator must not be counted as the zero-argument `to_f32`'s argument.
+        myFixture.configureByText("test.cr", """
+            {% for op in {"+", "-", "*", "fdiv"} %}
+              struct Int128
+                def to_f32 : Float32
+                  0.0_f32
+                end
+
+                def {{ op.id }}(other : Float32) : Float32
+                  to_f32 {{ op.id }} other
+                end
+              end
+            {% end %}
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Closeless Heredoc Calls ====================
 
     fun testCloselessHeredocCallHasAllArguments() {

@@ -13,6 +13,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **False "Too many arguments" on macro-spliced operator arguments** —
+  `to_f32 {{ op.id }} other` (`crystal/compiler_rt.cr`) expands to
+  `to_f32 + other`, so the splice is not an argument of the zero-argument
+  `to_f32`. Calls whose argument list starts an argument with a `{{ … }}`
+  splice are now exempt from arity diagnostics (the target still resolves);
+  a splice nested deeper inside an argument stays checked. Covered by an
+  argument-count inspection regression.
 - **False "Missing required argument(s)" on macro-spliced dot-call names** —
   calls like `bsearch_internal from, to.to_f{{ p }}, exclusive do … end`
   (`range/bsearch.cr`) no longer lose arguments: a tight `{{ … }}` after a
