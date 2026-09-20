@@ -43,6 +43,33 @@ object CrystalParserPredicates {
     }
 
     /**
+     * Gates the leading-`::` bare argument (`expect_raises ::JSON::SerializableError,
+     * error_message do ... end`, serializable_spec.cr). The `::` must be preceded
+     * by horizontal whitespace after an identifier callee, so a receiver-first
+     * namespace path keeps its variable + postfix shape: `Outer :: Service` and
+     * `Qualified::Entry` stay namespace accesses instead of becoming
+     * `Outer(::Service)` / `Qualified(::Entry)`. A tight `::` after a constant
+     * or a constant receiver therefore never selects this alternative.
+     */
+    @JvmStatic
+    fun isSpacedAbsoluteNamespaceArgument(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        if (builder.tokenType !== CrystalTypes.DOUBLE_COLON) return false
+        if (builder.rawLookup(-1) !== TokenType.WHITE_SPACE) return false
+        var step = -2
+        while (true) {
+            val token = builder.rawLookup(step) ?: return false
+            if (token === TokenType.WHITE_SPACE) {
+                step--
+                continue
+            }
+            return token === CrystalTypes.IDENTIFIER
+        }
+    }
+
+    /**
      * True when the previous significant token is an assignment operator
      * (`=`, `||=`, `+=`, …). Gates the stray-operator recovery alternative:
      * right after `variable assign_op`, a purely infix-capable operator can

@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Leading-`::` bare arguments** — `expect_raises ::JSON::SerializableError,
+  error_message do ... end` no longer glues the callee into a namespace access
+  and strands the comma: a spaced `::` after an identifier callee is accepted
+  as a positional bare argument, while receiver-first paths (`Outer :: Service`,
+  `record Qualified::Entry, ...`) keep their variable + postfix shape. Covered
+  by the LeadingNamespaceBareArgument golden.
 - **Comma-separated macro-if branch content** — `expect_raises({% if
   flag?(:win32) %} IO::Error, "The parameter is incorrect" {% else %}
   File::NotFoundError{% end %})` no longer strands the else branch:

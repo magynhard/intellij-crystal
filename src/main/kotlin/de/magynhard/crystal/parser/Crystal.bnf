@@ -1721,6 +1721,14 @@ private bare_primary_expression ::= grouped_expression
                                   | proc_literal
                                   | require_statement
                                   | bare_method_call_expression
+                                  // Absolute namespace path as a bare argument:
+                                  // `expect_raises ::JSON::SerializableError, msg`
+                                  // (serializable_spec.cr). Gated on a spaced `::`
+                                  // after an identifier callee, so receiver-first
+                                  // paths (`Outer :: Service`, `Qualified::Entry`)
+                                  // keep their variable + postfix namespace shape
+                                  // instead of becoming `callee(::Name)`.
+                                  | &<<isSpacedAbsoluteNamespaceArgument>> namespace_access
                                   | implicit_object_call
                                   | macro_interpolation_call
                                   | literal

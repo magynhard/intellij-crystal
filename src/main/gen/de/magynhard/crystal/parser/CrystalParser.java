@@ -2247,6 +2247,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                                   | proc_literal
   //                                   | require_statement
   //                                   | bare_method_call_expression
+  //                                   // Absolute namespace path as a bare argument:
+  //                                   // `expect_raises ::JSON::SerializableError, msg`
+  //                                   // (serializable_spec.cr). Gated on a spaced `::`
+  //                                   // after an identifier callee, so receiver-first
+  //                                   // paths (`Outer :: Service`, `Qualified::Entry`)
+  //                                   // keep their variable + postfix namespace shape
+  //                                   // instead of becoming `callee(::Name)`.
+  //                                   | &<<isSpacedAbsoluteNamespaceArgument>> namespace_access
   //                                   | implicit_object_call
   //                                   | macro_interpolation_call
   //                                   | literal
@@ -2270,6 +2278,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   static boolean bare_primary_expression(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_primary_expression")) return false;
     boolean result_;
+    Marker marker_ = enter_section_(builder_);
     result_ = grouped_expression(builder_, level_ + 1);
     if (!result_) result_ = control_flow_expression(builder_, level_ + 1);
     if (!result_) result_ = with_yield_statement(builder_, level_ + 1);
@@ -2280,6 +2289,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = proc_literal(builder_, level_ + 1);
     if (!result_) result_ = require_statement(builder_, level_ + 1);
     if (!result_) result_ = bare_method_call_expression(builder_, level_ + 1);
+    if (!result_) result_ = bare_primary_expression_10(builder_, level_ + 1);
     if (!result_) result_ = implicit_object_call(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation_call(builder_, level_ + 1);
     if (!result_) result_ = literal(builder_, level_ + 1);
@@ -2297,6 +2307,28 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = macro_interpolation_call(builder_, level_ + 1);
     if (!result_) result_ = macro_content_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, SELF);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isSpacedAbsoluteNamespaceArgument>> namespace_access
+  private static boolean bare_primary_expression_10(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_primary_expression_10")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = bare_primary_expression_10_0(builder_, level_ + 1);
+    result_ = result_ && namespace_access(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isSpacedAbsoluteNamespaceArgument>>
+  private static boolean bare_primary_expression_10_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_primary_expression_10_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isSpacedAbsoluteNamespaceArgument(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 

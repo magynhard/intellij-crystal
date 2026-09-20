@@ -137,6 +137,16 @@ outside `CrystalArgument` / `CrystalBareArgument`. Parenthesized multiline
 forms, defaults, and trailing `do` blocks use the same rules without a
 pointer-specific follower list or CONSTANT-vs-identifier heuristic.
 
+A leading `::` is also valid as a positional bare argument
+(`expect_raises ::JSON::SerializableError, error_message do ... end`,
+serializable_spec.cr). The bare-primary alternative is gated on a spaced `::`
+after an identifier callee, so receiver-first paths keep their shape:
+`Outer :: Service` and `record Qualified::Entry, value : Int32` still parse as
+variable + postfix namespace access rather than a bare call `Outer(::Service)`
+or `Qualified(::Entry)`. The compiler rejects a spaced `::` (`Foo ::Bar` is a
+syntax error; `Foo:: Bar` is valid), so this lenient receiver path exists only
+for the plugin's established navigation behavior.
+
 ## Nested bare calls in argument lists
 
 Crystal command syntax nests: `exec new_request method, path` parses as

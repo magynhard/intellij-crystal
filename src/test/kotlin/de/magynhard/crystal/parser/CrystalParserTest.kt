@@ -712,6 +712,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testLeadingNamespaceBareArgument() {
+        doTest(true)
+    }
+
     fun testStringNamedArguments() {
         doTest(true)
     }
