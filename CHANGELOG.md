@@ -5,6 +5,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Backtick commands inside interpolation** — `"FileCheck#{File.basename(
+  `#{__DIR__}/find-llvm-config.sh`).lchop("llvm-config")}"` now parses: the
+  `<INTERPOLATION>` state opens a backtick command, and the command's own
+  `#{}` nests back through the shared states (`debug/driver.cr`). Covered by
+  the BacktickInInterpolation golden and a lexer regression.
 - **Regex literals inside interpolation** — `"#{v.id.gsub(/_f32$/, "")}"` now
   lexes the regex as one literal instead of `SLASH` + tokens (a `$` in the
   pattern previously became `BAD_CHARACTER` and collapsed the enclosing

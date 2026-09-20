@@ -588,6 +588,18 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testBacktickCommandInStringInterpolation() {
+        // `"#{File.basename(`#{__DIR__}/x`)}"` (debug/driver.cr): the backtick
+        // opens a command inside interpolation, and the command's own `#{}`
+        // nests back into INTERPOLATION.
+        val tokens = nonWhitespaceTokens("\"#{`#{__DIR__}/x`}\"")
+        assertTrue(tokens.any { it.first == CrystalTypes.COMMAND_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.COMMAND_END })
+        assertTrue(tokens.count { it.first == CrystalTypes.STRING_INTERPOLATION_BEGIN } >= 2)
+        assertFalse(tokens.any { it.first == TokenType.BAD_CHARACTER })
+    }
+
+    @Test
     fun testWordArrayInMacroControlTag() {
         // `{% for op in %w(+ - * /) %}` (raytracer.cr): the `%w(` must open
         // one word array instead of splitting, or a later `/` after an

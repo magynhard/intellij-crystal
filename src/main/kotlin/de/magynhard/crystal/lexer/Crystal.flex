@@ -927,6 +927,11 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "'" [^'\\] [^'\r\n] [^'\r\n]* "'" { return TokenType.BAD_CHARACTER; }
   {CHAR_LITERAL}       { return CrystalTypes.CHAR_LITERAL; }
   \"                   { pushState(STRING); return CrystalTypes.STRING_LITERAL; }
+  // Backtick commands inside interpolations: `"#{File.basename(`#{__DIR__}/x`)}"`
+  // (debug/driver.cr). The BACKTICK state pushes INTERPOLATION again for the
+  // command's own `#{...}`, so the nested interpolation round-trips.
+  "`"                  { if (isBacktickMethodName()) { return CrystalTypes.BACKTICK; }
+                         pushState(BACKTICK); return CrystalTypes.COMMAND_BEGIN; }
   "."                  { return CrystalTypes.DOT; }
   "("                  { return CrystalTypes.LPAREN; }
   ")"                  { return CrystalTypes.RPAREN; }
