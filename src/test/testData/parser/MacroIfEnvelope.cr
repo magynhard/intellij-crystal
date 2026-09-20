@@ -26,3 +26,9 @@ end
 def trailing : Int32
   1
 end
+
+expect_raises({% if flag?(:win32) %} IO::Error, "The parameter is incorrect" {% else %} File::NotFoundError{% end %}) do
+  Process.run("")
+end
+
+consume({% if flag %} A, B {% elsif other %} C, D {% else %} E {% end %})

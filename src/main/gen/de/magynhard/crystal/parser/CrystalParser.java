@@ -6835,7 +6835,42 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // macro_if_open NLS expression (NLS macro_branch_tag NLS expression)+ NLS macro_end_tag
+  // expression (COMMA NLS expression)*
+  static boolean macro_if_branch(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_if_branch")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = expression(builder_, level_ + 1);
+    result_ = result_ && macro_if_branch_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // (COMMA NLS expression)*
+  private static boolean macro_if_branch_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_if_branch_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!macro_if_branch_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "macro_if_branch_1", pos_)) break;
+    }
+    return true;
+  }
+
+  // COMMA NLS expression
+  private static boolean macro_if_branch_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "macro_if_branch_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COMMA);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && expression(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // macro_if_open NLS macro_if_branch (NLS macro_branch_tag NLS macro_if_branch)+ NLS macro_end_tag
   public static boolean macro_if_envelope(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_if_envelope")) return false;
     if (!nextTokenIs(builder_, MACRO_CONTROL_BEGIN)) return false;
@@ -6843,7 +6878,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = macro_if_open(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
-    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && macro_if_branch(builder_, level_ + 1);
     result_ = result_ && macro_if_envelope_3(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && macro_end_tag(builder_, level_ + 1);
@@ -6851,7 +6886,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // (NLS macro_branch_tag NLS expression)+
+  // (NLS macro_branch_tag NLS macro_if_branch)+
   private static boolean macro_if_envelope_3(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_if_envelope_3")) return false;
     boolean result_;
@@ -6866,7 +6901,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // NLS macro_branch_tag NLS expression
+  // NLS macro_branch_tag NLS macro_if_branch
   private static boolean macro_if_envelope_3_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "macro_if_envelope_3_0")) return false;
     boolean result_;
@@ -6874,7 +6909,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = NLS(builder_, level_ + 1);
     result_ = result_ && macro_branch_tag(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
-    result_ = result_ && expression(builder_, level_ + 1);
+    result_ = result_ && macro_if_branch(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }

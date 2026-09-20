@@ -535,8 +535,14 @@ private macro_content_expression ::= macro_if_envelope | macro_open_control | ma
 // separate members. The envelope itself is a real PSI node (not private): an
 // argument holding two branch expressions would otherwise flip
 // `CrystalArgument.getExpression()` into a list and break every call-site
-// consumer. Branches stay real expression nodes inside it.
-macro_if_envelope ::= macro_if_open NLS expression (NLS macro_branch_tag NLS expression)+ NLS macro_end_tag
+// consumer. Branches stay real expression nodes inside it; a branch may hold
+// several comma-separated expressions because the branches are macro-body text
+// substituted into the enclosing call (`expect_raises({% if %} IO::Error,
+// "msg" {% else %} File::NotFoundError{% end %})`, process_spec.cr). Commas
+// after `{% end %}` stay outside the envelope, so an envelope followed by an
+// outer argument separator is unaffected.
+macro_if_envelope ::= macro_if_open NLS macro_if_branch (NLS macro_branch_tag NLS macro_if_branch)+ NLS macro_end_tag
+private macro_if_branch ::= expression (COMMA NLS expression)*
 private macro_if_open ::= MACRO_CONTROL_BEGIN (IF | UNLESS) macro_control_token* MACRO_CONTROL_END
 private macro_branch_tag ::= MACRO_CONTROL_BEGIN (ELSE | ELSIF) macro_control_token* MACRO_CONTROL_END
 private macro_end_tag ::= MACRO_CONTROL_BEGIN END MACRO_CONTROL_END

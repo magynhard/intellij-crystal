@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Comma-separated macro-if branch content** — `expect_raises({% if
+  flag?(:win32) %} IO::Error, "The parameter is incorrect" {% else %}
+  File::NotFoundError{% end %})` no longer strands the else branch:
+  `macro_if_envelope` branches accept several comma-separated expressions
+  (`process_spec.cr`), while commas after `{% end %}` keep binding to the outer
+  argument list. Covered by the extended MacroIfEnvelope golden.
 - **Raw `%q(…)` inside interpolation** — `"#{%q(a\tb\nc).inspect}"` no longer
   splits into `%` + `q(` and strands the interpolation: the raw percent-string
   opener (no escapes, no interpolation) is mirrored from YYINITIAL into the

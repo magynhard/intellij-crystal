@@ -382,6 +382,12 @@ branches: call args (`expect_raises({% if %} A {% else %} B {% end %},
 named-arg values (`system_exit_status: {% if %} ... code << 8 ... {% else %}
 ... {% end %}`), and rescue types (`rescue IO::Error{% unless %} |
 OpenSSL::SSL::Error{% end %}`, valid inside `{% begin %}` macro bodies).
+A branch may hold several comma-separated expressions because branches are
+macro-body text substituted into the enclosing call
+(`expect_raises({% if flag?(:win32) %} IO::Error, "msg" {% else %}
+File::NotFoundError{% end %})`, process_spec.cr); commas after `{% end %}`
+stay outside the envelope, so an envelope followed by an outer argument
+separator (`... {% end %}, "msg"`) is unaffected.
 The open tag must start with IF/UNLESS and at least one ELSE/ELSIF branch
 is mandatory, so plain `{% if %} ... {% end %}` blocks,
 `{% for %}`/`{% begin %}` loops, and assignment branches (`PLATFORM =
