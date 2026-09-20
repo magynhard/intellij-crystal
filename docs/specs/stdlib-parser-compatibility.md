@@ -1592,8 +1592,8 @@ only.
 The pinned download and both zero-error invocations are enforced in two places.
 `rake release` runs them as a precondition — together with `./gradlew test` —
 before it bumps, tags, or pushes, so a broken parser can never be released.
-The `.github/workflows/stdlib-parse-audit.yml` workflow runs the same two
-scopes for every pull request against the same SHA-256-verified archive
+The `.github/workflows/ci.yml` workflow runs the full unit suite and the same
+two scopes for every pull request against the same SHA-256-verified archive
 (`crystal-1.21.0-1-linux-x86_64-bundled.tar.gz`), extracting it to
 `share/crystal/src`. Local release runs resolve the corpus from
 `crystal env CRYSTAL_PATH` or an explicit `CRYSTAL_STDLIB_ROOT`, and

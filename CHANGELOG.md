@@ -9,8 +9,8 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   parse audits (`indexed` + `distribution`) and the full test suite before it
   bumps, tags, or pushes, so a parser regression can no longer be released;
   `SKIP_STDLIB_AUDIT=1` bypasses the audit. A pull-request workflow
-  (`.github/workflows/stdlib-parse-audit.yml`) runs the same audits against the
-  SHA-256-verified official archive.
+  (`.github/workflows/ci.yml`) runs the full unit suite and the same audits
+  against the SHA-256-verified official archive.
 
 ### Added
 - **Backtick commands inside interpolation** — `"FileCheck#{File.basename(
