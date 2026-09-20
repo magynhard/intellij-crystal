@@ -78,6 +78,29 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
                 && it.description?.contains("expected") ?: false })
     }
 
+    fun testMacroSplicedDotCallNameKeepsOuterArguments() {
+        // range/bsearch.cr: `to.to_f{{ p }}` / `from.to_f{{ p }}` are macro-spliced
+        // method names. The tight interpolation must not bind as the dot-call's
+        // bare argument and swallow the enclosing call's remaining arguments —
+        // that produced false "Missing required argument(s)" on bsearch_internal.
+        myFixture.configureByText("test.cr", """
+            {% for p in [64, 32] %}
+              private def bsearch_internal(from : Float{{ p }}, to, exclusive, &block)
+                bsearch_internal from, to.to_f{{ p }}, exclusive do |value|
+                  yield value
+                end
+              end
+
+              private def bsearch_internal(from, to : Float{{ p }}, exclusive)
+                bsearch_internal from.to_f{{ p }}, to, exclusive do |value|
+                  yield value
+                end
+              end
+            {% end %}
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Closeless Heredoc Calls ====================
 
     fun testCloselessHeredocCallHasAllArguments() {

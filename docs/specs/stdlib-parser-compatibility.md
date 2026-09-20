@@ -338,7 +338,19 @@ committing the prefix and stranding the `=` (errno.cr). The
 primitives/slice_spec.cr): `literal` gains a private `macro_spliced_literal`
 (`(INTEGER_LITERAL | FLOAT_LITERAL) &tight macro_interpolation ...`) that must
 precede the plain numeric alternatives because PEG commits the first match, and
-the tight guard keeps `1 {{ x }}` as two tokens. Stub name fallbacks already
+the tight guard keeps `1 {{ x }}` as two tokens. The same tight fragments also
+splice onto DOT-call method names (`to.to_f{{ p }}`,
+`LibIntrinsics.bitreverse{{n}}(value)` in range/bsearch.cr and
+interpreter/instructions.cr): `dot_call_access` admits
+`(IDENTIFIER | CONSTANT | keyword_as_method) macro_fragment_suffix*`. Without it
+the tight `{{ … }}` bound as the dot-call's bare argument and swallowed the
+enclosing call's remaining comma-separated arguments, so the outer call lost
+them and `CrystalArgumentCountInspection` reported false "Missing required
+argument(s)" on `bsearch_internal`. The tight gate keeps `obj.method {{ x }}`
+an interpolation argument, and `}}!`/`}}?` stay part of the interpolation end
+token, so `.to_u{{n}}!` keeps its suffix. Covered by the
+MacroSplicedMethodCalls golden and an argument-count inspection regression.
+Stub name fallbacks already
 report generated names
 verbatim without claiming resolution, so no stub change and no
 stub-version bump; generation only adds `getMacroInterpolation[List]()`

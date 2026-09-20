@@ -191,6 +191,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroSplicedMethodCalls() {
+        doTest(true)
+    }
+
     fun testPointerofLibExternalVar() {
         doTest(true)
     }

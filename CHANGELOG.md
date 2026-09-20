@@ -12,6 +12,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (`.github/workflows/ci.yml`) runs the full unit suite and the same audits
   against the SHA-256-verified official archive.
 
+### Bug Fixes
+- **False "Missing required argument(s)" on macro-spliced dot-call names** —
+  calls like `bsearch_internal from, to.to_f{{ p }}, exclusive do … end`
+  (`range/bsearch.cr`) no longer lose arguments: a tight `{{ … }}` after a
+  dot-call method name is part of the generated name
+  (`dot_call_access` accepts tight macro fragments), so the enclosing call keeps
+  its remaining comma-separated arguments. `obj.method {{ x }}` (spaced) stays
+  an interpolation argument. Covered by the MacroSplicedMethodCalls golden and
+  an argument-count inspection regression.
+
 ### Added
 - **Backtick commands inside interpolation** — `"FileCheck#{File.basename(
   `#{__DIR__}/find-llvm-config.sh`).lchop("llvm-config")}"` now parses: the

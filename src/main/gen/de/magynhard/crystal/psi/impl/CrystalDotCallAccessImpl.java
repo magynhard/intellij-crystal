@@ -45,9 +45,9 @@ public class CrystalDotCallAccessImpl extends CrystalDotCallAccessMixin implemen
   }
 
   @Override
-  @Nullable
-  public CrystalMacroInterpolation getMacroInterpolation() {
-    return PsiTreeUtil.getChildOfType(this, CrystalMacroInterpolation.class);
+  @NotNull
+  public List<CrystalMacroInterpolation> getMacroInterpolationList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalMacroInterpolation.class);
   }
 
 }

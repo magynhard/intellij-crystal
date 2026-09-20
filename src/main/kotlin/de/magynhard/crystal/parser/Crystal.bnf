@@ -1264,7 +1264,19 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // brackets, and the required COMMA after it distinguishes the argument form
 // from the index postfix (config["envs"] has no comma and keeps binding as
 // index).
-dot_call_access ::= DOT (IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | AT macro_interpolation | keyword_as_method | macro_interpolation) [&<<isTokenTightAfterPreviousToken>> QUESTION]
+// Macro-spliced method names at call sites: a tight interpolation concatenates
+// onto the method name (`to.to_f{{ p }}`, `LibIntrinsics.bitreverse{{n}}(value)`
+// in range/bsearch.cr and interpreter/instructions.cr), exactly like the
+// macro-body text the compiler expands. Without the fragment suffix the tight
+// `{{ … }}` bound as a bare argument of the dot-call and swallowed the
+// enclosing call's remaining comma-separated arguments, so the outer call lost
+// them and CrystalArgumentCountInspection reported false "Missing required
+// argument(s)". The fragment suffix is tight-gated, so `obj.method {{ x }}`
+// keeps its interpolation argument. `}}!`/`}}?` are lexer tokens of the
+// interpolation end (Crystal.flex), so `.to_u{{n}}!` stays covered.
+dot_call_access ::= DOT ( (IDENTIFIER | CONSTANT | keyword_as_method) macro_fragment_suffix*
+                        | INSTANCE_VAR | CLASS_VAR | AT macro_interpolation | macro_interpolation
+                        ) [&<<isTokenTightAfterPreviousToken>> QUESTION]
                             [!<<isTokenTightAfterPreviousToken>> loose_grouped_postfix_argument_list
                             | !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
                            | call_args
