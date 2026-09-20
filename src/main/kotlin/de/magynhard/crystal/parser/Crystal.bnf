@@ -1927,8 +1927,11 @@ hash_literal ::= LBRACE NLS [hash_entry_list] NLS RBRACE [OF type_reference DOUB
 // typed hash or tuple/array (`Set{"a", "b"}`, `Deque{1, 2}`). Hash entries
 // are tried first so `Type{"key" => value}` preserves its existing shape.
 // Registered before method_call_expression/bare calls so CONSTANT + LBRACE
-// binds the literal instead of a block call.
-private typed_collection_literal ::= type_path LBRACE NLS [hash_entry_list | expression_list] NLS RBRACE
+// binds the literal instead of a block call. Explicit generic arguments are
+// part of the path (`Set(String){"a", "b"}`, json/serializable_spec.cr);
+// `type_atom` is not reused because it also matches a bare IDENTIFIER, which
+// would turn `spawn { }` into a collection literal.
+private typed_collection_literal ::= type_path [type_arguments] LBRACE NLS [hash_entry_list | expression_list] NLS RBRACE
 
 // Hash and named-tuple entries may be separated by macro control tags
 // (`{% for key in T %} {{ key.stringify }}: value, {% end %}` in

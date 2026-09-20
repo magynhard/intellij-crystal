@@ -128,6 +128,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalTupleLiteral> getTupleLiteralList();
 
   @NotNull
+  List<CrystalTypeArguments> getTypeArgumentsList();
+
+  @NotNull
   List<CrystalTypePath> getTypePathList();
 
   @NotNull

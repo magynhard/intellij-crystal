@@ -951,6 +951,11 @@ consumes `NEWLINE` and `macro_control` tokens before, between, and after entries
 separate `macro_only_hash_entry_list` alternative covers conditionally empty entry
 lists (`{% if flag %} key: value, {% end %}`). `hash_literal` and
 `typed_collection_literal` keep their own leading `NLS` for parse-tree stability.
+Explicit generic arguments are part of a typed collection literal's path
+(`Set(String){"a", "b"}`, `Deque(Int32){1, 2, 3}`, json/serializable_spec.cr):
+the rule accepts `type_path [type_arguments]` before the brace. `type_atom` is
+not reused because it also matches a bare IDENTIFIER, which would turn
+`spawn { }` into a collection literal instead of a call with a block.
 `getNamedLabel` in `CrystalPsiCallArguments` returns null when the label preceder is
 `MACRO_INTERPOLATION_BEGIN`, preventing `CrystalArgumentCountInspection` and
 `CrystalTypeCheckInspection` from reporting false-positive unknown-argument or

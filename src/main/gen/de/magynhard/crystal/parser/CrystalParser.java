@@ -13247,31 +13247,39 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // type_path LBRACE NLS [hash_entry_list | expression_list] NLS RBRACE
+  // type_path [type_arguments] LBRACE NLS [hash_entry_list | expression_list] NLS RBRACE
   static boolean typed_collection_literal(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "typed_collection_literal")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = type_path(builder_, level_ + 1);
+    result_ = result_ && typed_collection_literal_1(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, LBRACE);
     result_ = result_ && NLS(builder_, level_ + 1);
-    result_ = result_ && typed_collection_literal_3(builder_, level_ + 1);
+    result_ = result_ && typed_collection_literal_4(builder_, level_ + 1);
     result_ = result_ && NLS(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, RBRACE);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
+  // [type_arguments]
+  private static boolean typed_collection_literal_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "typed_collection_literal_1")) return false;
+    type_arguments(builder_, level_ + 1);
+    return true;
+  }
+
   // [hash_entry_list | expression_list]
-  private static boolean typed_collection_literal_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "typed_collection_literal_3")) return false;
-    typed_collection_literal_3_0(builder_, level_ + 1);
+  private static boolean typed_collection_literal_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "typed_collection_literal_4")) return false;
+    typed_collection_literal_4_0(builder_, level_ + 1);
     return true;
   }
 
   // hash_entry_list | expression_list
-  private static boolean typed_collection_literal_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "typed_collection_literal_3_0")) return false;
+  private static boolean typed_collection_literal_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "typed_collection_literal_4_0")) return false;
     boolean result_;
     result_ = hash_entry_list(builder_, level_ + 1);
     if (!result_) result_ = expression_list(builder_, level_ + 1);

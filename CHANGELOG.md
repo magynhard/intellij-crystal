@@ -5,6 +5,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Generic typed collection literals** — `Set(String){"a", "b"}` and
+  `Deque(Int32){1, 2, 3}` now parse: `typed_collection_literal` accepts
+  `type_path [type_arguments]` before the brace (`json/serializable_spec.cr`),
+  while `spawn { }` stays a call with a block. Covered by the extended
+  TypedCollectionsAndWithYield golden.
 - **Leading-`::` bare arguments** — `expect_raises ::JSON::SerializableError,
   error_message do ... end` no longer glues the callee into a namespace access
   and strands the comma: a spaced `::` after an identifier callee is accepted

@@ -11,6 +11,8 @@ class Builder
     headers = HTTP::Headers{"Accept" => "text/plain"}
     single = Deque{value}
     empty = Deque{}
+    explicit = Set(String){"a", "b"}
+    explicit_generic = Deque(Int32){1, 2, 3}
     result = with self yield value
     first, second = with self yield value, value
     parenthesized = with self yield(value)
