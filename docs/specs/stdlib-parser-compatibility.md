@@ -1539,6 +1539,18 @@ grammar binds both escaped framings as macro data with no runtime value
 statement positions as `macro_control` (top-level, type members,
 statements). Covered by the EscapedMacroStatements parser golden.
 
+## Visibility-Modified Lib Definitions
+
+Crystal allows a visibility modifier before a lib definition (`private lib
+LibPointerSpec` in `spec/std/pointer_spec.cr`) at file scope and inside type
+bodies. The compiler parses `private`/`protected` through
+`parse_visibility_modifier` and wraps the following expression — including a
+lib body — in a `VisibilityModifier`. The grammar mirrors that by adding
+`lib_definition` to the `visibility_modifier` alternative, so the lib keeps its
+stub-bearing definition node inside the modifier. Covered by the
+PrivateLibDefinition parser golden (top-level `private`/`protected` lib,
+nested `private lib` in a class, plus the existing `private def` path).
+
 ## Release Gates
 
 The indexed corpus reaches zero errors before work moves to the complete

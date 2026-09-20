@@ -5,6 +5,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Visibility-modified lib definitions** — `private lib LibPointerSpec` (and
+  `protected lib`, also nested in type bodies) no longer breaks the parse at
+  the `lib` keyword: `visibility_modifier` now accepts `lib_definition`, so the
+  lib keeps its stub-bearing definition node inside the modifier, mirroring the
+  compiler's `VisibilityModifier` (`pointer_spec.cr`). Covered by the
+  PrivateLibDefinition golden.
 - **Float literals in macro control tags** — `{% for pair in [[Float32, 1.0_f32]] %}`
   and `{% if threshold == 0.5 %}` no longer abort the macro-control token loop at
   the first float: `macro_control_token` now accepts `FLOAT_LITERAL` alongside

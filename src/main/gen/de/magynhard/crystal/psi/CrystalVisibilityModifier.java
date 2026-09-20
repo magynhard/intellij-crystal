@@ -32,6 +32,9 @@ public interface CrystalVisibilityModifier extends PsiElement {
   CrystalEnumDefinition getEnumDefinition();
 
   @Nullable
+  CrystalLibDefinition getLibDefinition();
+
+  @Nullable
   CrystalMacroDefinition getMacroDefinition();
 
   @Nullable
