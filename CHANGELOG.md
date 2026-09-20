@@ -762,6 +762,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Compound assignment in conditions parses** — `while iter += 1` (and `until`/`if`/`elsif`
+  with any `assign_op`, including `||=` and wrapping `&+=`) failed because both condition
+  rules admitted only plain `=`. `condition_assignment` and `postfix_condition_assignment`
+  now use the shared `assign_op` set, mirroring statement assignments; plain conditions
+  are unaffected (the rule still fails fast without an operator). Covered by extended
+  ConditionAssignment goldens and compiler probes for every position. Both audits stay
+  at zero errors with zero newly failing files.
 - **Heredoc bodies interrupting argument lists parse** — `assert_error <<-CRYSTAL,`
   with the body before the trailing argument (spec suite `assert_error`/`assert_warning`
   shape, 11 external-audit errors) leaked the body as code: after a comma the parser

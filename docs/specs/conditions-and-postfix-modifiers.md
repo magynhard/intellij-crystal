@@ -14,12 +14,15 @@ assignments in every condition position where Crystal accepts them.
 
 ```bnf
 condition ::= condition_assignment | expression
-private condition_assignment ::= variable ASSIGN NLS expression
+private condition_assignment ::= variable assign_op NLS expression
 ```
 
 `variable` covers identifiers, instance variables, class variables, and global variables.
-PEG order matters: `condition_assignment` is tried first; it fails fast when no `ASSIGN`
-follows the variable, so plain conditions are unaffected.
+The operator is the full `assign_op` set, not just `=`: `while iter += 1`,
+`until n -= 1`, `elsif y ||= fallback`, and wrapping `w &+= 1` all parse exactly
+like plain assignments (verified against the compiler).
+PEG order matters: `condition_assignment` is tried first; it fails fast when no
+assignment operator follows the variable, so plain conditions are unaffected.
 
 ### Postfix modifiers (`postfix_modifier`)
 
@@ -35,7 +38,7 @@ value = strict_parse rescue fallback = DEFAULTS[:fallback]
 postfix_modifier ::= (IF | UNLESS | RESCUE) postfix_condition_with_assignment
 
 private postfix_condition_with_assignment ::= postfix_condition_assignment | expression
-postfix_condition_assignment ::= variable ASSIGN NLS expression
+postfix_condition_assignment ::= variable assign_op NLS expression
 ```
 
 This applies wherever `[postfix_modifier]` is referenced, including
