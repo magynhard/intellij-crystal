@@ -50,6 +50,7 @@ internal object CrystalExactReceiverTypeResolver {
         is CrystalPercentLiteral,
         is CrystalStringExpression,
         is CrystalSymbolStringExpression,
+        is CrystalOperatorSymbol,
         is CrystalHeredocLiteral,
         is CrystalCommandExpression,
         is CrystalRegexExpression -> true

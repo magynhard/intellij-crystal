@@ -762,6 +762,19 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Operator symbols parse as symbols** — `run_op_tests {{ int1 }}, {{ int2 }}, :+`
+  (int_spec) failed with `MACRO_INTERPOLATION_BEGIN expected, got '+'` because the
+  lexer only knew `:name` symbols. The parser now composes `:` plus any operator
+  from the compiler's own `consume_symbol` inventory (`:+`, `:==`, `:[]?`, …) via a
+  dedicated `operator_symbol` rule in `literal` — deliberately parser-side, since
+  folding in the lexer would break tight named/hash colons like `f(x:+1)` (the
+  compiler only folds via its parser-driven `wants_symbol` flag). Two spacing gates
+  keep it honest: colon and operator must touch (`? x : -x` stays a ternary), and a
+  tightly glued `:/` reads as regex only after an identifier label (`{a:/re/}`,
+  `f(x:/re/)`), otherwise as the symbol. Operator symbols infer `Symbol`, highlight
+  as symbols, and count as non-raising literals. Covered by the OperatorSymbols golden,
+  lexer regression tests, and a type-inference case. External audit drops int_spec;
+  both standard audits stay at zero errors with zero newly failing files.
 - **Brace blocks bind to the nearest call in bare position** — `assert_prints JSON.build
   { |json| with json yield json }, expected, file: file, line: line` (builder specs)
   failed with `expected ... got ','` because a dot-call inside bare arguments could not

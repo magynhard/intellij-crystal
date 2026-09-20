@@ -1788,6 +1788,7 @@ private literal ::= INTEGER_LITERAL
                   | string_expression
                   | symbol_string_expression
                   | SYMBOL_LITERAL
+                  | operator_symbol
                   | regex_expression
                   | command_expression
                   | NIL
@@ -1858,6 +1859,20 @@ private percent_symbol_content ::= SYMBOL_LITERAL | interpolation_expression | N
 // receiver trust treat it exactly like `:"name"`.
 symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
                             | COLON &<<isTokenTightAfterPreviousToken>> macro_interpolation
+
+// Operator symbols (`:+`, `:==`, `:[]?`, …): the lexer keeps `:` and the
+// operator separate — folding them would break tight named/hash colons like
+// `f(x:+1)` (the compiler itself only folds via the parser-driven wants_symbol
+// flag, see consume_symbol in lexer.cr) — so the parser composes them exactly
+// where a symbol literal is valid. The colon and operator must be tight:
+// `? x : -x` stays a ternary with a unary-minus branch, while `? x :-x` is
+// invalid Crystal either way. Inventory mirrors consume_symbol.
+operator_symbol ::= COLON &<<isTokenTightAfterPreviousToken>> (PLUS | MINUS | STAR | DOUBLE_STAR | SLASH | DOUBLE_SLASH
+                           | EQ | CASE_EQ | MATCH_OP | BANG | NEQ | BANG_TILDE
+                           | LT | LTE | SPACESHIP | LSHIFT | GT | GTE | RSHIFT
+                           | AMPERSAND | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
+                           | PIPE | CARET | TILDE | PERCENT
+                           | LBRACKET RBRACKET [ASSIGN | QUESTION])
 
 array_literal ::= LBRACKET NLS [array_element_list] NLS RBRACKET [OF type_reference]
 

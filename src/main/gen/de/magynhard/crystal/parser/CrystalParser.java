@@ -6142,6 +6142,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                   | string_expression
   //                   | symbol_string_expression
   //                   | SYMBOL_LITERAL
+  //                   | operator_symbol
   //                   | regex_expression
   //                   | command_expression
   //                   | NIL
@@ -6161,6 +6162,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = string_expression(builder_, level_ + 1);
     if (!result_) result_ = symbol_string_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, SYMBOL_LITERAL);
+    if (!result_) result_ = operator_symbol(builder_, level_ + 1);
     if (!result_) result_ = regex_expression(builder_, level_ + 1);
     if (!result_) result_ = command_expression(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, NIL);
@@ -9311,6 +9313,105 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET, QUESTION);
     if (!result_) result_ = parseTokens(builder_, 0, LBRACKET, RBRACKET);
     exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // COLON &<<isTokenTightAfterPreviousToken>> (PLUS | MINUS | STAR | DOUBLE_STAR | SLASH | DOUBLE_SLASH
+  //                            | EQ | CASE_EQ | MATCH_OP | BANG | NEQ | BANG_TILDE
+  //                            | LT | LTE | SPACESHIP | LSHIFT | GT | GTE | RSHIFT
+  //                            | AMPERSAND | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
+  //                            | PIPE | CARET | TILDE | PERCENT
+  //                            | LBRACKET RBRACKET [ASSIGN | QUESTION])
+  public static boolean operator_symbol(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "operator_symbol")) return false;
+    if (!nextTokenIs(builder_, COLON)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, COLON);
+    result_ = result_ && operator_symbol_1(builder_, level_ + 1);
+    result_ = result_ && operator_symbol_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, OPERATOR_SYMBOL, result_);
+    return result_;
+  }
+
+  // &<<isTokenTightAfterPreviousToken>>
+  private static boolean operator_symbol_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "operator_symbol_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // PLUS | MINUS | STAR | DOUBLE_STAR | SLASH | DOUBLE_SLASH
+  //                            | EQ | CASE_EQ | MATCH_OP | BANG | NEQ | BANG_TILDE
+  //                            | LT | LTE | SPACESHIP | LSHIFT | GT | GTE | RSHIFT
+  //                            | AMPERSAND | WRAP_PLUS | WRAP_MINUS | WRAP_STAR | WRAP_DOUBLE_STAR
+  //                            | PIPE | CARET | TILDE | PERCENT
+  //                            | LBRACKET RBRACKET [ASSIGN | QUESTION]
+  private static boolean operator_symbol_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "operator_symbol_2")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, PLUS);
+    if (!result_) result_ = consumeToken(builder_, MINUS);
+    if (!result_) result_ = consumeToken(builder_, STAR);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_STAR);
+    if (!result_) result_ = consumeToken(builder_, SLASH);
+    if (!result_) result_ = consumeToken(builder_, DOUBLE_SLASH);
+    if (!result_) result_ = consumeToken(builder_, EQ);
+    if (!result_) result_ = consumeToken(builder_, CASE_EQ);
+    if (!result_) result_ = consumeToken(builder_, MATCH_OP);
+    if (!result_) result_ = consumeToken(builder_, BANG);
+    if (!result_) result_ = consumeToken(builder_, NEQ);
+    if (!result_) result_ = consumeToken(builder_, BANG_TILDE);
+    if (!result_) result_ = consumeToken(builder_, LT);
+    if (!result_) result_ = consumeToken(builder_, LTE);
+    if (!result_) result_ = consumeToken(builder_, SPACESHIP);
+    if (!result_) result_ = consumeToken(builder_, LSHIFT);
+    if (!result_) result_ = consumeToken(builder_, GT);
+    if (!result_) result_ = consumeToken(builder_, GTE);
+    if (!result_) result_ = consumeToken(builder_, RSHIFT);
+    if (!result_) result_ = consumeToken(builder_, AMPERSAND);
+    if (!result_) result_ = consumeToken(builder_, WRAP_PLUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_MINUS);
+    if (!result_) result_ = consumeToken(builder_, WRAP_STAR);
+    if (!result_) result_ = consumeToken(builder_, WRAP_DOUBLE_STAR);
+    if (!result_) result_ = consumeToken(builder_, PIPE);
+    if (!result_) result_ = consumeToken(builder_, CARET);
+    if (!result_) result_ = consumeToken(builder_, TILDE);
+    if (!result_) result_ = consumeToken(builder_, PERCENT);
+    if (!result_) result_ = operator_symbol_2_28(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // LBRACKET RBRACKET [ASSIGN | QUESTION]
+  private static boolean operator_symbol_2_28(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "operator_symbol_2_28")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokens(builder_, 0, LBRACKET, RBRACKET);
+    result_ = result_ && operator_symbol_2_28_2(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [ASSIGN | QUESTION]
+  private static boolean operator_symbol_2_28_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "operator_symbol_2_28_2")) return false;
+    operator_symbol_2_28_2_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // ASSIGN | QUESTION
+  private static boolean operator_symbol_2_28_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "operator_symbol_2_28_2_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, ASSIGN);
+    if (!result_) result_ = consumeToken(builder_, QUESTION);
     return result_;
   }
 

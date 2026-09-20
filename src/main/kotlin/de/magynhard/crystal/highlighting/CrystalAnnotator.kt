@@ -94,6 +94,13 @@ class CrystalAnnotator : Annotator {
             return
         }
 
+        // Operator symbols (`:+`, `:==`, …) are composites, not single leaves:
+        // color both parts with the symbol color.
+        if (element.parent is CrystalOperatorSymbol) {
+            enforceHeredocColor(element, holder, CrystalSyntaxHighlighter.SYMBOL)
+            return
+        }
+
 
     }
 

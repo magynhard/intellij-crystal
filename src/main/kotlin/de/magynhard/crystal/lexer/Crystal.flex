@@ -47,6 +47,40 @@ import com.intellij.psi.TokenType;
 
   // Regex disambiguation: regex literals can only start in operator position
   private boolean isRegexAllowed() {
+    // A slash tightly glued to a preceding colon starts an operator symbol
+    // (`:/`), never a regex — unless that colon is a label colon after an
+    // identifier or constant (`{a:/re/}`, `f(x:/re/)`), where the regex
+    // reading wins exactly like the compiler (which only folds via the
+    // parser-driven wants_symbol flag, never after a key). Anything else
+    // (`? b :/re/`, `1:/re/`, `"a":/re/`) folds and fails downstream, also
+    // exactly like the compiler.
+    if (zzStartRead > 0 && zzBuffer.charAt(zzStartRead - 1) == ':') {
+      int identEnd = zzStartRead - 2;
+      while (identEnd >= 0) {
+        char b = zzBuffer.charAt(identEnd);
+        if (b != ' ' && b != '\t' && b != '\r' && b != '\n') break;
+        identEnd--;
+      }
+      int identStart = identEnd;
+      while (identStart >= 0) {
+        char b = zzBuffer.charAt(identStart);
+        if (!Character.isLetterOrDigit(b) && b != '_') break;
+        identStart--;
+      }
+      if (identStart < identEnd) {
+        int before = identStart;
+        while (before >= 0) {
+          char b = zzBuffer.charAt(before);
+          if (b != ' ' && b != '\t' && b != '\r' && b != '\n') break;
+          before--;
+        }
+        if (before >= 0) {
+          char b = zzBuffer.charAt(before);
+          if (b == '(' || b == '{' || b == '[' || b == ',') return true;
+        }
+      }
+      return false;
+    }
     // Check the character immediately before the current token (skip whitespace already consumed)
     int pos = zzStartRead - 1;
     boolean separatedByWhitespace = false;

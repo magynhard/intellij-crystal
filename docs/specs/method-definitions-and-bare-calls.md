@@ -302,6 +302,25 @@ division.
 These rules are covered by `DotCompoundAssignment`, `DotRegexDivision`, and
 `KemalRangeBlock` parser goldens plus dedicated lexer tests.
 
+## Operator Symbols (`:+`, `:==`, `:[]?`)
+
+The lexer keeps `:` and the operator separate and the parser composes them via
+`operator_symbol` (in `literal`, so every symbol position works uniformly) —
+folding in the lexer would break tight named/hash colons like `f(x:+1)`. The
+compiler itself only folds via the parser-driven `wants_symbol` flag (suppressed
+after hash/named keys; see `consume_symbol` in lexer.cr), and the inventory
+mirrors it exactly. Two spacing gates keep the composition honest: the colon and
+operator must be tight (`? x : -x` stays a ternary with a unary-minus branch),
+and a `/` tightly glued to `:` reads as regex only after an identifier or
+constant label (`{a:/re/}`, `f(x:/re/)`), otherwise as the `:/` symbol. Invalid
+`? b :+c` stays lenient (accepted, never reported) — mirroring the rejection
+would need per-position guards for zero valid-code gain.
+
+These rules are covered by the `OperatorSymbols` parser golden (bare and
+parenthesized arguments, arrays, comparisons, `case`/`when`, assignments),
+the `CrystalTypeInferenceTest` symbol case, and dedicated lexer behavior
+(`:/` after labels vs. operators).
+
 ## Test Coverage
 
 - Parser goldens: `SetterMethodDefinition.cr`, `MacroInterpolatedCallee.cr`,

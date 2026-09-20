@@ -230,6 +230,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
         return when (element) {
             is CrystalStringExpression, is CrystalHeredocLiteral, is CrystalCommandExpression -> knownType("String")
+            is CrystalOperatorSymbol -> knownType("Symbol")
             is CrystalRegexExpression -> knownType("Regex")
             is CrystalSymbolStringExpression -> knownType("Symbol")
             is CrystalSizeofExpression, is CrystalInstanceSizeofExpression, is CrystalOffsetofExpression -> knownType("Int32")
@@ -1494,7 +1495,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 CrystalTypes.NIL
             )) return false
         if (element is CrystalStringExpression || element is CrystalSymbolStringExpression ||
-            element is CrystalHeredocLiteral) return false
+            element is CrystalHeredocLiteral || element is CrystalOperatorSymbol) return false
         if (element is CrystalArrayLiteral) return element.expressionList?.expressionList.orEmpty().any(::mayRaise)
         if (element is CrystalTupleLiteral) return tupleElements(element).any(::mayRaise)
         if (element is CrystalHashLiteral) return element.hashEntryList?.hashEntryList.orEmpty()

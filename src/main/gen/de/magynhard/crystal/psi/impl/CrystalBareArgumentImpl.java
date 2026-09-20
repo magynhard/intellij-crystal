@@ -202,6 +202,12 @@ public class CrystalBareArgumentImpl extends CrystalAccessorArgumentMixin implem
 
   @Override
   @NotNull
+  public List<CrystalOperatorSymbol> getOperatorSymbolList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalOperatorSymbol.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalPercentLiteral> getPercentLiteralList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalPercentLiteral.class);
   }

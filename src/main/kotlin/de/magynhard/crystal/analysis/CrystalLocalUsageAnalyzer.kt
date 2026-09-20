@@ -865,6 +865,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
             )) return false
         if (element is CrystalStringExpression && element.expressionList.isEmpty()) return false
         if (element is CrystalSymbolStringExpression && element.expressionList.isEmpty()) return false
+        if (element is CrystalOperatorSymbol) return false
         if (element is CrystalHeredocLiteral && element.expressionList.isEmpty()) return false
         if (element.node.elementType == CrystalTypes.HEREDOC_START && element.text.startsWith("<<-")) {
             return heredocBodyForHeader(element)?.let(::mayRaise) ?: true

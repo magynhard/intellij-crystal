@@ -95,6 +95,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalOffsetofExpression> getOffsetofExpressionList();
 
   @NotNull
+  List<CrystalOperatorSymbol> getOperatorSymbolList();
+
+  @NotNull
   List<CrystalPercentLiteral> getPercentLiteralList();
 
   @NotNull

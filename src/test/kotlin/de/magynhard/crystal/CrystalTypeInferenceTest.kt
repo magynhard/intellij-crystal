@@ -65,6 +65,12 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         assertEquals("Symbol", type)
     }
 
+    fun testInferOperatorSymbolLiteral() {
+        myFixture.configureByText("test.cr", "x = :+")
+        val type = CrystalTypeInference.inferType("x", myFixture.file, project)
+        assertEquals("Symbol", type)
+    }
+
     fun testInferTrueLiteral() {
         myFixture.configureByText("test.cr", "x = true")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)

@@ -165,6 +165,27 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testTightSlashAfterColonIsSymbolSlash() {
+        // `run_op_tests ..., :/` (int_spec): a `/` tightly glued to `:` starts
+        // the `:/` operator symbol, never a regex.
+        for (input in listOf("foo(:/)", "foo(a, :/)")) {
+            val tokens = nonWhitespaceTokens(input)
+            assertTrue("Slash in '$input'", tokens.any { it.first == CrystalTypes.SLASH })
+            assertFalse("No regex in '$input'", tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        }
+    }
+
+    @Test
+    fun testTightSlashAfterLabelColonStaysRegex() {
+        // `{a:/re/}`, `f(x:/re/)`: after an identifier label the tight `:/`
+        // keeps the regex reading, exactly like the compiler.
+        for (input in listOf("{a:/re/}", "f(x:/re/)")) {
+            val tokens = nonWhitespaceTokens(input)
+            assertTrue("Regex in '$input'", tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        }
+    }
+
+    @Test
     fun testPostfixIfKeywordInExpressionLexerStates() {
         val inputs = listOf(
             "\"#{require \"./dependency\" if true}\"",

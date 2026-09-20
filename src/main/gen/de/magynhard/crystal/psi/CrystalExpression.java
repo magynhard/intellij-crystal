@@ -98,6 +98,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalOffsetofExpression> getOffsetofExpressionList();
 
   @NotNull
+  List<CrystalOperatorSymbol> getOperatorSymbolList();
+
+  @NotNull
   List<CrystalPercentLiteral> getPercentLiteralList();
 
   @NotNull

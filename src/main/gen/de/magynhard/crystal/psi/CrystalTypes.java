@@ -86,6 +86,7 @@ public interface CrystalTypes {
   IElementType NESTED_INDEXED_ASSIGNMENT = new CrystalElementType("NESTED_INDEXED_ASSIGNMENT");
   IElementType NEXT_STATEMENT = new CrystalElementType("NEXT_STATEMENT");
   IElementType OFFSETOF_EXPRESSION = new CrystalElementType("OFFSETOF_EXPRESSION");
+  IElementType OPERATOR_SYMBOL = new CrystalElementType("OPERATOR_SYMBOL");
   IElementType PARAMETER = new CrystalElementType("PARAMETER");
   IElementType PARAMETER_LIST = new CrystalElementType("PARAMETER_LIST");
   IElementType PERCENT_LITERAL = new CrystalElementType("PERCENT_LITERAL");
@@ -526,6 +527,9 @@ public interface CrystalTypes {
       }
       else if (type == OFFSETOF_EXPRESSION) {
         return new CrystalOffsetofExpressionImpl(node);
+      }
+      else if (type == OPERATOR_SYMBOL) {
+        return new CrystalOperatorSymbolImpl(node);
       }
       else if (type == PARAMETER) {
         return new CrystalParameterImpl(node);
