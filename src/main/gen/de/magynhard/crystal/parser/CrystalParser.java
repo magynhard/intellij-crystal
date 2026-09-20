@@ -6569,7 +6569,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // IDENTIFIER | CONSTANT | INSTANCE_VAR | CLASS_VAR | GLOBAL_VAR | MACRO_FRESH_VAR
-  //     | INTEGER_LITERAL | CHAR_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
+  //     // Floats appear in macro conditions and for-collections, e.g.
+  //     // `{% for pair in [[Float32, 1.0_f32]] %}` and `{% if x == 0.5 %}`
+  //     // (json/pull_parser_spec.cr); INTEGER_LITERAL below already covers ints.
+  //     | INTEGER_LITERAL | FLOAT_LITERAL | CHAR_LITERAL | STRING_LITERAL | STRING_ESCAPE | STRING_INTERPOLATION_BEGIN | STRING_INTERPOLATION_END
   //     | SYMBOL_LITERAL | SYMBOL_COLON
   //     // Backtick commands and regex literals appear inside macro control blocks:
   //     // `VERSION = {{ `shards version ...`.stringify }}` (kemal) and
@@ -6613,6 +6616,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = consumeToken(builder_, GLOBAL_VAR);
     if (!result_) result_ = consumeToken(builder_, MACRO_FRESH_VAR);
     if (!result_) result_ = consumeToken(builder_, INTEGER_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, FLOAT_LITERAL);
     if (!result_) result_ = consumeToken(builder_, CHAR_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);

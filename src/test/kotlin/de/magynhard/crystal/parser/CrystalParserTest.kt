@@ -584,6 +584,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testMacroControlFloats() {
+        doTest(true)
+    }
+
     fun testMacroGeneratedTypeNames() {
         doTest(true)
     }

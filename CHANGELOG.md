@@ -5,6 +5,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Float literals in macro control tags** — `{% for pair in [[Float32, 1.0_f32]] %}`
+  and `{% if threshold == 0.5 %}` no longer abort the macro-control token loop at
+  the first float: `macro_control_token` now accepts `FLOAT_LITERAL` alongside
+  `INTEGER_LITERAL`, so the loop body and later declarations keep parsing
+  (`json/pull_parser_spec.cr`). Covered by the MacroControlFloats golden.
 - **Empty regex literals (`//`)** — `"foo".index(//, 3)` or `x = //` no longer
   devolves into integer division followed by a swallowed rest of file: the
   lexer opens an empty regex wherever a single slash would be allowed and

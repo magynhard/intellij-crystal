@@ -244,6 +244,25 @@ end
 
 **Test coverage:** `CharLiteralInterpolation.cr` parser test covers char literals in string, regex, command, heredoc, and percent-literal interpolation, nested strings, escape sequences, top-level regression guards, and macro control comparisons. `CrystalLexerTest.testCharLiteralInInterpolation`, `testCharLiteralEscapeSequencesInInterpolation`, `testInvalidCharLiteralIsSingleBadCharacter`, and `testCharLiteralInMacroControl` cover the lexer level including the invalid-literal guard.
 
+### Float literals in macro control tags (`{% … %}`)
+
+Float literals are valid tokens inside macro control tags, both in conditions and in the collection of a `{% for %}` loop:
+
+```crystal
+{% for pair in [[Int8, 1_i8], [Float32, 1.0_f32], [Float64, 1.0]] %}
+{% end %}
+
+{% if threshold == 0.5 %}
+{% elsif rate > 1.5e3 %}
+{% end %}
+```
+
+**Lexer state:** `<MACRO_CONTROL>` already lexes `{DEC_INT} "." {DEC_INT}` forms with the optional float suffix (including `1.0_f32`, `1.0f32`, and exponent forms), mirroring `<YYINITIAL>`.
+
+**Parser:** `macro_control_token` (the token whitelist for `{% … %}` bodies) had to be extended with `FLOAT_LITERAL` alongside `INTEGER_LITERAL`: without it the parser aborted `macro_control` at the first float literal, and everything after it — including the loop body and later declarations — collapsed into recovery debris (`json/pull_parser_spec.cr`). `macro_control` only consumes tokens without reconstructing PSI, so widening the token set cannot change existing successful parses. Keep `macro_control_token` in sync with everything the `<MACRO_CONTROL>` lexer state can emit.
+
+**Test coverage:** `MacroControlFloats.cr` covers a `{% for %}` collection with `1.0_f32`/`1.0`, `{% if %}`/`{% elsif %}` float comparisons with exponent form, and an `{% unless %}` with the `f32` suffix.
+
 ---
 
 ## Edge Cases
