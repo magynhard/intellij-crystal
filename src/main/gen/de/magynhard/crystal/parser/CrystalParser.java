@@ -2044,7 +2044,16 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
   //                            | NLS bang_suffix
-  //                            | NLS dot_call_access
+  //                            // Brace blocks bind to the nearest call (`assert_prints
+  //                            // JSON.build { |json| ... }, expected` keeps the block
+  //                            // on `build` so the trailing arguments survive); this
+  //                            // mirrors the `NLS dot_call_access [block]` postfix
+  //                            // alternative. Only braces qualify: `do ... end`
+  //                            // binds to the outermost command (`write_extra_newlines
+  //                            // (a).b, c.d do ... end` keeps the block outside),
+  //                            // and trailing arguments after a `do` block would be
+  //                            // invalid Crystal anyway.
+  //                            | NLS dot_call_access [brace_block]
   //                           | namespace_access
   //                           | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
   //                           // Empty tight brackets after a bare expression are an
@@ -2102,15 +2111,23 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // NLS dot_call_access
+  // NLS dot_call_access [brace_block]
   private static boolean bare_postfix_op_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "bare_postfix_op_2")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = NLS(builder_, level_ + 1);
     result_ = result_ && dot_call_access(builder_, level_ + 1);
+    result_ = result_ && bare_postfix_op_2_2(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
+  }
+
+  // [brace_block]
+  private static boolean bare_postfix_op_2_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "bare_postfix_op_2_2")) return false;
+    brace_block(builder_, level_ + 1);
+    return true;
   }
 
   // LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
@@ -2808,6 +2825,49 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   // [statement_list]
   private static boolean block_1_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "block_1_2")) return false;
+    statement_list(builder_, level_ + 1);
+    return true;
+  }
+
+  /* ********************************************************** */
+  // LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
+  public static boolean brace_block(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "brace_block")) return false;
+    if (!nextTokenIs(builder_, LBRACE)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, LBRACE);
+    result_ = result_ && brace_block_1(builder_, level_ + 1);
+    result_ = result_ && brace_block_2(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, RBRACE);
+    exit_section_(builder_, marker_, BLOCK, result_);
+    return result_;
+  }
+
+  // [PIPE NLS parameter_list NLS PIPE]
+  private static boolean brace_block_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "brace_block_1")) return false;
+    brace_block_1_0(builder_, level_ + 1);
+    return true;
+  }
+
+  // PIPE NLS parameter_list NLS PIPE
+  private static boolean brace_block_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "brace_block_1_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, PIPE);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && parameter_list(builder_, level_ + 1);
+    result_ = result_ && NLS(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, PIPE);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // [statement_list]
+  private static boolean brace_block_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "brace_block_2")) return false;
     statement_list(builder_, level_ + 1);
     return true;
   }

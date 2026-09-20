@@ -1677,7 +1677,16 @@ private bare_postfix_expression ::= bare_primary_expression bare_postfix_op*
 
 private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
                            | NLS bang_suffix
-                           | NLS dot_call_access
+                           // Brace blocks bind to the nearest call (`assert_prints
+                           // JSON.build { |json| ... }, expected` keeps the block
+                           // on `build` so the trailing arguments survive); this
+                           // mirrors the `NLS dot_call_access [block]` postfix
+                           // alternative. Only braces qualify: `do ... end`
+                           // binds to the outermost command (`write_extra_newlines
+                           // (a).b, c.d do ... end` keeps the block outside),
+                           // and trailing arguments after a `do` block would be
+                           // invalid Crystal anyway.
+                           | NLS dot_call_access [brace_block]
                           | namespace_access
                           | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
                           // Empty tight brackets after a bare expression are an
@@ -1742,6 +1751,11 @@ bare_method_call_expression ::= bare_call_callee !<<isTokenTightAfterPreviousTok
 // The statement_list is optional in both alternatives.
 block ::= DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* [else_clause] [ensure_clause] END
         | LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
+
+// Brace-only block for positions where `do ... end` binds outward (see the
+// bare dot-call alternative): identical shape to the LBRACE branch, aliased to
+// the established BLOCK composite.
+brace_block ::= LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE {elementType=block}
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
 // Proc pointers also take instance/class-variable receivers (`->@worker.run`,

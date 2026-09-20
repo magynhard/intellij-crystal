@@ -762,6 +762,18 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (honest), covered by new `CrystalTypeInferenceTest` cases.
 
 ### Bug Fixes
+- **Brace blocks bind to the nearest call in bare position** — `assert_prints JSON.build
+  { |json| with json yield json }, expected, file: file, line: line` (builder specs)
+  failed with `expected ... got ','` because a dot-call inside bare arguments could not
+  take a brace block: the block floated up to the outer call and stranded the trailing
+  arguments. `NLS dot_call_access` in `bare_postfix_op` now accepts an optional brace
+  block, mirroring the ordinary postfix alternative — matching Crystal's rule that `{}`
+  binds innermost while `do` binds outermost (a `brace_block` twin of the `block` rule
+  keeps `write_extra_newlines (a).b, c.d do ... end` attaching outside, verified by an
+  unchanged LooseGrouped golden). The same fix covers `yield *paths.map { |path| ... }`.
+  Covered by the BraceBlockBareArguments golden. External audit drops by 4 errors in
+  4 files (builders, file_utils); both standard audits stay at zero errors with zero
+  newly failing files.
 - **Compound assignment in conditions parses** — `while iter += 1` (and `until`/`if`/`elsif`
   with any `assign_op`, including `||=` and wrapping `&+=`) failed because both condition
   rules admitted only plain `=`. `condition_assignment` and `postfix_condition_assignment`

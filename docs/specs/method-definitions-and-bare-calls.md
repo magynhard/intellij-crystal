@@ -160,6 +160,16 @@ alternative is therefore blocked by `nested_call_lookahead`, which extends
 bare calls keep using plain `binary_op_lookahead`, so leading-range arguments remain
 valid (`consume ..last` still parses as a call with one range argument).
 
+**Brace-block binding:** `{ ... }` binds to the nearest call while `do ... end` binds
+to the outermost command. A dot-call inside bare arguments therefore accepts an
+optional brace block (`assert_prints JSON.build { |json| ... }, expected` keeps the
+block on `build` so trailing arguments survive), via a `brace_block` twin of the
+`block` rule aliased to the same `BLOCK` composite. `do` blocks keep attaching
+outward (`write_extra_newlines (a).b, c.d do ... end`), and trailing arguments after
+a `do` block would be invalid Crystal anyway. Bare-callee block attachment
+(`collect build_report { |r| r }, "done"`, where the inner call is a plain variable
+reference) is a known follow-up: it needs its own call node and is out of scope here.
+
 **Wrapping-operator protection:** `&+` / `&-` after an operand on the same line read
 as binary (`size &+ s.size`, `new_len &- @length`, tight `x &-y`), never as a bare
 call with a unary wrapping argument — `size(&+...)` falsely measured the operand

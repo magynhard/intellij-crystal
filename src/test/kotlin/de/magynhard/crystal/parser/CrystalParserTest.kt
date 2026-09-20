@@ -111,6 +111,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testBraceBlockBareArguments() {
+        doTest(true)
+    }
+
     fun testPercentLiterals() {
         doTest(true)
     }
