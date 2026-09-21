@@ -359,6 +359,16 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testRecordKeywordFieldTypeIsChecked() {
+        // The `end` field name is a keyword token; its type annotation must
+        // still participate in positional argument type checking.
+        myFixture.configureByText("test.cr", """
+            record Span, start : Int32, end : Int32
+            Span.new(1, <error descr="Type mismatch: expected 'Int32', got 'String'">"wrong"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testRecordNewBareDotCallWithCorrectTypes() {
         myFixture.configureByText("test.cr", """
             record Config, host : String, port : Int32 = 80, ssl : Bool = false

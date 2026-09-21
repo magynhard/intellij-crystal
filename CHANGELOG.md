@@ -13,6 +13,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Keyword-named record fields are recognized** — `record Span, start : Int32, end : Int32`
+  (crystalline's `signature_help.cr`) no longer loses the `end` field: `Span.new(start, end)`
+  is valid, `Span.new(1)` reports the missing `end`, and the second positional argument is
+  type-checked against `end : Int32`. Record field names are now read by the shared
+  `CrystalPsiUtils.recordFieldInfo`, which accepts an `IDENTIFIER` or any `keyword_identifier`
+  token before the colon; argument-count, type-check, Parameter Info, and `.new` completion
+  all consume it. The misattributed "Too many arguments" on a trailing argument of
+  `Span.new(...)` disappears. Covered by a parser golden, argument-count, type-check, and
+  completion regressions.
 - **Nilable annotations resolve as unions (`T?` → `T | Nil`)** — a value from a
   method returning `Array(String)?` (`parts = TypeUtils.generic_type_arguments(...)`
   in crystalline's `lightweight/query.cr`) no longer reports `parts[0]`/`parts[1]`

@@ -782,18 +782,9 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     private fun extractRecordFields(fieldArguments: List<PsiElement>): List<ParamInfo> {
         val params = mutableListOf<ParamInfo>()
         for (arg in fieldArguments) {
-            val children = arg.node.getChildren(null)
-            var name: String? = null
-            var hasDefault = false
-            for (child in children) {
-                when (child.elementType) {
-                    CrystalTypes.IDENTIFIER -> name = child.text
-                    CrystalTypes.ASSIGN -> hasDefault = true
-                }
-            }
-            if (name != null) {
-                params.add(ParamInfo(name, hasDefault))
-            }
+            val field = CrystalPsiUtils.recordFieldInfo(arg)
+            val name = field.name ?: continue
+            params.add(ParamInfo(name, field.hasDefault))
         }
         return params
     }

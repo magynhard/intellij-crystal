@@ -755,30 +755,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
     private fun recordParamsFrom(fieldArguments: List<PsiElement>): List<RecordParamInfo> {
         val params = mutableListOf<RecordParamInfo>()
         for (arg in fieldArguments) {
-            val children = arg.node.getChildren(null)
-            var name: String? = null
-            var typeText: String? = null
-            var hasDefault = false
-            var pastColon = false
-            var pastAssign = false
-            for (child in children) {
-                when (child.elementType) {
-                    CrystalTypes.IDENTIFIER -> name = child.text
-                    CrystalTypes.COLON -> pastColon = true
-                    CrystalTypes.ASSIGN -> pastAssign = true
-                    else -> {
-                        if (child.elementType == com.intellij.psi.TokenType.WHITE_SPACE) continue
-                        if (pastAssign) {
-                            hasDefault = true
-                        } else if (pastColon) {
-                            typeText = (typeText ?: "") + child.text
-                        }
-                    }
-                }
-            }
-            if (name != null) {
-                params.add(RecordParamInfo(name, typeText, hasDefault))
-            }
+            val field = CrystalPsiUtils.recordFieldInfo(arg)
+            val name = field.name ?: continue
+            params.add(RecordParamInfo(name, field.typeText, field.hasDefault))
         }
         return params
     }

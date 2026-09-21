@@ -514,6 +514,11 @@ record Point, x : Int32, y : Int32
 Point.new(  # ← shows (x : Int32, y : Int32)
 ```
 
+A field name may be a keyword token (`record Span, start : Int32, end : Int32`): the shared
+`CrystalPsiUtils.recordFieldInfo` reads the name before the colon as an `IDENTIFIER` or any
+`keyword_identifier` token, so `Span.new` renders `(start : Int32, end : Int32)`. The same helper
+feeds record argument-count, type-check, and Parameter Info diagnostics.
+
 Qualified and lexically selected records use the exact resolved record declaration. If both
 `Left::Config` and `Right::Config` exist, `Right::Config.` renders only `Right::Config`'s `new`
 signature and type text in direct or grouped form.

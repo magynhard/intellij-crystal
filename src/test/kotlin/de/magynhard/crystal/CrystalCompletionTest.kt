@@ -1088,6 +1088,21 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testRecordNewTailTextIncludesKeywordField() {
+        myFixture.configureByText("main.cr", """
+            record Span, start : Int32, end : Int32
+            Span.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val newLookup = lookups?.find { it.lookupString == "new" }
+        assertNotNull("Should have 'new' lookup", newLookup)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        newLookup!!.renderElement(presentation)
+        val tailText = presentation.tailText ?: ""
+        assertTrue("Should show the `end` field in tail text: $tailText",
+            tailText.contains("start") && tailText.contains("end"))
+    }
+
     // ==================== Debug: instance method completion ====================
 
     fun testInstanceMethodDotCompletion() {

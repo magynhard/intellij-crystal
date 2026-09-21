@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.stubs.CrystalNamedStub
 
 /**
@@ -42,6 +43,45 @@ object CrystalPsiUtils {
     /** Field arguments of a record declaration, without the leading type-name argument. */
     fun recordFieldArguments(call: CrystalMethodCallExpression): List<PsiElement> =
         recordArguments(call).drop(1)
+
+    /**
+     * Parsed shape of one record field argument (`name : Type = default`).
+     * [name] is null when the argument carries no leading name.
+     */
+    data class RecordFieldInfo(
+        val name: String?,
+        val typeText: String?,
+        val defaultText: String?,
+        val hasDefault: Boolean,
+    )
+
+    /**
+     * Extracts the name/type/default of a single record field argument. The name
+     * is the first significant token before the colon — an `IDENTIFIER` or a
+     * keyword (`record Span, start : Int32, end : Int32`), matching the
+     * grammar's `keyword_identifier` in `named_type_bare_argument`. Keyword
+     * tokens after the colon stay part of the type text (`x : Nil`, `x : self`).
+     */
+    fun recordFieldInfo(fieldArgument: PsiElement): RecordFieldInfo {
+        var name: String? = null
+        var typeText: String? = null
+        var defaultText: String? = null
+        var pastColon = false
+        var pastAssign = false
+        for (child in fieldArgument.node.getChildren(null)) {
+            val type = child.elementType
+            when {
+                type == CrystalTypes.COLON -> pastColon = true
+                type == CrystalTypes.ASSIGN -> pastAssign = true
+                type == com.intellij.psi.TokenType.WHITE_SPACE -> Unit
+                !pastColon && type == CrystalTypes.IDENTIFIER -> name = child.text
+                !pastColon && CrystalTokenTypes.KEYWORDS.contains(type) -> name = child.text
+                pastAssign -> defaultText = (defaultText ?: "") + child.text
+                pastColon -> typeText = (typeText ?: "") + child.text
+            }
+        }
+        return RecordFieldInfo(name, typeText, defaultText, pastAssign)
+    }
 
     private fun recordDeclaredName(call: CrystalMethodCallExpression): String? {
         if (call.firstChild?.text != "record") return null

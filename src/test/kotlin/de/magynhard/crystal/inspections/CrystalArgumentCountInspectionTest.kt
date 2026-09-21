@@ -1729,6 +1729,37 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testRecordKeywordFieldIsRequiredAndCounted() {
+        // `end` is a keyword token, not an IDENTIFIER: the field must still be
+        // recognized so a two-argument `Span.new` is valid (signature_help.cr).
+        myFixture.configureByText("test.cr", """
+            record Span, start : Int32, end : Int32
+            Span.new(1, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordKeywordFieldMissingReportsItsName() {
+        myFixture.configureByText("test.cr", """
+            record Span, start : Int32, end : Int32
+            Span.<error descr="Missing required argument(s): 'end'">new</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordKeywordFieldCountsTowardsArity() {
+        myFixture.configureByText("test.cr", """
+            record Span, start : Int32, end : Int32
+            Span.new(1, 2, 3)
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "The `end` field must count towards the record arity, got: " +
+                highlights.mapNotNull { it.description },
+            highlights.any { it.description?.contains("expected at most 2, got 3") == true },
+        )
+    }
+
     fun testRecordNewUnknownNamedArg() {
         myFixture.configureByText("test.cr", """
             record Config, host : String, port : Int32 = 80

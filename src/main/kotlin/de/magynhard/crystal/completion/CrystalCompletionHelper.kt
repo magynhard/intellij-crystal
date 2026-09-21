@@ -89,37 +89,14 @@ object CrystalCompletionHelper {
 
         val paramStrings = mutableListOf<String>()
         for (i in 1 until args.size) {
-            val arg = args[i]
-            val children = arg.node.getChildren(null)
-            var name: String? = null
-            var hasDefault = false
-            var typeText: String? = null
-            var defaultText: String? = null
-            var pastColon = false
-            var pastAssign = false
-            for (child in children) {
-                when (child.elementType) {
-                    CrystalTypes.IDENTIFIER -> name = child.text
-                    CrystalTypes.COLON -> pastColon = true
-                    CrystalTypes.ASSIGN -> { pastAssign = true; hasDefault = true }
-                    else -> {
-                        if (child.elementType == com.intellij.psi.TokenType.WHITE_SPACE) continue
-                        if (pastAssign) {
-                            defaultText = (defaultText ?: "") + child.text
-                        } else if (pastColon) {
-                            typeText = (typeText ?: "") + child.text
-                        }
-                    }
-                }
+            val field = CrystalPsiUtils.recordFieldInfo(args[i])
+            val name = field.name ?: continue
+            val param = buildString {
+                append(name)
+                if (field.typeText != null) append(" : ").append(field.typeText)
+                if (field.defaultText != null) append(" = ").append(field.defaultText)
             }
-            if (name != null) {
-                val param = buildString {
-                    append(name)
-                    if (typeText != null) append(" : ").append(typeText)
-                    if (defaultText != null) append(" = ").append(defaultText)
-                }
-                paramStrings.add(param)
-            }
+            paramStrings.add(param)
         }
         return "(${paramStrings.joinToString(", ")})"
     }

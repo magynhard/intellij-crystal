@@ -292,7 +292,7 @@ Automated tests must cover the following behavior across parenthesized, bare-arg
 - A combined nilable/default/splat/named-only/double-splat signature that reports only required regular parameters.
 - Local variables, regular parameters, destructured method/block/macro parameters, internal parameter names, type declarations, and same-named macros that shadow indexed method names.
 - Simple constant receivers resolved through an unambiguous enclosing lexical namespace, including rejection of ambiguous and unrelated namespace identities.
-- Simple record constructors validated through exact current-file `RecordFallback`, including argumentless calls and lexical collisions with indexed types.
+- Simple record constructors validated through exact current-file `RecordFallback`, including argumentless calls and lexical collisions with indexed types. Field names may be keyword tokens (`record Span, start : Int32, end : Int32`): the shared `CrystalPsiUtils.recordFieldInfo` reads the name before the colon as an `IDENTIFIER` or any `keyword_identifier` token, so the `end` field counts towards arity and type checks instead of being dropped.
 - Suppression for unknown, ambiguous, union, nilable, conflicting, class-variable, macro-controlled record, record-instance, and macro-interpolated targets.
 - Unknown methods and calls without an exact receiver-specific declaration.
 - Single ownership of every call site, with no duplicate diagnostics from nested DOT-call, call-expression, argument-list, or method-name PSI.
