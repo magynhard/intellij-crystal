@@ -303,6 +303,105 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return knownType("Array(${identity.qualifiedName})")
     }
 
+    /**
+     * Index reads on a value receiver: `lines[index]`, `lines[index]?`, and
+     * chains (`matrix[row][col]`). The element type comes from the receiver's
+     * collection type — `Array(T)`/`Slice(T)`/`StaticArray(T, N)` yield `T`,
+     * `Hash(K, V)` yields `V`, `String` yields `Char` for a single index, and
+     * `Tuple(...)` yields the literal-indexed element (or the union of every
+     * element for a dynamic index). A range or multi-argument index yields the
+     * container again (`arr[1..2]` is an `Array`), and `[]?` adds `Nil` to the
+     * element. Returns null when [children] is not an index read or the
+     * receiver is not a supported collection, so the caller's fallback stays in
+     * charge.
+     */
+    private fun indexedReadResolution(children: List<PsiElement>): CrystalTypeResolution? {
+        val firstBracket = children.indexOfFirst { it.node.elementType == CrystalTypes.LBRACKET }
+        if (firstBracket <= 0) return null
+        val receiver = resolveIndexedReceiver(children.take(firstBracket)) ?: return null
+        var current: CrystalTypeResolution = receiver
+        var index = firstBracket
+        var sawBracket = false
+        while (index < children.size) {
+            when (children[index].node.elementType) {
+                CrystalTypes.LBRACKET -> {
+                    if (index + 2 >= children.size) return null
+                    val arguments = children[index + 1] as? CrystalArgumentList ?: return null
+                    if (children[index + 2].node.elementType != CrystalTypes.RBRACKET) return null
+                    current = indexedElementResolution(current, arguments) ?: return null
+                    sawBracket = true
+                    index += 3
+                }
+                CrystalTypes.QUESTION -> {
+                    if (!sawBracket) return null
+                    current = mergeKnown(listOf(current, knownType("Nil")))
+                    index += 1
+                }
+                else -> return null
+            }
+        }
+        return current.takeIf { sawBracket }
+    }
+
+    private fun resolveIndexedReceiver(elements: List<PsiElement>): CrystalTypeResolution? {
+        if (elements.isEmpty()) return null
+        if (elements.any { it is CrystalDotCallAccess }) {
+            return resolvePostfix(elements, elements.first())
+        }
+        return elements.singleOrNull()?.let(::resolve)
+    }
+
+    private fun indexedElementResolution(
+        container: CrystalTypeResolution,
+        arguments: CrystalArgumentList,
+    ): CrystalTypeResolution? {
+        val known = container as? CrystalTypeResolution.Known ?: return null
+        val argumentList = arguments.argumentList
+        val indexExpression = argumentList.singleOrNull()?.expression
+        val isRange = indexExpression != null && (
+            indexExpression.node.findChildByType(CrystalTypes.DOTDOT) != null ||
+                indexExpression.node.findChildByType(CrystalTypes.DOTDOTDOT) != null
+            )
+        // Range and multi-argument indexing return a collection again
+        // (`arr[1..2]`, `str[1, 2]`, `t[1..2]`), so the container type stands.
+        // This also keeps chains honest: `matrix[i][1..2]` stays the row type.
+        if (argumentList.size != 1 || isRange) return known
+        val literalIndex = indexExpression?.text?.trim()?.toIntOrNull()
+        val elements = known.types.mapNotNull { resolved ->
+            indexedElementType(resolved.name, literalIndex)
+        }
+        if (elements.isEmpty()) return null
+        return mergeKnown(elements)
+    }
+
+    private fun indexedElementType(typeName: String, literalIndex: Int?): CrystalTypeResolution? {
+        val (base, arguments) = CrystalTypeText.genericBaseAndArguments(typeName) ?: return null
+        return when (base) {
+            "Array", "Slice", "StaticArray" -> arguments.firstOrNull()?.let(::parseTypeSet)
+            "Hash" -> arguments.getOrNull(1)?.let(::parseTypeSet)
+            "String" -> knownType("Char")
+            "Tuple" -> {
+                if (arguments.isEmpty()) return null
+                if (literalIndex == null) {
+                    mergeKnown(arguments.map(::parseTypeSet))
+                } else {
+                    val resolvedIndex = if (literalIndex < 0) arguments.size + literalIndex else literalIndex
+                    arguments.getOrNull(resolvedIndex)?.let(::parseTypeSet)
+                }
+            }
+            else -> null
+        }
+    }
+
+    /** True for the tight `?` of the nil-safe index postfix (`lines[i]?`). */
+    private fun isNilSafeIndexQuestion(children: List<PsiElement>, question: PsiElement): Boolean {
+        val index = children.indexOfFirst { it === question }
+        if (index <= 0) return false
+        val previous = children[index - 1]
+        return previous.node.elementType == CrystalTypes.RBRACKET &&
+            previous.textRange.endOffset == question.textRange.startOffset
+    }
+
     private fun resolveExpression(expression: CrystalExpression): CrystalTypeResolution {
         return resolveExpressionChildren(significantChildren(expression), expression)
     }
@@ -311,7 +410,13 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         children: List<PsiElement>,
         expression: CrystalExpression
     ): CrystalTypeResolution {
-        val question = children.indexOfFirst { it.node.elementType == CrystalTypes.QUESTION }
+        // A tight `?` directly after `]` is the nil-safe index postfix
+        // (`lines[i]?`), not a ternary question; it belongs to the index-read
+        // resolution below. A spaced `?` (or one without a preceding bracket)
+        // keeps the ternary reading.
+        val question = children.indexOfFirst { child ->
+            child.node.elementType == CrystalTypes.QUESTION && !isNilSafeIndexQuestion(children, child)
+        }
         if (question >= 0) {
             val colon = children.indexOfFirst { it.node.elementType == CrystalTypes.COLON }
             if (colon <= question) return CrystalTypeResolution.Unknown
@@ -337,6 +442,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val operand = segments.single()
             if (operand.any { it is CrystalDotCallAccess }) return resolvePostfix(operand, expression)
             bracketCallResolution(operand)?.let { return it }
+            indexedReadResolution(operand)?.let { return it }
             return operand.firstOrNull()?.let(::resolve) ?: knownType("Nil")
         }
         return resolveFlattenedBinary(segments)
@@ -527,6 +633,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             var context: PsiElement = elements.first()
             return resolvePostfix(elements, context)
         }
+        bracketCallResolution(elements)?.let { return it }
+        indexedReadResolution(elements)?.let { return it }
         return elements.firstOrNull()?.let(::resolve) ?: CrystalTypeResolution.Unknown
     }
 

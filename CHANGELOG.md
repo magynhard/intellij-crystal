@@ -13,6 +13,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Index reads resolve to the element type instead of the container** —
+  `line = lines[index]` (`lines : Array(String)`) is now `String`, not
+  `Array(String)`, so passing it to a `String` parameter no longer reports a
+  false "Type mismatch" (crystalline's `broken_source_fixer.cr`). The resolver
+  maps `Array(T)`, `Slice(T)`, and `StaticArray(T, N)` to `T`, `Hash(K, V)` to
+  `V`, `String` to `Char`, and `Tuple(...)` to the literal-indexed element (or
+  the union of all elements for a dynamic index); range/multi-argument indexing
+  keeps the container, and the nil-safe `[]?` adds `Nil`. Chained indexes
+  (`matrix[row][col]`) resolve step by step. Covered by resolver regressions and
+  a type-check inspection regression.
 - **False "Missing required argument(s)" from a tight binary operator in a call
   argument** — reply's `move_abs_cursor(x: indent*2, y: @y + 1)`
   (`expression_editor.cr`) no longer reports the present `y` as missing: the

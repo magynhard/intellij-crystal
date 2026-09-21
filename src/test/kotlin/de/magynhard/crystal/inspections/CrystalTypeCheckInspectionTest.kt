@@ -965,6 +965,30 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testArrayElementIndexIsNotMismatchedAgainstElementParameter() {
+        // crystalline's broken_source_fixer.cr: `line = lines[line_index]`
+        // extracts a String element, so passing it to a String parameter must
+        // not report a mismatch against the Array(String) receiver type.
+        myFixture.configureByText("test.cr", """
+            def self.line_keyword(line : String) : String?
+            end
+
+            def self.line_indent(line : String) : Int32?
+            end
+
+            def self.balance!(lines : Array(String))
+              line_index = 0
+              while line_index < lines.size
+                line = lines[line_index]
+                line_keyword(line)
+                line_indent(line)
+                line_index += 1
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     private fun findCompilerFile(name: String): java.io.File? =
         listOf("/usr/lib/crystal", "/usr/local/lib/crystal", "/opt/crystal/lib/crystal")
             .map { java.io.File(it, name) }

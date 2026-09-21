@@ -918,6 +918,94 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         assertTypes("require \"./loaded\"\nresult = value\n<caret>result", "String")
     }
 
+    fun testArrayIndexResolvesElementType() {
+        assertTypes(
+            "def fetch(lines : Array(String))\n  line = lines[0]\n  <caret>line\nend",
+            "String",
+        )
+    }
+
+    fun testArrayIndexWithVariableResolvesElementType() {
+        assertTypes(
+            "def fetch(lines : Array(String), index : Int32)\n  line = lines[index]\n  <caret>line\nend",
+            "String",
+        )
+    }
+
+    fun testArrayIndexPreservesElementUnion() {
+        assertTypes(
+            "def fetch(values : Array(Int32 | String))\n  value = values[0]\n  <caret>value\nend",
+            "Int32",
+            "String",
+        )
+    }
+
+    fun testNilSafeArrayIndexAddsNil() {
+        assertTypes(
+            "def fetch(lines : Array(String))\n  line = lines[0]?\n  <caret>line\nend",
+            "String",
+            "Nil",
+        )
+    }
+
+    fun testNestedArrayIndexChainResolvesElementType() {
+        assertTypes(
+            "def fetch(matrix : Array(Array(String)))\n  value = matrix[0][1]\n  <caret>value\nend",
+            "String",
+        )
+    }
+
+    fun testHashIndexResolvesValueType() {
+        assertTypes(
+            "def fetch(by_name : Hash(String, Int32))\n  value = by_name[\"a\"]\n  <caret>value\nend",
+            "Int32",
+        )
+    }
+
+    fun testArrayRangeIndexKeepsContainerType() {
+        assertTypes(
+            "def fetch(lines : Array(String))\n  part = lines[1..2]\n  <caret>part\nend",
+            "Array(String)",
+        )
+    }
+
+    fun testTupleLiteralIndexResolvesElementType() {
+        assertTypes(
+            "def fetch\n  pair = {1, \"two\"}\n  first = pair[0]\n  <caret>first\nend",
+            "Int32",
+        )
+    }
+
+    fun testTupleDynamicIndexResolvesElementUnion() {
+        assertTypes(
+            "def fetch(index : Int32)\n  pair = {1, \"two\"}\n  value = pair[index]\n  <caret>value\nend",
+            "Int32",
+            "String",
+        )
+    }
+
+    fun testStringIndexResolvesChar() {
+        assertTypes(
+            "def fetch(text : String)\n  char = text[0]\n  <caret>char\nend",
+            "Char",
+        )
+    }
+
+    fun testStringRangeIndexKeepsString() {
+        assertTypes(
+            "def fetch(text : String)\n  part = text[1..2]\n  <caret>part\nend",
+            "String",
+        )
+    }
+
+    fun testNilSafeStringIndexAddsNil() {
+        assertTypes(
+            "def fetch(text : String)\n  char = text[0]?\n  <caret>char\nend",
+            "Char",
+            "Nil",
+        )
+    }
+
     private fun assertTypes(source: String, vararg expected: String) {
         val result = resolve(source)
         assertTrue("Expected known types ${expected.toList()}, got $result", result is CrystalTypeResolution.Known)

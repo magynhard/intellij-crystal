@@ -28,6 +28,24 @@ internal object CrystalTypeText {
     }
 
     /**
+     * Splits a rendered type name into its base and generic arguments:
+     * "Array(Int32)" -> "Array" to ["Int32"], "Hash(String, Array(Int32))" ->
+     * "Hash" to ["String", "Array(Int32)"], and a bare "String" -> "String" to [].
+     * The leading `::` of an absolute path is dropped so base comparisons match.
+     * Null when the parentheses are unbalanced or the base is empty.
+     */
+    fun genericBaseAndArguments(typeName: String): Pair<String, List<String>>? {
+        val compact = typeName.trim().removePrefix("::").trim()
+        if (compact.isEmpty()) return null
+        val open = compact.indexOf('(')
+        if (open < 0) return compact to emptyList()
+        if (!compact.endsWith(")")) return null
+        val base = compact.substring(0, open).trim()
+        if (base.isEmpty()) return null
+        return base to splitTopLevelCommas(compact.substring(open + 1, compact.length - 1))
+    }
+
+    /**
      * "Tuple(Int32, String)" -> ["Int32", "String"]; null when [typeName] is not
      * a tuple type name produced by this inference.
      */

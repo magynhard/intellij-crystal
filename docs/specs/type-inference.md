@@ -66,6 +66,14 @@ Scalar literals resolve to Crystal's default runtime types. Arrays, hashes, and 
 their structured rendered types, including ordered element/key/value unions. Unknown collection
 members make the collection unknown.
 
+Index reads resolve through the receiver's collection type: `Array(T)`, `Slice(T)`, and
+`StaticArray(T, N)` yield `T`, `Hash(K, V)` yields `V`, `String` yields `Char`, and `Tuple(...)`
+yields the literal-indexed element (or the union of every element for a dynamic index). A range or
+multi-argument index yields the container again (`arr[1..2]` is an `Array`, `str[1, 2]` a `String`),
+and the nil-safe `[]?` postfix adds `Nil` to the element (`arr[i]?` is `T | Nil`). Chained indexes
+(`matrix[row][col]`) resolve one step at a time. Unknown receivers and unsupported collections stay
+`Unknown`; the resolver never falls back to the receiver type for an element read.
+
 Conditional expression values merge only falling-through paths. `if`, `unless`, and `case` share
 the same structured execution result, so a terminating arm contributes its return but not an
 assignment value. Missing `else` paths contribute `Nil`. Every `elsif`, `when`, `in`, and rescue
