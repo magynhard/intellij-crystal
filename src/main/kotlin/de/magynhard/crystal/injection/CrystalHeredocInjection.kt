@@ -54,6 +54,9 @@ object CrystalHeredocInjection {
         "HAML" to listOf("Haml", "HAML"),
     )
 
+    /** Marker alias keys accepted by [resolveLanguage], for `# language=` completion. */
+    fun completionAliasKeys(): List<String> = ALIASES.keys.toList()
+
     /**
      * Synthetic prefix inserted before a fragment place that follows an
      * interpolation gap, keyed by language ID, so the injected document stays

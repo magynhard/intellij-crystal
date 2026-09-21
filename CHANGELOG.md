@@ -4,6 +4,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ## [0.2.9] — 2026-xx-xx
 
+### Added
+- **`# language=` comment completion** — typing `# language=` (or a partial value
+  such as `# language=SQ`) now completes to installed language IDs and the
+  heredoc marker aliases (`JS`, `CR`, `BASH`, …), matching what
+  `resolveLanguage` accepts for injection. The dedicated provider declines once
+  the caret leaves the bare language value (e.g. inside `prefix=`/`suffix=`),
+  so attribute values are not polluted with language IDs. Covered by
+  `CrystalLanguageCommentCompletionTest`.
+
 ### Changed
 - **Release gate** — `rake release` now runs the pinned Crystal 1.21.0 stdlib
   parse audits (`indexed` + `distribution`) and the full test suite before it

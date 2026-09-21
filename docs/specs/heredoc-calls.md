@@ -200,8 +200,11 @@ sql = "SELECT * FROM users"
   the generic comment contributor stays silent — comment-driven injection is
   fully owned by `CrystalHeredocInjector`.
 - **Not covered:** percent literals (`%q(…)`), `:"symbol"` strings, `require
-  "…"` paths (deliberately excluded), injection intentions/settings UI, and
-  `# language=` comment completion.
+  "…"` paths (deliberately excluded), and a Language-Injections-style settings
+  page (the platform "Inject language or reference" intention applies to
+  Crystal hosts; `# language=` comment completion offers installed language
+  IDs and heredoc marker aliases while the caret is in the bare `language=`
+  value).
 
 ## Chained bodies (multi-heredoc)
 

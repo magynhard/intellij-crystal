@@ -57,6 +57,15 @@ class CrystalCompletionContributor : CompletionContributor() {
                 return
             }
 
+            val languageValuePrefix =
+                CrystalLanguageCommentCompletionProvider.getLanguageValuePrefix(position, parameters.offset)
+            if (languageValuePrefix != null) {
+                CrystalLanguageCommentCompletionProvider.addCompletions(
+                    languageValuePrefix, result
+                )
+                return
+            }
+
             if (isInsideStringLiteral(position)) return
 
             if (isDotCompletion(position)) {

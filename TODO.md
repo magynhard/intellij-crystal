@@ -17,9 +17,17 @@
   wholesale `updateText` replacement only (pinned by `CrystalInjectionHostTest.testInterpolated*WriteBackIsNoOp`).
   A correct fix needs a platform-level per-place edit channel or a redesign of place prefixes —
   deferred until one of those is designed.
-- [ ] **Injection intentions and settings UI** — "Inject language or reference" intention,
-  `# language=` comment completion, and a Language-Injections-style settings page are not
-  implemented; only heredoc-marker and `# language=` comment injection exist.
+- [ ] **Injection intentions and settings UI** — the platform "Inject language or reference"
+  intention is already available on Crystal hosts (string/heredoc `PsiLanguageInjectionHost`),
+  and `# language=` comment completion is implemented (installed language IDs + heredoc marker
+  aliases while the caret is in the bare `language=` value). **Problematik (verified 2026-09-22):**
+  a Language-Injections-style settings page is not implemented — IntelliLang's settings model
+  (`LanguageInjectionConfigurable`) registers generic comment/regex injections only; Crystal
+  owns comment-driven injection in `CrystalHeredocInjector` with `useDefaultCommentInjector=false`,
+  so its `# language=` comment configuration has no entry in the platform settings tree and a
+  custom settings page would need its own persistence format with no platform integration point
+  beyond reimplementing the injector. Deferred until a concrete Crystal-specific injection
+  configuration (beyond in-file comments) is designed.
 - [ ] **`# language=` comments for percent literals and `:"symbol"` strings** — percent literals
   (`%q(…)` etc.) and `symbol_string_expression` are not injection hosts; only `heredoc_literal`
   and `string_expression` hosts exist.
