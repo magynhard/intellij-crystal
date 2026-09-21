@@ -1006,6 +1006,51 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testNilableAnnotationResolvesToUnion() {
+        assertTypes(
+            "def fetch(value : String?)\n  <caret>value\nend",
+            "String",
+            "Nil",
+        )
+    }
+
+    fun testNilableGenericAnnotationResolvesToUnion() {
+        assertTypes(
+            "def fetch(parts : Array(String)?)\n  <caret>parts\nend",
+            "Array(String)",
+            "Nil",
+        )
+    }
+
+    fun testNilableArrayIndexResolvesElementType() {
+        assertTypes(
+            "def fetch(parts : Array(String)?)\n  line = parts[0]\n  <caret>line\nend",
+            "String",
+        )
+    }
+
+    fun testNilableHashIndexResolvesValueType() {
+        assertTypes(
+            "def fetch(by_name : Hash(String, Int32)?)\n  value = by_name[\"a\"]\n  <caret>value\nend",
+            "Int32",
+        )
+    }
+
+    fun testNilableStringIndexResolvesChar() {
+        assertTypes(
+            "def fetch(text : String?)\n  char = text[0]\n  <caret>char\nend",
+            "Char",
+        )
+    }
+
+    fun testNilableArrayNilSafeIndexAddsNil() {
+        assertTypes(
+            "def fetch(parts : Array(String)?)\n  element = parts[0]?\n  <caret>element\nend",
+            "String",
+            "Nil",
+        )
+    }
+
     private fun assertTypes(source: String, vararg expected: String) {
         val result = resolve(source)
         assertTrue("Expected known types ${expected.toList()}, got $result", result is CrystalTypeResolution.Known)

@@ -13,6 +13,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Nilable annotations resolve as unions (`T?` → `T | Nil`)** — a value from a
+  method returning `Array(String)?` (`parts = TypeUtils.generic_type_arguments(...)`
+  in crystalline's `lightweight/query.cr`) no longer reports `parts[0]`/`parts[1]`
+  as a type mismatch against a `String` parameter. The resolver now expands the
+  nilable shorthand while parsing annotations, parameters, and return types, so a
+  nilable generic decomposes for index element extraction (`Array(String)?[i]` is
+  `String`, `Hash(K, V)?[k]` is `V`) and for union compatibility instead of
+  staying an opaque `Array(String)?` pseudo-type. `arr[i]?` keeps `T | Nil`.
+  Covered by resolver regressions and a type-check inspection regression.
 - **Index reads resolve to the element type instead of the container** —
   `line = lines[index]` (`lines : Array(String)`) is now `String`, not
   `Array(String)`, so passing it to a `String` parameter no longer reports a

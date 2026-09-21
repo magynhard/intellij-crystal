@@ -74,6 +74,12 @@ and the nil-safe `[]?` postfix adds `Nil` to the element (`arr[i]?` is `T | Nil`
 (`matrix[row][col]`) resolve one step at a time. Unknown receivers and unsupported collections stay
 `Unknown`; the resolver never falls back to the receiver type for an element read.
 
+Crystal's nilable shorthand `T?` is expanded to `T | Nil` while annotations, parameters, and return
+types are parsed, so a nilable generic (`Array(String)?`) participates in element extraction and
+union compatibility instead of staying an opaque pseudo-type name. Because condition-based narrowing
+is not modeled, a nilable collection indexed without `?` still yields the non-nil element (the `Nil`
+union member is dropped by the element mapping), and `arr[i]?` keeps `T | Nil`.
+
 Conditional expression values merge only falling-through paths. `if`, `unless`, and `case` share
 the same structured execution result, so a terminating arm contributes its return but not an
 assignment value. Missing `else` paths contribute `Nil`. Every `elsif`, `when`, `in`, and rescue

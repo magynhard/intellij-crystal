@@ -989,6 +989,27 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testNilableGenericReturnIndexIsNotMismatchedAgainstElementParameter() {
+        // crystalline's lightweight/query.cr: `parts` comes from a method whose
+        // return annotation is `Array(String)?`; `parts[0]`/`parts[1]` must
+        // resolve to the String element, not the nilable Array receiver.
+        myFixture.configureByText("test.cr", """
+            def self.resolve_type_name_deep(type_name : String) : String?
+            end
+
+            def self.parts_of(name : String) : Array(String)?
+            end
+
+            def self.resolve_deep(name : String)
+              if (parts = parts_of(name)) && parts.size == 2
+                resolve_type_name_deep(parts[0])
+                resolve_type_name_deep(parts[1])
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     private fun findCompilerFile(name: String): java.io.File? =
         listOf("/usr/lib/crystal", "/usr/local/lib/crystal", "/opt/crystal/lib/crystal")
             .map { java.io.File(it, name) }

@@ -64,10 +64,38 @@ internal fun parseTypeSet(typeText: String): CrystalTypeResolution {
     }
     parts.add(text.substring(start))
     val results = parts.map { part ->
-        val unwrapped = unwrapTypeGrouping(part.trim())
+        val unwrapped = normalizeNilable(unwrapTypeGrouping(part.trim()))
         if (unwrapped.containsTopLevelUnion()) parseTypeSet(unwrapped) else knownType(unwrapped)
     }
     return mergeKnown(results)
+}
+
+/**
+ * Crystal's nilable shorthand `T?` is sugar for `T | Nil`. The resolver models
+ * unions explicitly (and documents that condition-based narrowing is not
+ * modeled), so a nilable annotation must be expanded here: otherwise
+ * `Array(String)?` stays a single pseudo-type name that neither element
+ * extraction nor compatibility can decompose. A proc type (`Int32 -> String?`)
+ * keeps the `?` on its return type and is left untouched.
+ */
+private fun normalizeNilable(typeText: String): String {
+    val trimmed = typeText.trim()
+    if (!trimmed.endsWith("?")) return trimmed
+    if (trimmed.containsTopLevelArrow()) return trimmed
+    val base = trimmed.dropLast(1).trim()
+    return if (base.isEmpty()) trimmed else "$base | Nil"
+}
+
+private fun String.containsTopLevelArrow(): Boolean {
+    var depth = 0
+    for (index in indices) {
+        when (this[index]) {
+            '(', '[', '{' -> depth++
+            ')', ']', '}' -> if (depth > 0) depth--
+            '-' -> if (depth == 0 && getOrNull(index + 1) == '>') return true
+        }
+    }
+    return false
 }
 
 internal fun CrystalTypeResolution.render(): String? =
