@@ -173,15 +173,21 @@ object CrystalParserPredicates {
         -> true
         CrystalTypes.STAR, CrystalTypes.DOUBLE_STAR,
         CrystalTypes.MINUS -> {
-            // Tight splats are call arguments (`start_attribute *args,
-            // **nargs` in xml/builder.cr — the compiler only rejects `*`/`**`
-            // followed by whitespace in parse_call_args_space_consumed); spaced
-            // forms stay binary operators, and tight `a*b` still binds through
-            // the index-postfix tightness guard, never the bare-argument path.
-            // Tight minus behaves the same (`-span.to_i` negates the first
-            // bare argument, ` - ` is binary).
+            // Crystal only starts a bare argument list when the token after the
+            // callee was preceded by whitespace (parse_call_args `when .space?`),
+            // and `*`/`**` additionally require no whitespace after the operator
+            // (parse_call_args_space_consumed). A tight operator (`indent*2`,
+            // `a-b`) therefore always continues a binary expression, never a
+            // splat/unary bare argument — without this check `x: indent*2, y: ...`
+            // bound `*2, y: ...` as bare arguments of `indent` and stranded the
+            // enclosing call's `y`. Spaced forms stay bare arguments
+            // (`start_attribute *args`, `shift -span.to_i`) and spaced binary
+            // operators stay binary (` - `, ` * `).
+            val offset = builder.currentOffset
+            val previous = if (offset > 0) builder.originalText.getOrNull(offset - 1) else null
+            if (previous != null && !Character.isWhitespace(previous)) return true
             val tokenLength = builder.tokenText?.length ?: 1
-            val next = builder.originalText.getOrNull(builder.currentOffset + tokenLength)
+            val next = builder.originalText.getOrNull(offset + tokenLength)
             next == ' ' || next == '\t' || next == '\n' || next == '\r'
         }
         else -> false

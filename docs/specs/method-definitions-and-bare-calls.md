@@ -170,6 +170,17 @@ alternative is therefore blocked by `nested_call_lookahead`, which extends
 bare calls keep using plain `binary_op_lookahead`, so leading-range arguments remain
 valid (`consume ..last` still parses as a call with one range argument).
 
+**Tight binary-operator protection:** A bare argument list only starts when the token
+after the callee is preceded by whitespace — the compiler's `parse_call_args`
+(`when .space?`, parser.cr:4833) — and `*`/`**` additionally require no whitespace
+after the operator (`parse_call_args_space_consumed`, parser.cr:4885). The
+`isDotBareArgsBinaryOp` predicate enforces both halves for `*`, `**`, and `-`: a
+tight operator after an operand (`indent*2`, `a-b`, `base**exponent`) is always
+binary, while a spaced splat/unary stays a bare argument (`start_attribute *args`,
+`shift -span.to_i`). Before the fix, `move_abs_cursor(x: indent*2, y: @y + 1)` bound
+`*2, y: ...` as bare arguments of `indent`, so the enclosing call reported the
+present `y` as a missing required argument (reply's `expression_editor.cr`).
+
 **Brace-block binding:** `{ ... }` binds to the nearest call while `do ... end` binds
 to the outermost command. A dot-call inside bare arguments therefore accepts an
 optional brace block (`assert_prints JSON.build { |json| ... }, expected` keeps the

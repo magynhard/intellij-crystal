@@ -13,6 +13,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **False "Missing required argument(s)" from a tight binary operator in a call
+  argument** — reply's `move_abs_cursor(x: indent*2, y: @y + 1)`
+  (`expression_editor.cr`) no longer reports the present `y` as missing: the
+  bare-argument guard now mirrors Crystal's whitespace rule (bare arguments
+  require whitespace before the first token, and `*`/`**` require none after the
+  operator), so a tight operator after an operand (`indent*2`, `a-b`,
+  `base**exponent`) stays binary instead of binding `*2, y: …` as bare arguments
+  of `indent`. Spaced splats (`value *2`, `start_attribute *args`) and spaced
+  binary operators are unchanged. Covered by the TightBinaryOperators parser
+  golden and an argument-count inspection regression.
 - **False "Too many arguments" on macro-spliced operator arguments** —
   `to_f32 {{ op.id }} other` (`crystal/compiler_rt.cr`) expands to
   `to_f32 + other`, so the splice is not an argument of the zero-argument

@@ -2750,4 +2750,30 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             },
         )
     }
+
+    fun testTightMultiplicationInNamedArgumentKeepsAllArguments() {
+        // reply's expression_editor.cr: `move_abs_cursor(x: indent*2, y: @y + 1)`.
+        // The tight `*` must stay binary; otherwise `indent` greedily binds
+        // `*2, y: ...` as its own bare arguments and the enclosing call reports
+        // the present `y` as missing.
+        myFixture.configureByText("test.cr", """
+            class Editor
+              private def move_abs_cursor(@x, @y)
+              end
+
+              def insert_new_line(indent)
+                move_abs_cursor(x: indent*2, y: @y + 1)
+              end
+            end
+        """.trimIndent())
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "A tight binary `*` in a named argument must not strand later arguments, got: " +
+                highlights.mapNotNull { it.description },
+            highlights.none {
+                it.description?.contains("Missing required argument") == true ||
+                    it.description?.contains("Too many arguments") == true
+            },
+        )
+    }
 }

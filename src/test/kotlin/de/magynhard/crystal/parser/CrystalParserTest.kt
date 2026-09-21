@@ -355,6 +355,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testTightBinaryOperators() {
+        doTest(true)
+    }
+
     fun testMacroMultiAssignTarget() {
         doTest(true)
     }
