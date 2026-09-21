@@ -6,8 +6,17 @@
   bodies (raw heredocs, interpolation-free heredocs/strings) write fragment-editor edits back
   exactly (`updateText` re-encodes for strings); multi-place (interpolated) bodies ignore edits
   rather than corrupting interpolations, because the flat fragment text cannot be reconstructed
-  into per-place ranges. A correct implementation needs place-boundary tracking in the injected
-  document (e.g. placeholder sentinel scanning or a DocumentWindow-aware write path).
+  into per-place ranges. **Problematik (verified 2026-09-22):** the suggested placeholder-sentinel
+  scan is ambiguous — registered prefixes are content-legal language tokens (`NULL`, `null`, `0`,
+  `<!-- -->` from `CrystalHeredocInjection.PLACEHOLDERS`), so they can legitimately occur inside
+  place content and cannot uniquely mark boundaries; introducing unique sentinels would either
+  pollute the injected document the user edits or break its syntactic validity. A
+  DocumentWindow-aware write path is not reachable from `PsiLanguageInjectionHost.updateText`
+  (which only receives the already-flattened `String`); incremental fragment edits go through the
+  platform `DocumentWindow` place mapping and never hit `updateText`, so the remaining gap is
+  wholesale `updateText` replacement only (pinned by `CrystalInjectionHostTest.testInterpolated*WriteBackIsNoOp`).
+  A correct fix needs a platform-level per-place edit channel or a redesign of place prefixes —
+  deferred until one of those is designed.
 - [ ] **Injection intentions and settings UI** — "Inject language or reference" intention,
   `# language=` comment completion, and a Language-Injections-style settings page are not
   implemented; only heredoc-marker and `# language=` comment injection exist.
