@@ -43,6 +43,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testStringExternalParameters() {
+        doTest(true)
+    }
+
     fun testMultiValueAbruptStatements() {
         doTest(true)
     }

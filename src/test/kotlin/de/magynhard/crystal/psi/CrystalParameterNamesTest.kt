@@ -70,6 +70,18 @@ class CrystalParameterNamesTest : BasePlatformTestCase() {
         assertTrue(file.text.contains("storage_class : Int"))
     }
 
+    fun testSeparatesStringExternalNames() {
+        val file = myFixture.configureByText("test.cr", """
+            def names("http-header" internal, "label" @stored, "a\"b" escaped)
+            end
+        """.trimIndent())
+        val parameters = PsiTreeUtil.findChildrenOfType(file, CrystalParameter::class.java).toList()
+
+        assertNames(parameters[0], "http-header", "internal", null, "http-header", "http-header internal")
+        assertNames(parameters[1], "label", "stored", "@stored", "label", "label @stored")
+        assertNames(parameters[2], "a\"b", "escaped", null, "a\"b", "a\"b escaped")
+    }
+
     private fun assertNames(
         parameter: CrystalParameter,
         callSiteName: String,

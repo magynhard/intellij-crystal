@@ -698,7 +698,7 @@ private param_prefix ::= annotation_usage
 // self.map(values, of = nil, &)`, `def parse_c_struct_or_union(union : Bool)`,
 // `def self.common_descendent_union(type, union)`) and joins the
 // starred/splat name group (`*union`, `&of`).
-parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+parameter ::= param_prefix* (IDENTIFIER | keyword_identifier | string_parameter_name) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
             // Macro loops generate proc parameters such as
             // `arg{{i}} : {{T[i + U.size]}}` in proc.cr. Require a literal
             // identifier prefix so bare `{{ x }}` remains an invalid parameter.
@@ -728,6 +728,15 @@ parameter ::= param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | inst
 }
 private macro_spliced_parameter_name ::= IDENTIFIER macro_interpolation (IDENTIFIER | CONSTANT | macro_interpolation)*
 private bare_splat_separator ::= STAR &(COMMA | RPAREN | NEWLINE)
+
+// String-literal external parameter names (`def fetch("http-header" internal)`,
+// compiler parse_parameter string branch). Only a non-interpolating literal
+// qualifies: macro_interpolation is absent from the rule, so `"#{x}"` stays a
+// syntax error ("interpolation not allowed in external name"), and the leading
+// predicate rejects the empty name ("external parameter name cannot be empty").
+// Aliased to STRING_EXPRESSION so the decoded call-site label reaches
+// parameterNameInfo without a dedicated PSI interface.
+string_parameter_name ::= &<<isNonEmptyStringParameterName>> (STRING_LITERAL | STRING_ESCAPE)+ {elementType=string_expression}
 
 // ==================== Property Declarations ====================
 

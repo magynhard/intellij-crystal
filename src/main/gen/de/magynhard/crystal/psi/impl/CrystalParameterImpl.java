@@ -63,6 +63,12 @@ public class CrystalParameterImpl extends CrystalParameterMixin implements Cryst
   }
 
   @Override
+  @Nullable
+  public CrystalStringExpression getStringExpression() {
+    return PsiTreeUtil.getChildOfType(this, CrystalStringExpression.class);
+  }
+
+  @Override
   @NotNull
   public List<CrystalTypeArguments> getTypeArgumentsList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalTypeArguments.class);

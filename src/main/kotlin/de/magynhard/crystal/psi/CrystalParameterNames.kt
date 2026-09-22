@@ -1,5 +1,6 @@
 package de.magynhard.crystal.psi
 
+import de.magynhard.crystal.analysis.CrystalStringLiteralDecoder
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 
 /** The distinct source-level names carried by a Crystal method parameter. */
@@ -53,12 +54,14 @@ fun CrystalParameter.parameterNameInfo(): CrystalParameterNameInfo {
         }
     }
     val explicitExternalName = if (internalIndex > 0) {
-        children.take(internalIndex)
-            .firstOrNull {
-                it.elementType == CrystalTypes.IDENTIFIER ||
-                    it.elementType in CrystalTokenTypes.KEYWORDS
+        children.take(internalIndex).firstNotNullOfOrNull { child ->
+            when {
+                child.elementType == CrystalTypes.IDENTIFIER ||
+                    child.elementType in CrystalTokenTypes.KEYWORDS -> child.text
+                child.elementType == CrystalTypes.STRING_EXPRESSION -> decodeStringParameterName(child.text)
+                else -> null
             }
-            ?.text
+        }
     } else {
         null
     }
@@ -67,6 +70,17 @@ fun CrystalParameter.parameterNameInfo(): CrystalParameterNameInfo {
         storageName = storageName,
         explicitExternalName = explicitExternalName,
     )
+}
+
+/**
+ * Decodes a string-literal external parameter name (`"http-header"`) into its
+ * runtime label without the surrounding quotes, mirroring the compiler's
+ * decoded call-site name. Non-string shapes are returned unchanged.
+ */
+private fun decodeStringParameterName(text: String): String? {
+    if (text.length < 2 || !text.startsWith("\"") || !text.endsWith("\"")) return text
+    val raw = text.substring(1, text.lastIndex)
+    return CrystalStringLiteralDecoder.decode(raw) ?: raw
 }
 
 /** FFI signatures permit every keyword as an explicitly typed parameter name. */

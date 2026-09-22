@@ -128,11 +128,6 @@
   Crystal rejects later positional, splat, and positional `out` arguments. The current generic
   `argument_list` also accepts this pre-existing invalid ordering for ordinary named arguments;
   model the positional-to-named transition without breaking macro trivia or heredoc markers.
-- [ ] **Parse string-literal external parameter names** — Crystal accepts non-interpolated
-  strings such as `def fetch("http-header" internal)`, but the parameter grammar currently
-  supports identifier external names only. Add a delimiter-safe non-interpolating string-name
-  rule, reject empty/interpolated names, and preserve the decoded call-site label separately
-  from the internal binding.
 - [ ] **Handle `Foo::bar` with lowercase identifiers as method calls** — `namespace_access` only matches
   `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
   call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);

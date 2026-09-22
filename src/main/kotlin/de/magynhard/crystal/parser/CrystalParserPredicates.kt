@@ -2,6 +2,7 @@ package de.magynhard.crystal.parser
 
 import com.intellij.lang.PsiBuilder
 import com.intellij.psi.TokenType
+import de.magynhard.crystal.analysis.CrystalStringLiteralDecoder
 import de.magynhard.crystal.psi.CrystalTypes
 
 object CrystalParserPredicates {
@@ -12,6 +13,54 @@ object CrystalParserPredicates {
         builder: PsiBuilder,
         @Suppress("UNUSED_PARAMETER") level: Int,
     ): Boolean = builder.tokenType === CrystalTypes.IDENTIFIER && builder.tokenText == "record"
+
+    /**
+     * Gates the string-literal external parameter name (`def fetch("http-header"
+     * internal)`). The current token must open a double-quoted string that is
+     * neither interpolated nor empty: the compiler rejects `"#{x}"` with
+     * "interpolation not allowed in external name" and `""` with "external
+     * parameter name cannot be empty". The rule excludes macro interpolation
+     * structurally; this predicate scans the raw literal for an unescaped `#{`
+     * and decodes the content so line-continuation-only literals also fail.
+     */
+    @JvmStatic
+    fun isNonEmptyStringParameterName(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        if (builder.tokenType !== CrystalTypes.STRING_LITERAL) return false
+        val source = builder.originalText
+        val start = builder.currentOffset
+        if (start >= source.length || source[start] != '"') return false
+        var index = start + 1
+        val raw = StringBuilder()
+        while (index < source.length) {
+            when (val character = source[index]) {
+                '"' -> {
+                    val decoded = CrystalStringLiteralDecoder.decode(raw.toString())
+                    return decoded?.isNotEmpty() ?: raw.isNotEmpty()
+                }
+                '\\' -> {
+                    raw.append(character)
+                    index++
+                    if (index < source.length) {
+                        raw.append(source[index])
+                        index++
+                    }
+                }
+                '#' -> {
+                    if (index + 1 < source.length && source[index + 1] == '{') return false
+                    raw.append(character)
+                    index++
+                }
+                else -> {
+                    raw.append(character)
+                    index++
+                }
+            }
+        }
+        return false
+    }
 
     /**
      * Distinguishes the queued heredoc BODY opener from a header marker. The lexer

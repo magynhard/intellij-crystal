@@ -12,6 +12,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   the caret leaves the bare language value (e.g. inside `prefix=`/`suffix=`),
   so attribute values are not polluted with language IDs. Covered by
   `CrystalLanguageCommentCompletionTest`.
+- **String-literal external parameter names** — `def fetch("http-header" internal)`
+  now parses and binds `internal` locally while the decoded `http-header` is the
+  call-site label, matching the compiler. Empty and interpolated string names are
+  rejected as syntax errors, and argument-count/type-check/completion consumers see
+  the decoded label through `parameterNameInfo`. Covered by a parser golden,
+  parameter-name unit tests, and invalid-name regressions.
 
 ### Changed
 - **Release gate** — `rake release` now runs the pinned Crystal 1.21.0 stdlib

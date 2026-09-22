@@ -1235,6 +1235,23 @@ parse cleanly, verified by before/after file-set comparison with zero newly
 failing files); the pinned indexed corpus drops from 173 errors in 126
 files to 171 errors in 125 files (its own `process.cr` copy).
 
+External parameter names may also be non-interpolating string literals:
+`def fetch("http-header" internal)` binds `internal` as the local binding and
+uses the decoded `http-header` as the call-site label (compiler
+`parse_parameter` string branch). The parameter rule's leading position now
+accepts a `string_parameter_name` alias of `STRING_EXPRESSION` built from
+`(STRING_LITERAL | STRING_ESCAPE)+`; macro interpolation is absent from the
+rule, so `"#{x}"` stays a syntax error ("interpolation not allowed in external
+name"), and the leading `isNonEmptyStringParameterName` predicate scans the raw
+literal for an unescaped `#{` and decodes the content so `""` and
+line-continuation-only names are rejected ("external parameter name cannot be
+empty"). `parameterNameInfo` decodes the string child into
+`explicitExternalName` while the internal identifier stays `localName`, so
+argument-count, completion, and type-check call-site names work unchanged. No
+stub format changes, so the stub version is untouched. Covered by the
+StringExternalParameters parser golden, parameter name unit tests, and invalid
+empty/interpolated/missing-binding regressions.
+
 Named symbols carry `?`, `!`, and `=` suffixes: the compiler's
 consume_symbol folds one trailing `=` into the symbol unless another `=`
 follows (`:color=` is `"color="`, `:foo==` is `:foo` + `==`). The plugin

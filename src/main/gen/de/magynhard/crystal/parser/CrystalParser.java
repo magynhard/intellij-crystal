@@ -9688,7 +9688,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+  // param_prefix* (IDENTIFIER | keyword_identifier | string_parameter_name) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
   //             // Macro loops generate proc parameters such as
   //             // `arg{{i}} : {{T[i + U.size]}}` in proc.cr. Require a literal
   //             // identifier prefix so bare `{{ x }}` remains an invalid parameter.
@@ -9732,7 +9732,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // param_prefix* (IDENTIFIER | keyword_identifier) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
+  // param_prefix* (IDENTIFIER | keyword_identifier | string_parameter_name) (IDENTIFIER | instance_var_access | class_var_access) [COLON type_reference] [ASSIGN expression]
   private static boolean parameter_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter_0")) return false;
     boolean result_;
@@ -9757,12 +9757,13 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // IDENTIFIER | keyword_identifier
+  // IDENTIFIER | keyword_identifier | string_parameter_name
   private static boolean parameter_0_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "parameter_0_1")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
+    if (!result_) result_ = string_parameter_name(builder_, level_ + 1);
     return result_;
   }
 
@@ -12271,6 +12272,52 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     result_ = consumeToken(builder_, STRING_LITERAL);
     if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // &<<isNonEmptyStringParameterName>> (STRING_LITERAL | STRING_ESCAPE)+
+  public static boolean string_parameter_name(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_parameter_name")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, STRING_EXPRESSION, "<string parameter name>");
+    result_ = string_parameter_name_0(builder_, level_ + 1);
+    result_ = result_ && string_parameter_name_1(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // &<<isNonEmptyStringParameterName>>
+  private static boolean string_parameter_name_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_parameter_name_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isNonEmptyStringParameterName(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // (STRING_LITERAL | STRING_ESCAPE)+
+  private static boolean string_parameter_name_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_parameter_name_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = string_parameter_name_1_0(builder_, level_ + 1);
+    while (result_) {
+      int pos_ = current_position_(builder_);
+      if (!string_parameter_name_1_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "string_parameter_name_1", pos_)) break;
+    }
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // STRING_LITERAL | STRING_ESCAPE
+  private static boolean string_parameter_name_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "string_parameter_name_1_0")) return false;
+    boolean result_;
+    result_ = consumeToken(builder_, STRING_LITERAL);
+    if (!result_) result_ = consumeToken(builder_, STRING_ESCAPE);
     return result_;
   }
 
