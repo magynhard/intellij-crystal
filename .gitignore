@@ -14,5 +14,6 @@ bin/
 .mimocode/
 /playground
 /docs/plans/
+/docs/todos/
 /.superpowers/sdd/
 /.worktrees/
