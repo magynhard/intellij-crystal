@@ -191,6 +191,12 @@ a `do` block would be invalid Crystal anyway. Bare-callee block attachment
 (`collect build_report { |r| r }, "done"`, where the inner call is a plain variable
 reference) is a known follow-up: it needs its own call node and is out of scope here.
 
+The same brace binding covers a type-shaped macro argument's default-value block:
+`getter root_context : RootContext { RootContext.new(self) }` and `property current_context :
+Context { root_context }` (Crystal's own `spec/context.cr`) parse the bare argument and attach
+the trailing `{ ... }` as the macro call's `BLOCK`, with no parse error and no stranded tokens.
+Pinned by the PropertyDefaultBlockArguments parser golden.
+
 **Wrapping-operator protection:** `&+` / `&-` after an operand on the same line read
 as binary (`size &+ s.size`, `new_len &- @length`, tight `x &-y`), never as a bare
 call with a unary wrapping argument — `size(&+...)` falsely measured the operand

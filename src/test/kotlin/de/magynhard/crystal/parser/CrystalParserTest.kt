@@ -27,6 +27,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testPropertyDefaultBlockArguments() {
+        doTest(true)
+    }
+
     fun testPointerTypeArguments() {
         doTest(true)
     }
