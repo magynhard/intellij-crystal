@@ -129,6 +129,14 @@ then expose independent later gaps in some of those same files. No previously
 clean file regressed, verified by a before/after file-set comparison. The
 external kemal inspection audit improves from 19 to 18 known findings.
 
+`Foo::bar` with a lowercase method name after `::` is not valid Crystal: the
+compiler's `parse_path` requires a `CONST` after every `::` (`expecting token
+'CONST', not 'bar'`, verified against Crystal 1.21.0 in expression, call, macro,
+and typed positions). The plugin therefore keeps rejecting it instead of
+parsing a receiver-postfixed `::method` call; only the leading global-scope
+prefix form `::method` is a call. A TODO that proposed accepting the lowercase
+receiver-postfixed shape was removed after this compiler check.
+
 Rejecting unsupported trailing `while`/`until` modifiers while preserving block
 loop expressions leaves both Crystal 1.21 corpora unchanged: 133 errors in 97
 indexed files and 2,625 errors in 714 distribution files. This confirms that no

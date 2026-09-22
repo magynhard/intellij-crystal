@@ -128,10 +128,6 @@
   Crystal rejects later positional, splat, and positional `out` arguments. The current generic
   `argument_list` also accepts this pre-existing invalid ordering for ordinary named arguments;
   model the positional-to-named transition without breaking macro trivia or heredoc markers.
-- [ ] **Handle `Foo::bar` with lowercase identifiers as method calls** — `namespace_access` only matches
-  `DOUBLE_COLON CONSTANT`, so `Foo::bar` (lowercase) parses as variable reference + orphaned global-scope
-  call. Standalone `::ident args` calls are fixed (see `[DOUBLE_COLON]` on `method_call_expression`);
-  the receiver-postfixed `::method` form needs a postfix operator or `dot_call_access` extension.
 - [ ] **Investigate flaky `CrystalIndexServiceTest` scope tests** — recurring full-suite
   failures (`testProcessesTypeNameCandidatesOutsideProvidedScope`) with StubIndex results
   missing just-added fixture types (`expected:<[ExcludedType]> but was:<[]>`), while the
