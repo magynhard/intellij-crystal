@@ -81,6 +81,17 @@ is intentionally more tolerant than the language: the plugin parses guards (plai
 assignment forms) so that macro-generated or future-compatible code does not produce false
 errors. Do not rely on guards appearing in valid Crystal 1.x sources.
 
+### Invalid bare-identifier `in` patterns
+
+`case ... in` accepts constants, generic types, bool/nil literals, and question methods.
+A top-level bare identifier is always rejected by the compiler (verified across int,
+union, enum, array, and tuple subjects, with and without `else`), so the
+`CrystalInvalidInPattern` inspection flags it as an error exactly where it stands —
+mirroring the compiler instead of letting the name silently participate in resolution.
+Nested identifiers (call arguments, receivers, dotted question methods such as `.red?`)
+are unaffected, as are `when` clauses. The unused-variable analysis treats the same
+positions as neither reads nor bindings (see `value-assignment-never-used.md`).
+
 Crystal 1.21 rejects trailing `while` and `until` modifiers on every statement form, including
 ordinary calls, abrupt statements, and indexed assignments. The parser rejects those forms while
 retaining assignment-valued conditions in block `while` and `until` statements.

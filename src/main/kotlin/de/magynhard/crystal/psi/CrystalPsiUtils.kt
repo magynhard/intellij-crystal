@@ -1,5 +1,6 @@
 package de.magynhard.crystal.psi
 
+import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
@@ -385,6 +386,26 @@ object CrystalPsiUtils {
         }
         // If there are multiple CONSTANTS (e.g. Foo::Bar), return the full qualified name
         return if (constants.size >= 2) constants.joinToString("::") else null
+    }
+
+    /**
+     * True when the element is exactly one bare identifier token and nothing
+     * else (no dots, brackets, quotes, or sibling tokens). Used for positions
+     * where the compiler never accepts a bare identifier, such as
+     * `case ... in` patterns.
+     */
+    fun isBareIdentifier(element: PsiElement): Boolean {
+        val leaves = mutableListOf<ASTNode>()
+        fun collect(node: ASTNode) {
+            val children = node.getChildren(null)
+            if (children.isEmpty()) {
+                if (!node.text.isBlank()) leaves.add(node)
+                return
+            }
+            for (child in children) collect(child)
+        }
+        collect(element.node)
+        return leaves.size == 1 && leaves.single().elementType == CrystalTypes.IDENTIFIER
     }
 
     private val RECORD_NAME = Regex("(?:::)?[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*")

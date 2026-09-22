@@ -1393,4 +1393,53 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== case...in patterns ====================
+
+    fun testInBareIdentifierPatternDoesNotReadOuterLocal() {
+        // `in y` binds nothing and reads nothing (the compiler rejects bare
+        // identifier patterns), so it must not mark the outer `y` as used.
+        myFixture.configureByText("test.cr", """
+            def foo(c)
+              <weak_warning descr="Variable 'y' is never used">y</weak_warning> = 1
+              case c
+              in String
+                puts 1
+              in y
+                puts 2
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInGuardReadCountsAsUse() {
+        myFixture.configureByText("test.cr", """
+            def foo(c)
+              x = 1
+              case c
+              in String if x == 1
+                puts 1
+              else
+                puts 2
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testInNestedCallReadsStillCount() {
+        myFixture.configureByText("test.cr", """
+            def foo(c)
+              limit = 1
+              case c
+              in String
+                puts 1
+              in foo(limit)
+                puts 2
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

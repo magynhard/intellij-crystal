@@ -1,11 +1,5 @@
 # TODO — IntelliJ Crystal Plugin
 
-## Unused Assignment Inspection Follow-up
-
-- [ ] **Model `case ... in` pattern bindings as clause-local symbols** — distinguish identifiers that bind
-  matched values from ordinary expression references, including nested tuple/named-tuple patterns and guards,
-  so they neither read nor shadow an unrelated outer local incorrectly.
-
 ## Inlay Hints (Issue #2)
 
 - [ ] **Implement InlayHintsProvider** — show inferred types on variables inline

@@ -5,6 +5,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Invalid `case ... in` pattern diagnostic** — a top-level bare identifier in an `in`
+  pattern is now an error (`in y`), matching the compiler, which only accepts constants,
+  generic types, bool/nil literals, and question methods there. Nested identifiers and
+  `when` clauses are unaffected. Covered by `CrystalInvalidInPatternInspectionTest`;
+  specified in docs/specs/conditions-and-postfix-modifiers.md.
+- **Correct `case ... in` pattern handling in unused-variable analysis** — a top-level bare
+  identifier in an `in` pattern is skipped entirely (the compiler rejects bare, tuple, pin,
+  and `_` patterns, so it binds nothing and must not read an unrelated outer local), while
+  all other pattern elements and `in` guard conditions flow as ordinary read positions.
+  Covered by `CrystalUnusedVariableInspectionTest`; specified in
+  docs/specs/value-assignment-never-used.md.
 - **Per-target types for destructuring assignments** — tuple destructuring now infers exact
   types positionally (`x, y = {1, "other"}` gives `x: Int32`, `y: String`), array
   destructuring carries the element type (`x, y = [1, "other"]` gives both

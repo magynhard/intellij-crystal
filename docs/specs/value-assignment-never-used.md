@@ -40,8 +40,13 @@ Method, macro, class, module, struct, enum, and file boundaries never share
 local bindings.
 
 Rescue variables create clause-local bindings and shadow same-named outer
-locals. Pattern bindings in `case ... in` remain deferred as documented in
-`TODO.md`.
+locals. `case ... in` patterns create no bindings: the compiler rejects bare,
+tuple, pin, and `_` patterns outright, so a top-level bare identifier in an
+`in` pattern is skipped entirely — it neither reads an unrelated outer
+local nor defines a new one. Every other pattern element flows as an
+ordinary expression (nested call and receiver identifiers keep reading),
+and `in` guard conditions flow as read positions. Should a future Crystal
+accept binding patterns, this contract must be revisited.
 
 ## Definition-Use Analysis
 

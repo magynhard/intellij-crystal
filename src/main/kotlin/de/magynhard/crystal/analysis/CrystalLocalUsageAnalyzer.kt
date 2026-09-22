@@ -762,7 +762,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
             remaining = guards.fallthrough ?: break
         }
         for (clause in statement.inClauseList) {
-            val guard = flowElement(clause.expressionList, frame, remaining)
+            val guard = flowInClause(clause, frame, remaining)
             guardAbrupt.add(guard.copy(normal = null))
             val state = guard.normal ?: break
             branches.add(flowStatementList(clause.statementList, frame, state))
@@ -779,6 +779,20 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         val fallthrough: State?,
         val flow: Flow
     )
+
+    /**
+     * `in` patterns are exhaustiveness positions, not value positions. A
+     * top-level bare identifier binds nothing and reads nothing (the
+     * compiler rejects bare, tuple, pin, and `_` patterns outright), so it
+     * is skipped unvisited instead of marking an unrelated outer local as
+     * read. Every other pattern element flows as an ordinary expression,
+     * and the (grammar-only) guard condition flows as a read position so
+     * guard-only reads are not lost.
+     */
+    private fun flowInClause(clause: CrystalInClause, frame: Frame, incoming: State): Flow {
+        val patterns = clause.expressionList.children.filterNot(CrystalPsiUtils::isBareIdentifier)
+        return flowSequence(patterns + listOfNotNull(clause.condition), frame, incoming)
+    }
 
     private fun flowCaseGuards(elements: List<PsiElement>, frame: Frame, incoming: State): CaseGuards {
         var fallthrough: State? = incoming

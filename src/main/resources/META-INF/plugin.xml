@@ -461,6 +461,15 @@
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.inspections.CrystalRequireContextInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Invalid pattern in case...in clause"
+                shortName="CrystalInvalidInPattern"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalInvalidInPatternInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>

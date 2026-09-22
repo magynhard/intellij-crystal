@@ -1,0 +1,6 @@
+<html><body>
+Reports bare identifiers in <code>case ... in</code> patterns.
+Crystal only accepts constants, generic types, bool/nil literals, and question methods in
+<code>in</code> position; a bare identifier is always rejected by the compiler.
+<p>Example: in <code>case c<br>in y</code>, the <code>y</code> is flagged.</p>
+</body></html>
