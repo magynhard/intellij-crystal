@@ -64,15 +64,49 @@ internal object CrystalCompletionReceiverResolver {
 
         val firstDotOffset = CrystalPostfixChain.dotOffset(children[firstAccess] as CrystalDotCallAccess)
         var receiver = resolveBase(children.take(firstAccess), expression, session, firstDotOffset)
-        for (element in children.drop(firstAccess)) {
-            val access = element as? CrystalDotCallAccess ?: return CompletionReceiver.Unknown
-            for (component in CrystalPostfixChain.components(access, completionDotOffset)) {
-                if (component == null) return CompletionReceiver.Unknown
-                receiver = resolveCompletedCall(receiver, methodName(component), component, session)
-                if (receiver == CompletionReceiver.Unknown) return receiver
+        val tail = children.drop(firstAccess)
+        var index = 0
+        while (index < tail.size) {
+            val element = tail[index]
+            if (element is CrystalDotCallAccess) {
+                for (component in CrystalPostfixChain.components(element, completionDotOffset)) {
+                    if (component == null) return CompletionReceiver.Unknown
+                    receiver = resolveCompletedCall(receiver, methodName(component), component, session)
+                    if (receiver == CompletionReceiver.Unknown) return receiver
+                }
+                index++
+                continue
             }
+            if (element.node.elementType == CrystalTypes.LBRACKET) {
+                val arguments = tail.getOrNull(index + 1) as? CrystalArgumentList
+                    ?: return CompletionReceiver.Unknown
+                if (tail.getOrNull(index + 2)?.node?.elementType != CrystalTypes.RBRACKET) {
+                    return CompletionReceiver.Unknown
+                }
+                receiver = resolveIndexedReceiver(expression, element, arguments, session)
+                if (receiver == CompletionReceiver.Unknown) return receiver
+                index += 3
+                continue
+            }
+            return CompletionReceiver.Unknown
         }
         return receiver
+    }
+
+    private fun resolveIndexedReceiver(
+        expression: CrystalExpression,
+        bracket: PsiElement,
+        arguments: CrystalArgumentList,
+        session: CrystalTypeResolutionSession
+    ): CompletionReceiver {
+        // Resolve the receiver prefix with generics preserved (`Array(String)`)
+        // so the element mapping can decompose it; the chain's normalized
+        // lookup names would have dropped the type arguments.
+        val container = session.resolveExpressionPrefix(expression, bracket.textRange.startOffset)
+        return when (val resolved = session.resolveIndexedElement(container, arguments)) {
+            is CrystalTypeResolution.Known -> resolved.types.map { it.name }.toValueTypes()
+            CrystalTypeResolution.Unknown -> CompletionReceiver.Unknown
+        }
     }
 
     private fun resolveBase(

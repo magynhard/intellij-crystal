@@ -313,9 +313,11 @@ multiple `CrystalDotCallAccess` siblings or attach an argumentless continuation 
 processed recursively in source order for arbitrarily long argumentless or mixed chains. Every
 attached implicit call is treated as a continuation only when its DOT is source-adjacent to the
 preceding call. Whitespace before the DOT denotes a genuine bare argument, such as
-`service.consume .helper`, and is not folded into the receiver chain. Every
-postfix component before the completion dot must be recognized; bracket/index access and other
-unsupported tails produce `Unknown` rather than allowing analysis of a shorter prefix. Receiver
+`service.consume .helper`, and is not folded into the receiver chain. A bracket/index postfix
+before the completion dot is resolved through the shared index-element mapping, so
+`Box.new.items[0].` continues from the element type (`Array(String)` yields `String`) and a
+custom `def [](...)` receiver resolves through the exact call resolver. Other unsupported tails
+produce `Unknown` rather than allowing analysis of a shorter prefix. Receiver
 text is not rebuilt with source regexes. Transparent grouping
 is normalized through `CrystalReceiverExpression`; incomplete groups, direct or non-transparent
 grouped assignment receivers, macro-interpolated receivers, unknown variables, ambiguous type

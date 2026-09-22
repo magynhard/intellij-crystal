@@ -33,6 +33,10 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Indexed postfix receivers continue DOT completion** — `Box.new.items[0].` now resolves the
+  element type from `Array(String)` (or a custom `def [](...)` overload) and offers the element's
+  members instead of returning `Unknown`. The completion receiver resolver reuses the shared
+  index-element mapping with generics preserved. Covered by completion-receiver regressions.
 - **`::` completion respects the require closure** — `Namespace::` no longer offers nested types or
   class constants from files the context file does not require (directly or transitively).
   `CrystalTypeCompletionProvider.getEnclosingTypeLookups` and

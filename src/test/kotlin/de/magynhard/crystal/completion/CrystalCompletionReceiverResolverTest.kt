@@ -255,10 +255,21 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testRejectsUnsupportedPostfixTail() {
+    fun testResolvesIndexedPostfixTail() {
         assertReceiver(
-            CompletionReceiver.Unknown,
-            chainDeclarations() + "First.new.second[0].<caret>"
+            CompletionReceiver.ValueTypes(listOf("String")),
+            "class Box\n" +
+                "  def items : Array(String)\n    [] of String\n  end\nend\n" +
+                "Box.new.items[0].<caret>"
+        )
+    }
+
+    fun testResolvesIndexedPostfixTailWithCustomIndex() {
+        assertReceiver(
+            CompletionReceiver.ValueTypes(listOf("String")),
+            "class Box\n" +
+                "  def [](index : Int32) : String\n    \"x\"\n  end\nend\n" +
+                "Box.new[0].<caret>"
         )
     }
 
@@ -411,7 +422,7 @@ class CrystalCompletionReceiverResolverTest : BasePlatformTestCase() {
 
     private fun assertReceiver(expected: CompletionReceiver, source: String) {
         val position = configurePosition(source)
-        assertEquals(expected, CrystalCompletionReceiverResolver.resolve(position))
+        assertEquals("receiver for: $source", expected, CrystalCompletionReceiverResolver.resolve(position))
     }
 
     fun testResolveUsesProvidedSharedSession() {

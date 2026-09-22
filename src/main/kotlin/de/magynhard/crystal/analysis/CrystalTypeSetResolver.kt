@@ -105,6 +105,18 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     fun resolveType(typeName: String, element: PsiElement): CrystalTypeIdentity? =
         resolveTypeIdentity(typeName, element)?.toShared()
 
+    /**
+     * Resolves the element type of an indexed read on an already-resolved
+     * receiver (`arr[i]` after a completed call chain). Completion walks postfix
+     * chains outside the expression PSI, so it seeds the receiver from the same
+     * element mapping the expression resolver uses.
+     */
+    fun resolveIndexedElement(
+        container: CrystalTypeResolution,
+        arguments: CrystalArgumentList,
+    ): CrystalTypeResolution =
+        indexedElementResolution(container, arguments) ?: CrystalTypeResolution.Unknown
+
     /** The exact type declarations backing [identity] (accessor coupling). */
     fun findExactTypeDeclarations(identity: CrystalTypeIdentity): List<CrystalNamedElement> =
         hierarchy.findExactTypeDeclarations(identity)
