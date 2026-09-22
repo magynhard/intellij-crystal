@@ -28,6 +28,10 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Named-only parameters reject positional arguments** — after a bare `*` or a `*splat`,
+  parameters can only be passed by name. `def configure(*, named : Int32)` now reports
+  `Missing required argument(s): 'named'` for `configure(1)` and accepts `configure(named: 1)`;
+  the same holds after `*rest`. Covered by argument-count regressions.
 - **Custom and non-table collection index reads resolve through the shared call resolver** —
   `box[0]` on a user type with `def [](index : Int32) : String` now resolves to `String` from the
   applicable overload's return annotation, and `Deque(T)`/`Indexable(T)` no longer stay at the

@@ -117,7 +117,11 @@ end
 build # Missing required arguments: required, named_required
 ```
 
-Full enforcement of positional use after a named-only separator and signature ordering is tracked separately in `TODO.md`.
+Positional arguments never satisfy a named-only parameter. The inspection tracks the bare `*`
+separator and `*splat` boundary, so `def configure(*, named : Int32)` rejects `configure(1)`
+with `Missing required argument(s): 'named'` while `configure(named: 1)` is valid, and
+`def configure(*rest, named : Int32)` likewise requires `named:` by name. Signature declaration
+ordering (a required positional after an optional positional) is tracked separately in `TODO.md`.
 
 ## Call Discovery And Ownership
 

@@ -251,6 +251,42 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testBareSplatNamedOnlyParameterRejectsPositional() {
+        myFixture.configureByText("test.cr", """
+            def configure(*, named : Int32)
+            end
+            <error descr="Missing required argument(s): 'named'">configure</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBareSplatNamedOnlyParameterAcceptsNamed() {
+        myFixture.configureByText("test.cr", """
+            def configure(*, named : Int32)
+            end
+            configure(named: 1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSplatNamedOnlyParameterRejectsPositional() {
+        myFixture.configureByText("test.cr", """
+            def configure(*rest, named : Int32)
+            end
+            <error descr="Missing required argument(s): 'named'">configure</error>(1, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSplatNamedOnlyParameterAcceptsNamed() {
+        myFixture.configureByText("test.cr", """
+            def configure(*rest, named : Int32)
+            end
+            configure(1, 2, named: 3)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Named Arguments ====================
 
     fun testNamedArgSatisfiesRequired() {

@@ -333,8 +333,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         var bestMatch: OverloadMatch? = null
 
         for (method in methods) {
-            val params = method.parameterList?.parameterList ?: emptyList()
-            val match = evaluateOverload(params, effectiveArgCount, effectivePositionalCount, namedArgNames)
+            val match = evaluateOverload(method.parameterList, effectiveArgCount, effectivePositionalCount, namedArgNames)
 
             if (match.isValid) return // At least one overload accepts this call
 
@@ -416,11 +415,13 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     private fun evaluateOverload(
-        params: List<CrystalParameter>,
+        parameterList: CrystalParameterList?,
         argCount: Int,
         positionalCount: Int,
         namedArgNames: Set<String>
     ): OverloadMatch {
+        val params = parameterList?.parameterList.orEmpty()
+        val namedOnlyNames = namedOnlyParameterNames(parameterList)
         val regularParams = mutableListOf<ParamInfo>()
         var hasSplat = false
         var hasDoubleSplat = false
@@ -436,7 +437,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
             val name = param.parameterNameInfo().callSiteName ?: continue
             val hasDefault = param.expression != null
-            regularParams.add(ParamInfo(name, hasDefault))
+            regularParams.add(ParamInfo(name, hasDefault, name in namedOnlyNames))
         }
 
         val paramNames = regularParams.map { it.name }.toSet()
@@ -454,16 +455,28 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val satisfiedByName = namedArgNames.intersect(requiredParams.map { it.name }.toSet())
         val requiredNotSatisfiedByName = requiredParams.filter { it.name !in satisfiedByName }
 
-        // Positional args fill remaining params in order
-        val positionallyRequired = requiredNotSatisfiedByName.size
-        if (positionalCount < positionallyRequired) {
-            val missing = requiredNotSatisfiedByName.drop(positionalCount).map { it.name }
+        // Named-only parameters (after a bare `*` or a `*splat`) can only be
+        // satisfied by name; positional arguments never fill them. Report
+        // missing parameters in declaration order to keep messages stable.
+        val missing = mutableListOf<String>()
+        var positionalSlot = 0
+        for (param in requiredNotSatisfiedByName) {
+            if (param.namedOnly) {
+                missing.add(param.name)
+            } else {
+                if (positionalSlot >= positionalCount) missing.add(param.name)
+                positionalSlot++
+            }
+        }
+        if (missing.isNotEmpty()) {
             return OverloadMatch(isValid = false, missingParams = missing)
         }
 
         // Check too many args (only if no splat)
         if (!hasSplat) {
-            val maxPositional = regularParams.size - namedArgNames.intersect(paramNames).size
+            val positionalParams = regularParams.filterNot { it.namedOnly }
+            val namedSatisfied = namedArgNames.intersect(positionalParams.map { it.name }.toSet())
+            val maxPositional = positionalParams.size - namedSatisfied.size
             if (positionalCount > maxPositional) {
                 return OverloadMatch(
                     isValid = false,
@@ -476,7 +489,34 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         return OverloadMatch(isValid = true)
     }
 
-    data class ParamInfo(val name: String, val hasDefault: Boolean)
+    /**
+     * Names of parameters that follow a bare `*` separator or a `*splat`
+     * parameter. Crystal requires such parameters to be passed by name, so a
+     * positional argument must never satisfy them.
+     */
+    private fun namedOnlyParameterNames(parameterList: CrystalParameterList?): Set<String> {
+        val result = mutableSetOf<String>()
+        if (parameterList == null) return result
+        var namedOnly = false
+        for (child in parameterList.node.getChildren(null)) {
+            when (child.elementType) {
+                CrystalTypes.STAR, CrystalTypes.DOUBLE_STAR -> namedOnly = true
+                else -> {
+                    val param = child.psi as? CrystalParameter ?: continue
+                    if (namedOnly) {
+                        param.parameterNameInfo().callSiteName?.let { result.add(it) }
+                    }
+                    if (param.node.findChildByType(CrystalTypes.STAR) != null ||
+                        param.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null) {
+                        namedOnly = true
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    data class ParamInfo(val name: String, val hasDefault: Boolean, val namedOnly: Boolean = false)
 
     // ==================== Argument Extraction ====================
 
