@@ -33,6 +33,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Operator overload return types resolve exactly** — `<=>`, `=~`, and `!~` now use the shared
+  exact overload resolver instead of returning `Unknown`, so an annotated `def <=>(other : T) :
+  Int32` types the expression as `Int32` and `String#=~`-style `Int32 | Nil` unions are honored.
+  Unannotated or ambiguous overloads still stay `Unknown` rather than guessing `Bool`. Covered by
+  type-inference regressions.
 - **Indexed postfix receivers continue DOT completion** — `Box.new.items[0].` now resolves the
   element type from `Array(String)` (or a custom `def [](...)` overload) and offers the element's
   members instead of returning `Unknown`. The completion receiver resolver reuses the shared

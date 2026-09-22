@@ -103,9 +103,10 @@ Logical operators return values, not a fixed `Bool`:
   right result only when the right operand can execute.
 
 Equality and relational comparisons resolve to `Bool`. Spaceship `<=>`, regex
-match `=~`, and not-match `!~` remain unknown without exact overload resolution:
-their standard implementations can return ordering values or `Int32 | Nil`, and
-Crystal permits custom implementations with arbitrary return types.
+match `=~`, and not-match `!~` dispatch through the same exact overload
+resolver: an applicable annotated overload decides the result (`String#=~` is
+`Int32 | Nil`), while an unannotated or ambiguous overload stays `Unknown`
+instead of a token-based boolean guess.
 
 Overloadable arithmetic and bitwise operators dispatch exactly like method
 calls (`left op right` binds as `left.op(right)`) with the flattened operand's

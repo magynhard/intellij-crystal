@@ -698,6 +698,31 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBangTildeComparisonResolvesAnnotatedOverloadReturn() {
+        assertTypes(
+            "class Matcher\n  def !~(other : Matcher) : Bool\n    false\n  end\nend\n" +
+                "value = Matcher.new !~ Matcher.new\n<caret>value",
+            "Bool",
+        )
+    }
+
+    fun testSpaceshipResolvesAnnotatedOverloadReturn() {
+        assertTypes(
+            "class Thing\n  def <=>(other : Thing) : Int32\n    0\n  end\nend\n" +
+                "value = Thing.new <=> Thing.new\n<caret>value",
+            "Int32",
+        )
+    }
+
+    fun testRegexMatchResolvesUnionOverloadReturn() {
+        assertTypes(
+            "class Thing\n  def =~(other : Thing) : Int32 | Nil\n    nil\n  end\nend\n" +
+                "value = Thing.new =~ Thing.new\n<caret>value",
+            "Int32",
+            "Nil",
+        )
+    }
+
     fun testRegexMatchWithOverloadDependentReturnRemainsUnknown() {
         assertUnknown("value = \"crystal\" =~ /ystal/\n<caret>value")
     }

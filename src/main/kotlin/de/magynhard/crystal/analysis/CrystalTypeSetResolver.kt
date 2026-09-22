@@ -569,11 +569,20 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 }
                 CrystalTypes.SPACESHIP, CrystalTypes.MATCH_OP, CrystalTypes.BANG_TILDE,
                 -> {
-                    // These comparison operators return custom types; with an
-                    // unresolvable overload the honest result stays Unknown
-                    // (matching the old precedence lanes).
-                    resolveFlattenedOperand(chain[cursor[0]].also { cursor[0] += 1 })
-                    CrystalTypeResolution.Unknown
+                    // `<=>`, `=~`, and `!~` are ordinary methods with arbitrary
+                    // return types (`String#=~` is `Int32 | Nil`), so dispatch
+                    // through the exact overload resolver instead of guessing a
+                    // boolean. An unannotated or ambiguous overload stays
+                    // Unknown.
+                    val right = resolveBinaryPrecedenceLevel(chain, cursor, precedence + 1)
+                    val leftKnown = left as? CrystalTypeResolution.Known
+                        ?: return CrystalTypeResolution.Unknown
+                    val rightKnown = right as? CrystalTypeResolution.Known
+                        ?: return CrystalTypeResolution.Unknown
+                    val method = operatorMethodName(operator) ?: return CrystalTypeResolution.Unknown
+                    val result = dispatchBinaryOperator(leftKnown, rightKnown, method)
+                    if (result is CrystalTypeResolution.Unknown) return CrystalTypeResolution.Unknown
+                    result
                 }
                 else -> {
                     val right = resolveBinaryPrecedenceLevel(chain, cursor, precedence + 1)
@@ -743,6 +752,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         CrystalTypes.AMPERSAND -> "&"
         CrystalTypes.PIPE -> "|"
         CrystalTypes.CARET -> "^"
+        CrystalTypes.SPACESHIP -> "<=>"
+        CrystalTypes.MATCH_OP -> "=~"
+        CrystalTypes.BANG_TILDE -> "!~"
         else -> null
     }
 
@@ -1974,31 +1986,6 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             node.findChildByType(CrystalTypes.PERCENT_SYMBOL_BEGIN) != null -> knownType("Array(Symbol)")
             node.findChildByType(CrystalTypes.REGEX_LITERAL) != null -> knownType("Regex")
             else -> knownType("String")
-        }
-    }
-
-    private fun resolveOperator(children: List<PsiElement>): CrystalTypeResolution? {
-        if (children.size < 3) return null
-        return when (children[1].node.elementType) {
-            CrystalTypes.EQ, CrystalTypes.NEQ, CrystalTypes.LT, CrystalTypes.LTE,
-            CrystalTypes.GT, CrystalTypes.GTE, CrystalTypes.CASE_EQ -> knownType("Bool")
-            CrystalTypes.SPACESHIP, CrystalTypes.MATCH_OP,
-            CrystalTypes.BANG_TILDE -> CrystalTypeResolution.Unknown
-            CrystalTypes.AND_AND -> resolveLogical(children[0], children[2], andOperator = true)
-            CrystalTypes.OR_OR -> resolveLogical(children[0], children[2], andOperator = false)
-            CrystalTypes.PLUS, CrystalTypes.MINUS, CrystalTypes.STAR, CrystalTypes.SLASH,
-            CrystalTypes.DOUBLE_SLASH, CrystalTypes.PERCENT, CrystalTypes.DOUBLE_STAR -> {
-                val left = resolve(children[0])
-                val right = resolve(children[2])
-                val leftKnown = left as? CrystalTypeResolution.Known
-                val rightKnown = right as? CrystalTypeResolution.Known
-                if (leftKnown?.types?.map { it.name } == rightKnown?.types?.map { it.name }) {
-                    mergeKnown(listOf(left, right))
-                } else {
-                    CrystalTypeResolution.Unknown
-                }
-            }
-            else -> null
         }
     }
 

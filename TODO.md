@@ -157,11 +157,6 @@
 
 ## Type Inference Follow-up
 
-- [ ] **Resolve operator overload return types** — replace the conservative `Unknown`
-  result for `<=>`, `=~`, and `!~` with exact receiver-aware overload resolution.
-  Standard implementations are not uniformly boolean (`String#=~` returns
-  `Int32 | Nil`), and Crystal permits custom methods with arbitrary return types,
-  so token-based result heuristics are unsafe.
 - [ ] **Refine non-element index results and index writes** — range and multi-argument
   indexing currently returns the container as-is; `Array#[](start, count)` and
   `StaticArray`/`Slice` range overloads could report their exact return types, and
