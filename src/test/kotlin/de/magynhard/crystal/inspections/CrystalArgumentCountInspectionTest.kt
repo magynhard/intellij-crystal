@@ -428,6 +428,19 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testEquallyCloseOverloadsRankMissingNamesDeterministically() {
+        // Declared in reverse alphabetical order: the stable tie-break must
+        // still pick 'b' rather than following collection order.
+        myFixture.configureByText("test.cr", """
+            def process(*rest, c)
+            end
+            def process(*rest, b)
+            end
+            <error descr="Missing required argument(s): 'b'">process</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testArgumentlessDirectCallInsideAssignmentIsChecked() {
         myFixture.configureByText("test.cr", """
             def load(path)

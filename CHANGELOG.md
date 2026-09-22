@@ -33,6 +33,10 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Overload tie diagnostics are deterministic** — when equally close overloads omit different
+  required parameter names, the argument-count inspection now ranks them by the sorted
+  missing-name list instead of collection order, so the reported parameter is stable. Covered by
+  an argument-count regression.
 - **Operator overload return types resolve exactly** — `<=>`, `=~`, and `!~` now use the shared
   exact overload resolver instead of returning `Unknown`, so an annotated `def <=>(other : T) :
   Int32` types the expression as `Int32` and `String#=~`-style `Int32 | Nil` unions are honored.

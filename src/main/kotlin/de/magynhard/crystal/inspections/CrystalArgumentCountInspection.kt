@@ -409,8 +409,18 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val unknownNamedArgs: Set<String> = emptySet()
     ) {
         fun isBetterThan(other: OverloadMatch): Boolean {
-            // Prefer match with fewer missing params
-            return missingParams.size < other.missingParams.size
+            // Prefer the match with fewer missing params.
+            if (missingParams.size != other.missingParams.size) {
+                return missingParams.size < other.missingParams.size
+            }
+            // Equally close overloads that omit different required names must
+            // rank deterministically instead of following collection order.
+            val thisMissing = missingParams.sorted().joinToString("\u0000")
+            val otherMissing = other.missingParams.sorted().joinToString("\u0000")
+            if (thisMissing != otherMissing) return thisMissing < otherMissing
+            val thisUnknown = unknownNamedArgs.sorted().joinToString("\u0000")
+            val otherUnknown = other.unknownNamedArgs.sorted().joinToString("\u0000")
+            return thisUnknown < otherUnknown
         }
     }
 

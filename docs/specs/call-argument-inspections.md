@@ -231,7 +231,7 @@ end
 process # Valid
 ```
 
-When no overload accepts the supplied arguments, the inspection reports from the uniquely closest overload using the existing overload ranking. Deterministic selection between equally ranked overloads with different parameter names remains deferred in `TODO.md`.
+When no overload accepts the supplied arguments, the inspection reports from the uniquely closest overload using the existing overload ranking. Equally close overloads that omit different required parameter names are ranked deterministically by the sorted missing-name list (then sorted unknown named args), so the diagnostic does not follow collection order.
 
 ## Diagnostics
 
