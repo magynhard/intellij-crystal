@@ -1,0 +1,9 @@
+<html><body>
+Reports a required positional parameter declared after an optional positional parameter.
+Crystal requires every parameter after an optional positional parameter to declare a default
+value.
+<p>Example: <code>def foo(a = 1, b)</code> is invalid; <code>b</code> must declare a default
+(<code>def foo(a = 1, b = 2)</code>). Parameters after a bare <code>*</code> or a splat are
+named-only and may still be required (<code>def foo(*a, b)</code> and
+<code>def foo(*, b)</code>).</p>
+</body></html>

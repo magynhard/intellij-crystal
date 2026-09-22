@@ -5,6 +5,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Parameter-order inspection** — a new `CrystalParameterOrder` inspection reports a required
+  positional parameter declared after an optional one (`def foo(a = 1, b)`) with
+  `Required parameter must have a default value`, matching the compiler. Named-only parameters
+  after a bare `*` or a splat stay valid, as do optional parameters before a block or double
+  splat. Covered by `CrystalParameterOrderInspectionTest`.
 - **`# language=` comment completion** — typing `# language=` (or a partial value
   such as `# language=SQ`) now completes to installed language IDs and the
   heredoc marker aliases (`JS`, `CR`, `BASH`, …), matching what

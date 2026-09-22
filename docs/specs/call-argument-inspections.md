@@ -120,8 +120,13 @@ build # Missing required arguments: required, named_required
 Positional arguments never satisfy a named-only parameter. The inspection tracks the bare `*`
 separator and `*splat` boundary, so `def configure(*, named : Int32)` rejects `configure(1)`
 with `Missing required argument(s): 'named'` while `configure(named: 1)` is valid, and
-`def configure(*rest, named : Int32)` likewise requires `named:` by name. Signature declaration
-ordering (a required positional after an optional positional) is tracked separately in `TODO.md`.
+`def configure(*rest, named : Int32)` likewise requires `named:` by name.
+
+`CrystalParameterOrderInspection` reports the invalid signature itself: a required positional
+parameter declared after an optional positional parameter (`def foo(a = 1, b)`) is flagged with
+`Required parameter must have a default value`, matching the compiler. Named-only parameters
+after a bare `*` or a splat stay valid (`def foo(*a, b)`, `def foo(*, b)`), as do optional
+parameters before a block or double splat.
 
 ## Call Discovery And Ownership
 
