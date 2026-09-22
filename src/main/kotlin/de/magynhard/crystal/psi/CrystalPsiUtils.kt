@@ -57,10 +57,13 @@ object CrystalPsiUtils {
 
     /**
      * Extracts the name/type/default of a single record field argument. The name
-     * is the first significant token before the colon — an `IDENTIFIER` or a
-     * keyword (`record Span, start : Int32, end : Int32`), matching the
-     * grammar's `keyword_identifier` in `named_type_bare_argument`. Keyword
-     * tokens after the colon stay part of the type text (`x : Nil`, `x : self`).
+     * is the first significant token before the colon — an `IDENTIFIER`, a
+     * keyword (`record Span, start : Int32, end : Int32`), or a shorthand
+     * instance/class variable (`record Point, @x : Int32, @@y : Int32`), each
+     * matching the grammar's `named_type_bare_argument`. Instance/class-variable
+     * names drop their `@`/`@@` sigil so the accessor and call-site name is the
+     * bare field name. Keyword tokens after the colon stay part of the type text
+     * (`x : Nil`, `x : self`).
      */
     fun recordFieldInfo(fieldArgument: PsiElement): RecordFieldInfo {
         var name: String? = null
@@ -76,6 +79,8 @@ object CrystalPsiUtils {
                 type == com.intellij.psi.TokenType.WHITE_SPACE -> Unit
                 !pastColon && type == CrystalTypes.IDENTIFIER -> name = child.text
                 !pastColon && CrystalTokenTypes.KEYWORDS.contains(type) -> name = child.text
+                !pastColon && (type == CrystalTypes.INSTANCE_VAR_ACCESS || type == CrystalTypes.CLASS_VAR_ACCESS) ->
+                    name = child.text.removePrefix("@@").removePrefix("@")
                 pastAssign -> defaultText = (defaultText ?: "") + child.text
                 pastColon -> typeText = (typeText ?: "") + child.text
             }

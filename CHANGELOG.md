@@ -28,6 +28,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Instance/class-variable record fields are recognized** — `record Point, @x : Int32,
+  @@y : Int32` now binds `@x`/`@@y` as typed fields named `x`/`y`: `Point.new(1)` reports the
+  missing `y`, `Point.new(y: 2, x: 1)` is valid, and Parameter Info/`.new` completion render
+  the bare names. `CrystalPsiUtils.recordFieldInfo` accepts a sigil-stripped instance or class
+  variable before the colon, and `named_type_bare_argument` admits those name shapes (the
+  compact-colon form stays invalid, matching the compiler). Covered by a parser golden and
+  argument-count regressions.
 - **Keyword-named record fields are recognized** — `record Span, start : Int32, end : Int32`
   (crystalline's `signature_help.cr`) no longer loses the `end` field: `Span.new(start, end)`
   is valid, `Span.new(1)` reports the missing `end`, and the second positional argument is

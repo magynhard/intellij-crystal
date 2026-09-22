@@ -75,9 +75,9 @@ public class CrystalBareArgumentImpl extends CrystalAccessorArgumentMixin implem
   }
 
   @Override
-  @NotNull
-  public List<CrystalClassVarAccess> getClassVarAccessList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalClassVarAccess.class);
+  @Nullable
+  public CrystalClassVarAccess getClassVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalClassVarAccess.class);
   }
 
   @Override
@@ -141,9 +141,9 @@ public class CrystalBareArgumentImpl extends CrystalAccessorArgumentMixin implem
   }
 
   @Override
-  @NotNull
-  public List<CrystalInstanceVarAccess> getInstanceVarAccessList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalInstanceVarAccess.class);
+  @Nullable
+  public CrystalInstanceVarAccess getInstanceVarAccess() {
+    return PsiTreeUtil.getChildOfType(this, CrystalInstanceVarAccess.class);
   }
 
   @Override

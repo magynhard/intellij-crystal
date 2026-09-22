@@ -1664,7 +1664,12 @@ private absolute_namespace_bare_expression ::= &DOUBLE_COLON expression
 // `(->) | Nil` (spec/example.cr), pointer types, static arrays of pointers, and
 // pointer-to-proc types. spaced_colon keeps it disjoint from named expressions,
 // so it can precede named_bare_argument without shadowing regular calls.
-private named_type_bare_argument ::= (IDENTIFIER | keyword_identifier) spaced_colon type_reference [named_type_default] {pin=2}
+// The name position also accepts instance/class variables (`record Point,
+// @x : Int32`, `getter @x : Bool`): the compiler parses the type declaration
+// and the record macro generates the accessor from the variable. Compact-colon
+// shorthands (`@x: 1`) stay invalid, matching the compiler, so only the
+// type-shaped form widens.
+private named_type_bare_argument ::= (IDENTIFIER | keyword_identifier | instance_var_access | class_var_access) spaced_colon type_reference [named_type_default] {pin=2}
 
 // Wrapped so the optional default stays inside a private rule: GrammarKit's
 // @NotNull inference flips unrelated element accessors (CrystalTupleLiteral,

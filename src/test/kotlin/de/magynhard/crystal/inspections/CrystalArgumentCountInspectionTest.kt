@@ -1760,6 +1760,24 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testRecordInstanceVarShorthandFieldIsCountedAndNamed() {
+        // `record Point, @x : Int32` stores the field as `@x`; the constructor
+        // argument and its call-site name must use the bare `x`/`y`.
+        myFixture.configureByText("test.cr", """
+            record Point, @x : Int32, @@y : Int32
+            Point.<error descr="Missing required argument(s): 'y'">new</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRecordInstanceVarShorthandFieldNamedArgument() {
+        myFixture.configureByText("test.cr", """
+            record Point, @x : Int32, @@y : Int32
+            Point.new(y: 2, x: 1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testRecordNewUnknownNamedArg() {
         myFixture.configureByText("test.cr", """
             record Config, host : String, port : Int32 = 80

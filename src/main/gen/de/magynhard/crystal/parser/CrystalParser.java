@@ -9182,7 +9182,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IDENTIFIER | keyword_identifier) spaced_colon type_reference [named_type_default]
+  // (IDENTIFIER | keyword_identifier | instance_var_access | class_var_access) spaced_colon type_reference [named_type_default]
   static boolean named_type_bare_argument(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_type_bare_argument")) return false;
     boolean result_, pinned_;
@@ -9196,12 +9196,14 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_ || pinned_;
   }
 
-  // IDENTIFIER | keyword_identifier
+  // IDENTIFIER | keyword_identifier | instance_var_access | class_var_access
   private static boolean named_type_bare_argument_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "named_type_bare_argument_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = keyword_identifier(builder_, level_ + 1);
+    if (!result_) result_ = instance_var_access(builder_, level_ + 1);
+    if (!result_) result_ = class_var_access(builder_, level_ + 1);
     return result_;
   }
 

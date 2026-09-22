@@ -16,3 +16,6 @@ record Span, start : Int32, end : Int32
 
 record Range, begin : Int32, end : Int32 = 0
 
+# Shorthand instance/class variable fields bind to the bare name
+record Shorthand, @x : Int32, @@y : Int32 = 0
+

@@ -31,8 +31,8 @@ public interface CrystalBareArgument extends PsiElement {
   @NotNull
   List<CrystalCallArgs> getCallArgsList();
 
-  @NotNull
-  List<CrystalClassVarAccess> getClassVarAccessList();
+  @Nullable
+  CrystalClassVarAccess getClassVarAccess();
 
   @NotNull
   List<CrystalCommandExpression> getCommandExpressionList();
@@ -64,8 +64,8 @@ public interface CrystalBareArgument extends PsiElement {
   @NotNull
   List<CrystalInstanceSizeofExpression> getInstanceSizeofExpressionList();
 
-  @NotNull
-  List<CrystalInstanceVarAccess> getInstanceVarAccessList();
+  @Nullable
+  CrystalInstanceVarAccess getInstanceVarAccess();
 
   @NotNull
   List<CrystalMacroControl> getMacroControlList();

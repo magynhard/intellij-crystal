@@ -160,16 +160,6 @@
   `captureGeneration`, but there is an early window after project open where resolution silently fails.
   Consider triggering discovery from the graph (without blocking read actions on `crystal env`) or
   publishing the root earlier during project startup.
-- [ ] **Support instance/class-variable shorthand record fields** — `record Point, @x : Int32, @y : Int32`
-  (documented in `docs/specs/completion.md`) is valid Crystal: the `record` macro accepts a
-  `TypeDeclaration` whose `var` is an instance variable and generates `getter x` / `@x`
-  initialization. The bare-argument name position (`named_type_bare_argument`, `named_bare_argument`)
-  and the shared `CrystalPsiUtils.recordFieldInfo` extractor currently accept only `IDENTIFIER` and
-  `keyword_identifier` names, so `@x : Int32` does not bind as a typed record field and the field is
-  absent from argument-count, type-check, Parameter Info, and completion output. Extend the name
-  position and the extractor to accept `instance_var_access`/`class_var_access`, exposing the
-  call-site name without the `@`/`@@` prefix, without turning `@x` in ordinary call arguments into a
-  field declaration.
 
 ## Type Inference Follow-up
 
