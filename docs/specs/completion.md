@@ -606,6 +606,10 @@ When typing `::` after a CONSTANT, nested types are offered:
 Foo::  # ← types nested inside Foo
 ```
 
+Nested types and class constants are filtered through the context file's effective-source
+snapshot, so a namespace defined in a file that is neither the current file nor in its forward
+require closure (and not the prelude) contributes no candidates.
+
 Auto-popup is triggered automatically (no Ctrl+Space needed). The `CrystalTypedHandler.checkAutoPopup()` detects the second `:` and schedules the popup.
 
 ---

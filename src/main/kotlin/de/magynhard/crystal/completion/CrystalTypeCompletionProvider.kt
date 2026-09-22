@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.CrystalClassDefinition
 import de.magynhard.crystal.psi.CrystalEnumDefinition
 import de.magynhard.crystal.psi.CrystalModuleDefinition
@@ -170,9 +171,10 @@ object CrystalTypeCompletionProvider {
      *
      * Uses the nested-type index for O(1) lookup.
      */
-    fun getEnclosingTypeLookups(enclosingName: String, project: Project): List<LookupElementBuilder> {
+    fun getEnclosingTypeLookups(enclosingName: String, project: Project, context: PsiElement): List<LookupElementBuilder> {
         val scope = GlobalSearchScope.allScope(project)
         val nestedTypes = CrystalIndexService.findNestedTypes(enclosingName, project, scope)
+            .filter { CrystalRequireVisibility.isVisible(it, context) }
         return nestedTypes.mapNotNull { element ->
             val name = element.name ?: return@mapNotNull null
             val kind = when (element) {

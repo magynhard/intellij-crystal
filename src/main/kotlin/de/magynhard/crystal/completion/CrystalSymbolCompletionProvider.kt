@@ -4,8 +4,10 @@ import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.CrystalClassDefinition
 import de.magynhard.crystal.psi.CrystalConstantAssignment
 import de.magynhard.crystal.psi.CrystalModuleDefinition
@@ -33,8 +35,9 @@ internal object CrystalSymbolCompletionProvider {
         }
     }
 
-    internal fun addClassConstants(className: String, project: Project, result: CompletionResultSet) {
+    internal fun addClassConstants(className: String, project: Project, context: PsiElement, result: CompletionResultSet) {
         val typeResult = CrystalCompletionHelper.findTypeByName(className, project) ?: return
+        if (!CrystalRequireVisibility.isVisible(typeResult.element, context)) return
         val classBody = when (val element = typeResult.element) {
             is CrystalClassDefinition -> element.classBody
             is CrystalStructDefinition -> element.classBody

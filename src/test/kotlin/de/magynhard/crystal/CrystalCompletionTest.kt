@@ -1542,6 +1542,32 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain 'Inner': $names", names.contains("Inner"))
     }
 
+    fun testDoubleColonDoesNotSuggestUnrequiredNestedType() {
+        myFixture.addFileToProject("apfelsaft.cr", """
+            class Apfelsaft
+            end
+
+            class Apfelsaft::Tools
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Apfelsaft::<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'Tools': $names", names.contains("Tools"))
+    }
+
+    fun testDoubleColonDoesNotSuggestUnrequiredClassConstants() {
+        myFixture.addFileToProject("hamster.cr", """
+            class Hamster
+              WEIGHT = 60
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "Hamster::<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'WEIGHT': $names", names.contains("WEIGHT"))
+    }
+
     // ==================== Dot completion on namespace path ====================
 
     fun testDotCompletionOnNamespacePathShowsStaticMethods() {

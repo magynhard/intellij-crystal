@@ -128,10 +128,10 @@ class CrystalCompletionContributor : CompletionContributor() {
                 if (beforeDoubleColon != null) {
                     val beforeText = beforeDoubleColon.text
                     if (beforeText.isNotEmpty() && beforeText[0].isUpperCase()) {
-                        for (lookup in CrystalTypeCompletionProvider.getEnclosingTypeLookups(beforeText, project)) {
+                        for (lookup in CrystalTypeCompletionProvider.getEnclosingTypeLookups(beforeText, project, position)) {
                             result.addElement(lookup)
                         }
-                        CrystalSymbolCompletionProvider.addClassConstants(beforeText, project, result)
+                        CrystalSymbolCompletionProvider.addClassConstants(beforeText, project, position, result)
                         return
                     }
                 }

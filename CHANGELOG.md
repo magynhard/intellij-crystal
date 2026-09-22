@@ -33,6 +33,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **`::` completion respects the require closure** — `Namespace::` no longer offers nested types or
+  class constants from files the context file does not require (directly or transitively).
+  `CrystalTypeCompletionProvider.getEnclosingTypeLookups` and
+  `CrystalSymbolCompletionProvider.addClassConstants` now filter candidates through the
+  effective-source snapshot. Covered by completion regressions.
 - **Named-only parameters reject positional arguments** — after a bare `*` or a `*splat`,
   parameters can only be passed by name. `def configure(*, named : Int32)` now reports
   `Missing required argument(s): 'named'` for `configure(1)` and accepts `configure(named: 1)`;

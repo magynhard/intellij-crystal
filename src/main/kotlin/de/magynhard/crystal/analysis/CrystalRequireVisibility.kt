@@ -29,6 +29,16 @@ internal object CrystalRequireVisibility {
     }
 
     /**
+     * True when [element]'s defining file is part of [context]'s effective
+     * source set. Returns false when no visibility can be established, so
+     * callers omit the candidate instead of leaking unrequired definitions.
+     */
+    fun isVisible(element: PsiElement, context: PsiElement): Boolean {
+        val sources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
+        return sources.files.isNotEmpty() && sources.contains(element)
+    }
+
+    /**
      * Callable-scope filter for receiver-less calls on top of [visibleMethods]:
      * an unqualified name resolves against top-level methods plus the
      * implicit-self scope of the enclosing type. Instance methods of unrelated
