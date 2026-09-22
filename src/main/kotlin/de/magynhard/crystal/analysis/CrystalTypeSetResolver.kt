@@ -740,7 +740,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         var receiver: ReceiverState = exactTypeRoot(baseElements)?.let { root ->
             val identity = resolveTypeIdentity(root, callContext) ?: return CrystalTypeResolution.Unknown
             ReceiverState.TypeObject(identity)
-        } ?: ReceiverState.Values(resolve(baseElements.singleOrNull() ?: return CrystalTypeResolution.Unknown))
+        } ?: indexedReadResolution(baseElements)?.let { ReceiverState.Values(it) }
+            ?: ReceiverState.Values(resolve(baseElements.singleOrNull() ?: return CrystalTypeResolution.Unknown))
 
         for (access in children.drop(firstAccess)) {
             val dotAccess = access as? CrystalDotCallAccess ?: return CrystalTypeResolution.Unknown

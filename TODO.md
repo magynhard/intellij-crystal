@@ -164,13 +164,6 @@
   Standard implementations are not uniformly boolean (`String#=~` returns
   `Int32 | Nil`), and Crystal permits custom methods with arbitrary return types,
   so token-based result heuristics are unsafe.
-- [ ] **Carry indexed element types into dot-call chains** — the new element extraction
-  resolves a bare `arr[i]` / `matrix[r][c]`, but a dot-call on an indexed receiver
-  (`arr[i].blank?`, `by_name[k].to_s`) still degrades to `Unknown` because
-  `resolvePostfix` requires its base to be a single element or an exact constant
-  root and cannot consume the leading index postfix. Extend the postfix resolver to
-  seed its receiver state from an index-read element type before walking the dot
-  access, sharing the element mapping so the two paths cannot drift.
 - [ ] **Type indexed reads on remaining collection families and custom `[]`** — the
   index-element mapping is a name table for `Array`, `Slice`, `StaticArray`, `Hash`,
   `Tuple`, and `String`. `Deque(T)`, the `Indexable(T)` / `Indexable::Mutable(T)`

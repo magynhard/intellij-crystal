@@ -28,6 +28,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Indexed receivers carry element types into dot-call chains** — `lines[0].strip` and
+  `by_name["a"].value` now resolve the element type from `Array(T)`/`Hash(K, V)` before walking
+  the dot access, instead of degrading to `Unknown`. The postfix resolver seeds its receiver from
+  the shared index-read element mapping, so bare `arr[i]` and `arr[i].method` cannot drift.
+  Covered by type-inference regressions.
 - **Instance/class-variable record fields are recognized** — `record Point, @x : Int32,
   @@y : Int32` now binds `@x`/`@@y` as typed fields named `x`/`y`: `Point.new(1)` reports the
   missing `y`, `Point.new(y: 2, x: 1)` is valid, and Parameter Info/`.new` completion render

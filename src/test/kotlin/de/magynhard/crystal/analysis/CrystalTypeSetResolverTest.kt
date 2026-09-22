@@ -991,6 +991,22 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testArrayIndexedReceiverDotCallResolvesReturnType() {
+        assertTypes(
+            "class Wrapper\n  def value : String\n    \"x\"\n  end\nend\n" +
+                "def fetch(wrappers : Array(Wrapper))\n  result = wrappers[0].value\n  <caret>result\nend",
+            "String",
+        )
+    }
+
+    fun testHashIndexedReceiverDotCallResolvesReturnType() {
+        assertTypes(
+            "class Wrapper\n  def value : Int32\n    1\n  end\nend\n" +
+                "def fetch(by_name : Hash(String, Wrapper))\n  result = by_name[\"a\"].value\n  <caret>result\nend",
+            "Int32",
+        )
+    }
+
     fun testStringRangeIndexKeepsString() {
         assertTypes(
             "def fetch(text : String)\n  part = text[1..2]\n  <caret>part\nend",
