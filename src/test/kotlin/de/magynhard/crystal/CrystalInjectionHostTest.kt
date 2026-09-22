@@ -5,7 +5,9 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.injection.CrystalStringExpressionInjection
 import de.magynhard.crystal.psi.CrystalHeredocLiteral
+import de.magynhard.crystal.psi.CrystalPercentLiteral
 import de.magynhard.crystal.psi.CrystalStringExpression
+import de.magynhard.crystal.psi.CrystalSymbolStringExpression
 import de.magynhard.crystal.psi.impl.CrystalHeredocLiteralEscaper
 import de.magynhard.crystal.psi.impl.CrystalStringExpressionMixin
 import de.magynhard.crystal.psi.impl.CrystalStringLiteralEscaper
@@ -101,6 +103,57 @@ class CrystalInjectionHostTest : BasePlatformTestCase() {
         assertEquals(original, myFixture.file.text)
     }
 
+    // ==================== Percent write-back ====================
+
+    fun testRawPercentWriteBackIsVerbatim() {
+        myFixture.configureByText("main.cr", "q = %q(SELECT 1)")
+        val host = percentHost()
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            host.updateText("SELECT 2")
+        }
+        assertEquals("q = %q(SELECT 2)", myFixture.file.text.trimEnd())
+    }
+
+    fun testInterpolatingPercentWriteBackReEncodesEscapes() {
+        myFixture.configureByText("main.cr", "q = %Q(SELECT 1)")
+        val host = percentHost()
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            host.updateText("new \"x\"\n\tvalue")
+        }
+        assertEquals("q = %Q(new \\\"x\\\"\\n\\tvalue)", myFixture.file.text.trimEnd())
+    }
+
+    fun testInterpolatedPercentWriteBackIsNoOp() {
+        val original = "s = %Q(a#{name}b)"
+        myFixture.configureByText("main.cr", original)
+        val host = percentHost()
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            host.updateText("changed")
+        }
+        assertEquals(original, myFixture.file.text.trimEnd())
+    }
+
+    // ==================== Symbol write-back ====================
+
+    fun testSymbolWriteBackReEncodesEscapes() {
+        myFixture.configureByText("main.cr", "s = :\"SELECT 1\"")
+        val host = symbolHost()
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            host.updateText("new value")
+        }
+        assertEquals("s = :\"new value\"", myFixture.file.text.trimEnd())
+    }
+
+    fun testInterpolatedSymbolWriteBackIsNoOp() {
+        val original = "s = :\"a#{name}b\""
+        myFixture.configureByText("main.cr", original)
+        val host = symbolHost()
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            host.updateText("changed")
+        }
+        assertEquals(original, myFixture.file.text.trimEnd())
+    }
+
     // ==================== Escaped interpolation stays literal ====================
 
     fun testEscapedHashBraceIsNotAnInterpolationGap() {
@@ -113,4 +166,10 @@ class CrystalInjectionHostTest : BasePlatformTestCase() {
 
     private fun stringHost(): CrystalStringExpression =
         PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalStringExpression::class.java).first()
+
+    private fun percentHost(): CrystalPercentLiteral =
+        PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalPercentLiteral::class.java).first()
+
+    private fun symbolHost(): CrystalSymbolStringExpression =
+        PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalSymbolStringExpression::class.java).first()
 }

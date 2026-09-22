@@ -1908,9 +1908,16 @@ interleaved_heredoc_bodies ::= (&<<isHeredocBodyOpener>> heredoc_literal)+ {elem
 
 // Word arrays (%w/%W) get their own BEGIN/END pair so type inference can
 // distinguish Array(String) from plain %q/%Q strings sharing PERCENT_LITERAL_*.
+// The literal is a PsiLanguageInjectionHost (CrystalPercentLiteralMixin) so
+// `# language=<id>` comments can inject into string-like percent forms
+// (%q, %Q, bare %()); %r/%x content and %w/%W/%i/%I arrays are excluded by the
+// mixin's host gate, not by the grammar.
 percent_literal ::= PERCENT_LITERAL_BEGIN percent_literal_content* PERCENT_LITERAL_END
                   | PERCENT_WORD_ARRAY_BEGIN percent_literal_content* PERCENT_WORD_ARRAY_END
-                  | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END
+                  | PERCENT_SYMBOL_BEGIN percent_symbol_content* PERCENT_SYMBOL_END {
+  mixin="de.magynhard.crystal.psi.impl.CrystalPercentLiteralMixin"
+  implements="com.intellij.psi.PsiLanguageInjectionHost"
+}
 private percent_literal_content ::= STRING_LITERAL | STRING_ESCAPE | interpolation_expression | SYMBOL_LITERAL | REGEX_LITERAL | COMMAND_LITERAL | NEWLINE
 // %I interpolates symbol words, so its content mirrors the interpolation support of %W.
 private percent_symbol_content ::= SYMBOL_LITERAL | interpolation_expression | NEWLINE
@@ -1920,8 +1927,15 @@ private percent_symbol_content ::= SYMBOL_LITERAL | interpolation_expression | N
 // No space after the colon (compiler expects an identifier token there),
 // reusing the symbol_string_expression element type so type inference and
 // receiver trust treat it exactly like `:"name"`.
+// The SYMBOL_COLON form is a PsiLanguageInjectionHost
+// (CrystalSymbolStringExpressionMixin) so `# language=<id>` comments can
+// inject into quoted symbol strings; the macro form has no string content
+// and is excluded by the mixin's host gate, not by the grammar.
 symbol_string_expression ::= SYMBOL_COLON (STRING_LITERAL | STRING_ESCAPE | interpolation_expression)+
-                            | COLON &<<isTokenTightAfterPreviousToken>> macro_interpolation
+                            | COLON &<<isTokenTightAfterPreviousToken>> macro_interpolation {
+  mixin="de.magynhard.crystal.psi.impl.CrystalSymbolStringExpressionMixin"
+  implements="com.intellij.psi.PsiLanguageInjectionHost"
+}
 
 // Operator symbols (`:+`, `:==`, `:[]?`, …): the lexer keeps `:` and the
 // operator separate — folding them would break tight named/hash colons like

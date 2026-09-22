@@ -5,7 +5,9 @@ import com.intellij.lang.injection.MultiHostInjector
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.injection.CrystalHeredocInjector
 import de.magynhard.crystal.psi.CrystalHeredocLiteral
+import de.magynhard.crystal.psi.CrystalPercentLiteral
 import de.magynhard.crystal.psi.CrystalStringExpression
+import de.magynhard.crystal.psi.CrystalSymbolStringExpression
 
 /**
  * Tests for `# language=` comment completion and the platform
@@ -104,9 +106,9 @@ class CrystalLanguageCommentCompletionTest : BasePlatformTestCase() {
         )
     }
 
-    fun testHeredocInjectorListsBothHostTypes() {
+    fun testHeredocInjectorListsAllHostTypes() {
         // The intention ultimately relies on the injector/support pair to
-        // apply and later re-resolve an injection; pin both host types.
+        // apply and later re-resolve an injection; pin all host types.
         myFixture.configureByText("main.cr", "s = \"SELECT 1\"\n")
         val injector = MultiHostInjector.MULTIHOST_INJECTOR_EP_NAME.getExtensions(project)
             .filterIsInstance<CrystalHeredocInjector>()
@@ -115,5 +117,25 @@ class CrystalLanguageCommentCompletionTest : BasePlatformTestCase() {
         val classes = injector!!.elementsToInjectIn()
         assertTrue(classes.contains(CrystalStringExpression::class.java))
         assertTrue(classes.contains(CrystalHeredocLiteral::class.java))
+        assertTrue(classes.contains(CrystalPercentLiteral::class.java))
+        assertTrue(classes.contains(CrystalSymbolStringExpression::class.java))
+    }
+
+    fun testInjectLanguageIntentionAvailableOnPercentHost() {
+        myFixture.configureByText("main.cr", "s = %Q(SELECT<caret> 1)")
+        val intentions = myFixture.filterAvailableIntentions("Inject language")
+        assertTrue(
+            "Platform InjectLanguageAction should be available on Crystal percent hosts",
+            intentions.isNotEmpty()
+        )
+    }
+
+    fun testInjectLanguageIntentionAvailableOnSymbolHost() {
+        myFixture.configureByText("main.cr", "s = :\"SELECT<caret> 1\"")
+        val intentions = myFixture.filterAvailableIntentions("Inject language")
+        assertTrue(
+            "Platform InjectLanguageAction should be available on Crystal symbol hosts",
+            intentions.isNotEmpty()
+        )
     }
 }

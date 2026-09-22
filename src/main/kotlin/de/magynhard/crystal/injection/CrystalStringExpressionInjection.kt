@@ -2,6 +2,7 @@ package de.magynhard.crystal.injection
 
 import com.intellij.lang.Language
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiFile
 import de.magynhard.crystal.psi.CrystalStringExpression
 import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.psi.impl.CrystalStringExpressionMixin
@@ -19,12 +20,14 @@ object CrystalStringExpressionInjection {
     data class Plan(val language: Language, val prefix: String, val suffix: String)
 
     /**
-     * Full injection decision for a string literal — comment-driven only.
-     * Returns null without an adjacent resolvable comment.
+     * Comment-driven injection decision for any host element: the
+     * `# language=<id>` comment on the line directly above [anchorOffset]
+     * resolves through the shared alias/language-ID fallback. Returns null
+     * without an adjacent resolvable comment.
      */
-    fun resolveInjectionPlan(stringExpression: CrystalStringExpression): Plan? {
-        val comment = stringExpression.containingFile
-            ?.let { CrystalLanguageComment.findAdjacentComment(it, stringExpression.textRange.startOffset) }
+    fun resolveCommentPlan(file: PsiFile?, anchorOffset: Int): Plan? {
+        val comment = file
+            ?.let { CrystalLanguageComment.findAdjacentComment(it, anchorOffset) }
             ?: return null
         val language = CrystalHeredocInjection.resolveLanguage(comment.languageId) ?: return null
         return Plan(language, comment.prefix, comment.suffix)

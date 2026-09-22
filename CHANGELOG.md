@@ -5,6 +5,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **`# language=` injection for percent literals and symbol strings** — a `# language=<id>`
+  comment above `%q(…)`, `%Q(…)`, bare `%(…)`, or a `:"…"` symbol string now injects
+  the target language exactly like it does for double-quoted strings: interpolation
+  splits the content into places with language-specific placeholder prefixes, escapes
+  are decoded for the injected fragment, and single-place bodies write fragment edits
+  back (`%q` verbatim, `%Q`/symbols re-encoded) while interpolated bodies stay no-op.
+  `%r`/`%x` content, `%w`/`%W`/`%i`/`%I` arrays, and macro-generated `:{{…}}` symbols
+  are excluded by the host gate, and the platform "Inject language" intention applies
+  to the new hosts. Covered by `CrystalLanguageCommentInjectionTest`,
+  `CrystalInjectionHostTest`, and `CrystalLanguageCommentCompletionTest`; specified in
+  docs/specs/heredoc-calls.md.
 - **Parameter-order inspection** — a new `CrystalParameterOrder` inspection reports a required
   positional parameter declared after an optional one (`def foo(a = 1, b)`) with
   `Required parameter must have a default value`, matching the compiler. Named-only parameters

@@ -325,7 +325,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitPercentLiteral(@NotNull CrystalPercentLiteral o) {
-    visitPsiElement(o);
+    visitPsiLanguageInjectionHost(o);
   }
 
   public void visitPointerofExpression(@NotNull CrystalPointerofExpression o) {
@@ -397,7 +397,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitSymbolStringExpression(@NotNull CrystalSymbolStringExpression o) {
-    visitPsiElement(o);
+    visitPsiLanguageInjectionHost(o);
   }
 
   public void visitTopLevelFun(@NotNull CrystalTopLevelFun o) {

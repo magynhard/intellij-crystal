@@ -8,12 +8,11 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
 
-public class CrystalSymbolStringExpressionImpl extends ASTWrapperPsiElement implements CrystalSymbolStringExpression {
+public class CrystalSymbolStringExpressionImpl extends CrystalSymbolStringExpressionMixin implements CrystalSymbolStringExpression {
 
-  public CrystalSymbolStringExpressionImpl(@NotNull ASTNode node) {
+  public CrystalSymbolStringExpressionImpl(ASTNode node) {
     super(node);
   }
 

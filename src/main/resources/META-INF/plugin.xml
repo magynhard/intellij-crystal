@@ -507,7 +507,9 @@
                 implementation="de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler"/>
 
         <!-- Embedded-language injection into heredocs (<<-SQL, <<-JAVASCRIPT, ...)
-             and string literals (via # language=<id> comments) -->
+              and string-like literals (via # language=<id> comments):
+              double-quoted strings, %q/%Q/bare %() percent literals,
+              and :"symbol" strings -->
         <multiHostInjector
                 implementation="de.magynhard.crystal.injection.CrystalHeredocInjector"/>
 
@@ -518,6 +520,14 @@
         <elementManipulator
                 forClass="de.magynhard.crystal.psi.CrystalStringExpression"
                 implementationClass="de.magynhard.crystal.injection.CrystalStringExpressionManipulator"/>
+
+        <elementManipulator
+                forClass="de.magynhard.crystal.psi.CrystalPercentLiteral"
+                implementationClass="de.magynhard.crystal.injection.CrystalPercentLiteralManipulator"/>
+
+        <elementManipulator
+                forClass="de.magynhard.crystal.psi.CrystalSymbolStringExpression"
+                implementationClass="de.magynhard.crystal.injection.CrystalSymbolStringExpressionManipulator"/>
 
         <!-- Owns comment-driven injection for Crystal hosts (keeps the generic
              IntelliLang comment contributor from double-injecting) -->

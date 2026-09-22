@@ -6,7 +6,9 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.injection.CrystalHeredocInjector
 import de.magynhard.crystal.psi.CrystalHeredocLiteral
+import de.magynhard.crystal.psi.CrystalPercentLiteral
 import de.magynhard.crystal.psi.CrystalStringExpression
+import de.magynhard.crystal.psi.CrystalSymbolStringExpression
 
 /**
  * Tests for `# language=<id>` comment-driven injection into heredocs and
@@ -28,6 +30,12 @@ class CrystalLanguageCommentInjectionTest : BasePlatformTestCase() {
 
     private fun injectString(code: String): FakeInjectionRegistrar? =
         injectHost(code, CrystalStringExpression::class.java)
+
+    private fun injectPercent(code: String): FakeInjectionRegistrar? =
+        injectHost(code, CrystalPercentLiteral::class.java)
+
+    private fun injectSymbol(code: String): FakeInjectionRegistrar? =
+        injectHost(code, CrystalSymbolStringExpression::class.java)
 
     // ==================== Heredoc: comment drives the injection ====================
 
@@ -136,9 +144,91 @@ class CrystalLanguageCommentInjectionTest : BasePlatformTestCase() {
         assertNull(injectString("# language=SQL\nrequire \"./apfel\"\n"))
     }
 
+    // ==================== Percent literals ====================
+
+    fun testCommentInjectsPercentLiteral() {
+        val registrar = injectPercent("# language=SQL\nquery = %Q(SELECT 1)\n")
+        assertNotNull(registrar)
+        assertEquals("SQL", registrar!!.language.id)
+        assertEquals("SELECT 1", registrar.places.single().content)
+    }
+
+    fun testRawPercentLiteralInjectsVerbatim() {
+        val registrar = injectPercent("# language=SQL\nquery = %q(SELECT 1)\n")
+        assertNotNull(registrar)
+        assertEquals("SELECT 1", registrar!!.places.single().content)
+    }
+
+    fun testBarePercentLiteralInjects() {
+        val registrar = injectPercent("# language=SQL\nquery = %(SELECT 1)\n")
+        assertNotNull(registrar)
+        assertEquals("SELECT 1", registrar!!.places.single().content)
+    }
+
+    fun testPercentInterpolationSplitsPlaces() {
+        val registrar = injectPercent("# language=HTML\ns = %Q(<p>#{name}</p>)\n")
+        assertNotNull(registrar)
+        assertEquals(2, registrar!!.places.size)
+        assertEquals("<p>", registrar.places[0].content)
+        assertEquals("</p>", registrar.places[1].content)
+        assertEquals("<!-- -->", registrar.places[1].prefix)
+    }
+
+    fun testRegexPercentIsNotInjected() {
+        assertNull(injectPercent("# language=SQL\nre = %r(foo)\n"))
+    }
+
+    fun testCommandPercentIsNotInjected() {
+        assertNull(injectPercent("# language=SQL\nout = %x(echo hi)\n"))
+    }
+
+    fun testWordArrayPercentIsNotInjected() {
+        assertNull(injectPercent("# language=SQL\nwords = %w(foo bar)\n"))
+    }
+
+    fun testPercentWithoutCommentIsNotInjected() {
+        assertNull(injectPercent("query = %Q(SELECT 1)\n"))
+    }
+
+    fun testUnknownCommentLanguageOverPercentIsNotInjected() {
+        assertNull(injectPercent("# language=NOSUCHLANGUAGE\nquery = %Q(SELECT 1)\n"))
+    }
+
+    // NOTE: no direct require-path exclusion test for percent literals: the
+    // grammar's require_statement accepts only string_expression, so
+    // `require %q(…)` never forms a require statement in this PSI. The
+    // injector still carries the require-parent guard for nested shapes
+    // (e.g. a percent literal inside an interpolation of a require string).
+
+    // ==================== Symbol strings ====================
+
+    fun testCommentInjectsSymbolString() {
+        val registrar = injectSymbol("# language=SQL\norder = :\"name\"\n")
+        assertNotNull(registrar)
+        assertEquals("SQL", registrar!!.language.id)
+        assertEquals("name", registrar.places.single().content)
+    }
+
+    fun testSymbolInterpolationSplitsPlaces() {
+        val registrar = injectSymbol("# language=HTML\ns = :\"<p>#{name}</p>\"\n")
+        assertNotNull(registrar)
+        assertEquals(2, registrar!!.places.size)
+        assertEquals("<p>", registrar.places[0].content)
+        assertEquals("</p>", registrar.places[1].content)
+        assertEquals("<!-- -->", registrar.places[1].prefix)
+    }
+
+    fun testSymbolWithoutCommentIsNotInjected() {
+        assertNull(injectSymbol("order = :\"name\"\n"))
+    }
+
+    fun testMacroSymbolIsNotInjected() {
+        assertNull(injectSymbol("# language=SQL\ns = :{{name}}\n"))
+    }
+
     // ==================== Injector registration ====================
 
-    fun testInjectorListsBothHostTypes() {
+    fun testInjectorListsAllHostTypes() {
         val injector = MultiHostInjector.MULTIHOST_INJECTOR_EP_NAME.getExtensions(project)
             .filterIsInstance<CrystalHeredocInjector>()
             .firstOrNull()
@@ -146,6 +236,8 @@ class CrystalLanguageCommentInjectionTest : BasePlatformTestCase() {
         val elementClasses = injector!!.elementsToInjectIn()
         assertTrue(elementClasses.contains(CrystalHeredocLiteral::class.java))
         assertTrue(elementClasses.contains(CrystalStringExpression::class.java))
+        assertTrue(elementClasses.contains(CrystalPercentLiteral::class.java))
+        assertTrue(elementClasses.contains(CrystalSymbolStringExpression::class.java))
     }
 
     // ==================== Generic IntelliLang contributor silencer ====================

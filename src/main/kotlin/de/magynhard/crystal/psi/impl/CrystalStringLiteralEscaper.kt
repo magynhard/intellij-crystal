@@ -4,20 +4,22 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.LiteralTextEscaper
 import com.intellij.psi.PsiLanguageInjectionHost
 import de.magynhard.crystal.analysis.CrystalStringLiteralDecoder
-import de.magynhard.crystal.psi.CrystalStringExpression
 import de.magynhard.crystal.psi.CrystalTypes
 
 /**
- * Escaper for injected [CrystalStringExpression] hosts.
+ * Escaper for injected string-content hosts ([CrystalStringExpression] and,
+ * since percent/symbol hosts share the same leaf shapes, percent literals
+ * and quoted symbol strings).
  *
  * Decodes Crystal escapes (`\n`, `\t`, `\u{…}`, octal, …) so the injected
  * language sees the string's runtime value, and maps decoded offsets back to
- * the encoded host offsets for highlighting and editing.
+ * the encoded host offsets for highlighting and editing. Raw forms (`%q`)
+ * carry no `STRING_ESCAPE` leaves and pass through verbatim.
  *
  * Interpolation parts that fall inside a decode range (only for full-range
  * decodes — injection places exclude them) are appended 1:1 raw.
  */
-class CrystalStringLiteralEscaper(host: CrystalStringExpression) :
+class CrystalStringLiteralEscaper(host: PsiLanguageInjectionHost) :
     LiteralTextEscaper<PsiLanguageInjectionHost>(host) {
 
     private val mapping = mutableListOf<Int>()
