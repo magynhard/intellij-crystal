@@ -40,7 +40,9 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         val offset: Int,
         val assignment: CrystalAssignment? = null,
         val forStatement: CrystalForStatement? = null,
-        val groupedExpression: CrystalGroupedExpression? = null
+        val groupedExpression: CrystalGroupedExpression? = null,
+        val multiAssignment: CrystalMultiAssignment? = null,
+        val multiIdentifier: PsiElement? = null
     )
 
     private class Frame(
@@ -96,6 +98,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
     private val definitionsByFor = IdentityHashMap<CrystalForStatement, Definition>()
     private val groupedSymbols = IdentityHashMap<CrystalGroupedExpression, Symbol>()
     private val definitionsByGrouped = IdentityHashMap<CrystalGroupedExpression, Definition>()
+    private val definitionsByMultiTarget = IdentityHashMap<PsiElement, Definition>()
     private val usedDefinitions = linkedSetOf<Int>()
     private val reachedDefinitions = linkedSetOf<Int>()
     private val escapedReads = mutableListOf<Pair<Int, Int>>()
@@ -136,6 +139,8 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         collectFrameForStatements(owner, forStatements, isRoot = true)
         val groupedAssignments = mutableListOf<CrystalGroupedExpression>()
         collectFrameGroupedAssignments(owner, groupedAssignments, isRoot = true)
+        val multiAssignments = mutableListOf<CrystalMultiAssignment>()
+        collectFrameMultiAssignments(owner, multiAssignments, isRoot = true)
         val bindingSites = assignments.map { BindingSite(it.textOffset, assignment = it) } +
             forStatements.mapNotNull { statement ->
                 forIdentifier(statement)?.let { BindingSite(it.textOffset, forStatement = statement) }
@@ -143,12 +148,17 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
                 groupedAssignmentIdentifier(grouped)?.let {
                     BindingSite(it.textOffset, groupedExpression = grouped)
                 }
+            } + multiAssignments.flatMap { multi ->
+                multiAssignTargetIdentifiers(multi).map {
+                    BindingSite(it.textOffset, multiAssignment = multi, multiIdentifier = it)
+                }
             }
         for (site in bindingSites.sortedBy { it.offset }) {
             val assignment = site.assignment
             val identifier = assignment?.let(::localAssignmentIdentifier)
                 ?: site.forStatement?.let(::forIdentifier)
                 ?: site.groupedExpression?.let(::groupedAssignmentIdentifier)
+                ?: site.multiIdentifier
                 ?: continue
             val name = identifier.text
             val symbol = frame.symbols[name]?.takeIf { it.firstOffset <= identifier.textOffset }
@@ -160,7 +170,8 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
                 symbol,
                 identifier,
                 assignment?.node?.findChildByType(CrystalTypes.ASSIGN) != null ||
-                    site.groupedExpression?.node?.findChildByType(CrystalTypes.ASSIGN) != null
+                    site.groupedExpression?.node?.findChildByType(CrystalTypes.ASSIGN) != null ||
+                    site.multiAssignment?.node?.findChildByType(CrystalTypes.ASSIGN) != null
             )
             definitions.add(definition)
             if (assignment != null) {
@@ -171,6 +182,8 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
             } else if (site.groupedExpression != null) {
                 groupedSymbols[site.groupedExpression] = symbol
                 definitionsByGrouped[site.groupedExpression] = definition
+            } else if (site.multiAssignment != null && site.multiIdentifier != null) {
+                definitionsByMultiTarget[site.multiIdentifier] = definition
             }
         }
 
@@ -254,6 +267,26 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         for (child in element.children) collectFrameGroupedAssignments(child, result)
     }
 
+    private fun collectFrameMultiAssignments(
+        element: PsiElement,
+        result: MutableList<CrystalMultiAssignment>,
+        isRoot: Boolean = false
+    ) {
+        if (!isRoot && isHardBoundary(element)) return
+        if (!isRoot && element is CrystalBlock) return
+        if (!isRoot && element is CrystalRescueClause) return
+        if (element is CrystalMultiAssignment && multiAssignTargetIdentifiers(element).isNotEmpty()) {
+            result.add(element)
+        }
+        for (child in element.children) collectFrameMultiAssignments(child, result)
+    }
+
+    private fun multiAssignTargetIdentifiers(multi: CrystalMultiAssignment): List<PsiElement> =
+        multi.multiAssignTargetList.mapNotNull { CrystalPsiUtils.multiAssignTargetLocal(it)?.first }
+
+    private fun multiAssignTargetIdentifier(target: CrystalMultiAssignTarget): PsiElement? =
+        CrystalPsiUtils.multiAssignTargetLocal(target)?.first
+
     /**
      * Arguments of declaration macros bind the default-value form through the
      * `bare_argument ::= ... | assignment` alternative, so the unused-variable
@@ -311,6 +344,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         return when (element) {
             is CrystalAssignment -> flowAssignment(element, frame, incoming)
             is CrystalIndexedAssignment -> flowIndexedAssignment(element, frame, incoming)
+            is CrystalMultiAssignment -> flowMultiAssignment(element, frame, incoming)
             is CrystalGroupedExpression -> flowGroupedAssignment(element, frame, incoming)
             is CrystalMethodBody -> flowProtected(
                 element.statementList,
@@ -612,6 +646,78 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
         return Flow(assigned, rhsFlow.breaks, rhsFlow.continues, rhsFlow.returns)
     }
 
+    /**
+     * Destructuring assignments (`x, y = [1, 2]`) evaluate every right-hand
+     * value first and then write each local target in order — mirroring
+     * [flowAssignmentCore] with one definition per target. Only the target
+     * identifiers collected by [multiAssignTargetIdentifiers] participate;
+     * indexed/member/macro targets keep flowing generically through the
+     * values and receivers.
+     */
+    private fun flowMultiAssignment(multi: CrystalMultiAssignment, frame: Frame, incoming: State): Flow {
+        val heredocBindings = heredocBodyBindings(multi.expressionList, multi.heredocBodies)
+        heredocBindings.forEach { (header, body) -> activeHeredocBodies[header] = body }
+        try {
+            return flowMultiAssignmentWithPostfix(multi, frame, incoming)
+        } finally {
+            heredocBindings.forEach { (header) -> activeHeredocBodies.remove(header) }
+        }
+    }
+
+    private fun flowMultiAssignmentWithPostfix(
+        multi: CrystalMultiAssignment,
+        frame: Frame,
+        incoming: State,
+    ): Flow {
+        val postfix = multi.postfixModifier
+        if (postfix == null) return flowMultiAssignmentPlain(multi, frame, incoming)
+        if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null) {
+            val body = flowMultiAssignmentPlain(multi, frame, incoming)
+            if (multi.node.findChildByType(CrystalTypes.ASSIGN) != null &&
+                multi.expressionList.none(::mayRaise)
+            ) return body
+            return mergeFlows(
+                listOf(
+                    body,
+                    flowElement(
+                        postfix.conditionElement(),
+                        frame,
+                        exceptionalEntry(multi.expressionList + listOfNotNull(multi.heredocBodies), incoming),
+                    ),
+                )
+            )
+        }
+        val conditionFlow = flowElement(postfix.conditionElement(), frame, incoming)
+        val base = conditionFlow.normal ?: return conditionFlow
+        val assignmentFlow = flowMultiAssignmentPlain(multi, frame, base)
+        val resultNormal = State.merge(listOfNotNull(base, assignmentFlow.normal))
+        return Flow(
+            resultNormal,
+            conditionFlow.breaks + assignmentFlow.breaks,
+            conditionFlow.continues + assignmentFlow.continues,
+            conditionFlow.returns + assignmentFlow.returns
+        )
+    }
+
+    private fun flowMultiAssignmentPlain(multi: CrystalMultiAssignment, frame: Frame, incoming: State): Flow {
+        val valuesFlow = flowSequence(multi.expressionList, frame, incoming)
+        var assigned = valuesFlow.normal
+        for (target in multi.multiAssignTargetList) {
+            val identifier = multiAssignTargetIdentifier(target) ?: continue
+            val definition = definitionsByMultiTarget[identifier] ?: continue
+            if (assigned != null) {
+                reachedDefinitions.add(definition.id)
+                assigned = assigned.write(definition.symbol, definition)
+            }
+        }
+        return Flow(
+            assigned,
+            valuesFlow.breaks,
+            valuesFlow.continues,
+            valuesFlow.returns
+        )
+    }
+
     private fun flowIf(statement: CrystalIfStatement, frame: Frame, incoming: State): Flow {
         val condition = statement.condition?.let { flowElement(it, frame, incoming) } ?: Flow(incoming)
         val branchInput = condition.normal ?: return condition
@@ -801,6 +907,9 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
             if (current is CrystalGroupedExpression && definitionsByGrouped[current]?.id == definition.id) {
                 return current.textRange.endOffset
             }
+            if (current is CrystalMultiAssignment && definitionsByMultiTarget[definition.identifier]?.id == definition.id) {
+                return current.textRange.endOffset
+            }
             current = current.parent
         }
         return definition.identifier.textRange.endOffset
@@ -831,6 +940,7 @@ class CrystalLocalUsageAnalyzer(private val root: PsiElement) {
                 if (conditionalOwner) containers.add(current)
             }
             if (current is CrystalAssignment && current.postfixModifier != null) containers.add(current)
+            if (current is CrystalMultiAssignment && current.postfixModifier != null) containers.add(current)
             current = current.parent
         }
         return containers

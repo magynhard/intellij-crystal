@@ -1268,4 +1268,129 @@ class CrystalUnusedVariableInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Destructuring assignments ====================
+
+    fun testDestructuringUnusedSecondTarget() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x, <weak_warning descr="Variable 'y' is never used">y</weak_warning> = [1, 2]
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringBothTargetsUsed() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x, y = [1, 2]
+              puts x
+              puts y
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringUnderscoreTargetNoWarning() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x, _ = [1, 2]
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringSplatTargetUnused() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x, *<weak_warning descr="Variable 'rest' is never used">rest</weak_warning> = [1, 2, 3]
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringSplatTargetUsed() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              x, *rest = [1, 2, 3]
+              puts x
+              puts rest
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringJoinsPlainAssignmentSymbol() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              y = 0
+              puts y
+              x, y = [1, 2]
+              puts x
+              puts y
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringOverwritesPlainAssignment() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              <weak_warning descr="Value assigned to 'x' is never used">x</weak_warning> = 1
+              x, y = [1, 2]
+              puts x
+              puts y
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringReadsRhsBeforeWrites() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              a = 1
+              b = 2
+              a, b = b, a
+              puts a
+              puts b
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringIndexedTargetBindsNothing() {
+        myFixture.configureByText("test.cr", """
+            def foo
+              arr = [0, 0]
+              arr[0], x = [1, 2]
+              puts arr
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringMemberTargetBindsNothing() {
+        myFixture.configureByText("test.cr", """
+            def foo(a)
+              a.bar, x = [1, 2]
+              puts x
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDestructuringWithPostfixCondition() {
+        myFixture.configureByText("test.cr", """
+            def foo(c)
+              x, y = [1, 2] if c
+              puts x
+              puts y
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

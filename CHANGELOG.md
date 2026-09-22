@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Unused-variable analysis for destructuring targets** — each local target of a tuple
+  destructuring assignment (`x, y = [1, 2]`, including splats such as `a, *rest = …`)
+  is now tracked as its own binding: never-read targets are reported, reads resolve to
+  the destructured definition with the same offset shadowing as plain assignments, and
+  right-hand values evaluate before target writes. Indexed/member targets bind no locals,
+  and parenthesized, nested, or typed target shapes never become bindings (the compiler
+  rejects them). Covered by `CrystalUnusedVariableInspectionTest`; specified in
+  docs/specs/value-assignment-never-used.md.
 - **`# language=` injection for percent literals and symbol strings** — a `# language=<id>`
   comment above `%q(…)`, `%Q(…)`, bare `%(…)`, or a `:"…"` symbol string now injects
   the target language exactly like it does for double-quoted strings: interpolation

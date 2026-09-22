@@ -13,12 +13,20 @@ assigned value cannot reach any read on a possible execution path.
   `Value assigned to '<name>' is never used`.
 - Assignments whose names start with `_` are intentionally unused and are not
   reported.
-- Instance variables, class variables, constants, parameters, and destructuring
-  targets are outside this inspection's scope.
+- Instance variables, class variables, constants, and parameters are outside
+  this inspection's scope.
 - Compound assignments read the previous value before writing the new value;
   the synthetic write itself is not reportable as a plain unused assignment.
 - Parenthesized simple assignments such as `(value = compute)` create the same
   binding definition as statement assignments, including inside ternaries.
+- Tuple destructuring targets (`x, y = [1, 2]`, including splats such as
+  `a, *rest = …`) each create their own binding definition with the same
+  offset-ordered shadowing as plain assignments: right-hand values evaluate
+  before target writes, postfix conditions preserve the skipped-write path,
+  and reads resolve to the destructured target. Indexed/member targets
+  (`arr[0]`, `a.foo`) bind no locals, macro targets stay unknown, and
+  parenthesized, nested, or typed target shapes never become bindings — the
+  compiler rejects them as syntax errors.
 
 ## Binding Identity
 
