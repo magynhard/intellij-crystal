@@ -1,37 +1,5 @@
 # TODO — IntelliJ Crystal Plugin
 
-## Heredoc Embedded-Language Injection Follow-up
-
-- [ ] **Write back fragment-editor edits for interpolated injected heredocs/strings** — single-place
-  bodies (raw heredocs, interpolation-free heredocs/strings) write fragment-editor edits back
-  exactly (`updateText` re-encodes for strings); multi-place (interpolated) bodies ignore edits
-  rather than corrupting interpolations, because the flat fragment text cannot be reconstructed
-  into per-place ranges. **Problematik (verified 2026-09-22):** the suggested placeholder-sentinel
-  scan is ambiguous — registered prefixes are content-legal language tokens (`NULL`, `null`, `0`,
-  `<!-- -->` from `CrystalHeredocInjection.PLACEHOLDERS`), so they can legitimately occur inside
-  place content and cannot uniquely mark boundaries; introducing unique sentinels would either
-  pollute the injected document the user edits or break its syntactic validity. A
-  DocumentWindow-aware write path is not reachable from `PsiLanguageInjectionHost.updateText`
-  (which only receives the already-flattened `String`); incremental fragment edits go through the
-  platform `DocumentWindow` place mapping and never hit `updateText`, so the remaining gap is
-  wholesale `updateText` replacement only (pinned by `CrystalInjectionHostTest.testInterpolated*WriteBackIsNoOp`).
-  A correct fix needs a platform-level per-place edit channel or a redesign of place prefixes —
-  deferred until one of those is designed.
-- [ ] **Injection intentions and settings UI** — the platform "Inject language or reference"
-  intention is already available on Crystal hosts (string/heredoc `PsiLanguageInjectionHost`),
-  and `# language=` comment completion is implemented (installed language IDs + heredoc marker
-  aliases while the caret is in the bare `language=` value). **Problematik (verified 2026-09-22):**
-  a Language-Injections-style settings page is not implemented — IntelliLang's settings model
-  (`LanguageInjectionConfigurable`) registers generic comment/regex injections only; Crystal
-  owns comment-driven injection in `CrystalHeredocInjector` with `useDefaultCommentInjector=false`,
-  so its `# language=` comment configuration has no entry in the platform settings tree and a
-  custom settings page would need its own persistence format with no platform integration point
-  beyond reimplementing the injector. Deferred until a concrete Crystal-specific injection
-  configuration (beyond in-file comments) is designed.
-- [ ] **`# language=` comments for percent literals and `:"symbol"` strings** — percent literals
-  (`%q(…)` etc.) and `symbol_string_expression` are not injection hosts; only `heredoc_literal`
-  and `string_expression` hosts exist.
-
 ## Unused Assignment Inspection Follow-up
 
 - [ ] **Analyze destructuring assignment targets independently** — represent each local target in tuple,

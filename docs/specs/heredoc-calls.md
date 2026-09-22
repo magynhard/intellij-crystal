@@ -145,8 +145,9 @@ treatment through `# language=` comments (see below).
 - **Write-back:** single-place bodies (raw heredocs, interpolation-free) map
   the injected fragment 1:1, so fragment-editor edits are written back exactly.
   Multi-place (interpolated) bodies are not reconstructed from the flat
-  fragment text — edits are ignored rather than corrupting interpolations
-  (tracked in TODO.md).
+  fragment text — edits are ignored rather than corrupting interpolations.
+  The flat `updateText` input cannot be mapped back onto per-place ranges, so
+  this no-op policy is the established behavior.
 
 ## `# language=` comment injection (v14.1)
 
@@ -195,16 +196,27 @@ sql = "SELECT * FROM users"
   are re-encoded on write-back (quotes, backslashes, control characters and
   `#{` are escaped). Interpolated strings are multi-place and not written
   back (same policy as heredocs).
+- **Percent and symbol hosts:** string-like `percent_literal`
+  (`CrystalPercentLiteralMixin`: `%q`, `%Q`, bare `%()`; `%r`/`%x` content
+  and `%w`/`%W`/`%i`/`%I` arrays are excluded by the host gate) and quoted
+  `symbol_string_expression` (`CrystalSymbolStringExpressionMixin`: only the
+  `:"…"` form, not macro-generated `:{{…}}`) implement
+  `PsiLanguageInjectionHost` with the same comment-driven injection, escape
+  decoding (raw `%q` passes through verbatim), and single-place write-back
+  policy as strings. Raw `%q` writes back verbatim; `%Q` and symbols
+  re-encode. The grammar's `require_statement` accepts only
+  `string_expression`, so percent/symbol forms never form require statements;
+  the injector still guards nested require parents.
 - **No double injection:** a minimal `CrystalLanguageInjectionSupport`
   (`useDefaultCommentInjector=false`) registers Crystal with IntelliLang so
   the generic comment contributor stays silent — comment-driven injection is
   fully owned by `CrystalHeredocInjector`.
-- **Not covered:** percent literals (`%q(…)`), `:"symbol"` strings, `require
-  "…"` paths (deliberately excluded), and a Language-Injections-style settings
-  page (the platform "Inject language or reference" intention applies to
-  Crystal hosts; `# language=` comment completion offers installed language
-  IDs and heredoc marker aliases while the caret is in the bare `language=`
-  value).
+- **Not covered:** `require "…"` paths (deliberately excluded). There is
+  deliberately no Language-Injections-style settings page: the platform
+  "Inject language or reference" intention applies to Crystal hosts, and
+  `# language=` comment completion offers installed language IDs and heredoc
+  marker aliases while the caret is in the bare `language=` value — no
+  configurable behavior exists beyond these mechanisms.
 
 ## Chained bodies (multi-heredoc)
 
@@ -231,8 +243,8 @@ background indexing.
 ## Known limitations
 
 - Fragment-editor edits of INTERPOLATED injected heredocs are not written back
-  (single-place bodies are); tracked in TODO.md. No `# language=` comment
-  injection, injection intention, or injection settings UI yet.
+  (single-place bodies are); the flat `updateText` input cannot be mapped back
+  onto per-place ranges, so the no-op policy is the established behavior.
 - IDE incremental relexes inside/below a multi-heredoc header chain currently
   restart with an EMPTY delimiter queue (queue state is not encoded in the
   int lexer state), so remaining bodies can be lexed as ordinary code until a
