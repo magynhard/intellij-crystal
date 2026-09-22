@@ -164,13 +164,6 @@
   Standard implementations are not uniformly boolean (`String#=~` returns
   `Int32 | Nil`), and Crystal permits custom methods with arbitrary return types,
   so token-based result heuristics are unsafe.
-- [ ] **Type indexed reads on remaining collection families and custom `[]`** — the
-  index-element mapping is a name table for `Array`, `Slice`, `StaticArray`, `Hash`,
-  `Tuple`, and `String`. `Deque(T)`, the `Indexable(T)` / `Indexable::Mutable(T)`
-  modules, and user types with their own `def [](...)` stay at the receiver type.
-  Route these through the shared exact call resolver (applicable overload's return
-  annotation) instead of extending the table, so custom collections resolve without
-  name-only guesses.
 - [ ] **Refine non-element index results and index writes** — range and multi-argument
   indexing currently returns the container as-is; `Array#[](start, count)` and
   `StaticArray`/`Slice` range overloads could report their exact return types, and

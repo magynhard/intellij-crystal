@@ -370,7 +370,16 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val elements = known.types.mapNotNull { resolved ->
             indexedElementType(resolved.name, literalIndex)
         }
-        if (elements.isEmpty()) return null
+        if (elements.isEmpty()) {
+            // Custom collections (`def [](...)`) and collection families the
+            // name table does not know (`Deque(T)`, the `Indexable` modules)
+            // resolve through the shared exact call resolver, so the element is
+            // the applicable overload's return annotation instead of a
+            // name-only guess.
+            return resolveCall(known.types.map { it.name }, "[]", false, arguments)
+                .let { it as? CrystalTypeResolution.Known }
+                ?.takeIf { it.types.isNotEmpty() }
+        }
         return mergeKnown(elements)
     }
 

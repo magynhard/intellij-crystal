@@ -71,10 +71,13 @@ Index reads resolve through the receiver's collection type: `Array(T)`, `Slice(T
 yields the literal-indexed element (or the union of every element for a dynamic index). A range or
 multi-argument index yields the container again (`arr[1..2]` is an `Array`, `str[1, 2]` a `String`),
 and the nil-safe `[]?` postfix adds `Nil` to the element (`arr[i]?` is `T | Nil`). Chained indexes
-(`matrix[row][col]`) resolve one step at a time. Unknown receivers and unsupported collections stay
-`Unknown`; the resolver never falls back to the receiver type for an element read. An indexed
-receiver seeds a following dot-call chain with the element type, so `lines[0].strip` and
-`by_name["a"].value` resolve through the element's methods instead of degrading to `Unknown`.
+(`matrix[row][col]`) resolve one step at a time. Collections outside the name table (`Deque(T)`,
+the `Indexable` modules, and user types with their own `def [](...)`) resolve the element through
+the shared exact call resolver's `[]` overload return annotation, so no name-only guess is made.
+Unknown receivers and unsupported collections stay `Unknown`; the resolver never falls back to the
+receiver type for an element read. An indexed receiver seeds a following dot-call chain with the
+element type, so `lines[0].strip` and `by_name["a"].value` resolve through the element's methods
+instead of degrading to `Unknown`.
 
 Crystal's nilable shorthand `T?` is expanded to `T | Nil` while annotations, parameters, and return
 types are parsed, so a nilable generic (`Array(String)?`) participates in element extraction and

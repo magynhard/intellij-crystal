@@ -1007,6 +1007,23 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testCustomCollectionIndexResolvesReturnAnnotation() {
+        assertTypes(
+            "class Box\n  def [](index : Int32) : String\n    \"x\"\n  end\nend\n" +
+                "def fetch(box : Box)\n  value = box[0]\n  <caret>value\nend",
+            "String",
+        )
+    }
+
+    fun testCustomCollectionIndexedReceiverDotCallResolves() {
+        assertTypes(
+            "class Box\n  def [](index : Int32) : Wrapper\n    Wrapper.new\n  end\nend\n" +
+                "class Wrapper\n  def value : Int32\n    1\n  end\nend\n" +
+                "def fetch(box : Box)\n  result = box[0].value\n  <caret>result\nend",
+            "Int32",
+        )
+    }
+
     fun testStringRangeIndexKeepsString() {
         assertTypes(
             "def fetch(text : String)\n  part = text[1..2]\n  <caret>part\nend",

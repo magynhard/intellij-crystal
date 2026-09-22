@@ -28,6 +28,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Custom and non-table collection index reads resolve through the shared call resolver** —
+  `box[0]` on a user type with `def [](index : Int32) : String` now resolves to `String` from the
+  applicable overload's return annotation, and `Deque(T)`/`Indexable(T)` no longer stay at the
+  receiver type. The element mapping keeps its `Array`/`Hash`/`Tuple` table and defers unknown
+  bases to the shared exact call resolver instead of guessing by name. Covered by type-inference
+  regressions.
 - **Indexed receivers carry element types into dot-call chains** — `lines[0].strip` and
   `by_name["a"].value` now resolve the element type from `Array(T)`/`Hash(K, V)` before walking
   the dot access, instead of degrading to `Unknown`. The postfix resolver seeds its receiver from
