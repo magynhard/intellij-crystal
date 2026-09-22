@@ -3,6 +3,7 @@ package de.magynhard.crystal.analysis
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.CrystalBareArgument
+import de.magynhard.crystal.psi.CrystalMultiAssignment
 import de.magynhard.crystal.psi.CrystalReturnStatement
 
 class CrystalTypeSetResolverTest : BasePlatformTestCase() {
@@ -1113,6 +1114,96 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         val result = resolve(source)
         assertTrue("Expected known types ${expected.toList()}, got $result", result is CrystalTypeResolution.Known)
         assertEquals(expected.toList(), (result as CrystalTypeResolution.Known).types.map { it.name })
+    }
+
+    // ==================== Destructuring assignment targets ====================
+
+    fun testDestructuringArrayLiteralInfersElementUnion() {
+        assertTypes("x, y = [1, \"other\"]\n<caret>x", "Int32", "String")
+        assertTypes("x, y = [1, \"other\"]\n<caret>y", "Int32", "String")
+    }
+
+    fun testDestructuringTupleLiteralInfersPositionalTypes() {
+        assertTypes("x, y = {1, \"other\"}\n<caret>x", "Int32")
+        assertTypes("x, y = {1, \"other\"}\n<caret>y", "String")
+    }
+
+    fun testDestructuringMultiValueRhsInfersPositionalTypes() {
+        assertTypes("x, y = 1, \"other\"\n<caret>x", "Int32")
+        assertTypes("x, y = 1, \"other\"\n<caret>y", "String")
+    }
+
+    fun testDestructuringSplatArrayInfersElementArray() {
+        assertTypes("a, *b = [1, \"x\", 2]\n<caret>b", "Array(Int32 | String)")
+    }
+
+    fun testDestructuringSplatTupleInfersRemainingTuple() {
+        assertTypes("a, *b = {1, \"x\", 2}\n<caret>b", "Tuple(String, Int32)")
+    }
+
+    fun testDestructuringSplatMultiValueInfersRemainingTuple() {
+        assertTypes("a, *b = 1, \"x\"\n<caret>b", "Tuple(String)")
+    }
+
+    fun testDestructuringMidSplatFromArray() {
+        assertTypes("a, *b, c = [1, \"x\", 2.5, true]\n<caret>b", "Array(Int32 | String | Float64 | Bool)")
+        assertTypes("a, *b, c = [1, \"x\", 2.5, true]\n<caret>c", "Int32", "String", "Float64", "Bool")
+    }
+
+    fun testDestructuringTypedArrayParameter() {
+        assertTypes(
+            "def use(values : Array(Int32))\n  x, y = values\n  <caret>x\nend",
+            "Int32"
+        )
+    }
+
+    fun testDestructuringReassignmentLastWriteWins() {
+        assertTypes("x = 1\nx, y = [1, \"s\"]\n<caret>x", "Int32", "String")
+    }
+
+    fun testDestructuringCountMismatchStaysUnknown() {
+        assertUnknown("x, y = 1, 2, 3\n<caret>y")
+    }
+
+    fun testDestructuringSmallTupleStaysUnknown() {
+        assertUnknown("x, y = {1}\n<caret>y")
+    }
+
+    fun testDestructuringNonIndexableRhsStaysUnknown() {
+        assertUnknown("x, y = 1\n<caret>y")
+    }
+
+    fun testDestructuringUnknownCallRhsStaysUnknown() {
+        assertUnknown("x, y = compute\n<caret>y")
+    }
+
+    fun testDestructuringPostfixConditionMergesSkippedPath() {
+        assertUnknown("def foo(c)\n  x, y = [1, \"s\"] if c\n  <caret>x\nend")
+    }
+
+    fun testMultiAssignmentResolvesLastTargetValue() {
+        val file = myFixture.configureByText("test.cr", "x, y = [1, \"s\"]")
+        val multi = PsiTreeUtil.findChildOfType(file, CrystalMultiAssignment::class.java)!!
+        val result = CrystalTypeSetResolver.resolve(multi)
+        assertEquals(
+            CrystalTypeResolution.Known(
+                listOf(
+                    CrystalResolvedType("Int32"),
+                    CrystalResolvedType("String")
+                )
+            ),
+            result,
+        )
+    }
+
+    fun testMultiAssignmentSplatResolvesLastTargetValue() {
+        val file = myFixture.configureByText("test.cr", "x, *y = [1, \"s\"]")
+        val multi = PsiTreeUtil.findChildOfType(file, CrystalMultiAssignment::class.java)!!
+        val result = CrystalTypeSetResolver.resolve(multi)
+        assertEquals(
+            CrystalTypeResolution.Known(listOf(CrystalResolvedType("Array(Int32 | String)"))),
+            result,
+        )
     }
 
     private fun assertUnknown(source: String) {

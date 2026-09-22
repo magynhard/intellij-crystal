@@ -388,4 +388,28 @@ object CrystalPsiUtils {
     }
 
     private val RECORD_NAME = Regex("(?:::)?[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*")
+
+    /**
+     * Local binding of one `multi_assign_target`, or null when the target
+     * binds no local: the identifier leaf plus whether it is a splat target
+     * (`*rest`).
+     *
+     * Only compiler-valid local forms qualify: a bare `variable` identifier
+     * (including `_`) and `STAR variable`. Indexed/member targets
+     * (`arr[0]`, `a.foo`) bind no locals, `macro_interpolation` targets are
+     * not statically known, and parenthesized, nested, or typed shapes are
+     * compiler syntax errors — none of them may become bindings.
+     */
+    fun multiAssignTargetLocal(target: CrystalMultiAssignTarget): Pair<PsiElement, Boolean>? {
+        val significant = target.node.getChildren(null).map { it.psi }.filter { !it.text.isBlank() }
+        if (significant.size == 1 && significant[0].node.elementType == CrystalTypes.IDENTIFIER) {
+            return significant[0] to false
+        }
+        if (significant.size == 2 && significant[0].node.elementType == CrystalTypes.STAR &&
+            significant[1].node.elementType == CrystalTypes.IDENTIFIER
+        ) {
+            return significant[1] to true
+        }
+        return null
+    }
 }

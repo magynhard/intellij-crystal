@@ -5,6 +5,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Per-target types for destructuring assignments** — tuple destructuring now infers exact
+  types positionally (`x, y = {1, "other"}` gives `x: Int32`, `y: String`), array
+  destructuring carries the element type (`x, y = [1, "other"]` gives both
+  `Int32 | String`, matching the compiler's indexing semantics), and splat targets collect
+  the rest (`Array(...)` from arrays, order-preserving `Tuple(...)` from tuples and
+  multi-value right-hand sides). The whole multi-assignment expression resolves to its last
+  target's type. Count mismatches, too-small tuples, and non-indexable right-hand sides stay
+  untyped instead of guessing. Covered by `CrystalTypeSetResolverTest` and
+  `CrystalTypeInferenceTest`; specified in docs/specs/type-inference.md.
 - **Unused-variable analysis for destructuring targets** — each local target of a tuple
   destructuring assignment (`x, y = [1, 2]`, including splats such as `a, *rest = …`)
   is now tracked as its own binding: never-read targets are reported, reads resolve to

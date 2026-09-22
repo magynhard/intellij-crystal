@@ -225,6 +225,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (element is CrystalAssignment) return resolve(element.assignment ?: element.expression
             ?: return CrystalTypeResolution.Unknown)
         if (element is CrystalIndexedAssignment) return resolveIndexedAssignmentValue(element)
+        if (element is CrystalMultiAssignment) return resolveMultiAssignmentValue(element)
         if (element is CrystalReturnStatement) return resolveAbruptValues(element.valueElements())
 
         when (element.node?.elementType) {
@@ -275,6 +276,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun resolveStatement(statement: CrystalStatement): CrystalTypeResolution = when {
         statement.assignment != null -> resolve(statement.assignment!!)
         statement.indexedAssignment != null -> resolveIndexedAssignmentValue(statement.indexedAssignment!!)
+        statement.multiAssignment != null -> resolve(statement.multiAssignment!!)
         statement.expressionStatement != null -> resolve(statement.expressionStatement!!)
         statement.ifStatement != null -> resolve(statement.ifStatement!!)
         statement.unlessStatement != null -> resolve(statement.unlessStatement!!)
@@ -293,6 +295,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         } else {
             mergeKnown(listOf(value, knownType("Nil")))
         }
+    }
+
+    /**
+     * A multi-assignment evaluates to its last target's assigned value
+     * (verified against the compiler: `x, y = [1, "s"]` is
+     * `(Int32 | String)`, `x, *y = [1, "s"]` is `Array(Int32 | String)`).
+     */
+    private fun resolveMultiAssignmentValue(multi: CrystalMultiAssignment): CrystalTypeResolution {
+        val targets = multi.multiAssignTargetList
+        if (targets.isEmpty()) return CrystalTypeResolution.Unknown
+        val lastIndex = targets.size - 1
+        val isSplat = CrystalPsiUtils.multiAssignTargetLocal(targets.last())?.second == true
+        return resolveMultiTargetType(multi, lastIndex to isSplat) ?: CrystalTypeResolution.Unknown
     }
 
     /**
@@ -1043,6 +1058,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 abruptExits = condition.abruptExits + body.abruptExits,
             )
         }
+        val multiAssignment = (element as? CrystalStatement)?.multiAssignment
+            ?: element as? CrystalMultiAssignment
+        if (multiAssignment != null) {
+            return flowMultiAssignment(multiAssignment, name, incoming)
+        }
         val ifStatement = (element as? CrystalStatement)?.ifStatement ?: element as? CrystalIfStatement
         if (ifStatement != null) {
             val branches = listOf(ifStatement.statementList) + ifStatement.elsifClauseList.map { it.statementList }
@@ -1213,6 +1233,203 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             exceptionalStates = condition?.exceptionalStates.orEmpty() + flow.exceptionalStates,
             abruptExits = condition?.abruptExits.orEmpty() + flow.abruptExits,
         )
+    }
+
+    /**
+     * Destructuring assignments (`x, y = [1, "other"]`) bind one variable per
+     * local target. Right-hand values flow first (exceptional and abrupt
+     * states included); the named target then binds its positional element
+     * type exactly like a plain assignment binds its right-hand side.
+     */
+    private fun flowMultiAssignment(
+        multi: CrystalMultiAssignment,
+        name: String,
+        incoming: VariableState,
+    ): VariableFlow {
+        val postfix = multi.postfixModifier
+        fun flowMultiBody(base: VariableState): VariableFlow {
+            val binding = multiTargetBinding(multi, name)
+                ?: return VariableFlow.falling(VariableState.Unknown)
+            val values = multi.expressionList
+            val valuesFlow = values.map { flowElement(it, name, base) }
+            if (valuesFlow.any { !it.fallsThrough }) return VariableFlow.falling(VariableState.Unknown)
+            val assigned = resolveMultiTargetType(multi, binding)
+                ?: return VariableFlow.falling(VariableState.Unknown)
+            val mayRaiseUnknown =
+                if (values.any(::mayRaise)) listOf(VariableState.Unknown) else emptyList()
+            return VariableFlow(
+                VariableState.Bound(assigned, CrystalVariableProvenance.ASSIGNMENT),
+                fallsThrough = true,
+                exceptionalStates = valuesFlow.flatMap { it.exceptionalStates } + mayRaiseUnknown,
+                abruptExits = valuesFlow.flatMap { it.abruptExits },
+            )
+        }
+        if (postfix == null) return flowMultiBody(incoming)
+        if (postfix.node.findChildByType(CrystalTypes.RESCUE) != null) {
+            val body = flowMultiBody(incoming)
+            if (body.exceptionalStates.isEmpty()) return body
+            val rescue = flowElement(postfix.conditionElement(), name, exceptionalIncoming(body, incoming))
+            return mergeFlows(listOf(body.copy(exceptionalStates = emptyList()), rescue))
+        }
+        val condition = flowElement(postfix.conditionElement(), name, incoming)
+        if (!condition.fallsThrough) return condition
+        val body = flowMultiBody(condition.state)
+        return VariableFlow(
+            if (body.fallsThrough) mergeStates(listOf(condition.state, body.state)) else condition.state,
+            fallsThrough = true,
+            exceptionalStates = condition.exceptionalStates + body.exceptionalStates,
+            abruptExits = condition.abruptExits + body.abruptExits,
+        )
+    }
+
+    /**
+     * Target position of the named local in a multi-assignment: the index
+     * plus whether it is a splat target. Later same-name targets win, matching
+     * left-to-right runtime assignment. Null when the name binds no local
+     * target here.
+     */
+    private fun multiTargetBinding(multi: CrystalMultiAssignment, name: String): Pair<Int, Boolean>? {
+        var binding: Pair<Int, Boolean>? = null
+        multi.multiAssignTargetList.forEachIndexed { index, target ->
+            val (identifier, isSplat) = CrystalPsiUtils.multiAssignTargetLocal(target) ?: return@forEachIndexed
+            if (identifier.text == name) binding = index to isSplat
+        }
+        return binding
+    }
+
+    /**
+     * Positional element type for one destructuring target, following the
+     * compiler-verified table: comma-separated right-hand values map
+     * positionally (exact count modulo splat, else the program is invalid);
+     * array right-hand sides contribute their element type to every target
+     * (destructuring indexes); tuple right-hand sides resolve positionally;
+     * any other single right-hand side resolves through its indexed element
+     * type (`Array(T)` element, `Tuple(...)` positional). Splat targets
+     * collect the remaining values (tuple) or keep the array element type.
+     * Null (caller maps to `Unknown`) whenever the shape is not exact.
+     */
+    private fun resolveMultiTargetType(
+        multi: CrystalMultiAssignment,
+        binding: Pair<Int, Boolean>,
+    ): CrystalTypeResolution? {
+        val (targetIndex, isSplat) = binding
+        val values = multi.expressionList
+        if (values.size > 1) return resolveMultiValueTarget(multi, targetIndex, isSplat, values)
+        val rhs = values.singleOrNull() ?: return null
+        return when (rhs) {
+            is CrystalArrayLiteral -> resolveArrayElementTarget(rhs, isSplat)
+            is CrystalTupleLiteral -> resolveTupleElementTarget(tupleElements(rhs), multi, targetIndex, isSplat)
+            else -> resolveIndexedRhsTarget(rhs, multi, targetIndex, isSplat)
+        }
+    }
+
+    private fun resolveMultiValueTarget(
+        multi: CrystalMultiAssignment,
+        targetIndex: Int,
+        isSplat: Boolean,
+        values: List<CrystalExpression>,
+    ): CrystalTypeResolution? {
+        val targets = multi.multiAssignTargetList
+        val splatIndex = targets.indices.firstOrNull { index ->
+            CrystalPsiUtils.multiAssignTargetLocal(targets[index])?.second == true
+        }
+        if (splatIndex == null) {
+            // Exact count required without a splat (the compiler rejects mismatches).
+            if (values.size != targets.size) return null
+            return resolve(values[targetIndex]).takeUnless { it is CrystalTypeResolution.Unknown }
+        }
+        // One splat at most; it absorbs the middle values.
+        if (targets.indices.count { index ->
+                CrystalPsiUtils.multiAssignTargetLocal(targets[index])?.second == true
+            } > 1
+        ) return null
+        if (values.size < targets.size - 1) return null
+        if (!isSplat) {
+            val valueIndex =
+                if (targetIndex < splatIndex) targetIndex else values.size - (targets.size - targetIndex)
+            return resolve(values[valueIndex]).takeUnless { it is CrystalTypeResolution.Unknown }
+        }
+        val rest = values.subList(splatIndex, values.size - (targets.size - splatIndex - 1))
+        if (rest.isEmpty()) return null
+        // Splat-collected values form a tuple, preserving order and types
+        // (verified: `a, *b = 1, "x"` gives `b: Tuple(String)`).
+        val rendered = rest.map { resolve(it).render() ?: return null }
+        return knownType("Tuple(${rendered.joinToString(", ")})")
+    }
+
+    private fun resolveArrayElementTarget(
+        array: CrystalArrayLiteral,
+        isSplat: Boolean,
+    ): CrystalTypeResolution? {
+        // Array destructuring indexes the array: every target carries the
+        // element type, never a positional literal type (verified: neither
+        // `y.upcase` nor `x.abs` compiles for `x, y = [1, "s"]`).
+        val elements = array.expressionList?.expressionList.orEmpty()
+        if (elements.isEmpty()) {
+            // `[] of T` carries the element type in its annotation; bare `[]` is Unknown.
+            val arrayType = resolve(array)
+            if (!isSplat) {
+                val name = (arrayType as? CrystalTypeResolution.Known)?.types?.singleOrNull()?.name
+                    ?: return null
+                return indexedElementType(name, null)
+            }
+            return arrayType.takeUnless { it is CrystalTypeResolution.Unknown }
+        }
+        val union = mergeKnown(elements.map(::resolve)) as? CrystalTypeResolution.Known ?: return null
+        if (!isSplat) return union
+        // Splat targets keep the whole array element type (verified:
+        // `a, *b = [1, "x"]` gives `b: Array(Int32 | String)`).
+        return knownType("Array(${union.types.joinToString(" | ") { it.name }})")
+    }
+
+    private fun resolveTupleElementTarget(
+        elements: List<PsiElement>,
+        multi: CrystalMultiAssignment,
+        targetIndex: Int,
+        isSplat: Boolean,
+    ): CrystalTypeResolution? {
+        if (!isSplat) {
+            // A too-small tuple is a compile error: never guess its elements.
+            if (targetIndex >= elements.size) return null
+            return resolve(elements[targetIndex]).takeUnless { it is CrystalTypeResolution.Unknown }
+        }
+        return tupleSplatRestType(multi, targetIndex, elements.map(::resolve))
+    }
+
+    private fun resolveIndexedRhsTarget(
+        rhs: PsiElement,
+        multi: CrystalMultiAssignment,
+        targetIndex: Int,
+        isSplat: Boolean,
+    ): CrystalTypeResolution? {
+        val resolved = resolve(rhs) as? CrystalTypeResolution.Known ?: return null
+        val typeName = resolved.types.singleOrNull()?.name ?: return null
+        val (base, arguments) = CrystalTypeText.genericBaseAndArguments(typeName) ?: return null
+        if (!isSplat) return indexedElementType(typeName, targetIndex)
+        if (base != "Tuple") {
+            // `a, *rest = array` keeps the array type for the splat target.
+            if (base == "Array" || base == "Slice" || base == "StaticArray") return resolve(rhs)
+            return null
+        }
+        val targets = multi.multiAssignTargetList
+        val splatIndex = targets.indices.firstOrNull { index ->
+            CrystalPsiUtils.multiAssignTargetLocal(targets[index])?.second == true
+        } ?: return null
+        val rest = arguments.subList(splatIndex, arguments.size - (targets.size - splatIndex - 1))
+        if (rest.isEmpty()) return null
+        return knownType("Tuple(${rest.joinToString(", ")})")
+    }
+
+    private fun tupleSplatRestType(
+        multi: CrystalMultiAssignment,
+        targetIndex: Int,
+        elementTypes: List<CrystalTypeResolution>,
+    ): CrystalTypeResolution? {
+        val targets = multi.multiAssignTargetList
+        val rest = elementTypes.subList(targetIndex, elementTypes.size - (targets.size - targetIndex - 1))
+        if (rest.isEmpty()) return null
+        val rendered = rest.map { it.render() ?: return null }
+        return knownType("Tuple(${rendered.joinToString(", ")})")
     }
 
     private fun flowStatementList(

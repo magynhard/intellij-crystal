@@ -169,6 +169,28 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         assertEquals("Tuple(Int32, String)", type)
     }
 
+    fun testInferDestructuredArrayElementUnion() {
+        myFixture.configureByText("test.cr", "x, y = [1, \"other\"]")
+        assertEquals("Int32 | String", CrystalTypeInference.inferType("x", myFixture.file, project))
+        assertEquals("Int32 | String", CrystalTypeInference.inferType("y", myFixture.file, project))
+    }
+
+    fun testInferDestructuredTuplePositional() {
+        myFixture.configureByText("test.cr", "x, y = {1, \"other\"}")
+        assertEquals("Int32", CrystalTypeInference.inferType("x", myFixture.file, project))
+        assertEquals("String", CrystalTypeInference.inferType("y", myFixture.file, project))
+    }
+
+    fun testInferDestructuredSplatRestArray() {
+        myFixture.configureByText("test.cr", "a, *b = [1, \"x\", 2]")
+        assertEquals("Array(Int32 | String)", CrystalTypeInference.inferType("b", myFixture.file, project))
+    }
+
+    fun testInferDestructuredMismatchStaysUntyped() {
+        myFixture.configureByText("test.cr", "x, y = 1, 2, 3")
+        assertNull(CrystalTypeInference.inferType("y", myFixture.file, project))
+    }
+
     fun testInferWordArrayLiteral() {
         myFixture.configureByText("test.cr", "x = %w[test fest]")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)

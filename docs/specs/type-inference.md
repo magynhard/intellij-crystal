@@ -44,6 +44,16 @@ result `Unknown`; the resolver never picks the first reverse descendant assignme
   and `||=`/`&&=` also retain the path that skips the RHS. A postfix rescue handler receives the
   merged states from every reachable failure phase; a non-raising ordinary assignment does not
   make its rescue handler reachable.
+- Destructuring assignments (`x, y = …`) evaluate every right-hand value first and then bind
+  one variable per local target with assignment provenance. Comma-separated values map
+  positionally (exact count modulo splat); array right-hand sides contribute their element
+  type to every target because destructuring indexes; tuple right-hand sides resolve
+  positionally; any other single right-hand side resolves through its indexed element type
+  (`Array(T)` element, `Tuple(...)` positional). Splat targets collect the rest (`Array`
+  from arrays, `Tuple` preserving order from tuples and multi-value right-hand sides).
+  Count-mismatched multi-value forms, too-small tuples, and non-indexable single right-hand
+  sides stay `Unknown`, as do indexed/member/macro targets as bindings. The whole
+  multi-assignment expression evaluates to its last target's type.
 - Loops include the zero-iteration incoming binding and every observed intermediate body binding.
 - A protected `begin` records binding states at potential throw points. Rescue starts from the
   proven exceptional state, so a pure `value = "ready"` before a potentially raising call is visible
