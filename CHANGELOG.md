@@ -5,6 +5,9 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Hover types on destructuring targets** — hovering a destructuring target itself
+  (`x` in `x, y = {1, "other"}`) now shows its inferred type instead of `Any`, mirroring
+  the existing fast path for plain assignments. Covered by `CrystalTypeInferenceTest`.
 - **Invalid `case ... in` pattern diagnostic** — a top-level bare identifier in an `in`
   pattern is now an error (`in y`), matching the compiler, which only accepts constants,
   generic types, bool/nil literals, and question methods there. Nested identifiers and

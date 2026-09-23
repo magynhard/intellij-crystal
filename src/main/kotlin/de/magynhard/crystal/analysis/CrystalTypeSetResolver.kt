@@ -874,6 +874,26 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 CrystalVariableProvenance.ASSIGNMENT
             )
         }
+        // Hovering (or otherwise resolving at) a destructuring target itself:
+        // the boundary flow below only binds preceding statements, so the
+        // target's own multi-assignment is resolved directly, mirroring the
+        // plain-assignment fast path above. Reads inside the values region
+        // have no target ancestor and keep flowing generically.
+        val target = PsiTreeUtil.getParentOfType(position, CrystalMultiAssignTarget::class.java, false)
+        val containingMulti = target?.let { PsiTreeUtil.getParentOfType(it, CrystalMultiAssignment::class.java, false) }
+        if (target != null && containingMulti != null) {
+            val local = CrystalPsiUtils.multiAssignTargetLocal(target)
+            if (local != null && local.first.text == name) {
+                val index = containingMulti.multiAssignTargetList.indexOf(target)
+                val type = if (index >= 0) {
+                    resolveMultiTargetType(containingMulti, index to local.second)
+                } else null
+                return VariableState.Bound(
+                    type ?: CrystalTypeResolution.Unknown,
+                    CrystalVariableProvenance.ASSIGNMENT
+                )
+            }
+        }
         val boundary = lexicalBoundary(position, name) ?: return VariableState.Unknown
         var state: VariableState = VariableState.Unbound
         if (position === boundary) {

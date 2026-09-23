@@ -191,6 +191,19 @@ class CrystalTypeInferenceTest : BasePlatformTestCase() {
         assertNull(CrystalTypeInference.inferType("y", myFixture.file, project))
     }
 
+    fun testInferDestructuredTargetAtDeclaration() {
+        myFixture.configureByText("test.cr", "x, y = {1, \"s\"}")
+        val file = myFixture.file
+        assertEquals("Int32", CrystalTypeInference.inferType("x", file.findElementAt(0)!!, project))
+        assertEquals("String", CrystalTypeInference.inferType("y", file.findElementAt(3)!!, project))
+    }
+
+    fun testInferDestructuredArrayTargetAtDeclaration() {
+        myFixture.configureByText("test.cr", "x, y = [1, \"s\"]")
+        val file = myFixture.file
+        assertEquals("Int32 | String", CrystalTypeInference.inferType("x", file.findElementAt(0)!!, project))
+    }
+
     fun testInferWordArrayLiteral() {
         myFixture.configureByText("test.cr", "x = %w[test fest]")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)

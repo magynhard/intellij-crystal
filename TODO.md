@@ -1,10 +1,5 @@
 # TODO — IntelliJ Crystal Plugin
 
-## Inlay Hints (Issue #2)
-
-- [ ] **Implement InlayHintsProvider** — show inferred types on variables inline
-  in the editor. Depends on type inference (Issue #1).
-
 ## Crystal Shards (Issue #3)
 
 - [ ] **Parse shard.yml** — extract dependency declarations
