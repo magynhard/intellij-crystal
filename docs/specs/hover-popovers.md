@@ -189,6 +189,61 @@ the inferred type and `(Variable)` label.
 **Hover targets:** Hovering over `@name` at its definition or usage shows the
 variable popup with the inferred type.
 
+### Constants (Type Inference)
+
+**Popup format (two-line layout):**
+```
+<Type> (Constant)          ← inferred type hyperlinked, "(Constant)" in gray/muted
+[<Owner>::]<NAME>[ = <literal>]   ← qualified when owned, literal value when static
+# doc comment (if present)
+```
+
+Example with type, value, and docs:
+```
+Int32 (Constant)
+KODORRA = 123
+# The answer to everything.
+```
+
+Example with owner:
+```
+Int32 (Constant)
+Owner::BAR = 1
+```
+
+Example with union type (one declaration per conditional branch):
+```
+Int32 | String (Constant)
+WERT
+```
+
+Example with unknown type:
+```
+Unknown (Constant)
+WERT
+```
+
+- The type is inferred from the right-hand side expression(s): same-file
+  declarations first (document order), then require-visible index declarations
+  (`CrystalConstantTypeInference`). No flow analysis — constants assign once.
+- Conditionally defined constants union their branch types.
+- Bare `CONSTANT`-to-`CONSTANT` chains (`X = KODORRA`) recurse with a cycle
+  guard; macro-generated or otherwise uninferable right-hand sides render the
+  honest gray `Unknown` placeholder (never a guessed type).
+- The literal value shows only for a single visible declaration with a static
+  literal right-hand side (numbers, chars, symbols, interpolation-free
+  strings, true/false/nil, max 60 chars, single line) — mirroring the
+  `NAME = value` shape of `crystal docs` Constant Summary pages.
+- Doc comments above the declaration render as Markdown (same
+  `collectDocComment` pipeline as methods and types).
+- `private`/`protected` constants hover normally in their own file; from other
+  files they resolve to nothing and keep the `Cannot find` rendering.
+
+**Hover targets:** Hovering over the name at the definition (`KODORRA` in
+`KODORRA = 123`), at a bare read (`puts KODORRA`, same-file or cross-file
+through `require`), or at a member read (`Owner::BAR`) shows the constant
+popup. Unresolvable reads keep the `Cannot find '<name>'` rendering.
+
 ### Namespace Access (Intermediate Segments)
 
 Hovering over intermediate namespace segments (e.g. `Inner` in `Outer::Inner.method`)
@@ -228,14 +283,18 @@ triggers the completion popup automatically — no Ctrl+Space needed. The
 When hovering over a token, `getCustomDocumentationElement` tries these in order:
 
 1. **PsiReference** on the context element (or its parent) — resolves via
-   `CrystalReference`, `CrystalDotCallReference`, etc.
+   `CrystalReference`, `CrystalDotCallReference`, etc. Resolved constant
+   assignments (`CrystalConstantAssignment`) return directly.
 2. **GotoDeclarationHandler fallback** — for DOT-call identifiers without a reference.
 3. **Definition walk-up** — walk up from the context element (max 4 levels); if a
-   definition is found, return it directly.
-4. **Variable identifier** — if the element is a variable (not a definition/parameter),
+   definition (including a constant assignment) is found, return it directly.
+4. **Same-file constant declaration** — a bare `CONSTANT` read without index
+   resolution (conditional branches and statement contexts are never stubbed)
+   hovers its same-file declaration so branch unions render.
+5. **Variable identifier** — if the element is a variable (not a definition/parameter),
    return it for type info rendering.
 
-If all four return null, `generateDoc` is called with the raw element. `resolveTarget`
+If all five return null, `generateDoc` is called with the raw element. `resolveTarget`
 then:
 1. Returns the element directly if it's a definition, `CrystalParameter`, or variable.
 2. Tries resolving via `element.reference`.

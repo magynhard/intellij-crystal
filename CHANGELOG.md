@@ -24,6 +24,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   `CrystalIndexServiceTest`, `CrystalUnresolvedNameInspectionTest`,
   `CrystalGotoDeclarationTest`, and `CrystalCompletionTest`; specified in
   docs/specs/indexed-navigation.md.
+- **Hover documentation with type inference for constants** — hovering a constant
+  definition or read now shows an inferred-type popup (`Int32 (Constant)` plus
+  `KODORRA = 123` with the literal value, `Owner::BAR` qualified for members)
+  instead of the misleading `Unknown (Variable)` fallback or no popup at all.
+  Types come from the right-hand side expression (no flow analysis needed —
+  constants assign once), conditional branches union, `CONSTANT`-to-`CONSTANT`
+  chains recurse with a cycle guard, and doc comments above the declaration
+  render as Markdown like methods and types. Uninferable right-hand sides show
+  the honest gray `Unknown`. Covered by `CrystalDocumentationProviderTest`;
+  specified in docs/specs/hover-popovers.md.
 - **Shard-aware require-path completion** — shard directories whose bare name resolves now
   complete without a trailing slash (selecting `kemal` yields `require "kemal"`), and entries
   below a shard come from `lib/<shard>/src/<shard>/` plus flat `src/*.cr` files instead of the
