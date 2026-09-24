@@ -11,6 +11,9 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 import javax.swing.Icon
@@ -86,17 +89,30 @@ internal object CrystalLocalCompletionProvider {
             if (enclosingClassName != null) {
                 val project = position.project
                 val searchScope = GlobalSearchScope.allScope(project)
-                addClassMethods(enclosingClassName, 30.0, searchScope, project, seen, result)
+                val sources = visibilitySources(position)
+                addClassMethods(enclosingClassName, 30.0, searchScope, project, seen, result, sources)
 
                 val enclosingClass = PsiTreeUtil.getParentOfType(method, CrystalClassDefinition::class.java)
                 val superClassName = enclosingClass?.superclassClause?.typeReference?.text
                 if (superClassName != null && superClassName != enclosingClassName) {
-                    addClassMethods(superClassName, 20.0, searchScope, project, seen, result)
+                    addClassMethods(superClassName, 20.0, searchScope, project, seen, result, sources)
                 }
             }
         }
 
         addTopLevelMethods(position, position.project, seen, result)
+    }
+
+    /**
+     * The shared visibility snapshot for index-backed candidates, or `null`
+     * when no program can be established (injected fragments, unresolvable
+     * context): callers then keep the legacy unfiltered behavior instead of
+     * emptying the popup.
+     */
+    private fun visibilitySources(position: PsiElement): CrystalEffectiveSourceSet? {
+        val service = CrystalRequireGraphService.getInstance(position.project)
+        if (service.isProgramLessInjection(position)) return null
+        return service.effectiveSources(position).takeIf { it.files.isNotEmpty() }
     }
 
     private fun addTopLevelMethods(
@@ -118,12 +134,15 @@ internal object CrystalLocalCompletionProvider {
 
         if (DumbService.isDumb(project)) return
         val matcher = result.prefixMatcher
+        val sources = visibilitySources(position)
         for (methodName in CrystalCompletionHelper.getAllTopLevelMethodNames(project)) {
             if (methodName in seen) continue
             if (!matcher.prefixMatches(methodName)) continue
             try {
                 val methods = CrystalCompletionHelper.getTopLevelMethodsByName(methodName, project)
-                val method = methods.firstOrNull() ?: continue
+                val visible = if (sources == null) methods
+                else CrystalRequireVisibility.visibleMethods(methods, sources)
+                val method = visible.firstOrNull() ?: continue
                 seen.add(methodName)
                 result.addElement(CrystalCompletionHelper.buildMethodLookup(method, 0.0))
             } catch (_: Throwable) {
@@ -138,10 +157,12 @@ internal object CrystalLocalCompletionProvider {
         scope: GlobalSearchScope,
         project: Project,
         seen: MutableSet<String>,
-        result: CompletionResultSet
+        result: CompletionResultSet,
+        sources: CrystalEffectiveSourceSet?,
     ) {
         val methods = CrystalIndexService.findMethodsByClass(className, project, scope)
         for (method in methods) {
+            if (sources != null && !CrystalRequireVisibility.isVisible(method, sources)) continue
             val name = method.name ?: continue
             if (seen.add(name)) {
                 result.addElement(CrystalCompletionHelper.buildMethodLookup(method, priority))

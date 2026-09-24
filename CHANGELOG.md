@@ -80,6 +80,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   parameter-name unit tests, and invalid-name regressions.
 
 ### Changed
+- **Dependency-aware name completion** — free-text and type-annotation completion now
+  offer indexed types and top-level methods only when their defining file is visible
+  through the current file's require closure (prelude plus forward transitive requires),
+  matching the existing DOT and `::` behavior. Prelude types (`String`, `Int32`, `Array`,
+  …) stay always available; require-gated stdlib types (`JSON`, `Socket`, `Log`, …) appear
+  only once required. Unrequired shards no longer pollute the popup. Covered by
+  `CrystalCompletionTest`; specified in docs/specs/completion.md.
 - **Release gate** — `rake release` now runs the pinned Crystal 1.21.0 stdlib
   parse audits (`indexed` + `distribution`) and the full test suite before it
   bumps, tags, or pushes, so a parser regression can no longer be released;

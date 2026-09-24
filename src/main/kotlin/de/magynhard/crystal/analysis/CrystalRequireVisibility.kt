@@ -1,8 +1,11 @@
 package de.magynhard.crystal.analysis
 
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Require-graph visibility for name-based lookups that bypass the shared
@@ -24,6 +27,19 @@ internal object CrystalRequireVisibility {
         context: PsiElement,
     ): List<CrystalMethodDefinition> {
         val sources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
+        return visibleMethods(methods, sources)
+    }
+
+    /**
+     * Keeps only methods whose defining file is part of [sources]. Returns an
+     * empty list for an empty snapshot, so callers stay silent instead of
+     * leaking unrequired definitions. Prefer this overload when the caller
+     * already holds the snapshot so it is computed once per completion.
+     */
+    fun visibleMethods(
+        methods: Collection<CrystalMethodDefinition>,
+        sources: CrystalEffectiveSourceSet,
+    ): List<CrystalMethodDefinition> {
         if (sources.files.isEmpty()) return emptyList()
         return methods.filter { sources.contains(it) }
     }
@@ -35,6 +51,15 @@ internal object CrystalRequireVisibility {
      */
     fun isVisible(element: PsiElement, context: PsiElement): Boolean {
         val sources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
+        return isVisible(element, sources)
+    }
+
+    /**
+     * True when [element]'s defining file is part of [sources]. Returns false
+     * for an empty snapshot, so callers omit the candidate instead of leaking
+     * unrequired definitions.
+     */
+    fun isVisible(element: PsiElement, sources: CrystalEffectiveSourceSet): Boolean {
         return sources.files.isNotEmpty() && sources.contains(element)
     }
 
@@ -63,5 +88,53 @@ internal object CrystalRequireVisibility {
                 else -> callSiteType != null && (owner == callSiteType || callSiteType.startsWith("$owner::"))
             }
         }
+    }
+
+    /**
+     * True when the stub index holds at least one type declaration [name]
+     * whose defining file is part of [sources]. Stops at the first visible
+     * declaration instead of loading every same-named PSI element. Returns
+     * false for an empty snapshot.
+     */
+    fun isTypeNameVisible(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope,
+        sources: CrystalEffectiveSourceSet,
+    ): Boolean {
+        if (sources.files.isEmpty()) return false
+        var visible = false
+        try {
+            CrystalIndexService.processTypes(name, project, scope) { element ->
+                if (sources.contains(element)) {
+                    visible = true
+                    false
+                } else {
+                    true
+                }
+            }
+        } catch (_: Throwable) {
+            // A single broken index entry must not abort completion.
+        }
+        return visible
+    }
+
+    /**
+     * True when the stub index holds any type declaration [name], visible or
+     * not. Lets callers distinguish "known but unrequired" (hide) from
+     * "unknown to the index" (best-effort offer, e.g. stdlib without an
+     * indexed SDK).
+     */
+    fun hasIndexedType(name: String, project: Project, scope: GlobalSearchScope): Boolean {
+        var found = false
+        try {
+            CrystalIndexService.processTypes(name, project, scope) {
+                found = true
+                false
+            }
+        } catch (_: Throwable) {
+            // Fall through with whatever was observed.
+        }
+        return found
     }
 }

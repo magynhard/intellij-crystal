@@ -101,7 +101,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
 
     fun testCompletesClassNames() {
         myFixture.addFileToProject("apfel.cr", "class Apfel\nend\nclass Aprikose\nend\n")
-        myFixture.configureByText("main.cr", "x = Ap<caret>")
+        myFixture.configureByText("main.cr", "require \"./apfel\"\nx = Ap<caret>")
         val lookups = myFixture.complete(CompletionType.BASIC)
         assertNotNull("Should return completions (multiple matches)", lookups)
         val names = lookups.map { it.lookupString }
@@ -365,6 +365,8 @@ class CrystalCompletionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
+            require "./helpers"
+
             def kunde
             end
 
@@ -760,6 +762,8 @@ class CrystalCompletionTest : BasePlatformTestCase() {
     fun testTypeAnnotationIncludesProjectTypes() {
         myFixture.addFileToProject("apfel.cr", "class Apfel\nend\nclass Birne\nend\n")
         myFixture.configureByText("main.cr", """
+            require "./apfel"
+
             def foo(x : <caret>)
             end
         """.trimIndent())
@@ -768,6 +772,152 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val names = lookups.map { it.lookupString }
         assertTrue("Should contain project type Apfel", names.contains("Apfel"))
         assertTrue("Should contain project type Birne", names.contains("Birne"))
+    }
+
+    // ==================== Dependency-aware completion ====================
+
+    fun testFreeTextHidesUnrequiredShardType() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\n")
+        myFixture.configureByText("main.cr", "ShardWid<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'ShardWidget': $names", names.contains("ShardWidget"))
+    }
+
+    fun testFreeTextShowsRequiredShardType() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\nclass ShardWidgetHelper\nend\n")
+        myFixture.configureByText("main.cr", "require \"./shard_widget\"\nShardWid<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain required 'ShardWidget': $names", names.contains("ShardWidget"))
+        assertTrue("Should contain required 'ShardWidgetHelper': $names", names.contains("ShardWidgetHelper"))
+    }
+
+    fun testFreeTextShowsRequiredShardTypeAtEmptyPrefix() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\n")
+        myFixture.configureByText("main.cr", "require \"./shard_widget\"\n<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions at empty caret", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain required 'ShardWidget': $names", names.contains("ShardWidget"))
+    }
+
+    fun testFreeTextHidesUnrequiredShardTypeAtEmptyPrefix() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\n")
+        myFixture.configureByText("main.cr", "<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'ShardWidget': $names", names.contains("ShardWidget"))
+    }
+
+    fun testFreeTextShowsTransitivelyRequiredShardType() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\nclass ShardWidgetHelper\nend\n")
+        myFixture.addFileToProject("helper.cr", "require \"./shard_widget\"\n")
+        myFixture.configureByText("main.cr", "require \"./helper\"\nShardWid<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain transitively required 'ShardWidget': $names", names.contains("ShardWidget"))
+    }
+
+    fun testRequireEditRefreshesFreeTextCompletion() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\nclass ShardWidgetHelper\nend\n")
+        myFixture.configureByText("main.cr", "ShardWid<caret>")
+        val before = myFixture.complete(CompletionType.BASIC)?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'ShardWidget': $before", before.contains("ShardWidget"))
+
+        myFixture.configureByText("main.cr", "require \"./shard_widget\"\nShardWid<caret>")
+        val after = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions after adding require", after)
+        val names = after.map { it.lookupString }
+        assertTrue("Should contain 'ShardWidget' after adding require: $names", names.contains("ShardWidget"))
+    }
+
+    fun testTypeAnnotationHidesUnrequiredShardType() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\n")
+        myFixture.configureByText("main.cr", """
+            def foo(x : ShardWid<caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'ShardWidget': $names", names.contains("ShardWidget"))
+    }
+
+    fun testTypeAnnotationShowsRequiredShardType() {
+        myFixture.addFileToProject("shard_widget.cr", "class ShardWidget\nend\nclass ShardWidgetHelper\nend\n")
+        myFixture.configureByText("main.cr", """
+            require "./shard_widget"
+
+            def foo(x : ShardWid<caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain required 'ShardWidget': $names", names.contains("ShardWidget"))
+    }
+
+    fun testCoreStdlibTypeOfferedWithoutRequire() {
+        myFixture.configureByText("main.cr", "Str<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain prelude type 'String': $names", names.contains("String"))
+    }
+
+    fun testOptionalStdlibTypeHiddenWithoutRequire() {
+        // An indexed declaration exists, but nothing requires it: the
+        // hardcoded fallback must not leak the name either.
+        myFixture.addFileToProject("json_impl.cr", "class JSON\nend\n")
+        myFixture.configureByText("main.cr", "JSO<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'JSON': $names", names.contains("JSON"))
+    }
+
+    fun testOptionalStdlibTypeShownWithRequire() {
+        myFixture.addFileToProject("json_impl.cr", "class JSON\nend\nclass JSONHelper\nend\n")
+        myFixture.configureByText("main.cr", "require \"./json_impl\"\nJSO<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain required 'JSON': $names", names.contains("JSON"))
+    }
+
+    fun testTopLevelMethodHiddenWithoutRequire() {
+        myFixture.addFileToProject("helpers.cr", """
+            def shard_helper_method
+            end
+
+            def unrelated_other_helper
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "shard_helper<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'shard_helper_method': $names", names.contains("shard_helper_method"))
+    }
+
+    fun testTopLevelMethodShownWithRequire() {
+        myFixture.addFileToProject("helpers.cr", """
+            def shard_helper_method
+            end
+
+            def shard_helper_other
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./helpers"
+
+            shard_helper<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain required 'shard_helper_method': $names", names.contains("shard_helper_method"))
+        assertTrue("Should contain required 'shard_helper_other': $names", names.contains("shard_helper_other"))
     }
 
     // ==================== Class body macro/keyword completion ====================

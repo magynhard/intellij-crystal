@@ -103,7 +103,7 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
 
             if (isInTypeAnnotationContext(position)) {
-                for (lookup in CrystalTypeCompletionProvider.getTypeLookups(position, project)) {
+                for (lookup in CrystalTypeCompletionProvider.getTypeLookups(position, project, result.prefixMatcher)) {
                     result.addElement(lookup)
                 }
                 return
@@ -153,10 +153,10 @@ class CrystalCompletionContributor : CompletionContributor() {
             )
 
             if (actualPrefix.isEmpty() || isUppercase) {
-                for (lookup in CrystalTypeCompletionProvider.getStdlibTypeLookups()) {
+                for (lookup in CrystalTypeCompletionProvider.getStdlibTypeLookups(position, effectiveResult.prefixMatcher)) {
                     effectiveResult.addElement(lookup)
                 }
-                CrystalSymbolCompletionProvider.addAllClasses(project, effectiveResult)
+                CrystalSymbolCompletionProvider.addAllClasses(project, effectiveResult, position)
                 CrystalSymbolCompletionProvider.addFileLevelConstants(parameters.originalFile, effectiveResult)
             }
         }

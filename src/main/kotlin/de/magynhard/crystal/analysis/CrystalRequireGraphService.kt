@@ -243,6 +243,19 @@ internal class CrystalRequireGraphService private constructor(
         }
     }
 
+    /**
+     * True when [context] lives in an injected Crystal fragment (ECR) that has
+     * no require closure of its own. Such fragments resolve members against
+     * the prelude only; name completion keeps its legacy unfiltered behavior
+     * there because the host template is not part of the require graph and
+     * filtering would hide legitimately referenced project models.
+     */
+    fun isProgramLessInjection(context: PsiElement): Boolean {
+        return ReadAction.computeBlocking<Boolean, RuntimeException> {
+            isValidEcrInjection(context)
+        }
+    }
+
     private fun preludeSources(): CrystalEffectiveSourceSet {
         while (true) {
             ProgressManager.checkCanceled()

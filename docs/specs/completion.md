@@ -15,7 +15,9 @@ through receiver resolution (`CrystalCompletionReceiverResolver.resolve`), metho
 classification (`CrystalTypeObjectCompletionProvider`). Sharing the session ensures all three
 paths observe the same effective-source snapshot, so a VFS event arriving between them cannot
 mix stale and fresh type visibility. Require-string, free-text, annotation, class-body, type, and
-namespace completion do not construct a type-resolution session or query effective sources. The
+namespace completion do not construct a type-resolution session; free-text, type, and top-level
+method candidates are filtered through one `effectiveSources` snapshot per completion instead
+(see Dependency-Aware Name Completion below). The
 no-session public overloads remain for callers that construct their own session.
 
 Context classification is implemented by package-level helpers in `CrystalCompletionContext`.
@@ -84,6 +86,33 @@ No completion is offered in these contexts:
 ### Free-Text Completion
 
 Free-text completion offers scope-aware suggestions based on the current cursor position.
+
+#### Dependency-Aware Name Completion
+
+Indexed type and top-level-method candidates are offered only when their defining file is
+visible through the current file's require closure (the configured `prelude.cr` closure plus
+the current file's forward transitive require closure — the same `effectiveSources` snapshot
+DOT completion uses). Each completion computes the snapshot once and filters stub-index
+candidates by exact file membership before emitting lookup elements:
+
+- **Types/classes** (`CrystalSymbolCompletionProvider.addAllClasses`): an indexed name is
+  kept only when at least one indexed declaration lives in the snapshot. Unrequired shard
+  or project files contribute no candidates; the current file is always part of its own
+  snapshot, so same-file types are unaffected.
+- **Top-level methods** (`CrystalLocalCompletionProvider.addTopLevelMethods`): live PSI of
+  the current file is always offered; indexed cross-file methods only when a defining file
+  is in the snapshot. Own-class and inherited class methods are filtered the same way.
+- **Stdlib baseline** (`CrystalTypeCompletionProvider`): prelude types (`String`, `Int32`,
+  `Array`, … — verified against the distribution's `prelude.cr`) are always offered, even
+  without a configured SDK. Require-gated stdlib types (`JSON`, `YAML`, `Socket`, `Log`,
+  `BigInt`, …) are offered when the index knows no declaration, or when an indexed
+  declaration is visible; a known-but-unrequired declaration hides the name.
+- **Type annotations** (`CrystalTypeCompletionProvider.getTypeLookups`): same rule as
+  free-text types — prelude baseline plus visible indexed and require-gated names.
+
+Injected fragments without their own require closure (ECR) keep the legacy unfiltered
+behavior, because the host template is not part of the require graph. Require-path
+completion is unaffected: it lists requireable paths (discovery), not visible symbols.
 
 The synthesized `require` keyword is a context-gated exception to ordinary
 free-text candidates. It is offered only when the typed prefix starts an
@@ -581,7 +610,9 @@ end
 
 ### Type Annotations (`:`)
 
-When typing `:` in a type annotation context, stdlib types and project types are offered.
+When typing `:` in a type annotation context, prelude types and require-visible project,
+shard, and require-gated stdlib types are offered (see Dependency-Aware Name Completion
+above).
 
 ```crystal
 x : Str  # ← String, Struct, etc. are suggested
