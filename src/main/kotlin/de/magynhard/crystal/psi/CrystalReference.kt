@@ -163,7 +163,29 @@ class CrystalReference(
             while (sibling != null) {
                 val assignment = findAssignmentWithName(sibling, name)
                 if (assignment != null) return assignment
+                val groupedOrMulti = findGroupedOrMultiDeclaration(sibling, name)
+                if (groupedOrMulti != null) return groupedOrMulti
                 sibling = sibling.prevSibling
+            }
+            // Bindings declared by an ancestor construct whose body contains
+            // the reference: `for x in …` loop variables, `rescue e` bindings.
+            // The iterable of a `for` is evaluated in the outer scope, so loop
+            // variables bind only inside the statement list.
+            val parent = scope.parent
+            if (parent is CrystalForStatement) {
+                val body = parent.statementList
+                if (body != null && PsiTreeUtil.isAncestor(body, element, false)) {
+                    val loopVar = parent.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+                    if (loopVar?.text == name) return loopVar
+                }
+            }
+            if (parent is CrystalRescueClause) {
+                val binding = parent.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+                if (binding?.text == name &&
+                    PsiTreeUtil.isAncestor(parent.statementList, element, false)
+                ) {
+                    return binding
+                }
             }
             // Check parameters if we're inside a method or macro
             if (scope is CrystalMethodDefinition || scope is CrystalMacroDefinition) {
@@ -262,6 +284,38 @@ class CrystalReference(
         }
         for (child in element.children) {
             val result = findAssignmentWithName(child, targetName)
+            if (result != null) return result
+        }
+        return null
+    }
+
+    /**
+     * Searches a PSI subtree for grouped `(name = …)` and multi
+     * `name, other = …` binding targets matching [targetName], mirroring the
+     * scope boundaries of [findAssignmentWithName] (and of
+     * `CrystalLocalUsageAnalyzer`, whose flow tracks the same bindings).
+     */
+    private fun findGroupedOrMultiDeclaration(element: PsiElement, targetName: String): PsiElement? {
+        if (element is CrystalMethodDefinition || element is CrystalMacroDefinition ||
+            CrystalPsiUtils.isTypeDefinition(element)
+        ) {
+            return null
+        }
+        if (element is PsiFile || element is PsiDirectory) return null
+        if (element is CrystalGroupedExpression && element.expressionList.size >= 2) {
+            val reference = element.expressionList.first().children.singleOrNull() as? CrystalVariableReference
+            val identifier = reference?.node?.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+            if (identifier?.text == targetName) return identifier
+        }
+        if (element is CrystalMultiAssignment) {
+            for (target in element.multiAssignTargetList) {
+                if (CrystalPsiUtils.multiAssignTargetLocal(target)?.first?.text == targetName) {
+                    return CrystalPsiUtils.multiAssignTargetLocal(target)?.first
+                }
+            }
+        }
+        for (child in element.children) {
+            val result = findGroupedOrMultiDeclaration(child, targetName)
             if (result != null) return result
         }
         return null

@@ -14,6 +14,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.completion.CrystalTypeInference
+import de.magynhard.crystal.inspections.CrystalUnresolvedName
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -35,6 +36,9 @@ import org.intellij.markdown.parser.MarkdownParser
 class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? {
+        if (element != null) {
+            unresolvedHoverDoc(element)?.let { return it }
+        }
         val target = resolveTarget(element) ?: return null
 
         // Assignment left-hand side: a variable hover. The LHS identifier sits
@@ -129,6 +133,16 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             return unwrapped
         }
 
+        // 5b. Bare constants without resolution behave like variable
+        // identifiers for hover so the Cannot-find rendering applies.
+        // Non-root namespace segments stay owned by the namespace path.
+        if (unwrapped.node?.elementType == CrystalTypes.CONSTANT &&
+            !hasEnclosingDefinition(unwrapped) &&
+            !(unwrapped.parent is CrystalNamespaceAccess && hasPrecedingNamespaceContent(unwrapped.parent))
+        ) {
+            return unwrapped
+        }
+
         return null
     }
 
@@ -158,6 +172,69 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     }
 
     // ==================== Target Resolution ====================
+
+    /**
+     * Renders `Cannot find 'name'` for names the inspection would flag,
+     * instead of the `Any (Variable)` fallback. Only read/call positions are
+     * considered (variable references, call callees, DOT method names with
+     * exact receivers); definitions, type references, and namespace
+     * non-root segments fall through to the regular flow below.
+     */
+    private fun unresolvedHoverDoc(element: PsiElement): String? {
+        val dotAccess = PsiTreeUtil.getParentOfType(element, CrystalDotCallAccess::class.java, false)
+        if (dotAccess != null) {
+            val flag = CrystalUnresolvedName.dotCallFlagElement(dotAccess) ?: return null
+            return buildUnresolvedDocumentation(flag.text)
+        }
+        // Namespace non-root segments are owned by the namespace path; only
+        // a leading segment falls back to the bare-constant rule.
+        if (element.parent is CrystalNamespaceAccess && hasPrecedingNamespaceContent(element.parent)) {
+            return null
+        }
+        val (leaf, isConstant) = when {
+            element is CrystalVariableReference ->
+                CrystalUnresolvedName.variableReferenceLeaf(element)
+            element.parent is CrystalVariableReference ->
+                CrystalUnresolvedName.variableReferenceLeaf(element.parent as CrystalVariableReference)
+            element.parent is CrystalMethodCallExpression ||
+                element.parent is CrystalBareMethodCallExpression ->
+                CrystalUnresolvedName.callCalleeLeaf(element.parent)
+            element is CrystalExpression ->
+                element.variableReferenceList.firstOrNull()?.let {
+                    CrystalUnresolvedName.variableReferenceLeaf(it)
+                }
+            else -> null
+        } ?: return null
+        if (!CrystalUnresolvedName.isUnresolvedLeaf(leaf, isConstant, leaf)) return null
+        return buildUnresolvedDocumentation(leaf.text)
+    }
+
+    private fun hasPrecedingNamespaceContent(access: PsiElement): Boolean {
+        var current = access.prevSibling
+        while (current != null) {
+            val type = current.node?.elementType
+            if (current is PsiWhiteSpace || type == CrystalTypes.NEWLINE) {
+                current = current.prevSibling
+                continue
+            }
+            if (current is CrystalNamespaceAccess) return true
+            if (current is CrystalVariableReference &&
+                current.node.findChildByType(CrystalTypes.CONSTANT) != null
+            ) {
+                return true
+            }
+            return false
+        }
+        return false
+    }
+
+    private fun buildUnresolvedDocumentation(name: String): String {
+        val sb = StringBuilder()
+        sb.append("<div class='definition'><pre>")
+        sb.append(escapeHtml(CrystalUnresolvedName.messageFor(name)))
+        sb.append("</pre></div>")
+        return sb.toString()
+    }
 
     private fun resolveTarget(element: PsiElement?): PsiElement? {
         if (element == null) return null
@@ -228,18 +305,23 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             }
             return false
         }
+        return !hasEnclosingDefinition(element)
+    }
+
+    private fun hasEnclosingDefinition(element: PsiElement): Boolean {
         var current: PsiElement? = element.parent
         var depth = 0
         while (current != null && depth < 5) {
             if (current is CrystalMethodDefinition || current is CrystalClassDefinition
                 || current is CrystalModuleDefinition || current is CrystalStructDefinition
-                || current is CrystalEnumDefinition || current is CrystalParameter) {
-                return false
+                || current is CrystalEnumDefinition || current is CrystalParameter
+            ) {
+                return true
             }
             current = current.parent
             depth++
         }
-        return true
+        return false
     }
 
     // ==================== Documentation Building ====================

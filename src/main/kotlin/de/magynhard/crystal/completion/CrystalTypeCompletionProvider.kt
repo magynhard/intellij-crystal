@@ -28,7 +28,7 @@ object CrystalTypeCompletionProvider {
      * `concurrent.cr`, which pulls in `fiber`/`channel`). Always offered as a
      * reliable baseline, even when no SDK is configured.
      */
-    private val CORE_STDLIB_TYPES = listOf(
+    internal val CORE_STDLIB_TYPES = listOf(
         // Primitive / Numeric
         "Int8", "Int16", "Int32", "Int64", "Int128",
         "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
@@ -90,7 +90,7 @@ object CrystalTypeCompletionProvider {
      * least one indexed declaration is visible through the current file's
      * require closure — never when the index knows them but none is required.
      */
-    private val OPTIONAL_STDLIB_TYPES = listOf(
+    internal val OPTIONAL_STDLIB_TYPES = listOf(
         // Concurrency helper
         "WaitGroup",
 

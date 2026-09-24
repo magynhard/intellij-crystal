@@ -5,6 +5,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Cannot-find warnings for unresolved names** — bare identifiers, call callees,
+  DOT method names with exact receivers, and constants that resolve to nothing now
+  report `Cannot find 'name'` warnings (and show the same text on hover) instead of
+  silently falling back to `Any (Variable)`. Names visible only outside the current
+  require closure are reported too, matching dependency-aware completion. Macro-
+  uncertain types, incomplete hierarchies, and macro contexts stay silent. Covered by
+  `CrystalUnresolvedNameInspectionTest`; specified in docs/specs/unresolved-names.md.
 - **Shard-aware require-path completion** — shard directories whose bare name resolves now
   complete without a trailing slash (selecting `kemal` yields `require "kemal"`), and entries
   below a shard come from `lib/<shard>/src/<shard>/` plus flat `src/*.cr` files instead of the

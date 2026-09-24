@@ -640,4 +640,41 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertNotNull(doc)
         assertTrue(doc!!.contains("Opens a channel."))
     }
+
+    // ==================== Unresolved names ====================
+
+    fun testHoverOnUnknownBareNameShowsCannotFind() {
+        myFixture.configureByText("test.cr", "puts ab<caret>c")
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        val doc = provider.generateDoc(target, leaf)
+        assertNotNull("Unknown name should render documentation", doc)
+        assertTrue("Should report Cannot find 'abc', got: $doc", doc!!.contains("Cannot find 'abc'"))
+        assertFalse("Should not fall back to Any (Variable), got: $doc", doc.contains("(Variable)"))
+    }
+
+    fun testHoverOnUnknownConstantShowsCannotFind() {
+        myFixture.configureByText("test.cr", "puts CB<caret>A")
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        val doc = provider.generateDoc(target, leaf)
+        assertNotNull("Unknown constant should render documentation", doc)
+        assertTrue("Should report Cannot find 'CBA', got: $doc", doc!!.contains("Cannot find 'CBA'"))
+    }
+
+    fun testHoverOnKnownVariableStillShowsType() {
+        myFixture.configureByText("test.cr", """
+            x = 1
+            puts <caret>x
+        """.trimIndent())
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        val doc = provider.generateDoc(target, leaf)
+        assertNotNull("Known variable should render documentation", doc)
+        assertTrue("Should keep variable hover, got: $doc", doc!!.contains("(Variable)"))
+        assertFalse("Should not report Cannot find, got: $doc", doc.contains("Cannot find"))
+    }
 }

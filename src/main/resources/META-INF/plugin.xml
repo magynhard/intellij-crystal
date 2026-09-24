@@ -250,7 +250,7 @@
   <li><b>Test Runner</b> — integrated Crystal spec runner (SMTRunner) with real-time output, gutter icon single-test execution, folder-level running, re-run failed</li>
   <li><b>Navigation</b> — Go to Definition, Go to Symbol/Class, Find Usages, Parameter Info, Structure View</li>
   <li><b>Code Completion</b> — context-aware dot-completion with type inference, free-text, type annotation completion</li>
-  <li><b>Inspections</b> — type checking, argument count validation, unused variable detection, lib fun type annotations</li>
+  <li><b>Inspections</b> — type checking, argument count validation, unused variable detection, lib fun type annotations, unresolved name detection</li>
   <li><b>Run Configurations</b> — crystal run, build, and spec with environment and argument support</li>
   <li><b>Refactoring</b> — rename with preview dialog and compiler verification</li>
   <li><b>Quick Documentation</b> — rendered doc comments with Markdown</li>
@@ -477,6 +477,15 @@
                 enabledByDefault="true"
                 level="ERROR"
                 implementationClass="de.magynhard.crystal.inspections.CrystalInvalidInPatternInspection"/>
+
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Cannot find name"
+                shortName="CrystalUnresolvedName"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="de.magynhard.crystal.inspections.CrystalUnresolvedNameInspection"/>
 
         <todoIndexer
                 filetype="Crystal"
