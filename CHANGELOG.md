@@ -5,6 +5,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Shard dependency support** — the project-root `shard.yml` (plus `shard.lock`) is now
+  read into a dependency model with semver requirement evaluation (`~>`, `>=`, compound
+  ranges): missing or outdated dependencies surface through a project-open balloon, an
+  editor banner, and in-file error/warning markers, each offering one-click `shards install`
+  (background task with progress, output on failure, VFS refresh on success). Installed
+  shard sources under `lib/` stay indexed for completion and navigation while all
+  inspections stay silent there. Covered by manifest, semver, status, banner,
+  and inspection tests; specified in docs/specs/shard-support.md.
 - **Hover types on destructuring targets** — hovering a destructuring target itself
   (`x` in `x, y = {1, "other"}`) now shows its inferred type instead of `Any`, mirroring
   the existing fast path for plain assignments. Covered by `CrystalTypeInferenceTest`.

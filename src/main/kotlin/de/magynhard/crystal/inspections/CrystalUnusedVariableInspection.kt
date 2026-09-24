@@ -27,6 +27,7 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
     override fun getDescriptionFileName(): String = "$shortName.html"
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
+        if (!CrystalInspectionScope.isProjectSource(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
         val injectionManager = InjectedLanguageManager.getInstance(holder.project)
         if (injectionManager.isInjectedFragment(holder.file) &&
             injectionManager.shouldInspectionsBeLenient(holder.file)) {

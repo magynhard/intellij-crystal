@@ -2,8 +2,6 @@
 
 ## Crystal Shards (Issue #3)
 
-- [ ] **Parse shard.yml** — extract dependency declarations
-- [ ] **Index lib/ directory** — include shard sources in StubIndex
 - [ ] **Dependency-aware completion** — suggest types/methods from installed shards
 - [ ] **Include arbitrary custom `CRYSTAL_PATH` roots in bare requires** — preserve environment order across every
   absolute custom source root while keeping the first root containing `prelude.cr` as the core foundation. Acceptance

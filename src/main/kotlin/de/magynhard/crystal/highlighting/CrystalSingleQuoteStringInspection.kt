@@ -4,6 +4,7 @@ import com.intellij.codeInspection.LocalInspectionTool
 import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.inspections.CrystalInspectionScope
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.CrystalTypes
 
@@ -23,6 +24,7 @@ class CrystalSingleQuoteStringInspection : LocalInspectionTool() {
     override fun getDescriptionFileName(): String = "$shortName.html"
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
+        if (!CrystalInspectionScope.isProjectSource(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
         return object : PsiElementVisitor() {
             override fun visitElement(element: com.intellij.psi.PsiElement) {
                 // Check for BAD_CHARACTER tokens that are invalid single-quote strings

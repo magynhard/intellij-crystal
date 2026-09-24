@@ -462,6 +462,14 @@
                 implementationClass="de.magynhard.crystal.inspections.CrystalRequireContextInspection"/>
 
         <localInspection
+                groupName="Crystal"
+                displayName="Missing or outdated shard dependency"
+                shortName="CrystalShardDependency"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalShardDependencyInspection"/>
+
+        <localInspection
                 language="Crystal"
                 groupName="Crystal"
                 displayName="Invalid pattern in case...in clause"
@@ -576,6 +584,7 @@
                 implementationClass="de.magynhard.crystal.refactoring.CrystalNamesValidator"/>
 
         <notificationGroup id="Crystal Formatting" displayType="BALLOON"/>
+        <notificationGroup id="Crystal Shards" displayType="BALLOON"/>
         <notificationGroup id="Crystal Rename Verification" displayType="BALLOON"/>
         <notificationGroup id="Crystal Reindex" displayType="BALLOON"/>
 
@@ -638,6 +647,14 @@
         <!-- Remove obsolete persisted stdlib module libraries after project startup -->
         <postStartupActivity
                 implementation="de.magynhard.crystal.sdk.CrystalLegacyStdlibCleanupActivity"/>
+
+        <!-- Warn about missing or outdated shard dependencies on project open -->
+        <postStartupActivity
+                implementation="de.magynhard.crystal.sdk.CrystalShardStatusActivity"/>
+
+        <!-- Banner over shard.yml while dependencies need attention -->
+        <editorNotificationProvider
+                implementation="de.magynhard.crystal.sdk.CrystalShardBannerProvider"/>
 
         <!-- Debugger -->
         <xdebugger.breakpointType

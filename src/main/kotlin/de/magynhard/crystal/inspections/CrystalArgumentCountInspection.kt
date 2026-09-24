@@ -35,6 +35,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     override fun getDescriptionFileName(): String = "$shortName.html"
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
+        if (!CrystalInspectionScope.isProjectSource(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 // Macro context: {{ … }} interpolations, macro bodies, and

@@ -19,8 +19,9 @@ class CrystalRequireContextInspection : LocalInspectionTool() {
     // view crashes when a result node is selected.
     override fun getDescriptionFileName(): String = "$shortName.html"
 
-    override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor =
-        object : PsiElementVisitor() {
+    override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
+        if (!CrystalInspectionScope.isProjectSource(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
+        return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 when (element) {
                     is CrystalRequireStatement -> {
@@ -32,6 +33,7 @@ class CrystalRequireContextInspection : LocalInspectionTool() {
                 }
             }
         }
+    }
 
     private fun checkMacroControl(control: CrystalMacroControl, holder: ProblemsHolder) {
         val requireTokens = PsiTreeUtil.collectElements(control) {
