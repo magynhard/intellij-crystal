@@ -9,7 +9,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
  * Completion from installed shard sources: bare require paths resolve
- * into `lib/`, and dependency modules are suggested after requiring.
+ * into `lib/`, and dependency module members are suggested after requiring.
  */
 class CrystalShardLibCompletionTest : BasePlatformTestCase() {
 
@@ -21,14 +21,14 @@ class CrystalShardLibCompletionTest : BasePlatformTestCase() {
         assertTrue("Installed shard 'kemal' must be suggested for bare requires: $names", names.contains("kemal"))
     }
 
-    fun testModuleFromInstalledShardSuggestedAfterRequire() {
+    fun testDepModuleMethodsSuggestedAfterRequire() {
         myFixture.addFileToProject(
-            "lib/kemal/src/kemal.cr",
-            "module Kemal\nend\n"
+            "lib/kemalx/src/kemalx.cr",
+            "module KemalX\n  def self.version\n    \"1.0\"\n  end\nend\n"
         )
-        myFixture.configureByText("main.cr", "require \"./lib/kemal/src/kemal\"\nx = Kem<caret>")
+        myFixture.configureByText("main.cr", "require \"./lib/kemalx/src/kemalx\"\nKemalX.<caret>")
         val names = myFixture.complete(CompletionType.BASIC)?.map { it.lookupString } ?: emptyList()
-        assertTrue("Installed shard module 'Kemal' must be suggested: $names", names.contains("Kemal"))
+        assertTrue("Installed shard method 'version' must be suggested: $names", names.contains("version"))
     }
 
     private fun openMain(content: String, caretOffset: Int) {
