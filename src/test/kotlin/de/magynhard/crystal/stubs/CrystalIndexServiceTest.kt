@@ -1,8 +1,10 @@
 package de.magynhard.crystal.stubs
 
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.Processor
+import com.intellij.util.indexing.FileBasedIndex
 
 class CrystalIndexServiceTest : BasePlatformTestCase() {
 
@@ -235,14 +237,33 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
 
     fun testProcessesTypeNameCandidatesOutsideProvidedScope() {
         val included = myFixture.addFileToProject("included.cr", "class IncludedType\nend")
-        myFixture.addFileToProject("excluded.cr", "class ExcludedType\nend")
+        val excluded = myFixture.addFileToProject("excluded.cr", "class ExcludedType\nend")
+        // Key enumeration reads the index as-is without waiting for pending
+        // stub updates. Under full-suite load the fresh files can lag behind
+        // background indexing (e.g. stdlib reindex storms queued by earlier
+        // classes), so poll the enumerable keys with a deadline instead of
+        // asserting a single possibly-stale snapshot. Reindexing is requested
+        // explicitly so late VFS events cannot leave a file unseen, and the
+        // event queue is pumped so pending updates get delivered.
+        // NOTE: the processor must always return true: Set.add returns false
+        // for duplicate keys, which would abort the enumeration early.
+        val index = FileBasedIndex.getInstance()
+        index.requestReindex(included.virtualFile)
+        index.requestReindex(excluded.virtualFile)
         val names = mutableSetOf<String>()
-
-        CrystalIndexService.processTypeNames(
-            GlobalSearchScope.fileScope(included),
-            null,
-            Processor { names.add(it) }
-        )
+        val deadline = System.currentTimeMillis() + 30_000
+        while (true) {
+            PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+            names.clear()
+            CrystalIndexService.processTypeNames(
+                GlobalSearchScope.fileScope(included),
+                null,
+                Processor { names.add(it); true }
+            )
+            if ("IncludedType" in names && "ExcludedType" in names) break
+            if (System.currentTimeMillis() > deadline) break
+            Thread.sleep(50)
+        }
 
         assertContainsElements(names, "IncludedType")
         assertContainsElements(names, "ExcludedType")
