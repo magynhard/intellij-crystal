@@ -39,6 +39,8 @@ class CrystalGoToContributorTest : BasePlatformTestCase() {
 
             lib IndexedLib
             end
+
+            IndexedConstant = 42
         """.trimIndent())
     }
 
@@ -69,6 +71,7 @@ class CrystalGoToContributorTest : BasePlatformTestCase() {
             "indexed_macro",
             "IndexedAlias",
             "IndexedAnnotation",
+            "IndexedConstant",
             "IndexedLib"
         )
 

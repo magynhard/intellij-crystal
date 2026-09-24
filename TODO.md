@@ -17,7 +17,6 @@
 
 ## Indexed Declaration Follow-up
 
-- [ ] **Add constant declaration stubs and indexes** (`CrystalConstantIndex` and `CrystalConstantByClassIndex`) only after the grammar separates constant definitions from ordinary statement assignment contexts.
 - [ ] **Design instance/class-variable declaration indexing** only if a valid stubbed declaration model can represent declarations without indexing arbitrary usages or assignments.
 
 ## Parser Recovery Follow-up

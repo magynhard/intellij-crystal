@@ -339,6 +339,25 @@ object CrystalCompletionHelper {
     }
 
     /**
+     * Returns all constant names from the project-wide StubIndex (top-level
+     * and member constants). Require-closure filtering happens per candidate
+     * at the call site, mirroring [getAllClassNames].
+     */
+    fun getAllConstantNames(project: Project): Collection<String> {
+        return CrystalIndexService.getAllConstantNames(project)
+    }
+
+    /**
+     * Returns all constant declarations matching [name] across the project
+     * (and stdlib, if indexed). Used for free-text completion and resolution
+     * of bare `CONSTANT` reads.
+     */
+    fun findConstantsByName(name: String, project: Project): Collection<de.magynhard.crystal.psi.CrystalConstantAssignment> {
+        val scope = GlobalSearchScope.allScope(project)
+        return CrystalIndexService.findConstants(name, project, scope)
+    }
+
+    /**
      * Finds the `initialize` method of a class/struct (the Crystal constructor).
      */
     fun getInitializeMethod(typeName: String, project: Project, currentFile: PsiFile? = null): CrystalMethodDefinition? {

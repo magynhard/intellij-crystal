@@ -8,6 +8,7 @@ import com.intellij.util.Processor
 import com.intellij.util.indexing.IdFilter
 import de.magynhard.crystal.psi.CrystalAliasDefinition
 import de.magynhard.crystal.psi.CrystalAnnotationDefinition
+import de.magynhard.crystal.psi.CrystalConstantAssignment
 import de.magynhard.crystal.psi.CrystalLibDefinition
 import de.magynhard.crystal.psi.CrystalMacroDefinition
 import de.magynhard.crystal.psi.CrystalMethodDefinition
@@ -117,6 +118,41 @@ object CrystalIndexService {
     ): Collection<CrystalLibDefinition> =
         StubIndex.getElements(CrystalLibIndex.KEY, name, project, scope, CrystalLibDefinition::class.java)
 
+    fun findConstants(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope
+    ): Collection<CrystalConstantAssignment> =
+        StubIndex.getElements(CrystalConstantIndex.KEY, name, project, scope, CrystalConstantAssignment::class.java)
+
+    fun findConstantsByOwner(
+        ownerQualifiedName: String,
+        project: Project,
+        scope: GlobalSearchScope
+    ): Collection<CrystalConstantAssignment> =
+        StubIndex.getElements(
+            CrystalConstantByOwnerIndex.KEY,
+            ownerQualifiedName,
+            project,
+            scope,
+            CrystalConstantAssignment::class.java
+        )
+
+    fun processConstants(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope,
+        processor: Processor<in CrystalConstantAssignment>
+    ): Boolean = StubIndex.getInstance().processElements(
+        CrystalConstantIndex.KEY,
+        name,
+        project,
+        scope,
+        null,
+        CrystalConstantAssignment::class.java,
+        processor
+    )
+
     fun processTypeNames(
         scope: GlobalSearchScope,
         filter: IdFilter?,
@@ -183,11 +219,25 @@ object CrystalIndexService {
         processor
     )
 
+    fun processConstantNames(
+        scope: GlobalSearchScope,
+        filter: IdFilter?,
+        processor: Processor<in String>
+    ): Boolean = processNames(
+        CrystalConstantIndex.KEY,
+        scope,
+        filter,
+        processor
+    )
+
     fun getAllTypeNames(project: Project): Collection<String> =
         StubIndex.getInstance().getAllKeys(CrystalClassIndex.KEY, project)
 
     fun getAllTopLevelMethodNames(project: Project): Collection<String> =
         StubIndex.getInstance().getAllKeys(CrystalTopLevelMethodIndex.KEY, project)
+
+    fun getAllConstantNames(project: Project): Collection<String> =
+        StubIndex.getInstance().getAllKeys(CrystalConstantIndex.KEY, project)
 
     private fun processNames(
         key: StubIndexKey<String, *>,

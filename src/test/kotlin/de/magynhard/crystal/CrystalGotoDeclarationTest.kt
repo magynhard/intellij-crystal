@@ -7,6 +7,7 @@ import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.CrystalDotCallAccess
+import de.magynhard.crystal.psi.CrystalConstantAssignment
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
 
@@ -447,5 +448,49 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
                 myFixture.editor
             )
         )
+    }
+
+    fun testTopLevelConstantAcrossRequire() {
+        myFixture.addFileToProject("a.cr", "KODORRA = 123\n")
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            puts KODORR<caret>A
+        """.trimIndent())
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val resolved = (element.reference ?: element.parent?.reference)?.resolve()
+        assertNotNull("KODORRA should resolve across require", resolved)
+        assertTrue("Target should be a constant assignment", resolved is CrystalConstantAssignment)
+        assertEquals("a.cr", resolved!!.containingFile.name)
+    }
+
+    fun testMemberConstantAcrossRequire() {
+        myFixture.addFileToProject("a.cr", """
+            class Owner
+              MEMBER = 1
+            end
+        """.trimIndent())
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            puts Owner::MEMB<caret>ER
+        """.trimIndent())
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val resolved = (element.reference ?: element.parent?.reference)?.resolve()
+        assertNotNull("Owner::MEMBER should resolve across require", resolved)
+        assertTrue("Target should be a constant assignment", resolved is CrystalConstantAssignment)
+        assertEquals("a.cr", resolved!!.containingFile.name)
+    }
+
+    fun testPrivateConstantAcrossRequireDoesNotResolve() {
+        myFixture.addFileToProject("a.cr", "private SEKRIT = 1\n")
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            puts SEKRI<caret>T
+        """.trimIndent())
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val resolved = (element.reference ?: element.parent?.reference)?.resolve()
+        assertNull("Private constants must not resolve across files", resolved)
     }
 }

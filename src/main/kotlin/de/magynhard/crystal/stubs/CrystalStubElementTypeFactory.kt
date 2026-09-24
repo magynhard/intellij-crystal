@@ -15,6 +15,7 @@ object CrystalStubElementTypeFactory {
             "LIB_DEFINITION" -> CrystalStubElementTypeHolder.LIB_DEFINITION
             "ANNOTATION_DEFINITION" -> CrystalStubElementTypeHolder.ANNOTATION_DEFINITION
             "ALIAS_DEFINITION" -> CrystalStubElementTypeHolder.ALIAS_DEFINITION
+            "CONSTANT_ASSIGNMENT" -> CrystalStubElementTypeHolder.CONSTANT_ASSIGNMENT
             else -> throw IllegalArgumentException("Unknown stub element type: $name")
         }
     }

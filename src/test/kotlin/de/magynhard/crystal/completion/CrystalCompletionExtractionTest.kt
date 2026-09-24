@@ -18,6 +18,7 @@ class CrystalCompletionExtractionTest : TestCase() {
             "de.magynhard.crystal.completion.CrystalSymbolCompletionProvider",
             "addAllClasses",
             "addFileLevelConstants",
+            "addVisibleConstants",
             "addClassConstants"
         )
         assertDeclaresMethods(

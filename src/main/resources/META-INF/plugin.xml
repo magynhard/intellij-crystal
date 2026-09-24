@@ -614,6 +614,8 @@
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalAliasIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalAnnotationIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalLibIndex"/>
+        <stubIndex implementation="de.magynhard.crystal.stubs.CrystalConstantIndex"/>
+        <stubIndex implementation="de.magynhard.crystal.stubs.CrystalConstantByOwnerIndex"/>
 
         <stubElementTypeHolder class="de.magynhard.crystal.stubs.CrystalStubElementTypeHolder" externalIdPrefix="crystal."/>
 

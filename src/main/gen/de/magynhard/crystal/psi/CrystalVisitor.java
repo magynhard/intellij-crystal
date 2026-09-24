@@ -97,7 +97,7 @@ public class CrystalVisitor extends PsiElementVisitor {
   }
 
   public void visitConstantAssignment(@NotNull CrystalConstantAssignment o) {
-    visitPsiElement(o);
+    visitNamedElement(o);
   }
 
   public void visitDotCallAccess(@NotNull CrystalDotCallAccess o) {

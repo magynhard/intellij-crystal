@@ -11,7 +11,7 @@
   elementTypeHolderClass="de.magynhard.crystal.psi.CrystalTypes"
   elementTypeClass="de.magynhard.crystal.psi.CrystalElementType"
   tokenTypeClass="de.magynhard.crystal.lexer.CrystalTokenType"
-  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition|lib_definition|annotation_definition|alias_definition")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
+  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition|lib_definition|annotation_definition|alias_definition|constant_assignment")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
 
   parserImports=[
     "static de.magynhard.crystal.parser.CrystalParserPredicates.*"
@@ -1068,6 +1068,9 @@ private multi_assign_values ::= expression (COMMA expression)*
 
 constant_assignment ::= CONSTANT ASSIGN NLS expression [postfix_modifier] [heredoc_bodies] {
   pin=2
+  stubClass="de.magynhard.crystal.stubs.CrystalConstantAssignmentStub"
+  mixin="de.magynhard.crystal.psi.impl.CrystalStubbedConstantAssignmentImpl"
+  implements="de.magynhard.crystal.psi.CrystalNamedElement"
 }
 
 // Macro fresh variables: `%value` and `%var{key.id}` between macro control

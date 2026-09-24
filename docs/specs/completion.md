@@ -23,8 +23,9 @@ no-session public overloads remain for callers that construct their own session.
 Context classification is implemented by package-level helpers in `CrystalCompletionContext`.
 Candidate generation is split between `CrystalLocalCompletionProvider` for scope-sensitive
 locals, parameters, variables, and methods, and `CrystalSymbolCompletionProvider` for classes
-and file/class-body constants. Indexed type and method access goes through `CrystalIndexService`;
-constants and instance/class variables are collected from live PSI because no declaration indexes
+and constants. Indexed type, method, and constant access goes through `CrystalIndexService`;
+same-file constants keep their live-PSI collection as the deduplication baseline, and
+instance/class variables are collected from live PSI because no declaration indexes
 exist for them. Local candidates share one deduplication set across all candidate sources. The split
 preserves the contributor's established dispatch order, ranking, deduplication, and results.
 
@@ -783,10 +784,15 @@ Currently only hardcoded `include` and `extend` are offered as class body macros
 
 ### Constant Completion
 
-Completion of constants defined in the project:
+Completion of constants defined in the project, filtered through the
+current file's require closure (`addVisibleConstants`): same-file
+declarations from live PSI, everything else from the constant index with
+the result's prefix matcher pre-filtering names before any stub loads.
+Private constants never leave their own file. Member constants after
+`Foo::` enumerate the resolved owner's body with the same privacy gate:
 
 ```crystal
 MY_CONSTANT = 42
 
-x = MY_  # ← would show MY_CONSTANT
+x = MY_  # ← shows MY_CONSTANT
 ```

@@ -1,8 +1,10 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
+import de.magynhard.crystal.psi.CrystalConstantAssignment
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -136,5 +138,72 @@ internal object CrystalRequireVisibility {
             // Fall through with whatever was observed.
         }
         return found
+    }
+
+    /**
+     * True when the stub index holds at least one constant declaration [name]
+     * visible from [context]: the defining file is part of the effective
+     * source set, and private constants additionally require the same file.
+     * Stops at the first visible declaration instead of loading every
+     * same-named PSI element. Returns false for an empty snapshot.
+     */
+    fun isConstantNameVisible(
+        name: String,
+        context: PsiElement,
+        scope: GlobalSearchScope,
+        sources: CrystalEffectiveSourceSet,
+    ): Boolean {
+        if (sources.files.isEmpty()) return false
+        val contextFile = context.containingFile?.originalFile?.virtualFile
+        var visible = false
+        try {
+            CrystalIndexService.processConstants(name, context.project, scope) { element ->
+                if (isConstantCandidateVisible(element, sources, contextFile)) {
+                    visible = true
+                    false
+                } else {
+                    true
+                }
+            }
+        } catch (_: Throwable) {
+            // A single broken index entry must not abort completion.
+        }
+        return visible
+    }
+
+    /**
+     * True when the stub index holds any constant declaration [name], visible
+     * or not. Lets callers distinguish "known but unrequired" (report) from
+     * "unknown to the index" (stay silent).
+     */
+    fun hasIndexedConstant(name: String, project: Project, scope: GlobalSearchScope): Boolean {
+        var found = false
+        try {
+            CrystalIndexService.processConstants(name, project, scope) {
+                found = true
+                false
+            }
+        } catch (_: Throwable) {
+            // Fall through with whatever was observed.
+        }
+        return found
+    }
+
+    /**
+     * Shared constant-candidate gate: the defining file must be in [sources],
+     * and private constants match only [contextFile] (their own file).
+     */
+    fun isConstantCandidateVisible(
+        element: CrystalConstantAssignment,
+        sources: CrystalEffectiveSourceSet,
+        contextFile: VirtualFile?,
+    ): Boolean {
+        if (!sources.contains(element)) return false
+        val isPrivate = element.stub?.isPrivate ?: CrystalPsiUtils.isPrivateConstant(element)
+        if (isPrivate) {
+            val candidateFile = element.containingFile?.originalFile?.virtualFile ?: return false
+            if (candidateFile != contextFile) return false
+        }
+        return true
     }
 }

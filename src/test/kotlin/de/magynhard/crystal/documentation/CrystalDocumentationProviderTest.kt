@@ -677,4 +677,128 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertTrue("Should keep variable hover, got: $doc", doc!!.contains("(Variable)"))
         assertFalse("Should not report Cannot find, got: $doc", doc.contains("Cannot find"))
     }
+
+    // ==================== Resolved constants ====================
+
+    private fun hoverDocAtCaret(): String? {
+        val offset = myFixture.caretOffset
+        val leaf = myFixture.file.findElementAt(offset)!!
+        val target = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, leaf, offset)
+        return provider.generateDoc(target, leaf)
+    }
+
+    fun testHoverOnConstantDefinitionShowsTypeValueAndDocs() {
+        myFixture.configureByText("test.cr", """
+            # The answer to everything.
+            KODORR<caret>A = 123
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Constant definition should render documentation", doc)
+        assertTrue("Should show (Constant), got: $doc", doc!!.contains("(Constant)"))
+        assertTrue("Should show inferred Int32, got: $doc", doc.contains("Int32"))
+        // The literal value renders syntax-highlighted (` = <span…>123</span>`).
+        assertTrue("Should show literal value, got: $doc", doc.contains(" = ") && doc.contains(">123<"))
+        assertTrue("Should show doc comment, got: $doc", doc.contains("The answer to everything."))
+        assertFalse("Should not claim variable, got: $doc", doc.contains("(Variable)"))
+        assertFalse("Should not report Cannot find, got: $doc", doc.contains("Cannot find"))
+    }
+
+    fun testHoverOnConstantReadShowsTypeNotVariable() {
+        myFixture.configureByText("test.cr", """
+            KODORRA = 123
+            puts KODORR<caret>A
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Constant read should render documentation", doc)
+        assertTrue("Should show (Constant), got: $doc", doc!!.contains("(Constant)"))
+        assertTrue("Should show inferred Int32, got: $doc", doc.contains("Int32"))
+        assertFalse("Should not claim variable, got: $doc", doc.contains("(Variable)"))
+    }
+
+    fun testHoverOnConstantWithoutDocsShowsSignatureOnly() {
+        myFixture.configureByText("test.cr", """
+            KODORR<caret>A = 123
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Constant should render documentation", doc)
+        assertTrue("Should show name, got: $doc", doc!!.contains("KODORRA"))
+        assertFalse("Should have no content block, got: $doc", doc.contains("<div class='content'>"))
+    }
+
+    fun testHoverOnMemberConstantShowsOwner() {
+        myFixture.configureByText("test.cr", """
+            class Owner
+              # Member docs.
+              BAR = 1
+            end
+            puts Owner::B<caret>AR
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Member constant should render documentation", doc)
+        assertTrue("Should show owner, got: $doc", doc!!.contains("Owner"))
+        assertTrue("Should show qualified member, got: $doc", doc.contains("::BAR"))
+        assertTrue("Should show doc comment, got: $doc", doc.contains("Member docs."))
+    }
+
+    fun testHoverOnConstantAcrossRequire() {
+        myFixture.addFileToProject("a.cr", "# Remote docs.\nKODORRA = 123\n")
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            puts KODORR<caret>A
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Cross-file constant should render documentation", doc)
+        assertTrue("Should show (Constant), got: $doc", doc!!.contains("(Constant)"))
+        assertTrue("Should show inferred Int32, got: $doc", doc.contains("Int32"))
+        assertTrue("Should show doc comment, got: $doc", doc.contains("Remote docs."))
+    }
+
+    fun testHoverOnPrivateConstantSameFile() {
+        myFixture.configureByText("test.cr", """
+            private SEKRIT = 1
+            puts SEKRI<caret>T
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Private constant should render documentation", doc)
+        assertTrue("Should show (Constant), got: $doc", doc!!.contains("(Constant)"))
+        assertTrue("Should show name, got: $doc", doc.contains("SEKRIT"))
+    }
+
+    fun testHoverOnChainedConstantShowsType() {
+        myFixture.configureByText("test.cr", """
+            KODORRA = 123
+            WEITER = KODORRA
+            puts WEITE<caret>R
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Chained constant should render documentation", doc)
+        assertTrue("Should show inferred Int32 through the chain, got: $doc", doc!!.contains("Int32"))
+    }
+
+    fun testHoverOnConditionalConstantShowsUnion() {
+        myFixture.configureByText("test.cr", """
+            if flag
+              WERT = 1
+            else
+              WERT = "s"
+            end
+            puts WER<caret>T
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Conditional constant should render documentation", doc)
+        // Spaces render HTML-escaped (`Int32&#32;|&#32;String`), so assert parts.
+        assertTrue("Should show union type, got: $doc", doc!!.contains("Int32") && doc.contains("String") && doc.contains("|"))
+    }
+
+    fun testHoverOnUninferableConstantShowsUnknown() {
+        myFixture.configureByText("test.cr", """
+            WERT = compute_something()
+            puts WE<caret>RT
+        """.trimIndent())
+        val doc = hoverDocAtCaret()
+        assertNotNull("Uninferable constant should render documentation", doc)
+        assertTrue("Should show honest Unknown, got: $doc", doc!!.contains("Unknown"))
+        assertTrue("Should show (Constant), got: $doc", doc.contains("(Constant)"))
+    }
 }

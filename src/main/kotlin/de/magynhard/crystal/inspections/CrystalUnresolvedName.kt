@@ -7,6 +7,7 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalReceiverMode
+import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.analysis.CrystalTypeIdentity
@@ -21,14 +22,19 @@ import de.magynhard.crystal.stubs.CrystalIndexService
  * and hover documentation.
  *
  * A name is reported only when it resolves to nothing *and* its absence can
- * be proven: indexed-but-unrequired definitions, macro-uncertain enclosing
- * types, incomplete hierarchies, and macro contexts all stay silent, mirroring
- * the suppression-first conventions of the call-argument inspections and
- * dependency-aware completion. See `docs/specs/unresolved-names.md`.
+ * be proven. The result distinguishes truly unknown names ([UnresolvedKind.UNKNOWN],
+ * warning) from names indexed only outside the current require closure
+ * ([UnresolvedKind.UNREQUIRED], weak warning) — the same require-closure lens
+ * as dependency-aware completion. Macro-uncertain enclosing types, incomplete
+ * hierarchies, and macro contexts stay silent. See
+ * `docs/specs/unresolved-names.md`.
  */
 object CrystalUnresolvedName {
 
     fun messageFor(name: String): String = "Cannot find '$name'"
+
+    /** Truly unknown vs. indexed-but-unrequired (weak warning). */
+    enum class UnresolvedKind { UNKNOWN, UNREQUIRED }
 
     /**
      * Top-level methods available through `prelude.cr` without any explicit
@@ -73,44 +79,42 @@ object CrystalUnresolvedName {
     )
 
     /**
-     * True when the bare lowercase name read or called at [context] resolves
-     * to nothing provable: no visible local, no prelude baseline entry, no
-     * require-visible method/type, no macro, no accessor binding, and no
-     * macro-uncertain enclosing type that could still provide an
-     * implicit-self member.
+     * Kind of unresolvedness for a bare lowercase name read or called at
+     * [context], or `null` when the name is known or must stay silent.
      */
-    fun isUnresolvedBareName(name: String, context: PsiElement): Boolean {
-        if (name in MAGIC_CONSTANTS) return false
-        if (name in PRELUDE_TOP_LEVEL_METHODS || name in COMPILER_BUILTIN_CALLS) return false
+    fun isUnresolvedBareName(name: String, context: PsiElement): UnresolvedKind? {
+        if (name in MAGIC_CONSTANTS) return null
+        if (name in PRELUDE_TOP_LEVEL_METHODS || name in COMPILER_BUILTIN_CALLS) return null
         if (name in CrystalTypeCompletionProvider.OPTIONAL_STDLIB_TYPES &&
             !hasIndexedType(name, context)
         ) {
-            return false
+            return null
         }
 
-        if (resolvesThroughReference(context)) return false
-        if (name in PRELUDE_MACROS || hasMacro(name, context)) return false
+        if (resolvesThroughReference(context)) return null
+        if (name in PRELUDE_MACROS || hasMacro(name, context)) return null
 
         // An implicit-self call inside a macro-uncertain type may still bind
         // to a macro-generated member: silence unless the enclosing type's
         // named-method collection for this name is complete.
-        if (!isEnclosingTypeCompleteFor(context, name)) return false
-        return true
+        if (!isEnclosingTypeCompleteFor(context, name)) return null
+        if (!visibilityKnown(context)) return null
+        if (hasIndexedType(name, context) || hasIndexedMethod(name, context)) {
+            return UnresolvedKind.UNREQUIRED
+        }
+        return UnresolvedKind.UNKNOWN
     }
 
     /**
-     * True when the bare `CONSTANT` read at [context] resolves to nothing
-     * provable: no prelude core type, no require-visible type, no same-file
-     * assignment, no macro. Like bare names, types indexed only outside the
-     * require closure are reported; require-gated stdlib names unknown to the
-     * index (no SDK) stay silent. Cross-file non-type constants are out of
-     * scope until the constant-declaration index lands.
+     * Kind of unresolvedness for a bare `CONSTANT` read at [context], or
+     * `null` when known or silent. Require-gated stdlib names unknown to the
+     * index (no SDK) stay silent; cross-file non-type constants resolve
+     * through the constant index with require visibility.
      */
-    fun isUnresolvedConstant(name: String, context: PsiElement): Boolean {
-        if (isBaselineConstant(name, context)) return false
-        if (resolvesThroughReference(context)) return false
-        if (isDeclaredConstant(name, context)) return false
-        return true
+    fun isUnresolvedConstant(name: String, context: PsiElement): UnresolvedKind? {
+        if (isBaselineConstant(name, context)) return null
+        if (resolvesThroughReference(context)) return null
+        return declaredConstantKind(name, context)
     }
 
     private fun isBaselineConstant(name: String, context: PsiElement): Boolean {
@@ -125,38 +129,88 @@ object CrystalUnresolvedName {
     }
 
     /**
-     * True when a constant [name] is declared in a way the full reference
-     * resolution may miss: a require-visible indexed type, a same-file
-     * assignment or record, or a macro. Used for namespace roots, where the
-     * reference resolves the whole path instead of the root segment.
-     * Unjudgeable contexts (injections, empty snapshots, broken index) count
-     * as declared: silence, never warn.
+     * Kind of unresolvedness for a constant [name] in a position the full
+     * reference resolution may miss (namespace roots), or `null` when a
+     * require-visible indexed type or constant declaration, a same-file
+     * assignment or record, or a macro covers it. Unjudgeable contexts
+     * (injections, empty snapshots, broken index) count as declared: silence,
+     * never warn.
      */
-    private fun isDeclaredConstant(name: String, context: PsiElement): Boolean {
-        if (hasSameFileConstantAssignment(context, name)) return true
-        if (hasSameFileRecord(name, context)) return true
-        if (name in PRELUDE_MACROS || hasMacro(name, context)) return true
+    private fun declaredConstantKind(name: String, context: PsiElement): UnresolvedKind? {
+        if (hasSameFileConstantAssignment(context, name)) return null
+        if (hasSameFileRecord(name, context)) return null
+        if (name in PRELUDE_MACROS || hasMacro(name, context)) return null
+        val sources = requireSources(context) ?: return null
+        if (isRequireVisibleConstant(name, context, sources) ||
+            isVisibleTypeName(name, context, sources)
+        ) {
+            return null
+        }
+        if (hasIndexedType(name, context) || hasIndexedConstant(name, context)) {
+            return UnresolvedKind.UNREQUIRED
+        }
+        return UnresolvedKind.UNKNOWN
+    }
+
+    /**
+     * The effective sources for visibility judgments, or `null` when no
+     * program can be established (injected fragments, unresolvable context):
+     * callers then keep silent instead of warning.
+     */
+    private fun requireSources(context: PsiElement): CrystalEffectiveSourceSet? {
         return try {
             val service = CrystalRequireGraphService.getInstance(context.project)
-            if (service.isProgramLessInjection(context)) return true
-            val sources = service.effectiveSources(context).takeIf { it.files.isNotEmpty() } ?: return true
+            if (service.isProgramLessInjection(context)) return null
+            service.effectiveSources(context).takeIf { it.files.isNotEmpty() }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** False for injected fragments, empty snapshots, and broken lookups. */
+    private fun visibilityKnown(context: PsiElement): Boolean = requireSources(context) != null
+
+    private fun isVisibleTypeName(
+        name: String,
+        context: PsiElement,
+        sources: CrystalEffectiveSourceSet,
+    ): Boolean {
+        return try {
             CrystalRequireVisibility.isTypeNameVisible(name, context.project, allScope(context), sources)
         } catch (_: Throwable) {
-            true
+            false
         }
     }
 
     /**
-     * Returns the element to flag for a DOT call whose method cannot be
-     * resolved, or `null` when the call is known or must stay silent. The
-     * receiver is judged first through the require closure: with a visible
-     * receiver type only an unresolvable method name is flagged; with an
-     * unknown receiver root its first constant leaf is flagged instead
-     * (require-closure consistency: unrequired receivers are reported).
-     * Suppressed or incomplete resolutions stay silent, and
-     * operators/keywords are never method names.
+     * True when the constant index holds a declaration [name] visible from
+     * [context]'s effective sources (private constants only same-file).
+     * Same-file assignments are covered separately above so unindexed
+     * contexts keep their fallback.
      */
-    fun dotCallFlagElement(access: CrystalDotCallAccess): PsiElement? {
+    private fun isRequireVisibleConstant(
+        name: String,
+        context: PsiElement,
+        sources: CrystalEffectiveSourceSet,
+    ): Boolean {
+        return try {
+            CrystalRequireVisibility.isConstantNameVisible(name, context, allScope(context), sources)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * Returns the flagged element and its kind for a DOT call whose method
+     * cannot be resolved, or `null` when the call is known or must stay
+     * silent. The receiver is judged first through the require closure: with
+     * a visible receiver type only an unresolvable method name is flagged
+     * ([UnresolvedKind.UNKNOWN]); an unknown receiver root is flagged as
+     * [UnresolvedKind.UNREQUIRED] when indexed elsewhere, else
+     * [UnresolvedKind.UNKNOWN]. Suppressed or incomplete resolutions stay
+     * silent, and operators/keywords are never method names.
+     */
+    fun dotCallFlagElement(access: CrystalDotCallAccess): Pair<PsiElement, UnresolvedKind>? {
         val call = CrystalCallExtractor.extractDotCall(access) ?: return null
         val nameElement = call.methodNameElement
         val nameType = nameElement.node?.elementType
@@ -169,37 +223,45 @@ object CrystalUnresolvedName {
             // Generic arguments are not part of declaration identities.
             val cleanRoot = root.substringBefore("(")
             val simpleName = cleanRoot.substringAfterLast("::")
-            if (!isReceiverTypeVisible(cleanRoot, simpleName, access)) {
+            if (!isReceiverTypeVisible(cleanRoot, simpleName, access) &&
+                !isVisibleConstantRoot(access, simpleName)
+            ) {
                 if (hasSameFileConstantAssignment(access, simpleName)) return null
                 if (hasSameFileRecord(simpleName, access)) return null
-                return firstConstantLeaf(call.receiver) ?: nameElement
+                if (!visibilityKnown(access)) return null
+                val kind = if (hasIndexedType(simpleName, access) || hasIndexedConstant(simpleName, access)) {
+                    UnresolvedKind.UNREQUIRED
+                } else {
+                    UnresolvedKind.UNKNOWN
+                }
+                return (firstConstantLeaf(call.receiver) ?: nameElement) to kind
             }
         }
         return if (CrystalDotCallTargetResolver.resolve(access) is DotCallResolution.Unresolved) {
-            nameElement
+            nameElement to UnresolvedKind.UNKNOWN
         } else {
             null
         }
     }
     /**
-     * Returns the leaf to flag for a qualified `A::B` path, or `null` when the
-     * path is known or must stay silent. Only the last chain segment is
-     * considered; when its root resolves the member scope is unknown (no
-     * member index for enum values or constants), so only an unresolvable
-     * root is flagged — on the root leaf itself.
+     * Returns the flagged leaf and its kind for a qualified `A::B` path, or
+     * `null` when the path is known or must stay silent. Only the last chain
+     * segment is considered; when its root resolves the member scope is
+     * unknown (no member index for enum values or constants), so only an
+     * unresolvable root is flagged — on the root leaf itself.
      */
-    fun namespaceFlagElement(access: CrystalNamespaceAccess): PsiElement? {
+    fun namespaceFlagElement(access: CrystalNamespaceAccess): Pair<PsiElement, UnresolvedKind>? {
         if (hasFollowingDoubleColon(access)) return null
         return rootFlagElement(collectNamespaceSegments(access), access)
     }
 
     /**
-     * Returns the leaf to flag for a type path (`x : Helper`,
+     * Returns the flagged leaf and its kind for a type path (`x : Helper`,
      * `Array(Helper)`, `A | B`), or `null` when known or silent. Single
      * segments use the full bare-constant chain; qualified paths use the
      * root rule, mirroring namespace paths.
      */
-    fun typePathFlagElement(path: CrystalTypePath): PsiElement? {
+    fun typePathFlagElement(path: CrystalTypePath): Pair<PsiElement, UnresolvedKind>? {
         val pieces = path.node.getChildren(null)
             .map { it.psi }
             .filter { it.node?.elementType == CrystalTypes.CONSTANT }
@@ -207,7 +269,7 @@ object CrystalUnresolvedName {
         if (pieces.size == 1) {
             val name = pieces.single().text
             if (name.isBlank()) return null
-            return if (isUnresolvedConstant(name, path)) pieces.single() else null
+            return isUnresolvedConstant(name, path)?.let { pieces.single() to it }
         }
         return rootFlagElement(pieces.map { it.text to it }, path)
     }
@@ -215,20 +277,20 @@ object CrystalUnresolvedName {
     private fun rootFlagElement(
         segments: List<Pair<String, PsiElement>>,
         context: PsiElement,
-    ): PsiElement? {
+    ): Pair<PsiElement, UnresolvedKind>? {
         if (segments.isEmpty()) return null
         val (rootName, rootLeaf) = segments.first()
         if (rootName.isBlank()) return null
         // The reference resolves the whole path, never the root alone, so a
         // resolvable root with an unresolvable member (e.g. `Color::Red`)
         // needs the declared-constant rule instead of the full chain.
-        val rootKnown = if (rootName.first().isUpperCase()) {
-            isBaselineConstant(rootName, context) || isDeclaredConstant(rootName, context)
+        val rootKind = if (rootName.first().isUpperCase()) {
+            if (isBaselineConstant(rootName, context)) null
+            else declaredConstantKind(rootName, context)
         } else {
-            !isUnresolvedBareName(rootName, context)
+            isUnresolvedBareName(rootName, context)
         }
-        if (rootKnown) return null
-        return rootLeaf
+        return rootKind?.let { rootLeaf to it }
     }
 
     private fun resolvesThroughReference(context: PsiElement): Boolean {
@@ -249,6 +311,23 @@ object CrystalUnresolvedName {
         }
     }
 
+    private fun hasIndexedMethod(name: String, context: PsiElement): Boolean {
+        return try {
+            CrystalIndexService.findMethods(name, context.project, allScope(context)).isNotEmpty()
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun hasIndexedConstant(name: String, context: PsiElement): Boolean {
+        return try {
+            CrystalIndexService.findConstants(name, context.project, allScope(context)).isNotEmpty()
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /** False for injected fragments, empty snapshots, and broken lookups. */
     private fun hasMacro(name: String, context: PsiElement): Boolean {
         return try {
             CrystalIndexService.findMacros(name, context.project, allScope(context)).isNotEmpty()
@@ -300,6 +379,23 @@ object CrystalUnresolvedName {
             }
         } catch (_: Throwable) {
             false
+        }
+    }
+
+    /**
+     * True when [simpleName] names a constant declaration visible from
+     * [context]'s require closure (DOT-receiver roots that are values, not
+     * types, e.g. `KODORRA` in `KODORRA.foo`). Same-file assignments and
+     * records are checked separately by the caller.
+     */
+    private fun isVisibleConstantRoot(context: PsiElement, simpleName: String): Boolean {
+        return try {
+            val service = CrystalRequireGraphService.getInstance(context.project)
+            if (service.isProgramLessInjection(context)) return true
+            val sources = service.effectiveSources(context).takeIf { it.files.isNotEmpty() } ?: return true
+            isRequireVisibleConstant(simpleName, context, sources)
+        } catch (_: Throwable) {
+            true
         }
     }
 
@@ -418,8 +514,8 @@ object CrystalUnresolvedName {
         return callee to (calleeType == CrystalTypes.CONSTANT)
     }
 
-    /** True when [leaf] (or the element) is unresolved and must be reported. */
-    fun isUnresolvedLeaf(leaf: PsiElement, isConstant: Boolean, context: PsiElement): Boolean {
+    /** Kind of unresolvedness for a warnable leaf, or `null` when known or silent. */
+    fun isUnresolvedLeaf(leaf: PsiElement, isConstant: Boolean, context: PsiElement): UnresolvedKind? {
         val name = leaf.text
         return if (isConstant) isUnresolvedConstant(name, context)
         else isUnresolvedBareName(name, context)

@@ -6,12 +6,24 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 
 ### Added
 - **Cannot-find warnings for unresolved names** — bare identifiers, call callees,
-  DOT method names with exact receivers, and constants that resolve to nothing now
-  report `Cannot find 'name'` warnings (and show the same text on hover) instead of
-  silently falling back to `Any (Variable)`. Names visible only outside the current
-  require closure are reported too, matching dependency-aware completion. Macro-
-  uncertain types, incomplete hierarchies, and macro contexts stay silent. Covered by
-  `CrystalUnresolvedNameInspectionTest`; specified in docs/specs/unresolved-names.md.
+  DOT method names with exact receivers, constants, and type paths that resolve to
+  nothing now report `Cannot find 'name'` (and show the same text on hover) instead of
+  silently falling back to `Any (Variable)`. Truly unknown names warn; names visible
+  only outside the current require closure warn weakly, matching dependency-aware
+  completion. Macro-uncertain types, incomplete hierarchies, and macro contexts stay
+  silent. Covered by `CrystalUnresolvedNameInspectionTest`; specified in
+  docs/specs/unresolved-names.md.
+- **Cross-file constant resolution through require closures** — top-level constants
+  (`KODORRA = 123`), member constants (`class Foo; BAR = 1; end`), and lib constants
+  (`lib LibC; F_GETFD = 1`) now resolve across files via two new stub indexes
+  (`CrystalConstantIndex`, `CrystalConstantByOwnerIndex`), with Go to Definition
+  (including `Foo::BAR` paths), require-filtered completion, and Go to Symbol support.
+  `private`/`protected` constants stay file-scoped like the compiler, types keep
+  precedence over same-named constants, and statement-context assignments (method
+  bodies, blocks, control flow) never enter the index. Covered by
+  `CrystalIndexServiceTest`, `CrystalUnresolvedNameInspectionTest`,
+  `CrystalGotoDeclarationTest`, and `CrystalCompletionTest`; specified in
+  docs/specs/indexed-navigation.md.
 - **Shard-aware require-path completion** — shard directories whose bare name resolves now
   complete without a trailing slash (selecting `kemal` yields `require "kemal"`), and entries
   below a shard come from `lib/<shard>/src/<shard>/` plus flat `src/*.cr` files instead of the

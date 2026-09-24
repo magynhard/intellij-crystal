@@ -19,6 +19,7 @@ class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
         if (!CrystalIndexService.processMacroNames(scope, filter, processor)) return
         if (!CrystalIndexService.processAliasNames(scope, filter, processor)) return
         if (!CrystalIndexService.processAnnotationNames(scope, filter, processor)) return
+        if (!CrystalIndexService.processConstantNames(scope, filter, processor)) return
         CrystalIndexService.processLibNames(scope, filter, processor)
     }
 
@@ -44,6 +45,9 @@ class CrystalGoToSymbolContributor : ChooseByNameContributorEx {
         }
         for (element in CrystalIndexService.findAnnotations(name, project, scope)) {
             if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.ANNOTATION, element)))) return
+        }
+        for (element in CrystalIndexService.findConstants(name, project, scope)) {
+            if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.CONSTANT, element)))) return
         }
         for (element in CrystalIndexService.findLibs(name, project, scope)) {
             if (!processor.process(CrystalNavigationItem(CrystalSymbol(name, CrystalSymbolKind.LIB, element)))) return

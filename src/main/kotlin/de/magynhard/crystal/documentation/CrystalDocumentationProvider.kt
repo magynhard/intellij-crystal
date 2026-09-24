@@ -13,6 +13,7 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.analysis.CrystalConstantTypeInference
 import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.inspections.CrystalUnresolvedName
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
@@ -40,6 +41,13 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             unresolvedHoverDoc(element)?.let { return it }
         }
         val target = resolveTarget(element) ?: return null
+
+        // Constant hover: inferred type, literal value, and doc comment —
+        // before the variable path below, which would misrender resolved
+        // constant reads as variables.
+        if (target is CrystalConstantAssignment) {
+            return buildConstantDocumentation(target)
+        }
 
         // Assignment left-hand side: a variable hover. The LHS identifier sits
         // within isVariableIdentifier's enclosing-def walk-up distance (it
@@ -96,7 +104,9 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             // If resolved element is a definition/parameter, return it directly
             if (resolved is CrystalMethodDefinition || resolved is CrystalClassDefinition
                 || resolved is CrystalModuleDefinition || resolved is CrystalStructDefinition
-                || resolved is CrystalEnumDefinition || resolved is CrystalParameter) {
+                || resolved is CrystalEnumDefinition || resolved is CrystalParameter
+                || resolved is CrystalConstantAssignment
+            ) {
                 return resolved
             }
             // If resolved element is a variable identifier, return it for type info
@@ -121,12 +131,21 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         while (current != null && depth < 4) {
             if (current is CrystalMethodDefinition || current is CrystalClassDefinition
                 || current is CrystalModuleDefinition || current is CrystalStructDefinition
-                || current is CrystalEnumDefinition || current is CrystalParameter) {
+                || current is CrystalEnumDefinition || current is CrystalParameter
+                || current is CrystalConstantAssignment
+            ) {
                 return current
             }
             current = current.parent
             depth++
         }
+
+        // 4b. Same-file constant reads without index resolution (branch or
+        //    statement-context declarations are never stubbed): hover the
+        //    declaration so branch unions render instead of the variable
+        //    fallback. Cross-file unresolvable reads fall through to the
+        //    Cannot-find rule below.
+        sameFileConstantDeclaration(unwrapped)?.let { return it }
 
         // 5. Variable identifier: hovering over a variable name (not a definition).
         if (isVariableIdentifier(unwrapped)) {
@@ -144,6 +163,23 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         }
 
         return null
+    }
+
+    /**
+     * First same-file constant declaration matching a bare `CONSTANT` read,
+     * or null. Covers declarations the stub index never sees (conditional
+     * branches, statement contexts) so their reads hover the declaration.
+     */
+    private fun sameFileConstantDeclaration(unwrapped: PsiElement): CrystalConstantAssignment? {
+        val reference = when (unwrapped) {
+            is CrystalVariableReference -> unwrapped
+            else -> unwrapped.parent as? CrystalVariableReference
+        } ?: return null
+        val leaf = reference.node.findChildByType(CrystalTypes.CONSTANT)?.psi ?: return null
+        val file = unwrapped.containingFile ?: return null
+        return PsiTreeUtil.findChildrenOfType(file, CrystalConstantAssignment::class.java)
+            .filter { (it.stub?.name ?: it.name) == leaf.text }
+            .minByOrNull { it.textRange.startOffset }
     }
 
     /**
@@ -183,7 +219,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
     private fun unresolvedHoverDoc(element: PsiElement): String? {
         val dotAccess = PsiTreeUtil.getParentOfType(element, CrystalDotCallAccess::class.java, false)
         if (dotAccess != null) {
-            val flag = CrystalUnresolvedName.dotCallFlagElement(dotAccess) ?: return null
+            val (flag, _) = CrystalUnresolvedName.dotCallFlagElement(dotAccess) ?: return null
             return buildUnresolvedDocumentation(flag.text)
         }
         // Namespace non-root segments are owned by the namespace path; only
@@ -205,7 +241,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
                 }
             else -> null
         } ?: return null
-        if (!CrystalUnresolvedName.isUnresolvedLeaf(leaf, isConstant, leaf)) return null
+        if (CrystalUnresolvedName.isUnresolvedLeaf(leaf, isConstant, leaf) == null) return null
         return buildUnresolvedDocumentation(leaf.text)
     }
 
@@ -252,7 +288,9 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         // Already a definition or parameter — return directly
         if (element is CrystalMethodDefinition || element is CrystalClassDefinition
             || element is CrystalModuleDefinition || element is CrystalStructDefinition
-            || element is CrystalEnumDefinition || element is CrystalParameter) {
+            || element is CrystalEnumDefinition || element is CrystalParameter
+            || element is CrystalConstantAssignment
+        ) {
             return element
         }
         // Resolve via reference FIRST: method calls — e.g. {{ run("…") }} inside
@@ -266,7 +304,8 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             if (resolved != null && resolved != element) {
                 if (resolved is CrystalMethodDefinition || resolved is CrystalClassDefinition
                     || resolved is CrystalModuleDefinition || resolved is CrystalStructDefinition
-                    || resolved is CrystalEnumDefinition) {
+                    || resolved is CrystalEnumDefinition || resolved is CrystalConstantAssignment
+                ) {
                     return resolved
                 }
                 // Non-definition resolutions (assignments behind variable
@@ -284,7 +323,8 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         while (current != null && depth < 4) {
             if (current is CrystalMethodDefinition || current is CrystalClassDefinition
                 || current is CrystalModuleDefinition || current is CrystalStructDefinition
-                || current is CrystalEnumDefinition) {
+                || current is CrystalEnumDefinition || current is CrystalConstantAssignment
+            ) {
                 return current
             }
             current = current.parent
@@ -516,6 +556,54 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
         // Line 2: variable name
         sb.append(escapeHtml(name))
+
+        return sb.toString()
+    }
+
+    private fun buildConstantDocumentation(declaration: CrystalConstantAssignment): String {
+        val sb = StringBuilder()
+        sb.append("<div class='definition'><pre>")
+        sb.append(buildConstantSignatureHtml(declaration))
+        sb.append("</pre></div>")
+
+        val docComment = collectDocComment(declaration)
+        if (docComment != null) {
+            sb.append("<div class='content'>")
+            sb.append(renderMarkdown(docComment, declaration))
+            sb.append("</div>")
+        }
+
+        return sb.toString()
+    }
+
+    private fun buildConstantSignatureHtml(declaration: CrystalConstantAssignment): String {
+        val project = declaration.project
+        val sb = StringBuilder()
+
+        // Line 1: inferred type (linked) + muted "(Constant)"
+        val name = declaration.stub?.name ?: declaration.name
+        val types = name?.let { CrystalConstantTypeInference.inferType(declaration, declaration) }
+        if (types.isNullOrEmpty()) {
+            sb.append("<span style='color:gray'>Unknown</span>")
+        } else {
+            val typeText = types.joinToString(" | ")
+            val highlighted = highlightCrystalCode(typeText, declaration) ?: escapeHtml(typeText)
+            sb.append(wrapTypeLinks(highlighted, project))
+        }
+        sb.append(" <span style='color:gray'>(Constant)</span>")
+        sb.append("\n")
+
+        // Line 2: qualified name + literal value (`Owner::BAR = 1`)
+        val owner = declaration.stub?.ownerQualifiedName
+            ?: CrystalPsiUtils.constantOwnerQualifiedName(declaration)
+        val qualified = if (owner != null) "$owner::${name ?: "unknown"}" else (name ?: "unknown")
+        val qualifiedHighlighted = highlightCrystalCode(qualified, declaration) ?: escapeHtml(qualified)
+        sb.append(wrapTypeLinks(qualifiedHighlighted, project))
+        val value = CrystalConstantTypeInference.literalValue(declaration, declaration)
+        if (value != null) {
+            sb.append(" = ")
+            sb.append(highlightCrystalCode(value, declaration) ?: escapeHtml(value))
+        }
 
         return sb.toString()
     }

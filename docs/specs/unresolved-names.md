@@ -1,8 +1,12 @@
 # Unresolved Names
 
-Spec for the `CrystalUnresolvedName` inspection (`WARNING`) and the matching
-hover text: names that resolve to nothing report `Cannot find 'name'` instead
-of silently falling back to `Any (Variable)` hovers.
+Spec for the `CrystalUnresolvedName` inspection and the matching hover text:
+names that resolve to nothing report `Cannot find 'name'` instead of
+silently falling back to `Any (Variable)` hovers.
+
+Severity splits by cause: truly unknown names warn (`WARNING`), names indexed
+only outside the current file's require closure warn weakly (`WEAK WARNING`).
+Hover shows the same `Cannot find 'name'` text for both.
 
 ## Rule
 
@@ -30,10 +34,11 @@ the constant rule per segment, with the root rule for qualified paths.
    `pointerof`, `instance_sizeof`, `offsetof`, `alignof`, `uninitialized`,
    `__DIR__`, `__FILE__`, `__LINE__`, `__END_LINE__`, `__METHOD__`, and the
    `require` pseudo-keyword. These have no `def`/`macro` in the index.
-5. Same-file constant assignment: a bare `CBA` with a `CBA = …` assignment in
-   the current file (live PSI). Cross-file non-type constants stay out of
-   scope until the grammar separates constant definitions from statement
-   assignment (see `indexed-navigation.md` and the `TODO.md` index follow-up).
+5. Same-file or require-visible constant declaration: a bare `CBA` with a
+   `CBA = …` assignment in the current file (live PSI), or a constant
+   declaration in the constant index whose file belongs to the current
+   file's require closure. `private`/`protected` constants count only in
+   their own file, exactly like the compiler.
 6. DOT calls whose receiver resolves exactly and whose method set resolves
    (`Methods`, `ImplicitConstructor`, `RecordFallback`, `Accessor`).
 
@@ -44,12 +49,13 @@ unresolved name — mirroring the suppression-first conventions of the
 call-argument inspections:
 
 - Require-closure consistency (same lens as dependency-aware completion): a
-  name indexed only in files outside the current file's require closure IS
-  reported — from this file's program view it cannot be found. This is
-  deliberately stricter than the Crystal compiler, whose top-level namespace
-  is program-global: a file that relies on another entry point's transitive
-  requires (without requiring the file itself) will warn. Each file must
-  require what it uses, exactly as completion already assumes.
+  name indexed only in files outside the current file's require closure is
+  reported as a weak warning — from this file's program view it cannot be
+  found. This is deliberately stricter than the Crystal compiler, whose
+  top-level namespace is program-global: a file that relies on another entry
+  point's transitive requires (without requiring the file itself) will warn
+  weakly. Each file must require what it uses, exactly as completion already
+  assumes. Truly unknown names (nothing indexed anywhere) warn strongly.
 - Require-gated stdlib names unknown to the index (no SDK: `JSON` with no
   indexed declaration): silent. The index cannot prove absence.
 - Incomplete or suppressed DOT receivers, macro-uncertain enclosing types
@@ -75,7 +81,6 @@ additionally surface the message via the platform warning tooltip.
 
 ## Out Of Scope
 
-- Cross-file non-type constants (blocked on the constant-declaration index).
 - "Did you mean" quickfixes and require-insertion assists.
 - `method_missing`-style dynamic dispatch: Crystal has none; macro-generated
   members are covered by the macro-uncertainty suppression above.

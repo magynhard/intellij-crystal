@@ -240,6 +240,50 @@ object CrystalPsiUtils {
     }
 
     /**
+     * Returns the qualified owner governing a constant declaration: the
+     * lexically enclosing class/module/struct/enum, or the enclosing lib
+     * (qualified by an outer type when nested, e.g. `Foo::LibBar`). Returns
+     * null for file top-level constants, which live in the global namespace.
+     */
+    fun constantOwnerQualifiedName(assignment: CrystalConstantAssignment): String? {
+        var current: PsiElement? = assignment.parent
+        while (current != null && current !is PsiFile) {
+            when (current) {
+                is CrystalClassDefinition,
+                is CrystalModuleDefinition,
+                is CrystalStructDefinition,
+                is CrystalEnumDefinition -> return buildQualifiedName(current)
+                is CrystalLibDefinition -> {
+                    val lib = current.name ?: return null
+                    val outer = getEnclosingType(current)?.let(::buildQualifiedName)
+                    return if (outer != null) "$outer::$lib" else lib
+                }
+            }
+            current = current.parent
+        }
+        return null
+    }
+
+    /**
+     * True when a constant declaration is wrapped in a `private` (or
+     * `protected`, treated file-scoped like the compiler treats non-public
+     * constants) visibility modifier. Such constants are visible only in
+     * their own file.
+     */
+    fun isPrivateConstant(assignment: CrystalConstantAssignment): Boolean {
+        assignment.stub?.let { return it.isPrivate }
+        val modifier = assignment.parent as? CrystalVisibilityModifier ?: return false
+        var child = modifier.node.firstChildNode
+        while (child != null) {
+            val type = child.elementType
+            if (type == CrystalTypes.PRIVATE || type == CrystalTypes.PROTECTED) return true
+            if (type != com.intellij.psi.TokenType.WHITE_SPACE) return false
+            child = child.treeNext
+        }
+        return false
+    }
+
+    /**
      * Returns the qualified owner governing a method definition: the explicit
      * receiver first (`def Time::Location.new` inside any scope belongs to
      * `Time::Location`), otherwise the lexically enclosing type or record.

@@ -145,6 +145,48 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should have auto-inserted or suggested 'BREZEL_SIZE': $text", text.contains("BREZEL_SIZE"))
     }
 
+    fun testTopLevelConstantHiddenWithoutRequire() {
+        myFixture.addFileToProject("a.cr", "KODORRA = 123\n")
+        myFixture.configureByText("b.cr", "KODORR<caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Should NOT contain unrequired 'KODORRA': $names", names.contains("KODORRA"))
+    }
+
+    fun testTopLevelConstantShownWithRequire() {
+        myFixture.addFileToProject("a.cr", "KODORRA = 123\n")
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            KODORR<caret>
+        """.trimIndent())
+        // Single match is auto-inserted without a popup (like the exact-prefix
+        // constant test above), so assert on the document text.
+        myFixture.complete(CompletionType.BASIC)
+        val text = myFixture.editor.document.text
+        assertTrue("Should have auto-inserted required 'KODORRA': $text", text.contains("KODORRA"))
+    }
+
+    fun testMemberConstantShownAfterDoubleColonWithRequire() {
+        myFixture.addFileToProject("a.cr", """
+            class Owner
+              MEMBER = 1
+
+              private HIDDEN = 2
+            end
+        """.trimIndent())
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            Owner::<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain required 'MEMBER': $names", names.contains("MEMBER"))
+        assertFalse("Should NOT contain foreign private 'HIDDEN': $names", names.contains("HIDDEN"))
+    }
+
     fun testCompletesLocalVariables() {
         myFixture.configureByText("main.cr", """
             def foo

@@ -93,3 +93,15 @@ class CrystalAliasDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?
 ) : StubBase<CrystalAliasDefinition>(parent, elementType), CrystalNamedStub
+
+// ==================== Constant Stub ====================
+
+class CrystalConstantAssignmentStub(
+    parent: StubElement<*>?,
+    elementType: IStubElementType<*, *>,
+    override val name: String?,
+    /** Qualified owner (`Foo::Bar`, `LibC`); null for file top-level constants. */
+    val ownerQualifiedName: String? = null,
+    /** `private`/`protected` constants are file-scoped, exactly like the compiler. */
+    val isPrivate: Boolean = false,
+) : StubBase<CrystalConstantAssignment>(parent, elementType), CrystalNamedStub

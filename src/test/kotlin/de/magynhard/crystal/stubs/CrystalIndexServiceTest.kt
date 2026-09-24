@@ -194,6 +194,53 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         assertTrue(intMethods.none { it.name == "new" })
     }
 
+    fun testIndexesTopLevelAndMemberConstants() {
+        myFixture.addFileToProject("constants.cr", """
+            KODORRA = 123
+
+            class Owner
+              MEMBER = 1
+
+              private HIDDEN = 2
+            end
+
+            def holder
+              INNER = 3
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val topLevel = CrystalIndexService.findConstants("KODORRA", project, scope)
+        assertSize(1, topLevel)
+        assertNull(topLevel.single().stub?.ownerQualifiedName)
+        assertEquals(false, topLevel.single().stub?.isPrivate)
+
+        val member = CrystalIndexService.findConstantsByOwner("Owner", project, scope)
+        assertContainsElements(member.mapNotNull { it.name }, "MEMBER", "HIDDEN")
+        val memberStub = member.single { it.name == "MEMBER" }.stub
+        assertEquals("Owner", memberStub?.ownerQualifiedName)
+        assertEquals(false, memberStub?.isPrivate)
+        val hiddenStub = member.single { it.name == "HIDDEN" }.stub
+        assertEquals("Owner", hiddenStub?.ownerQualifiedName)
+        assertEquals(true, hiddenStub?.isPrivate)
+
+        // Statement-context assignments (method bodies) never enter the index.
+        assertEmpty(CrystalIndexService.findConstants("INNER", project, scope))
+    }
+
+    fun testIndexesLibConstantsUnderLibOwner() {
+        myFixture.addFileToProject("libconst.cr", """
+            lib LibC
+              F_GETFD = 1
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val byOwner = CrystalIndexService.findConstantsByOwner("LibC", project, scope)
+        assertContainsElements(byOwner.mapNotNull { it.name }, "F_GETFD")
+        assertEquals("LibC", byOwner.single().stub?.ownerQualifiedName)
+    }
+
     fun testFindsNestedTypes() {
         myFixture.addFileToProject("nested.cr", """
             class OuterType
@@ -286,6 +333,8 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
 
             lib ProcessedLib
             end
+
+            PROCESSED_CONSTANT = 1
         """.trimIndent())
         val scope = GlobalSearchScope.projectScope(project)
 
@@ -306,6 +355,9 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         }
         assertProcessedName("ProcessedLib") { processor ->
             CrystalIndexService.processLibNames(scope, null, processor)
+        }
+        assertProcessedName("PROCESSED_CONSTANT") { processor ->
+            CrystalIndexService.processConstantNames(scope, null, processor)
         }
     }
 

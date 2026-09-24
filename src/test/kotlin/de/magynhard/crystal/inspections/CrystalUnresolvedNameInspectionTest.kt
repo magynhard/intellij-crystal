@@ -143,7 +143,7 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testUnrequiredShardSymbolIsWarning() {
+    fun testUnrequiredShardSymbolIsWeakWarning() {
         myFixture.addFileToProject("helper.cr", """
             class Hidden
             end
@@ -152,13 +152,13 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
-            x = <warning descr="Cannot find 'Hidden'">Hidden</warning>.new
-            <warning descr="Cannot find 'hidden_helper'">hidden_helper</warning>
+            x = <weak_warning descr="Cannot find 'Hidden'">Hidden</weak_warning>.new
+            <weak_warning descr="Cannot find 'hidden_helper'">hidden_helper</weak_warning>
         """.trimIndent())
         myFixture.checkHighlighting()
     }
 
-    fun testUnrequiredShardReceiverIsWarning() {
+    fun testUnrequiredShardReceiverIsWeakWarning() {
         myFixture.addFileToProject("widget.cr", """
             class Widget
               def render
@@ -166,7 +166,7 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
-            <warning descr="Cannot find 'Widget'">Widget</warning>.new
+            <weak_warning descr="Cannot find 'Widget'">Widget</weak_warning>.new
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -189,6 +189,68 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
             require "./box"
 
             Box(Int32).new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRequiredConstantStaysClean() {
+        myFixture.addFileToProject("a.cr", "KODORRA = 123\n")
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            puts KODORRA
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredConstantIsWarning() {
+        myFixture.addFileToProject("a.cr", "KODORRA = 123\n")
+        myFixture.configureByText("b.cr", """
+            puts <weak_warning descr="Cannot find 'KODORRA'">KODORRA</weak_warning>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPrivateConstantAcrossFilesIsWarning() {
+        myFixture.addFileToProject("a.cr", "private SEKRIT = 1\n")
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            puts <weak_warning descr="Cannot find 'SEKRIT'">SEKRIT</weak_warning>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPrivateConstantSameFileStaysClean() {
+        myFixture.configureByText("test.cr", """
+            private SEKRIT = 1
+            puts SEKRIT
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRequiredMemberConstantStaysClean() {
+        myFixture.addFileToProject("a.cr", """
+            class Owner
+              MEMBER = 1
+            end
+        """.trimIndent())
+        myFixture.configureByText("b.cr", """
+            require "./a"
+
+            puts Owner::MEMBER
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredMemberConstantFlagsRoot() {
+        myFixture.addFileToProject("a.cr", """
+            class Owner
+              MEMBER = 1
+            end
+        """.trimIndent())
+        myFixture.configureByText("b.cr", """
+            puts <weak_warning descr="Cannot find 'Owner'">Owner</weak_warning>::MEMBER
         """.trimIndent())
         myFixture.checkHighlighting()
     }
@@ -263,13 +325,12 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== Type paths ====================
 
-    fun testUnrequiredTypeInAnnotationIsWarning() {
-        myFixture.addFileToProject("widget.cr", """
+    fun testUnrequiredTypeInAnnotationIsWeakWarning() {        myFixture.addFileToProject("widget.cr", """
             class Widget
             end
         """.trimIndent())
         myFixture.configureByText("main.cr", """
-            def render(view : <warning descr="Cannot find 'Widget'">Widget</warning>)
+            def render(view : <weak_warning descr="Cannot find 'Widget'">Widget</weak_warning>)
             end
         """.trimIndent())
         myFixture.checkHighlighting()
@@ -293,6 +354,28 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.configureByText("test.cr", """
             def render(view : String) : Int32
             end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredConstantIsWeakWarning() {
+        myFixture.addFileToProject("config.cr", """
+            WIDGET_SIZE = 42
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            puts <weak_warning descr="Cannot find 'WIDGET_SIZE'">WIDGET_SIZE</weak_warning>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnknownAndUnrequiredSeveritiesSideBySide() {
+        myFixture.addFileToProject("helper.cr", """
+            def helper_method
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            <warning descr="Cannot find 'typo_name'">typo_name</warning>
+            <weak_warning descr="Cannot find 'helper_method'">helper_method</weak_warning>
         """.trimIndent())
         myFixture.checkHighlighting()
     }

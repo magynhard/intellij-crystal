@@ -3,6 +3,7 @@ package de.magynhard.crystal.stubs
 import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.stubs.*
+import com.intellij.psi.tree.IFileElementType
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.psi.impl.*
@@ -314,6 +315,65 @@ class CrystalAliasDefinitionElementType(debugName: String) :
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
+class CrystalConstantAssignmentElementType(debugName: String) :
+    IStubElementType<CrystalConstantAssignmentStub, CrystalConstantAssignment>(debugName, CrystalLanguage) {
+
+    override fun getExternalId(): String = "crystal.CONSTANT_ASSIGNMENT"
+
+    override fun serialize(stub: CrystalConstantAssignmentStub, dataStream: StubOutputStream) {
+        dataStream.writeName(stub.name)
+        dataStream.writeName(stub.ownerQualifiedName)
+        dataStream.writeBoolean(stub.isPrivate)
+    }
+
+    override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalConstantAssignmentStub {
+        val name = dataStream.readNameString()
+        val ownerQualifiedName = dataStream.readNameString()
+        val isPrivate = dataStream.readBoolean()
+        return CrystalConstantAssignmentStub(parentStub, this, name, ownerQualifiedName, isPrivate)
+    }
+
+    override fun createStub(psi: CrystalConstantAssignment, parentStub: StubElement<out PsiElement>?): CrystalConstantAssignmentStub {
+        return CrystalConstantAssignmentStub(
+            parentStub,
+            this,
+            psi.name,
+            CrystalPsiUtils.constantOwnerQualifiedName(psi),
+            CrystalPsiUtils.isPrivateConstant(psi),
+        )
+    }
+
+    override fun createPsi(stub: CrystalConstantAssignmentStub): CrystalConstantAssignment {
+        return CrystalConstantAssignmentImpl(stub, this)
+    }
+
+    override fun indexStub(stub: CrystalConstantAssignmentStub, sink: IndexSink) {
+        val name = stub.name ?: return
+        sink.occurrence(CrystalConstantIndex.KEY, name)
+        // Member lookup is keyed by the full qualified owner (`Foo::Bar` for
+        // `BAR` in `class Foo::Bar`), so reopenings merge and nested owners
+        // never collide. Top-level constants (no owner) live in the name
+        // index only.
+        stub.ownerQualifiedName?.let { sink.occurrence(CrystalConstantByOwnerIndex.KEY, it) }
+    }
+
+    override fun shouldCreateStub(node: ASTNode?): Boolean {
+        // Declaration positions only: file top level and member bodies parse
+        // as file/class_body/lib_body/visibility_modifier > [statement] >
+        // constant_assignment. Anything nested deeper (method and macro
+        // bodies, blocks, control flow, case subjects, macro regions) is a
+        // statement-context assignment and stays out of the index — the
+        // compiler rejects dynamic constant assignment there anyway.
+        var parent = node?.treeParent
+        while (parent?.elementType == CrystalTypes.STATEMENT) parent = parent.treeParent
+        val parentType = parent?.elementType ?: return false
+        return parentType is IFileElementType ||
+            parentType == CrystalTypes.CLASS_BODY ||
+            parentType == CrystalTypes.LIB_BODY ||
+            parentType == CrystalTypes.VISIBILITY_MODIFIER
+    }
 }
 
 /**

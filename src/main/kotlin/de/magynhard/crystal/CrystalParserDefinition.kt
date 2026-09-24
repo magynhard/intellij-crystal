@@ -32,7 +32,11 @@ class CrystalParserDefinition : ParserDefinition {
             // explicit receiver as the owner, constant receivers classify as
             // self (static) methods, and method names resolve to the target
             // after the receiver DOT — all three change index keys.
-            override fun getStubVersion(): Int = 19
+            // v20: constant declarations (file top level, type and lib bodies,
+            // visibility modifiers) carry stubs and populate the constant and
+            // constant-by-owner indexes; statement-context assignments stay
+            // unstubbed.
+            override fun getStubVersion(): Int = 20
         }
     }
 

@@ -157,7 +157,12 @@ class CrystalCompletionContributor : CompletionContributor() {
                     effectiveResult.addElement(lookup)
                 }
                 CrystalSymbolCompletionProvider.addAllClasses(project, effectiveResult, position)
-                CrystalSymbolCompletionProvider.addFileLevelConstants(parameters.originalFile, effectiveResult)
+                CrystalSymbolCompletionProvider.addVisibleConstants(
+                    project,
+                    parameters.originalFile,
+                    effectiveResult,
+                    position,
+                )
             }
         }
     }

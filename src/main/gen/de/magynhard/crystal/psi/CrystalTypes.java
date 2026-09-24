@@ -32,7 +32,7 @@ public interface CrystalTypes {
   IElementType CLASS_VAR_ACCESS = new CrystalElementType("CLASS_VAR_ACCESS");
   IElementType COMMAND_EXPRESSION = new CrystalElementType("COMMAND_EXPRESSION");
   IElementType CONDITION = new CrystalElementType("CONDITION");
-  IElementType CONSTANT_ASSIGNMENT = new CrystalElementType("CONSTANT_ASSIGNMENT");
+  IElementType CONSTANT_ASSIGNMENT = CrystalStubElementTypeFactory.create("CONSTANT_ASSIGNMENT");
   IElementType DOT_CALL_ACCESS = new CrystalElementType("DOT_CALL_ACCESS");
   IElementType ELSE_CLAUSE = new CrystalElementType("ELSE_CLAUSE");
   IElementType ELSIF_CLAUSE = new CrystalElementType("ELSIF_CLAUSE");

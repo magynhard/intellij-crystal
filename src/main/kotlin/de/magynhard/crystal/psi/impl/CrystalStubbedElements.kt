@@ -241,3 +241,13 @@ abstract class CrystalStubbedAliasDefinitionImpl : StubBasedPsiElementBase<Cryst
     override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
     override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
 }
+
+abstract class CrystalStubbedConstantAssignmentImpl : StubBasedPsiElementBase<CrystalConstantAssignmentStub>, CrystalNamedElement {
+    constructor(node: ASTNode) : super(node)
+    constructor(stub: CrystalConstantAssignmentStub, nodeType: IStubElementType<*, *>) : super(stub, nodeType)
+
+    override fun getNameIdentifier(): PsiElement? = node.findChildByType(CrystalTypes.CONSTANT)?.psi
+    override fun getName(): String? = stub?.name ?: nameIdentifier?.text
+    override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
+    override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
+}

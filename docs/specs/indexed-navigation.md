@@ -4,7 +4,7 @@ The plugin uses Crystal stub indexes for navigation and type lookup without scan
 
 ## Active Indexes
 
-The active index set consists of exactly nine indexes:
+The active index set consists of exactly eleven indexes:
 
 - `CrystalClassIndex` indexes class, module, struct, and enum names.
 - `CrystalMethodIndex` indexes method names.
@@ -15,8 +15,12 @@ The active index set consists of exactly nine indexes:
 - `CrystalAliasIndex` indexes alias definitions.
 - `CrystalAnnotationIndex` indexes annotation definitions.
 - `CrystalLibIndex` indexes lib definitions.
+- `CrystalConstantIndex` indexes constant names.
+- `CrystalConstantByOwnerIndex` maps qualified owner names to member constants.
 
-Constant, instance-variable, and class-variable declaration indexes are intentionally absent. Constant indexing is deferred until the grammar distinguishes definition contexts from ordinary statement assignment. Variable indexing remains deferred unless a valid stubbed declaration model is designed.
+Instance-variable and class-variable declaration indexes are intentionally absent. Variable indexing remains deferred unless a valid stubbed declaration model is designed.
+
+Constant declarations (`KODORRA = 123` at file top level, `BAR = 1` in type and lib bodies, `private`/`protected` visibility modifiers) carry stubs with the simple name, the qualified owner (null at top level), and a privacy flag. Statement-context assignments (method and macro bodies, blocks, control flow, case subjects, macro regions) never create stubs: the element type's `shouldCreateStub` only admits file, class-body, lib-body, and visibility-modifier parents past the transparent statement wrapper. The by-owner index is keyed by the full qualified owner (`Foo`, `Foo::Bar`, `LibC`) so reopenings merge and nested owners never collide; `private`/`protected` constants resolve and complete only in their own file, exactly like the compiler. Qualified `Foo::BAR` paths resolve through the owner index with the member-name filter; enum members stay out of scope (no member index for them).
 
 Methods declared in a `record Name, ... do ... end` body carry the enclosing record's qualified name in their method stub. They are emitted to `CrystalMethodByClassIndex` under the record's simple name and are excluded from `CrystalTopLevelMethodIndex`, even though the record declaration itself remains a macro-call PSI element rather than a named type stub. Exact-identity filtering prefers the serialized qualified owner over PSI ancestor walks, so record-body methods survive index persistence; qualified identities (`record Registry::Entry`) and records nested in classes or modules keep their full identity, while a class nested inside a record body owns its methods itself.
 
@@ -30,7 +34,7 @@ Runtime project-wide `FileTypeIndex` scans, including iteration over every Cryst
 
 ## Go To Contributors
 
-Go to Class exposes indexed classes, modules, structs, enums, aliases, annotations, and libraries. Go to Symbol exposes those definitions plus indexed methods and macros. Both contributors cheaply enumerate project-wide name candidates; only navigation items resolved through `processElementsWithName()` are constrained by `FindSymbolParameters.searchScope`. Type navigation items retain their concrete class, module, struct, or enum kind and icon.
+Go to Class exposes indexed classes, modules, structs, enums, aliases, annotations, and libraries. Go to Symbol exposes those definitions plus indexed methods, macros, and constants. Both contributors cheaply enumerate project-wide name candidates; only navigation items resolved through `processElementsWithName()` are constrained by `FindSymbolParameters.searchScope`. Type navigation items retain their concrete class, module, struct, or enum kind and icon.
 
 ## DOT-Call Navigation
 

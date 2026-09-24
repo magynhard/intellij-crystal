@@ -8,14 +8,17 @@ import com.intellij.psi.PsiElementVisitor
 import de.magynhard.crystal.psi.*
 
 /**
- * Inspection that reports names resolving to nothing as `Cannot find 'name'`
- * warnings: bare identifiers and call callees, DOT method names with exact
- * receivers, and constants. See `docs/specs/unresolved-names.md` for the
+ * Inspection that reports names resolving to nothing as `Cannot find 'name'`:
+ * bare identifiers and call callees, DOT method names with exact receivers,
+ * constants, and type paths. See `docs/specs/unresolved-names.md` for the
  * known-vs-silent contract.
  *
+ * Severity splits by cause: truly unknown names warn, names indexed only
+ * outside the current require closure warn weakly. Macro-uncertain,
+ * incomplete, and macro-context names stay silent (suppression-first, like
+ * the call-argument inspections).
+ *
  * Conventions:
- * - Indexed-but-unrequired, macro-uncertain, incomplete, and macro-context
- *   names stay silent (suppression-first, like the call-argument inspections).
  * - DOT receivers are never flagged, only DOT method names with exact
  *   receivers; unknown receivers never fall back to name-only matches.
  * - Global variables (`$x`) are out of scope until globals get resolution.
@@ -54,57 +57,62 @@ class CrystalUnresolvedNameInspection : LocalInspectionTool() {
 
     private fun checkVariableReference(reference: CrystalVariableReference, holder: ProblemsHolder) {
         val (leaf, isConstant) = CrystalUnresolvedName.variableReferenceLeaf(reference) ?: return
-        if (CrystalUnresolvedName.isUnresolvedLeaf(leaf, isConstant, reference)) {
-            holder.registerProblem(
-                leaf,
-                CrystalUnresolvedName.messageFor(leaf.text),
-                ProblemHighlightType.GENERIC_ERROR_OR_WARNING
-            )
-        }
+        val kind = CrystalUnresolvedName.isUnresolvedLeaf(leaf, isConstant, reference) ?: return
+        holder.registerProblem(
+            leaf,
+            CrystalUnresolvedName.messageFor(leaf.text),
+            highlightFor(kind)
+        )
     }
 
     private fun checkCallCallee(callExpr: PsiElement, holder: ProblemsHolder) {
         val (callee, isConstant) = CrystalUnresolvedName.callCalleeLeaf(callExpr) ?: return
-        if (CrystalUnresolvedName.isUnresolvedLeaf(callee, isConstant, callExpr)) {
-            holder.registerProblem(
-                callee,
-                CrystalUnresolvedName.messageFor(callee.text),
-                ProblemHighlightType.GENERIC_ERROR_OR_WARNING
-            )
-        }
+        val kind = CrystalUnresolvedName.isUnresolvedLeaf(callee, isConstant, callExpr) ?: return
+        holder.registerProblem(
+            callee,
+            CrystalUnresolvedName.messageFor(callee.text),
+            highlightFor(kind)
+        )
     }
 
     private fun checkDotCall(access: CrystalDotCallAccess, holder: ProblemsHolder) {
-        val flag = CrystalUnresolvedName.dotCallFlagElement(access) ?: return
+        val (flag, kind) = CrystalUnresolvedName.dotCallFlagElement(access) ?: return
         if (CrystalUnresolvedName.isKeywordSpelling(flag)) return
         val name = flag.text
         if (name.isBlank()) return
         holder.registerProblem(
             flag,
             CrystalUnresolvedName.messageFor(name),
-            ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+            highlightFor(kind)
         )
     }
 
     private fun checkNamespace(access: CrystalNamespaceAccess, holder: ProblemsHolder) {
-        val flag = CrystalUnresolvedName.namespaceFlagElement(access) ?: return
+        val (flag, kind) = CrystalUnresolvedName.namespaceFlagElement(access) ?: return
         val name = flag.text
         if (name.isBlank()) return
         holder.registerProblem(
             flag,
             CrystalUnresolvedName.messageFor(name),
-            ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+            highlightFor(kind)
         )
     }
 
     private fun checkTypePath(path: CrystalTypePath, holder: ProblemsHolder) {
-        val flag = CrystalUnresolvedName.typePathFlagElement(path) ?: return
+        val (flag, kind) = CrystalUnresolvedName.typePathFlagElement(path) ?: return
         val name = flag.text
         if (name.isBlank()) return
         holder.registerProblem(
             flag,
             CrystalUnresolvedName.messageFor(name),
-            ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+            highlightFor(kind)
         )
     }
+
+    private fun highlightFor(kind: CrystalUnresolvedName.UnresolvedKind): ProblemHighlightType =
+        if (kind == CrystalUnresolvedName.UnresolvedKind.UNREQUIRED) {
+            ProblemHighlightType.WEAK_WARNING
+        } else {
+            ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+        }
 }

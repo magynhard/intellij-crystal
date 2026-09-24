@@ -4,6 +4,7 @@ import com.intellij.lang.ASTNode
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
@@ -38,13 +39,53 @@ class CrystalNamespaceReference(
         //    Filter by qualified name to disambiguate: Foo::Sub vs Bar::Sub.
         if (fullName != simpleName) {
             val candidates = CrystalIndexService.findTypes(simpleName, project, scope)
-            return candidates.filter { candidate ->
-                CrystalPsiUtils.buildQualifiedName(candidate) == fullName
-            }.firstOrNull()
+                .filter { candidate ->
+                    CrystalPsiUtils.buildQualifiedName(candidate) == fullName
+                }
+            if (candidates.isNotEmpty()) return candidates.first()
+        } else {
+            // 3. Simple name only (e.g., `::Foo` — no preceding path)
+            val simple = CrystalIndexService.findTypes(simpleName, project, scope).firstOrNull()
+            if (simple != null) return simple
         }
 
-        // 3. Simple name only (e.g., `::Foo` — no preceding path)
-        return CrystalIndexService.findTypes(simpleName, project, scope).firstOrNull()
+        // 4. Constant members (`Foo::BAR`, `LibC::F_GETFD`): the by-owner
+        //    index is keyed by the qualified owner, so query the owner part
+        //    and match the member name. Types keep precedence; enum values
+        //    stay unresolved (no member index for them).
+        if (fullName != simpleName && simpleName.firstOrNull()?.isUpperCase() == true) {
+            val owner = fullName.substringBeforeLast("::")
+            val constants = CrystalIndexService.findConstantsByOwner(owner, project, scope)
+                .filter { it.name == simpleName && isConstantVisible(it) }
+            if (constants.isNotEmpty()) {
+                val file = element.containingFile
+                return constants.minWithOrNull(
+                    compareBy<CrystalConstantAssignment> { it.containingFile != file }
+                        .thenBy { it.containingFile?.name ?: "" }
+                ) ?: constants.first()
+            }
+        }
+        return null
+    }
+
+    /**
+     * True when a constant declaration is visible from this reference: its
+     * file is in the reference's effective source set, and private constants
+     * additionally require the same file. Unjudgeable contexts stay silent
+     * by resolving to nothing (callers treat null as unknown).
+     */
+    private fun isConstantVisible(candidate: CrystalConstantAssignment): Boolean {
+        return try {
+            val service = CrystalRequireGraphService.getInstance(element.project)
+            if (service.isProgramLessInjection(element)) return false
+            val sources = service.effectiveSources(element).takeIf { it.files.isNotEmpty() } ?: return false
+            if (!sources.contains(candidate)) return false
+            val isPrivate = candidate.stub?.isPrivate ?: CrystalPsiUtils.isPrivateConstant(candidate)
+            if (isPrivate && candidate.containingFile != element.containingFile) return false
+            true
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     /**

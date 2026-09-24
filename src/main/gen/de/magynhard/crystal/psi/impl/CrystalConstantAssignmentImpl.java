@@ -8,13 +8,18 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import de.magynhard.crystal.psi.*;
+import com.intellij.psi.stubs.IStubElementType;
+import de.magynhard.crystal.stubs.CrystalConstantAssignmentStub;
 
-public class CrystalConstantAssignmentImpl extends ASTWrapperPsiElement implements CrystalConstantAssignment {
+public class CrystalConstantAssignmentImpl extends CrystalStubbedConstantAssignmentImpl implements CrystalConstantAssignment {
 
-  public CrystalConstantAssignmentImpl(@NotNull ASTNode node) {
+  public CrystalConstantAssignmentImpl(ASTNode node) {
     super(node);
+  }
+
+  public CrystalConstantAssignmentImpl(CrystalConstantAssignmentStub stub, IStubElementType stubType) {
+    super(stub, stubType);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {

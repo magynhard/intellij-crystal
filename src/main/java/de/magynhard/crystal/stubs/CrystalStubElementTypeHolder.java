@@ -21,4 +21,5 @@ public interface CrystalStubElementTypeHolder {
   IElementType LIB_DEFINITION = new CrystalLibDefinitionElementType("LIB_DEFINITION");
   IElementType ANNOTATION_DEFINITION = new CrystalAnnotationDefinitionElementType("ANNOTATION_DEFINITION");
   IElementType ALIAS_DEFINITION = new CrystalAliasDefinitionElementType("ALIAS_DEFINITION");
+  IElementType CONSTANT_ASSIGNMENT = new CrystalConstantAssignmentElementType("CONSTANT_ASSIGNMENT");
 }

@@ -106,3 +106,37 @@ class CrystalLibIndex : StringStubIndexExtension<CrystalLibDefinition>() {
             StubIndexKey.createIndexKey("crystal.lib.index")
     }
 }
+
+/**
+ * Index that maps constant names to their declarations (`KODORRA = 123`,
+ * `class Foo; BAR = 1; end`, `lib LibC; F_GETFD = 1; end`).
+ *
+ * Only declaration positions are stubbed (file top level, type and lib
+ * bodies, visibility modifiers); statement-context assignments inside method
+ * bodies, blocks, and control flow never enter the index.
+ */
+class CrystalConstantIndex : StringStubIndexExtension<CrystalConstantAssignment>() {
+    override fun getKey(): StubIndexKey<String, CrystalConstantAssignment> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalConstantAssignment> =
+            StubIndexKey.createIndexKey("crystal.constant.index")
+    }
+}
+
+/**
+ * Index that maps qualified owner names to their constant declarations.
+ * Enables O(1) member lookup for paths like `Foo::BAR` without scanning the
+ * whole constant index.
+ *
+ * Keyed by the full qualified owner (`Foo`, `Foo::Bar`, `LibC`); top-level
+ * constants (no owner) live in [CrystalConstantIndex] only.
+ */
+class CrystalConstantByOwnerIndex : StringStubIndexExtension<CrystalConstantAssignment>() {
+    override fun getKey(): StubIndexKey<String, CrystalConstantAssignment> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalConstantAssignment> =
+            StubIndexKey.createIndexKey("crystal.constant.by.owner.index")
+    }
+}

@@ -5,15 +5,18 @@ import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
- * Reference from an identifier usage to its definition (class/module/struct/enum/method/macro).
+ * Reference from an identifier usage to its definition (class/module/struct/enum/method/macro/constant).
  *
  * Resolution order:
  * 1. Local scope (fast — walks up PSI tree, no I/O) — for variables and parameters
- * 2. StubIndex lookup (fast — in-memory index) — for methods, classes, etc.
+ * 2. StubIndex lookup (fast — in-memory index) — for types first (lexical type
+ *    shadowing wins over same-named constants), then constants, then methods, etc.
  */
 class CrystalReference(
     element: PsiElement,
@@ -61,6 +64,16 @@ class CrystalReference(
         val types = CrystalIndexService.findTypes(name, element.project, scope())
             .filter { sources.contains(it) }
         if (types.isNotEmpty()) return types.first()
+
+        // Bare CONSTANT reads resolve to constant declarations visible
+        // through the require closure (file top level, type and lib bodies).
+        // Private constants match only their own file, exactly like the
+        // compiler; same-file declarations win for determinism.
+        if (name.firstOrNull()?.isUpperCase() == true) {
+            val constants = CrystalIndexService.findConstants(name, element.project, scope())
+                .filter { isConstantVisible(it, sources, element) }
+            if (constants.isNotEmpty()) return deterministicConstant(constants, element)
+        }
 
         val methods = CrystalIndexService.findMethods(name, element.project, scope())
             .filter { sources.contains(it) }
@@ -124,6 +137,31 @@ class CrystalReference(
                 .thenBy { (it as? CrystalMethodDefinition)?.let(CrystalCompletionHelper::getEnclosingClassName) ?: "" }
                 .thenBy { (it as? CrystalMethodDefinition)?.containingFile?.name ?: "" }
         ) ?: methods.first()
+
+    /**
+     * True when a constant declaration is visible from [context]: its file is
+     * in [sources], and private constants additionally require the same file.
+     */
+    private fun isConstantVisible(
+        candidate: CrystalConstantAssignment,
+        sources: CrystalEffectiveSourceSet,
+        context: PsiElement,
+    ): Boolean {
+        val contextFile = context.containingFile?.originalFile?.virtualFile
+        return CrystalRequireVisibility.isConstantCandidateVisible(candidate, sources, contextFile)
+    }
+
+    /** Stable pick: same-file declarations first, then file name. */
+    private fun deterministicConstant(
+        constants: Collection<CrystalConstantAssignment>,
+        context: PsiElement,
+    ): CrystalConstantAssignment {
+        val file = context.containingFile
+        return constants.minWithOrNull(
+            compareBy<CrystalConstantAssignment> { it.containingFile != file }
+                .thenBy { it.containingFile?.name ?: "" }
+        ) ?: constants.first()
+    }
 
     private fun scope(): GlobalSearchScope = GlobalSearchScope.allScope(element.project)
 
