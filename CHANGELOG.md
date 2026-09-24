@@ -5,6 +5,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Shard-aware require-path completion** — shard directories whose bare name resolves now
+  complete without a trailing slash (selecting `kemal` yields `require "kemal"`), and entries
+  below a shard come from `lib/<shard>/src/<shard>/` plus flat `src/*.cr` files instead of the
+  raw `src/`/`spec/`/`samples/` layout, so every suggested sub-path is actually requireable.
+  Covered by `CrystalRequireCompletionTest`; specified in docs/specs/require.md.
 - **Shard dependency support** — the project-root `shard.yml` (plus `shard.lock`) is now
   read into a dependency model with semver requirement evaluation (`~>`, `>=`, compound
   ranges): missing or outdated dependencies surface through a project-open balloon, an

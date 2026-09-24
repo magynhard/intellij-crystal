@@ -225,7 +225,111 @@ object CrystalRequireCompletionProvider {
         return listChildren(dir, "", pathPrefix, currentFile = containingFile)
     }
 
-    // ---------------- Shard/Stdlib mode ----------------
+    // ---------------- Shard lib/ mode ----------------
+
+    /**
+     * Shard-mode listing under the project `lib/` root.
+     *
+     * Top level (`require "kem<caret>"`): a shard directory whose bare name
+     * resolves (`lib/kemal.cr`, `lib/kemal/kemal.cr`, or
+     * `lib/kemal/src/kemal.cr` — exactly the resolver's bare-name
+     * candidates) completes as the bare name with a file-style insert, so
+     * selecting it yields `require "kemal"` instead of `require "kemal/"`.
+     * Anything else keeps the drill-down directory form.
+     *
+     * Below a shard (`require "kemal/<caret>"`): entries come from
+     * `lib/<shard>/src/<shard>/` plus flat `.cr` files directly under
+     * `lib/<shard>/src/` (minus the shard's own main file) — the namespaces a `kemal/...`
+     * require can actually address — instead of the raw directory layout
+     * (`src/`, `spec/`, `samples/`, …). Deeper segments walk `src/<shard>/`
+     * first, then flat `src/`, mirroring resolver candidate order. Shards
+     * without a `src/` directory keep the direct listing.
+     */
+    private fun listLibRootChildren(
+        libDir: VirtualFile,
+        relativeDir: String,
+        lastSegment: String,
+        pathPrefix: String,
+    ): List<LookupElement> {
+        if (relativeDir.isEmpty()) return listLibTopLevel(libDir, lastSegment, pathPrefix)
+        val shardName = relativeDir.substringBefore('/')
+        val rest = relativeDir.substringAfter('/', "")
+        val shardDir = libDir.findChild(shardName)?.takeIf { it.isDirectory } ?: return emptyList()
+        val srcDir = shardDir.findChild("src")?.takeIf { it.isDirectory }
+            ?: return shardDir.takeIf { rest.isEmpty() }
+                ?.let { listChildren(it, lastSegment, pathPrefix, currentFile = null) }
+                .orEmpty()
+        if (rest.isEmpty()) return listShardNamespaceContents(shardDir, shardName, srcDir, lastSegment, pathPrefix)
+        val target = resolveSubdir(srcDir, rest)
+            ?: shardDir.findChild(shardName)?.takeIf { it.isDirectory }?.let { resolveSubdir(it, rest) }
+            ?: return emptyList()
+        return listChildren(target, lastSegment, pathPrefix, currentFile = null)
+    }
+
+    private fun listLibTopLevel(
+        libDir: VirtualFile,
+        lastSegment: String,
+        pathPrefix: String,
+    ): List<LookupElement> {
+        val result = mutableListOf<LookupElement>()
+        val seen = mutableSetOf<String>()
+        // Exact files first: a same-name file wins over the shard namespace,
+        // mirroring resolver candidate order (`lib/foo.cr` before `lib/foo/`).
+        for (child in libDir.children) {
+            if (child.isDirectory || child.extension != "cr") continue
+            if (child.name.startsWith(".") && !lastSegment.startsWith(".")) continue
+            val lookupName = fileLookupName(child, lastSegment) ?: continue
+            if (seen.add(lookupName)) result.add(fileLookup(child, pathPrefix, lastSegment))
+        }
+        for (child in libDir.children) {
+            if (!child.isDirectory) continue
+            if (child.name.startsWith(".") && !lastSegment.startsWith(".")) continue
+            if (!child.name.startsWith(lastSegment)) continue
+            if (!seen.add(child.name)) continue
+            result.add(
+                if (bareShardResolves(libDir, child.name)) shardLookup(child.name, pathPrefix)
+                else directoryLookup(child.name, pathPrefix)
+            )
+        }
+        return result
+    }
+
+    /**
+     * True when a bare `require "<name>"` resolves inside [libDir], using
+     * exactly the resolver's bare-name candidates (`D.cr`, `D/D.cr`,
+     * `D/src/D.cr` — see `CrystalRequirePathResolver.candidates`).
+     */
+    private fun bareShardResolves(libDir: VirtualFile, name: String): Boolean {
+        if (libDir.findChild("$name.cr")?.let { !it.isDirectory } == true) return true
+        val shardDir = libDir.findChild(name)?.takeIf { it.isDirectory } ?: return false
+        if (shardDir.findChild("$name.cr")?.let { !it.isDirectory } == true) return true
+        val srcDir = shardDir.findChild("src")?.takeIf { it.isDirectory } ?: return false
+        return srcDir.findChild("$name.cr")?.let { !it.isDirectory } == true
+    }
+
+    private fun listShardNamespaceContents(
+        shardDir: VirtualFile,
+        shardName: String,
+        srcDir: VirtualFile,
+        lastSegment: String,
+        pathPrefix: String,
+    ): List<LookupElement> {
+        val result = mutableListOf<LookupElement>()
+        val seen = mutableSetOf<String>()
+        val namespaced = srcDir.findChild(shardName)?.takeIf { it.isDirectory }
+        if (namespaced != null) {
+            for (lookup in listChildren(namespaced, lastSegment, pathPrefix, currentFile = null)) {
+                if (seen.add(lookup.lookupString)) result.add(lookup)
+            }
+        }
+        for (child in srcDir.children) {
+            if (child.isDirectory || child.extension != "cr") continue
+            if (child.nameWithoutExtension == shardName) continue
+            val lookupName = fileLookupName(child, lastSegment) ?: continue
+            if (seen.add(lookupName)) result.add(fileLookup(child, pathPrefix, lastSegment))
+        }
+        return result
+    }
 
     private fun getShardStdlibPathLookups(
         project: Project,
@@ -244,12 +348,9 @@ object CrystalRequireCompletionProvider {
         if (basePath != null) {
             val libDir = LocalFileSystem.getInstance().findFileByPath("$basePath/lib")
             if (libDir != null && libDir.isDirectory) {
-                val target = resolveSubdir(libDir, relativeDir)
-                if (target != null) {
-                    for (lookup in listChildren(target, lastSegment, pathPrefix, currentFile = null)) {
-                        val name = lookup.lookupString
-                        if (seen.add(name)) result.add(lookup)
-                    }
+                for (lookup in listLibRootChildren(libDir, relativeDir, lastSegment, pathPrefix)) {
+                    val name = lookup.lookupString
+                    if (seen.add(name)) result.add(lookup)
                 }
             }
         }
@@ -380,30 +481,53 @@ object CrystalRequireCompletionProvider {
             if (child.name.startsWith(".") && !segmentPrefix.startsWith(".")) continue
             if (child.isDirectory) {
                 if (!child.name.startsWith(segmentPrefix)) continue
-                val fullInsertPath = computeFullInsertPath(pathPrefix, child.name) + "/"
-                result.add(
-                    LookupElementBuilder.create(child.name)
-                        .withIcon(AllIcons.Nodes.Folder)
-                        .withTailText("/", true)
-                        .withTypeText("directory", true)
-                        .withInsertHandler(CrystalRequirePathInsertHandler(fullInsertPath, isDirectory = true))
-                )
+                result.add(directoryLookup(child.name, pathPrefix))
             } else if (child.extension == "cr") {
-                val baseName = child.nameWithoutExtension
-                val explicitExtension = '.' in segmentPrefix.drop(1)
-                val lookupName = if (explicitExtension) child.name else baseName
-                if (!lookupName.startsWith(segmentPrefix)) continue
                 if (child == currentFile) continue  // don't suggest requiring the current file
-                val fullInsertPath = computeFullInsertPath(pathPrefix, lookupName)
-                result.add(
-                    LookupElementBuilder.create(lookupName)
-                        .withIcon(AllIcons.FileTypes.Text)
-                        .withTypeText("file", true)
-                        .withInsertHandler(CrystalRequirePathInsertHandler(fullInsertPath, isDirectory = false))
-                )
+                val lookupName = fileLookupName(child, segmentPrefix) ?: continue
+                result.add(fileLookup(child, pathPrefix, segmentPrefix))
             }
         }
         return result
+    }
+
+    private fun fileLookupName(child: VirtualFile, segmentPrefix: String): String? {
+        val baseName = child.nameWithoutExtension
+        val explicitExtension = '.' in segmentPrefix.drop(1)
+        val lookupName = if (explicitExtension) child.name else baseName
+        return lookupName.takeIf { it.startsWith(segmentPrefix) }
+    }
+
+    private fun fileLookup(child: VirtualFile, pathPrefix: String, segmentPrefix: String): LookupElement {
+        val lookupName = fileLookupName(child, segmentPrefix) ?: child.nameWithoutExtension
+        val fullInsertPath = computeFullInsertPath(pathPrefix, lookupName)
+        return LookupElementBuilder.create(lookupName)
+            .withIcon(AllIcons.FileTypes.Text)
+            .withTypeText("file", true)
+            .withInsertHandler(CrystalRequirePathInsertHandler(fullInsertPath, isDirectory = false))
+    }
+
+    private fun directoryLookup(childName: String, pathPrefix: String): LookupElement {
+        val fullInsertPath = computeFullInsertPath(pathPrefix, childName) + "/"
+        return LookupElementBuilder.create(childName)
+            .withIcon(AllIcons.Nodes.Folder)
+            .withTailText("/", true)
+            .withTypeText("directory", true)
+            .withInsertHandler(CrystalRequirePathInsertHandler(fullInsertPath, isDirectory = true))
+    }
+
+    /**
+     * A shard directory whose bare name resolves (see [bareShardResolves]):
+     * completes as the bare name with a file-style insert (`require
+     * "kemal"`), so no trailing slash is suggested or inserted. The user
+     * types `/` explicitly to descend into sub-paths.
+     */
+    private fun shardLookup(shardName: String, pathPrefix: String): LookupElement {
+        val fullInsertPath = computeFullInsertPath(pathPrefix, shardName)
+        return LookupElementBuilder.create(shardName)
+            .withIcon(AllIcons.FileTypes.Text)
+            .withTypeText("shard", true)
+            .withInsertHandler(CrystalRequirePathInsertHandler(fullInsertPath, isDirectory = false))
     }
 }
 

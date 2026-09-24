@@ -262,6 +262,26 @@ Matching names are deduplicated across roots. Completion supports nested paths s
 
 If a project library or stdlib root is unavailable, completion returns candidates from the remaining roots. Missing roots and unreadable directories do not fail the completion request.
 
+### Shard Directory Presentation
+
+Shard directories under project `lib/` complete differently from raw
+directories, because a bare `require "kemal"` is the common case:
+
+- A shard directory whose bare name resolves (`lib/<name>.cr`,
+  `lib/<name>/<name>.cr`, or `lib/<name>/src/<name>.cr` — exactly the
+  resolver's bare-name candidates) completes as the bare name with a
+  file-style insert, so selecting it yields `require "kemal"` with no
+  trailing slash. The user types `/` explicitly to descend further.
+- A shard directory whose bare name does not resolve keeps the
+  drill-down directory form.
+- Below a shard (`require "kemal/<caret>"`), entries come from
+  `lib/<shard>/src/<shard>/` plus flat `lib/<shard>/src/*.cr` files
+  (minus the shard's own main file) — the namespaces a `kemal/...`
+  require can actually address — instead of the raw layout (`src/`,
+  `spec/`, `samples/`, …). Deeper segments walk `src/<shard>/` first,
+  then flat `src/`, mirroring resolver candidate order. Shards without
+  a `src/` directory keep the direct listing.
+
 ### Path Insertion
 
 File selection replaces the currently typed path segment with the candidate's base name and leaves the caret after the completed path.

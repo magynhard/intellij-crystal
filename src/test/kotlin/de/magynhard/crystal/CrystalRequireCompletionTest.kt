@@ -379,6 +379,75 @@ class CrystalRequireCompletionTest : BasePlatformTestCase() {
         assertTrue("Should offer shard `json` (barename): $names", names.contains("json"))
     }
 
+    fun testResolvableShardCompletesWithoutSlash() {
+        // `lib/kemal/src/kemal.cr` makes bare `kemal` resolvable, so the
+        // lookup must complete without a trailing slash (selecting it yields
+        // `require "kemal"`, not `require "kemal/"`).
+        projectFile("lib/kemal/src/kemal.cr")
+        myFixture.configureByText("main.cr", "require \"kem<caret>\"")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val kemal = lookups.firstOrNull { it.lookupString == "kemal" }
+        assertNotNull("Should offer shard `kemal`: ${lookups.map { it.lookupString }}", kemal)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+            .also(kemal!!::renderElement)
+        assertFalse(
+            "Resolvable shard must not display trailing `/`: '${presentation.tailText}'",
+            presentation.tailText?.endsWith("/") == true
+        )
+        myFixture.lookup.currentItem = kemal
+        myFixture.finishLookup('\n')
+        assertTrue(
+            "Selecting `kemal` must produce `require \"kemal\"`, got: '${myFixture.editor.document.text}'",
+            myFixture.editor.document.text.contains("require \"kemal\"") &&
+                !myFixture.editor.document.text.contains("kemal/")
+        )
+    }
+
+    fun testUnresolvableShardDirKeepsSlashDrill() {
+        // No `.cr` anywhere under `lib/odd/` — bare `odd` cannot resolve,
+        // so the directory drill-down form (with `/`) is kept.
+        projectFile("lib/odd/README.md")
+        myFixture.configureByText("main.cr", "require \"od<caret>\"")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val odd = lookups.firstOrNull { it.lookupString == "odd" }
+        assertNotNull("Should offer directory `odd`: ${lookups.map { it.lookupString }}", odd)
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+            .also(odd!!::renderElement)
+        assertEquals("Unresolvable dir must display trailing `/`", "/", presentation.tailText)
+    }
+
+    fun testShardSubLevelListsNamespacedSources() {
+        // `require "kemal/"` offers `src/kemal/*` plus flat `src/*.cr`
+        // (minus the main file) — never the raw `src/`, `spec/`, or
+        // `samples/` directories.
+        projectFile("lib/kemal/src/kemal.cr")
+        projectFile("lib/kemal/src/kemal/handler.cr")
+        projectFile("lib/kemal/src/version.cr")
+        projectFile("lib/kemal/spec/dummy.cr")
+        projectFile("lib/kemal/samples/demo.cr")
+        myFixture.configureByText("main.cr", "require \"kemal/<caret>\"")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should offer namespaced `handler`: $names", names.contains("handler"))
+        assertTrue("Should offer flat `version`: $names", names.contains("version"))
+        assertFalse("Must not offer raw `src`: $names", names.contains("src"))
+        assertFalse("Must not offer raw `spec`: $names", names.contains("spec"))
+        assertFalse("Must not offer raw `samples`: $names", names.contains("samples"))
+    }
+
+    fun testShardWithoutSrcFallsBackToDirectListing() {
+        // Flat layout without `src/` keeps the direct directory listing.
+        projectFile("lib/flat/thing.cr")
+        myFixture.configureByText("main.cr", "require \"flat/<caret>\"")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should offer `thing`: $names", names.contains("thing"))
+    }
+
     fun testDotPrefixSwitchesToRelativeMode() {
         // With both a local file `user.cr` and a `lib/json/` shard, typing
         // `.` should switch to relative mode: `user` offered, `json` not.
