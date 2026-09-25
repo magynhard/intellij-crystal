@@ -97,4 +97,14 @@ class CrystalShardManifestTest : BasePlatformTestCase() {
         assertNull(CrystalShardManifest.parseLock("version: 2.0\n"))
         assertNull(CrystalShardManifest.parseLock("shards: [oops"))
     }
+
+    fun testParsesTargetNames() {
+        assertEquals(
+            setOf("ameba"),
+            CrystalShardManifest.parseTargetNames("name: app\ntargets:\n  ameba:\n    main: lib/ameba/bin/ameba.cr\n")
+        )
+        assertTrue(CrystalShardManifest.parseTargetNames("name: app\n").isEmpty())
+        assertTrue(CrystalShardManifest.parseTargetNames(": : :").isEmpty())
+        assertTrue(CrystalShardManifest.parseTargetNames("").isEmpty())
+    }
 }

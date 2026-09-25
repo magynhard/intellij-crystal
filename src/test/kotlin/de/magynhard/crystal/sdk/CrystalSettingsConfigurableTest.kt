@@ -232,6 +232,86 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
         return configurable
     }
 
+    fun testApplyPersistsAmebaSettings() {
+        resetAmebaState()
+        try {
+            val configurable = CrystalSettingsConfigurable.forTest(project) { _, _ -> }
+            setCrystalPath(configurable, CrystalSettings.getInstance(project).state.crystalPath)
+            setAmebaFields(configurable, enabled = true, path = "/opt/ameba", config = "/proj/.ameba.yml")
+            assertTrue(configurable.isModified())
+
+            configurable.apply()
+
+            val state = CrystalSettings.getInstance(project).state
+            assertTrue(state.amebaEnabled)
+            assertEquals("/opt/ameba", state.amebaPath)
+            assertEquals("/proj/.ameba.yml", state.amebaConfigPath)
+            assertFalse(configurable.isModified())
+        } finally {
+            resetAmebaState()
+        }
+    }
+
+    fun testApplyClearsAmebaBinaryCache() {
+        resetAmebaState()
+        try {
+            var lookups = 0
+            assertNull(AmebaBinary.resolve(project) { lookups++; null })
+            assertNull(AmebaBinary.resolve(project) { lookups++; null })
+            assertEquals(1, lookups)
+
+            // Defaults keep the manual path blank so the counting lookup runs.
+            val configurable = CrystalSettingsConfigurable.forTest(project) { _, _ -> }
+            setCrystalPath(configurable, CrystalSettings.getInstance(project).state.crystalPath)
+            configurable.apply()
+
+            assertNull(AmebaBinary.resolve(project) { lookups++; null })
+            assertEquals(2, lookups)
+        } finally {
+            resetAmebaState()
+        }
+    }
+
+    private fun resetAmebaState() {
+        val state = CrystalSettings.getInstance(project).state
+        state.amebaEnabled = false
+        state.amebaPath = ""
+        state.amebaConfigPath = ""
+        AmebaBinary.clearCache(project)
+    }
+
+    fun testClearCacheForcesReResolution() {
+        var lookups = 0
+        assertNull(AmebaBinary.resolve(project) { lookups++; null })
+        assertNull(AmebaBinary.resolve(project) { lookups++; null })
+        assertEquals(1, lookups)
+
+        AmebaBinary.clearCache(project)
+
+        assertNull(AmebaBinary.resolve(project) { lookups++; null })
+        assertEquals(2, lookups)
+    }
+
+    private fun setAmebaFields(
+        configurable: CrystalSettingsConfigurable,
+        enabled: Boolean,
+        path: String,
+        config: String
+    ) {
+        configurable.javaClass.getDeclaredField("amebaEnabledBox").apply {
+            isAccessible = true
+            set(configurable, com.intellij.ui.components.JBCheckBox().apply { isSelected = enabled })
+        }
+        configurable.javaClass.getDeclaredField("amebaPathField").apply {
+            isAccessible = true
+            set(configurable, TextFieldWithBrowseButton().apply { text = path })
+        }
+        configurable.javaClass.getDeclaredField("amebaConfigField").apply {
+            isAccessible = true
+            set(configurable, TextFieldWithBrowseButton().apply { text = config })
+        }
+    }
+
     private fun setCrystalPath(configurable: CrystalSettingsConfigurable, crystalPath: String) {
         val field = TextFieldWithBrowseButton().apply { text = crystalPath }
         configurable.javaClass.getDeclaredField("crystalPathField").apply {

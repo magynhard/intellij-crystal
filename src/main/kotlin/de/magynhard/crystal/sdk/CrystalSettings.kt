@@ -8,7 +8,10 @@ import com.intellij.openapi.project.Project
 class CrystalSettings : PersistentStateComponent<CrystalSettings.State> {
 
     data class State(
-        var crystalPath: String = ""
+        var crystalPath: String = "",
+        var amebaPath: String = "",
+        var amebaEnabled: Boolean = false,
+        var amebaConfigPath: String = ""
     )
 
     private var myState = State()

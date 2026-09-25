@@ -5,6 +5,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.2.9] — 2026-xx-xx
 
 ### Added
+- **Ameba linter integration (opt-in)** — enable under Settings | Languages &
+  Frameworks | Crystal | Ameba Linter: live diagnostics stream from the configured
+  `ameba` binary (manual path, project `bin/ameba` when `shard.yml` declares the
+  dev-dependency, or `PATH` fallback) via JSON output over the current buffer, with
+  an explicit `ameba --fix` file action and Inspect-Code support through the paired
+  `Ameba` inspection. Requires Ameba 1.7.0+ (older binaries keep the integration
+  disabled with a warning, and the built-ins stay the fallback); a stale
+  `shard.yml` version pin and an outdated explicit path warn in the editor banner
+  and settings. Overlapping built-ins (unused variables, colon spacing) step
+  aside while Ameba is active and remain the offline fallback otherwise. A missing
+  project binary is offered for explicit opt-in `shards build ameba` via shard.yml
+  banner and project-open balloon — never built silently.
+  ECR templates lint through the same pipeline (raw text in, template
+  coordinates out); `--fix` stays limited to plain Crystal files.
 - **Cannot-find warnings for unresolved names** — bare identifiers, call callees,
   DOT method names with exact receivers, constants, and type paths that resolve to
   nothing now report `Cannot find 'name'` (and show the same text on hover) instead of

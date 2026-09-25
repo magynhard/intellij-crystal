@@ -28,6 +28,9 @@ class CrystalUnusedVariableInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         if (!CrystalInspectionScope.isProjectSource(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
+        // Ameba's Lint/UselessAssign (plus UnusedArgument/BlockArgument) owns
+        // this diagnostic when the linter is active — never double-report.
+        if (AmebaSuppression.isActiveFor(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
         val injectionManager = InjectedLanguageManager.getInstance(holder.project)
         if (injectionManager.isInjectedFragment(holder.file) &&
             injectionManager.shouldInspectionsBeLenient(holder.file)) {

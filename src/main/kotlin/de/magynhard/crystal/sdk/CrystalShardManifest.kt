@@ -84,6 +84,17 @@ internal object CrystalShardManifest {
         }.toMap()
     }
 
+    /**
+     * Target names from the `targets:` section of manifest text
+     * (`targets: ameba: main: lib/ameba/bin/ameba.cr`). Empty for missing or
+     * malformed sections — a broken manifest must not manufacture builds.
+     */
+    fun parseTargetNames(text: String): Set<String> {
+        val root = loadMapping(text) ?: return emptySet()
+        val targets = root["targets"] as? Map<*, *> ?: return emptySet()
+        return targets.keys.mapNotNullTo(mutableSetOf()) { it?.toString()?.takeIf(String::isNotBlank) }
+    }
+
     /** Loads the project-root `shard.yml`, if any. */
     fun load(project: Project): LoadResult {
         val basePath = project.basePath ?: return LoadResult.Missing

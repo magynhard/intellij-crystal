@@ -2,6 +2,7 @@ package de.magynhard.crystal.sdk
 
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.ui.TextBrowseFolderListener
@@ -11,6 +12,7 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
@@ -33,6 +35,13 @@ class CrystalSettingsConfigurable private constructor(
     private var stdlibStatusLabel: JLabel = JBLabel("")
     private var stdlibVersionLabel: JLabel = JBLabel("")
     private var stdlibPathLabel: JLabel = JBLabel("")
+    // Eager defaults (not lateinit): tests drive apply()/isModified() with
+    // only some fields injected and must never see uninitialized access.
+    // createComponent() replaces these with the live widgets.
+    private var amebaEnabledBox: JBCheckBox = JBCheckBox("Enable Ameba linting")
+    private var amebaPathField: TextFieldWithBrowseButton = TextFieldWithBrowseButton()
+    private var amebaVersionLabel: JLabel = JBLabel("")
+    private var amebaConfigField: TextFieldWithBrowseButton = TextFieldWithBrowseButton()
 
     override fun getDisplayName(): String = "Crystal"
 
@@ -43,6 +52,25 @@ class CrystalSettingsConfigurable private constructor(
                 FileChooserDescriptorFactory.singleFile()
                     .withTitle("Select Crystal Executable")
                     .withDescription("Path to the Crystal compiler executable"),
+                project
+            )
+        )
+        amebaEnabledBox = JBCheckBox("Enable Ameba linting")
+        amebaPathField = TextFieldWithBrowseButton()
+        amebaPathField.addBrowseFolderListener(
+            TextBrowseFolderListener(
+                FileChooserDescriptorFactory.singleFile()
+                    .withTitle("Select Ameba Executable")
+                    .withDescription("Path to the Ameba linter executable (bin/ameba)"),
+                project
+            )
+        )
+        amebaConfigField = TextFieldWithBrowseButton()
+        amebaConfigField.addBrowseFolderListener(
+            TextBrowseFolderListener(
+                FileChooserDescriptorFactory.singleFile()
+                    .withTitle("Select Ameba Configuration")
+                    .withDescription("Path to a custom .ameba.yml configuration file"),
                 project
             )
         )
@@ -84,24 +112,74 @@ class CrystalSettingsConfigurable private constructor(
                     }
                 }
             }
+            group("Ameba Linter") {
+                row {
+                    cell(amebaEnabledBox)
+                }
+                row("Ameba path:") {
+                    cell(amebaPathField).align(AlignX.FILL)
+                }
+                row("") {
+                    button("Detect") {
+                        val detected = AmebaDetector.detect()
+                        if (detected != null) {
+                            amebaPathField.text = detected
+                            updateAmebaVersion(detected)
+                        } else {
+                            amebaVersionLabel.text = "Ameba not found"
+                        }
+                    }
+                    cell(amebaVersionLabel)
+                }
+                row {
+                    comment("Leave empty to resolve bin/ameba, then PATH. A set path wins and must validate.")
+                }
+                row("Config file:") {
+                    cell(amebaConfigField).align(AlignX.FILL)
+                }
+                row {
+                    comment("Leave empty to use the nearest .ameba.yml above the linted file.")
+                }
+            }
         }.also {
             // Load current state
             val settings = CrystalSettings.getInstance(project)
             crystalPathField.text = settings.state.crystalPath
             updateVersion(settings.getEffectiveCrystalPath())
             updateStdlibStatus()
+            amebaEnabledBox.isSelected = settings.state.amebaEnabled
+            amebaPathField.text = settings.state.amebaPath
+            updateAmebaVersion(AmebaBinary.resolve(project)?.path ?: settings.state.amebaPath)
+            amebaConfigField.text = settings.state.amebaConfigPath
         }
     }
 
     override fun isModified(): Boolean {
         val settings = CrystalSettings.getInstance(project)
-        return crystalPathField.text != settings.state.crystalPath
+        return crystalPathField.text != settings.state.crystalPath ||
+            amebaEnabledBox.isSelected != settings.state.amebaEnabled ||
+            amebaPathField.text != settings.state.amebaPath ||
+            amebaConfigField.text != settings.state.amebaConfigPath
     }
 
     override fun apply() {
         val settings = CrystalSettings.getInstance(project)
+        val amebaChanged = amebaEnabledBox.isSelected != settings.state.amebaEnabled ||
+            amebaPathField.text != settings.state.amebaPath ||
+            amebaConfigField.text != settings.state.amebaConfigPath
         val oldRoots = resolveStdlibRoots()
         settings.state.crystalPath = crystalPathField.text
+        settings.state.amebaEnabled = amebaEnabledBox.isSelected
+        settings.state.amebaPath = amebaPathField.text
+        settings.state.amebaConfigPath = amebaConfigField.text
+        AmebaBinary.clearCache(project)
+        AmebaNotifications.reset(project)
+        if (amebaChanged) {
+            // Re-run highlighting so Ameba diagnostics appear or disappear
+            // without waiting for the next keystroke; stdlib roots are
+            // untouched by Ameba settings.
+            DaemonCodeAnalyzer.getInstance(project).restart()
+        }
         // Invalidate any cached stdlib path so the next call re-runs
         // `crystal env CRYSTAL_PATH` against the newly configured SDK.
         CrystalStdlibResolver.clearCachedStdlibPath(project)
@@ -120,6 +198,25 @@ class CrystalSettingsConfigurable private constructor(
         crystalPathField.text = settings.state.crystalPath
         updateVersion(settings.getEffectiveCrystalPath())
         updateStdlibStatus()
+        amebaEnabledBox.isSelected = settings.state.amebaEnabled
+        amebaPathField.text = settings.state.amebaPath
+        updateAmebaVersion(AmebaBinary.resolve(project)?.path ?: settings.state.amebaPath)
+        amebaConfigField.text = settings.state.amebaConfigPath
+    }
+
+    private fun updateAmebaVersion(path: String) {
+        if (path.isBlank()) {
+            amebaVersionLabel.text = "Not configured"
+            return
+        }
+        val raw = AmebaDetector.validate(path)
+        if (raw == null) {
+            amebaVersionLabel.text = "Not detected"
+            return
+        }
+        val warning = AmebaVersion.warningForRawVersion(path, raw)
+        amebaVersionLabel.text = warning
+            ?: raw.lineSequence().firstOrNull().orEmpty().ifBlank { "Detected" }
     }
 
     private fun updateVersion(path: String) {

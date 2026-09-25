@@ -359,6 +359,17 @@
                 language="Crystal"
                 implementationClass="de.magynhard.crystal.highlighting.CrystalUnionContinuationAnnotator"/>
 
+        <externalAnnotator
+                language="Crystal"
+                implementationClass="de.magynhard.crystal.ameba.AmebaExternalAnnotator"/>
+
+        <!-- ECR templates lint through the same annotator: Ameba translates
+             them itself and reports template coordinates, so the raw file
+             text is passed unchanged. -->
+        <externalAnnotator
+                language="EmbeddedCrystal"
+                implementationClass="de.magynhard.crystal.ameba.AmebaExternalAnnotator"/>
+
         <highlightErrorFilter
                 implementation="de.magynhard.crystal.highlighting.CrystalHighlightErrorFilter"/>
 
@@ -487,6 +498,15 @@
                 level="WARNING"
                 implementationClass="de.magynhard.crystal.inspections.CrystalUnresolvedNameInspection"/>
 
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
+                displayName="Ameba linter"
+                shortName="Ameba"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="de.magynhard.crystal.ameba.AmebaInspection"/>
+
         <todoIndexer
                 filetype="Crystal"
                 implementationClass="de.magynhard.crystal.CrystalTodoIndexer"/>
@@ -593,6 +613,7 @@
                 implementationClass="de.magynhard.crystal.refactoring.CrystalNamesValidator"/>
 
         <notificationGroup id="Crystal Formatting" displayType="BALLOON"/>
+        <notificationGroup id="Crystal Ameba" displayType="BALLOON"/>
         <notificationGroup id="Crystal Shards" displayType="BALLOON"/>
         <notificationGroup id="Crystal Rename Verification" displayType="BALLOON"/>
         <notificationGroup id="Crystal Reindex" displayType="BALLOON"/>
@@ -663,9 +684,17 @@
         <postStartupActivity
                 implementation="de.magynhard.crystal.sdk.CrystalShardStatusActivity"/>
 
+        <!-- Offer building bin/ameba when declared but missing on project open -->
+        <postStartupActivity
+                implementation="de.magynhard.crystal.ameba.AmebaBuildStatusActivity"/>
+
         <!-- Banner over shard.yml while dependencies need attention -->
         <editorNotificationProvider
                 implementation="de.magynhard.crystal.sdk.CrystalShardBannerProvider"/>
+
+        <!-- Banner over shard.yml while the declared Ameba binary is missing -->
+        <editorNotificationProvider
+                implementation="de.magynhard.crystal.ameba.AmebaBuildBannerProvider"/>
 
         <!-- Debugger -->
         <xdebugger.breakpointType

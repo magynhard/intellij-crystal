@@ -1,0 +1,102 @@
+# Ameba Linter Integration
+
+Behavioral specification for the optional Ameba integration: binary
+resolution, diagnostics pipeline, overlap suppression, and build offer.
+Rationale and research live in `docs/todos/ameba-integration.md` (local,
+unversioned).
+
+## Minimum Version
+
+Ameba 1.7.0 or newer is required (`AmebaVersion.MINIMUM`). 1.7.0 rebuilt the
+overlap-relevant rules on liveness analysis, improved issue locations, and
+stabilized JSON output. Older binaries resolve to nothing: the integration
+stays disabled (no diagnostics, no suppression, `--fix` reports the missing
+binary) and the built-in inspections remain the fallback. Pre-releases sort
+below their release (`1.7.0-dev` rejected); unparsable versions fail closed
+with an "undetermined" warning.
+
+Warnings surface in three places: a one-time project-open balloon (only when
+linting is enabled), a shard.yml banner when the `version:` pin explicitly
+excludes the minimum (`branch`/`commit`/`tag` pins cannot be judged and stay
+silent), and a warning text in the settings next to the version label.
+
+## Binary Resolution
+
+`AmebaBinary.resolve(project)` returns the effective binary or null, using
+only `java.io` stats and processes (safe off the read thread). Order:
+
+1. Manual `amebaPath` from settings when set, valid (`ameba --version`
+   exits 0 and mentions ameba), and meeting the minimum version. A
+   set-but-invalid path resolves to nothing — no silent fallback, so
+   misconfiguration surfaces.
+2. Project-local `<project>/bin/ameba` when the project-root `shard.yml`
+   declares an `ameba` dependency and the binary is executable, valid, and
+   meets the minimum version (outdated project binaries fall through to
+   system detection, mirroring broken binaries).
+3. System `PATH` and known install locations (`AmebaDetector`), likewise
+   gated on the minimum version.
+
+There is no fallback executing `lib/ameba/bin/ameba.cr` through Crystal.
+Results (including misses) cache per project, keyed by settings path,
+candidate existence/mtime, and manifest mtime; settings apply clears the
+cache.
+
+## Settings
+
+`CrystalSettings.State` carries `amebaEnabled` (default off),
+`amebaPath` (empty = auto-resolve), and `amebaConfigPath` (empty = nearest
+`.ameba.yml` walking up from the linted file to the project root).
+The "Ameba Linter" group in Settings | Languages & Frameworks | Crystal
+edits all three with a Detect action and version label. Applying Ameba
+changes clears the binary cache and restarts highlighting without touching
+stdlib roots.
+
+## Diagnostics Pipeline
+
+- Live: `AmebaExternalAnnotator` (`language="Crystal"`). `collectInformation`
+  snapshots the switch, scope gates, binary, config, and document text;
+  `doAnnotate` runs `ameba --format json --stdin-filename <relative-path>
+  [--config …] <absolute-path>` with the buffer on STDIN (30 s timeout);
+  `apply` maps issues to ranges, dropping stale stamps and out-of-range
+  positions. Files outside project sources, non-local, or non-Crystal files
+  never run. Runner failures balloon at most once per project and error text
+  (linking settings); findings (non-zero exit with issues) are success.
+- Batch: `AmebaInspection` (short name `Ameba`, on by default, `WARNING`)
+  implements `ExternalAnnotatorBatchInspection`; its `checkFile` runs the
+  same pipeline synchronously. Disabling it in the profile stops live
+  highlighting via the platform `ExternalToolPass` contract.
+- Old binaries that reject `--format json` get one `flycheck` retry
+  (range-less issues highlight one character).
+
+## ECR Templates
+
+`.ecr` files lint through the same pipeline with their raw text: Ameba
+1.7.0+ translates them itself (`ECR.process_string`) and reports template
+coordinates for code-tag findings (verified: `greeting` in
+`<% greeting = "hi" %>` reports line 2, columns 4–11 — end columns are
+inclusive, like TextRange conversion expects). Findings inside string
+chunks may carry generated-code positions (no `#<loc>` markers there);
+`--fix` stays disabled for `.ecr`. Injected Crystal fragments step aside
+together with their host file (`AmebaSuppression` judges the top-level
+`.ecr`), so tag findings are never doubled.
+- Severity mapping is fixed: Convention → Weak Warning, Warning → Warning,
+  Error → Error. Annotations read `<message> [Ameba: <rule>]` and carry the
+  explicit `ameba --fix` file action (saves the buffer, background task,
+  refresh; never on typing).
+
+## Overlap Suppression
+
+`AmebaSuppression.isActiveFor(file)` (enabled + resolvable binary + Crystal
+project source) gates `CrystalUnusedVariableInspection` (owned by
+`Lint/UselessAssign`) and `CrystalColonSpacingInspection` (owned by
+`Lint/Formatting`) to empty visitors. `CrystalSingleQuoteString` and
+`CrystalEmptyCollection` keep running (no certain Ameba counterpart).
+
+## Build Offer
+
+When `shard.yml` declares Ameba but `bin/ameba` is missing/unusable, an
+editor banner over the project-root manifest and a one-time project-open
+balloon offer the explicit opt-in build — never silently. `shards build
+ameba` with a declared `ameba` target, otherwise
+`crystal build -o bin/ameba lib/ameba/bin/ameba.cr`; once per project,
+cancellable, tree refresh on success.

@@ -24,6 +24,9 @@ class CrystalColonSpacingInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         if (!CrystalInspectionScope.isProjectSource(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
+        // Ameba's Lint/Formatting owns formatter conformance when the linter
+        // is active — never double-report.
+        if (AmebaSuppression.isActiveFor(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 if (element is CrystalMethodDefinition) {

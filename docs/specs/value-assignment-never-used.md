@@ -3,6 +3,15 @@
 Behavioral specification for `CrystalUnusedVariableInspection` and its local
 definition-use analysis.
 
+## Ameba Overlap
+
+When the Ameba linter is enabled with a usable binary
+(`AmebaSuppression.isActiveFor`), this inspection stays silent:
+`Lint/UselessAssign` (plus `UnusedArgument`/`UnusedBlockArgument`) owns the
+diagnostic. With Ameba disabled or unresolvable, this inspection is the
+offline fallback. The same gate applies to `CrystalColonSpacingInspection`
+(owned by Ameba's `Lint/Formatting`).
+
 ## Diagnostic Contract
 
 The inspection reports a plain local-variable assignment when that concrete

@@ -1,0 +1,11 @@
+<html><body>
+Reports diagnostics from the Ameba linter for Crystal code: style, correctness,
+and performance findings exactly as the configured <code>ameba</code> binary
+reports them (JSON output over the current buffer).
+<p>Enable Ameba and configure its executable under
+Settings | Languages &amp; Frameworks | Crystal | Ameba Linter.
+Disabling this inspection also stops live Ameba highlighting in the editor.</p>
+<p>Example: <code>items.map(&amp;.name).compact</code> reports
+<code>Performance/CompactAfterMap [Ameba]</code> with an explicit
+<code>ameba --fix</code> action.</p>
+</body></html>

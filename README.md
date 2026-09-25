@@ -49,6 +49,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Diagnostics for invalid empty collections, `lib fun` parameters without types, invalid single-quoted strings, colon spacing, and required parameters after optional ones
 - Crystal-specific diagnostics for invalid dynamic `require` contexts and malformed multiline union types
 - Shard dependency support — missing or outdated `shard.yml` dependencies are reported with a one-click `shards install` (balloon, editor banner, and in-file markers); installed shards stay indexed for completion and navigation without inspection noise
+- Optional Ameba linting — enable under **Settings | Languages & Frameworks | Crystal | Ameba Linter**; diagnostics stream from the configured `ameba` binary (manual path, project `bin/ameba`, or `PATH`) with an explicit `ameba --fix` action, while overlapping built-ins step aside
 
 The plugin's type inference supports many common literals, collections, variables, assignments, control-flow expressions, constructors, and call chains. Simple indexed writes retain their RHS value, including conditional and rescued paths. It is intended to provide useful editor feedback, not to replace the Crystal compiler's complete type system.
 
