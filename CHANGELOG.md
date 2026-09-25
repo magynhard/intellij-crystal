@@ -44,6 +44,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   receiver stay silent instead of flagging the method name. Covered by
   `CrystalUnresolvedNameInspectionTest`; specified in
   docs/specs/unresolved-names.md.
+- **Type-alias resolution and completion** — a name resolving only to a type alias
+  (`alias Obstpresse = Apfel`, `Bytes` as an alias for `Slice(UInt8)`) no longer ends
+  in an empty popup or unresolved hover: the shared type resolution session unwraps a
+  single visible alias to its target's identity, so dot completion on the alias root
+  offers the target's static methods plus `new`, chains after `Alias.new` and
+  alias-annotated parameters infer the target's instance methods, and type-annotation
+  completion offers aliases as candidates (typed "alias", require-gated like classes).
+  Alias-to-alias chains recurse with a depth guard; ambiguous or unresolvable targets
+  stay unresolved with no fallback. Covered by `CrystalCompletionTest`; specified in
+  docs/specs/type-inference.md.
 - **Cross-file constant resolution through require closures** — top-level constants
   (`KODORRA = 123`), member constants (`class Foo; BAR = 1; end`), and lib constants
   (`lib LibC; F_GETFD = 1`) now resolve across files via two new stub indexes

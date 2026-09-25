@@ -228,6 +228,22 @@ unsuffixed numeric metadata so compatibility checks can apply Crystal's literal 
 An explicit integer suffix such as `_i64` or `_u16` clears that metadata and preserves the declared
 type.
 
+## Type Aliases
+
+Type aliases (`alias Name = Target`) are indexed declarations in the alias index. The shared
+type resolution session treats a name that resolves to no class as a possible alias: a single
+require-visible alias with this exact (possibly qualified) name unwraps to its target's identity
+(`Bytes` → `Slice`, project aliases alike), so DOT completion on the alias root offers the
+target's static methods plus `new`, and chains after `Alias.new` or alias-annotated parameters
+infer the target's instance methods. Generic arguments of the target drop, mirroring ordinary
+type-name normalization. Alias-to-alias chains recurse with a depth guard; ambiguous targets
+(multiple visible same-named aliases) and unresolvable targets stay unresolved with no
+fallback. Aliases are offered as type-annotation candidates through the alias index (typed
+"alias"), gated by the same require closure as classes; unnamed receivers still never fall
+back to name-only matches. Library type aliases (`lib` bodies) and alias-target *referencing*
+(such as `Bytes` element-type mapping of the unwrapped generic target) remain outside this
+mechanism.
+
 ## Conservative Limits
 
 - Completed-call overload selection is not argument-aware; multiple exact candidates are unknown.

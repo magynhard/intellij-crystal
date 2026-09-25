@@ -43,6 +43,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     companion object {
         private val CONSTRUCTION_COUNT = AtomicLong()
 
+        /** Guard against alias definition cycles (`alias A = B` both ways). */
+        private const val ALIAS_UNWRAP_LIMIT = 5
+
         internal fun constructionCount(): Long = CONSTRUCTION_COUNT.get()
 
         internal fun resetConstructionCount() = CONSTRUCTION_COUNT.set(0)
@@ -104,6 +107,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     fun resolveType(typeName: String, element: PsiElement): CrystalTypeIdentity? =
         resolveTypeIdentity(typeName, element)?.toShared()
+            ?: resolveAliasType(typeName, element)?.toShared()
 
     /**
      * Resolves the element type of an indexed read on an already-resolved
@@ -2097,6 +2101,30 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             identities.singleOrNull()?.let { return TypeIdentity(it.simpleName, it.qualifiedName) }
         }
         return null
+    }
+
+    /**
+     * Type aliases are declarations in the alias index whose target lives in
+     * the alias's `typeReference`. When the name itself resolves to no type,
+     * a single visible alias with this exact (possibly qualified) name
+     * unwraps to its target's identity — generic arguments drop, mirroring
+     * the ordinary type-name normalization. Alias-to-alias chains recurse
+     * with a depth guard; an ambiguous or unresolvable target stays null so
+     * no arbitrary match is ever used.
+     */
+    private fun resolveAliasType(typeName: String, element: PsiElement, depth: Int = 0): TypeIdentity? {
+        if (depth >= ALIAS_UNWRAP_LIMIT) return null
+        val normalized = typeName.substringBefore('(').removePrefix("::").trim()
+        val simpleName = normalized.substringAfterLast("::")
+        if (simpleName.isEmpty() || simpleName[0].isLowerCase()) return null
+        val alias = CrystalIndexService.findAliases(simpleName, context.project, GlobalSearchScope.allScope(context.project))
+            .asSequence()
+            .filter(effectiveSources::contains)
+            .filter { CrystalPsiUtils.buildQualifiedName(it) == normalized }
+            .toList()
+            .singleOrNull() ?: return null
+        val target = alias.typeReference?.text?.takeIf { it.isNotBlank() } ?: return null
+        return resolveTypeIdentity(target, element) ?: resolveAliasType(target, element, depth + 1)
     }
 
     private fun exactTypeIdentities(simpleName: String, qualifiedName: String): List<CrystalTypeIdentity> =

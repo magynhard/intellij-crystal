@@ -204,6 +204,21 @@ object CrystalTypeCompletionProvider {
             )
         }
 
+        // Type aliases are indexed declarations too (alias index).
+        val offered = result.mapTo(HashSet()) { it.lookupString }
+        for (aliasName in CrystalIndexService.getAllAliasNames(project)) {
+            if (aliasName in KNOWN_STDLIB_TYPES || !offered.add(aliasName)) continue
+            if (!prefixMatcher.prefixMatches(aliasName)) continue
+            if (gate != null &&
+                !CrystalRequireVisibility.isAliasNameVisible(aliasName, project, scope, gate.sources)
+            ) {
+                continue
+            }
+            result.add(
+                CrystalCompletionHelper.buildClassLookup(aliasName).withTypeText("alias", true)
+            )
+        }
+
         // `self` if inside a class or struct
         if (isInsideClassOrStruct(position)) {
             result.add(

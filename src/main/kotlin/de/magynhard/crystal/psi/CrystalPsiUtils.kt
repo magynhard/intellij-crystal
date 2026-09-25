@@ -326,6 +326,7 @@ object CrystalPsiUtils {
                 is CrystalModuleDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalStructDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalEnumDefinition -> extractQualifiedTypeName(current) ?: current.name
+                is CrystalAliasDefinition -> current.name
                 is CrystalMethodCallExpression -> recordDeclaredName(current)
                 else -> null
             }

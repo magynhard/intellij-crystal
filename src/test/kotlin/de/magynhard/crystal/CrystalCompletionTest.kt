@@ -870,6 +870,184 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertFalse("Should not offer require keyword", names.contains("require"))
     }
 
+    // ==================== Alias receivers and candidates ====================
+
+    fun testDotCompletionOnAliasOffersTargetStatics() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def self.bauen
+              end
+              def instanz_methode
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./apfel"
+
+            alias Obstpresse = Apfel
+
+            Obstpresse.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain static bauen from target", names.contains("bauen"))
+        assertTrue("Should contain new", names.contains("new"))
+        assertFalse("Should NOT contain instance methods on type object", names.contains("instanz_methode"))
+    }
+
+    fun testDotCompletionAfterAliasNewOffersInstanceMethods() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def self.bauen
+              end
+              def instanz_methode
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./apfel"
+
+            alias Obstpresse = Apfel
+
+            Obstpresse.new.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain instance_method from target", names.contains("instanz_methode"))
+        assertFalse("Should NOT contain static bauen on instance", names.contains("bauen"))
+    }
+
+    fun testDotCompletionOnAliasTypedVariableOffersInstanceMethods() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def instanz_methode
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./apfel"
+
+            alias Obstpresse = Apfel
+
+            def process(presse : Obstpresse)
+              presse.<caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain instance_method through alias annotation", names.contains("instanz_methode"))
+    }
+
+    fun testAliasChainedToAliasResolves() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def self.bauen
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./apfel"
+
+            alias Obstpresse = Apfel
+            alias Zweite_Presse = Obstpresse
+
+            Zweite_Presse.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain static bauen through alias chain", names.contains("bauen"))
+    }
+
+    fun testAmbiguousAliasRootOffersNothing() {
+        myFixture.addFileToProject("a_presse.cr", """
+            class Apfel
+              def self.bauen
+              end
+            end
+
+            class Sack
+              alias Obstpresse = Apfel
+            end
+        """.trimIndent())
+        myFixture.addFileToProject("b_presse.cr", """
+            class Traube
+              def self.reifen
+              end
+            end
+
+            class Kiste
+              alias Obstpresse = Traube
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./a_presse"
+            require "./b_presse"
+
+            Obstpresse.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Ambiguous alias must not fall back to an arbitrary target", names.contains("bauen"))
+        assertFalse("Ambiguous alias must not fall back to an arbitrary target", names.contains("reifen"))
+    }
+
+    fun testUnrequiredAliasOffersNothing() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+              def self.bauen
+              end
+            end
+
+            alias Obstpresse = Apfel
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            Obstpresse.<caret>
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Unrequired alias must not offer target methods", names.contains("bauen"))
+    }
+
+    fun testTypeAnnotationCompletionOffersAlias() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./apfel"
+
+            alias Obstpresse = Apfel
+
+            def process(presse : <caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain alias candidate Obstpresse", names.contains("Obstpresse"))
+        assertTrue("Should still contain core types", names.contains("String"))
+    }
+
+    fun testTypeAnnotationHidesUnrequiredAlias() {
+        myFixture.addFileToProject("apfel.cr", """
+            class Apfel
+            end
+
+            alias Obstpresse = Apfel
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            def process(presse : Obst<caret>)
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        val names = lookups?.map { it.lookupString } ?: emptyList()
+        assertFalse("Unrequired alias must not be offered", names.contains("Obstpresse"))
+    }
+
     // ==================== Dependency-aware completion ====================
 
     fun testFreeTextHidesUnrequiredShardType() {

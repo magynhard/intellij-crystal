@@ -233,6 +233,9 @@ object CrystalIndexService {
     fun getAllTypeNames(project: Project): Collection<String> =
         StubIndex.getInstance().getAllKeys(CrystalClassIndex.KEY, project)
 
+    fun getAllAliasNames(project: Project): Collection<String> =
+        StubIndex.getInstance().getAllKeys(CrystalAliasIndex.KEY, project)
+
     fun getAllTopLevelMethodNames(project: Project): Collection<String> =
         StubIndex.getInstance().getAllKeys(CrystalTopLevelMethodIndex.KEY, project)
 

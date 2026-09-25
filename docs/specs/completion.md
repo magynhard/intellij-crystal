@@ -110,6 +110,8 @@ candidates by exact file membership before emitting lookup elements:
   declaration is visible; a known-but-unrequired declaration hides the name.
 - **Type annotations** (`CrystalTypeCompletionProvider.getTypeLookups`): same rule as
   free-text types — prelude baseline plus visible indexed and require-gated names.
+  Type aliases from the alias index are candidates too, typed "alias" and gated by
+  the same require closure as classes.
 - **After `of` / after hash `=>`** (collection type chains, e.g. `[] of <caret>`,
   `{} of String => <caret>`): classes only — the same candidate set as type
   annotations, with no local variables, no `require` keyword, and no constant
