@@ -126,3 +126,11 @@ balloon offer the explicit opt-in build — never silently. `shards build
 ameba` with a declared `ameba` target, otherwise
 `crystal build -o bin/ameba lib/ameba/bin/ameba.cr`; once per project,
 cancellable, tree refresh on success.
+
+## Deliberately Deferred
+
+- `ameba-ls` language server instead of direct CLI: revisit only if the
+  debounce/push behavior of the CLI pipeline proves inadequate in real use.
+- One-shot manual action ("Run Ameba, Lint only, on file") without
+  persistent divergent state, if focused runs are ever requested.
+- File size as an extra binary-cache signal, if same-mtime swaps ever bite.
