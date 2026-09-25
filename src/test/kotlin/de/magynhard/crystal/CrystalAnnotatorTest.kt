@@ -348,13 +348,24 @@ class CrystalAnnotatorTest : BasePlatformTestCase() {
     // ==================== Single-quote string validation ====================
 
     fun testInvalidSingleQuoteString() {
-        myFixture.enableInspections(de.magynhard.crystal.highlighting.CrystalSingleQuoteStringInspection())
-        myFixture.configureByText("test.cr", "e = 'hello world'")
-        val highlights = myFixture.doHighlighting()
-        
-        val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
-        val singleQuoteError = errors.find { it.description?.contains("single quotes can only contain one character") == true }
-        assertNotNull("Should report invalid single-quote string. Got: ${errors.map { it.description }}", singleQuoteError)
+        // Pins the built-in diagnostic regardless of any ameba binary on the
+        // test machine (the overlap gate would otherwise silence it).
+        val state = de.magynhard.crystal.sdk.CrystalSettings.getInstance(project).state
+        val savedAmebaEnabled = state.amebaEnabled
+        state.amebaEnabled = false
+        de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+        try {
+            myFixture.enableInspections(de.magynhard.crystal.highlighting.CrystalSingleQuoteStringInspection())
+            myFixture.configureByText("test.cr", "e = 'hello world'")
+            val highlights = myFixture.doHighlighting()
+
+            val errors = highlights.filter { it.severity == com.intellij.lang.annotation.HighlightSeverity.ERROR }
+            val singleQuoteError = errors.find { it.description?.contains("single quotes can only contain one character") == true }
+            assertNotNull("Should report invalid single-quote string. Got: ${errors.map { it.description }}", singleQuoteError)
+        } finally {
+            state.amebaEnabled = savedAmebaEnabled
+            de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+        }
     }
 
     fun testValidSingleQuoteChar() {

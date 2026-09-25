@@ -12,18 +12,29 @@ class CrystalHighlightErrorFilterTest : BasePlatformTestCase() {
      * single-quote message remains.
      */
     fun testSingleQuoteStringParserErrorIsSuppressed() {
-        myFixture.enableInspections(CrystalSingleQuoteStringInspection())
-        myFixture.configureByText("test.cr", "e = 'hello world'")
-        val highlights = myFixture.doHighlighting()
+        // Pins the built-in diagnostic regardless of any ameba binary on the
+        // test machine (the overlap gate would otherwise silence it).
+        val state = de.magynhard.crystal.sdk.CrystalSettings.getInstance(project).state
+        val savedAmebaEnabled = state.amebaEnabled
+        state.amebaEnabled = false
+        de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+        try {
+            myFixture.enableInspections(CrystalSingleQuoteStringInspection())
+            myFixture.configureByText("test.cr", "e = 'hello world'")
+            val highlights = myFixture.doHighlighting()
 
-        val errors = highlights.filter { it.severity == HighlightSeverity.ERROR }
+            val errors = highlights.filter { it.severity == HighlightSeverity.ERROR }
 
-        // Should have exactly one error: our friendly single-quote message
-        assertEquals("Should show exactly one error, not duplicate parser + inspection", 1, errors.size)
-        assertTrue(
-            "Should show friendly message, not parser error. Got: ${errors.firstOrNull()?.description}",
-            errors.firstOrNull()?.description?.contains("single quotes can only contain one character") == true
-        )
+            // Should have exactly one error: our friendly single-quote message
+            assertEquals("Should show exactly one error, not duplicate parser + inspection", 1, errors.size)
+            assertTrue(
+                "Should show friendly message, not parser error. Got: ${errors.firstOrNull()?.description}",
+                errors.firstOrNull()?.description?.contains("single quotes can only contain one character") == true
+            )
+        } finally {
+            state.amebaEnabled = savedAmebaEnabled
+            de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+        }
     }
 
     /**

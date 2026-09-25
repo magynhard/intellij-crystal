@@ -26,6 +26,9 @@ class CrystalEmptyCollectionInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         if (!CrystalInspectionScope.isProjectSource(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
+        // Ameba's Lint/Syntax reports the same compiler errors ("for empty
+        // arrays/hashes use ...") when the linter is active.
+        if (AmebaSuppression.isActiveFor(holder.file)) return PsiElementVisitor.EMPTY_VISITOR
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 when (element) {

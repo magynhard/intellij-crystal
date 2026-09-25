@@ -2,12 +2,31 @@ package de.magynhard.crystal
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.inspections.CrystalEmptyCollectionInspection
+import de.magynhard.crystal.sdk.AmebaBinary
+import de.magynhard.crystal.sdk.CrystalSettings
 
 class CrystalEmptyCollectionInspectionTest : BasePlatformTestCase() {
 
+    private var savedAmebaEnabled = false
+
     override fun setUp() {
         super.setUp()
+        // This class pins the built-in behavior: the Ameba overlap gate must
+        // not silence it, regardless of any ameba binary on the test machine.
+        val state = CrystalSettings.getInstance(project).state
+        savedAmebaEnabled = state.amebaEnabled
+        state.amebaEnabled = false
+        AmebaBinary.clearCache(project)
         myFixture.enableInspections(CrystalEmptyCollectionInspection())
+    }
+
+    override fun tearDown() {
+        try {
+            CrystalSettings.getInstance(project).state.amebaEnabled = savedAmebaEnabled
+            AmebaBinary.clearCache(project)
+        } finally {
+            super.tearDown()
+        }
     }
 
     fun testEmptyArrayLiteralReported() {

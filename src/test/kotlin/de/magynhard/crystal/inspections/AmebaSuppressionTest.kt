@@ -124,6 +124,56 @@ class AmebaSuppressionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testSingleQuoteSuppressedWhenAmebaActive() {
+        if (SystemInfo.isWindows) return
+        enableAmeba()
+        myFixture.configureByText("test.cr", "e = 'hello world'")
+        myFixture.enableInspections(de.magynhard.crystal.highlighting.CrystalSingleQuoteStringInspection::class.java)
+        val highlights = myFixture.doHighlighting()
+        // Ameba's Lint/Syntax owns the compiler error; no double report.
+        assertTrue(
+            "Suppressed inspection must stay silent, got: ${highlights.map { it.description }}",
+            highlights.none { it.description?.contains("single quotes can only contain one character") == true }
+        )
+    }
+
+    fun testSingleQuoteReportedWhenAmebaDisabled() {
+        CrystalSettings.getInstance(project).state.amebaEnabled = false
+        AmebaBinary.clearCache(project)
+        myFixture.configureByText("test.cr", "e = 'hello world'")
+        myFixture.enableInspections(de.magynhard.crystal.highlighting.CrystalSingleQuoteStringInspection::class.java)
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "Fallback must report, got: ${highlights.map { it.description }}",
+            highlights.any { it.description?.contains("single quotes can only contain one character") == true }
+        )
+    }
+
+    fun testEmptyCollectionSuppressedWhenAmebaActive() {
+        if (SystemInfo.isWindows) return
+        enableAmeba()
+        myFixture.configureByText("test.cr", "a = []")
+        myFixture.enableInspections(CrystalEmptyCollectionInspection::class.java)
+        val highlights = myFixture.doHighlighting()
+        // Ameba's Lint/Syntax owns the compiler error; no double report.
+        assertTrue(
+            "Suppressed inspection must stay silent, got: ${highlights.map { it.description }}",
+            highlights.none { it.description?.contains("Empty array literal") == true }
+        )
+    }
+
+    fun testEmptyCollectionReportedWhenAmebaDisabled() {
+        CrystalSettings.getInstance(project).state.amebaEnabled = false
+        AmebaBinary.clearCache(project)
+        myFixture.configureByText("test.cr", "a = []")
+        myFixture.enableInspections(CrystalEmptyCollectionInspection::class.java)
+        val highlights = myFixture.doHighlighting()
+        assertTrue(
+            "Fallback must report, got: ${highlights.map { it.description }}",
+            highlights.any { it.description?.contains("Empty array literal") == true }
+        )
+    }
+
     private fun enableAmeba() {
         val fake = File(createTempDir(), "fake-ameba").apply {
             writeText("#!/bin/sh\necho \"ameba 1.7.0\"\nexit 0\n")

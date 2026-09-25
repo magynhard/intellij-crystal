@@ -108,10 +108,15 @@ run finds nothing to correct.
 ## Overlap Suppression
 
 `AmebaSuppression.isActiveFor(file)` (enabled + resolvable binary + Crystal
-project source) gates `CrystalUnusedVariableInspection` (owned by
-`Lint/UselessAssign`) and `CrystalColonSpacingInspection` (owned by
-`Lint/Formatting`) to empty visitors. `CrystalSingleQuoteString` and
-`CrystalEmptyCollection` keep running (no certain Ameba counterpart).
+project source, ECR judged by host) gates four inspections to empty
+visitors: `CrystalUnusedVariableInspection` (owned by `Lint/UselessAssign`
+et al.), `CrystalColonSpacingInspection` (owned by `Lint/Formatting`),
+`CrystalSingleQuoteStringInspection` and `CrystalEmptyCollectionInspection`
+(both owned by `Lint/Syntax`, verified against compiler 1.21 and Ameba
+1.7.0: same rule, message, and position). Suppressed diagnostics lose
+their ranges (Ameba reports points) and the "Add type annotation"
+quickfixes while Ameba is active. Everything else (types, arity, resolution,
+requires, shards) has no Ameba counterpart and always runs.
 
 ## Build Offer
 
