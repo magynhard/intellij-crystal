@@ -141,6 +141,38 @@ internal object CrystalRequireVisibility {
     }
 
     /**
+     * True when the alias index holds a declaration [name] whose defining
+     * file is part of [sources]: aliases are indexed type declarations, only
+     * they live in the alias index. False for an empty snapshot.
+     */
+    fun isAliasNameVisible(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope,
+        sources: CrystalEffectiveSourceSet,
+    ): Boolean {
+        if (sources.files.isEmpty()) return false
+        return try {
+            CrystalIndexService.findAliases(name, project, scope).any(sources::contains)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * True when the alias index holds any declaration [name], visible or
+     * not — the alias counterpart of [hasIndexedType] for known-vs-unrequired
+     * distinctions.
+     */
+    fun hasIndexedAlias(name: String, project: Project, scope: GlobalSearchScope): Boolean {
+        return try {
+            CrystalIndexService.findAliases(name, project, scope).isNotEmpty()
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
      * True when the stub index holds at least one constant declaration [name]
      * visible from [context]: the defining file is part of the effective
      * source set, and private constants additionally require the same file.

@@ -29,7 +29,13 @@ the constant rule per segment, with the root rule for qualified paths.
 3. An indexed declaration is visible through the current file's require
    closure: types via exact file membership, unqualified calls via
    `visibleMethods` + `callableUnqualified` (top-level methods and the
-   implicit-self scope of the enclosing type), macros by existence.
+   implicit-self scope of the enclosing type), macros by existence. Type
+   **aliases** are indexed declarations too (alias index): a require-visible
+   or same-file alias counts as known wherever its name appears — as DOT
+   receiver root, namespace root, or type-path segment. Member resolution
+   through an alias is unjudgeable until the type session unwraps aliases,
+   so calls on an alias receiver stay silent instead of flagging the method
+   name.
 4. The compiler-builtin or magic-name baseline: `sizeof`, `typeof`,
    `pointerof`, `instance_sizeof`, `offsetof`, `alignof`, `uninitialized`,
    `__DIR__`, `__FILE__`, `__LINE__`, `__END_LINE__`, `__METHOD__`, and the
@@ -70,7 +76,10 @@ call-argument inspections:
   fragments.
 - DOT receivers are never flagged, only DOT method names with exact
   receivers. Receiver-aware resolution stays exact: unknown receivers never
-  fall back to name-only matches.
+  fall back to name-only matches. The receiver root itself is judged with
+  the same rules as constants: the prelude baseline applies (`Bytes.new`
+  with no SDK is silent), and an alias receiver silences the whole call
+  (unjudgeable members) instead of flagging the root or the method name.
 
 ## Hover
 

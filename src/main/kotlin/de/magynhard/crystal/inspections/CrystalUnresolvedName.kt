@@ -139,14 +139,16 @@ object CrystalUnresolvedName {
     private fun declaredConstantKind(name: String, context: PsiElement): UnresolvedKind? {
         if (hasSameFileConstantAssignment(context, name)) return null
         if (hasSameFileRecord(name, context)) return null
+        if (hasSameFileAlias(name, context)) return null
         if (name in PRELUDE_MACROS || hasMacro(name, context)) return null
         val sources = requireSources(context) ?: return null
         if (isRequireVisibleConstant(name, context, sources) ||
-            isVisibleTypeName(name, context, sources)
+            isVisibleTypeName(name, context, sources) ||
+            isAliasVisibleInSources(name, context, sources)
         ) {
             return null
         }
-        if (hasIndexedType(name, context) || hasIndexedConstant(name, context)) {
+        if (hasIndexedType(name, context) || hasIndexedAlias(name, context) || hasIndexedConstant(name, context)) {
             return UnresolvedKind.UNREQUIRED
         }
         return UnresolvedKind.UNKNOWN
@@ -223,19 +225,33 @@ object CrystalUnresolvedName {
             // Generic arguments are not part of declaration identities.
             val cleanRoot = root.substringBefore("(")
             val simpleName = cleanRoot.substringAfterLast("::")
+            // Prelude baseline (rule 2): prelude types are always known,
+            // also as DOT receivers and without a configured SDK — same
+            // lens as rootFlagElement.
+            if (isBaselineConstant(simpleName, access)) return null
+            // Aliases are indexed type declarations (alias index): a visible
+            // alias receiver is known, and member resolution through it is
+            // unjudgeable until the type session unwraps aliases — silence.
+            val aliasReceiver = isAliasTypeVisible(simpleName, access)
             if (!isReceiverTypeVisible(cleanRoot, simpleName, access) &&
+                !aliasReceiver &&
                 !isVisibleConstantRoot(access, simpleName)
             ) {
                 if (hasSameFileConstantAssignment(access, simpleName)) return null
+                if (hasSameFileAlias(simpleName, access)) return null
                 if (hasSameFileRecord(simpleName, access)) return null
                 if (!visibilityKnown(access)) return null
-                val kind = if (hasIndexedType(simpleName, access) || hasIndexedConstant(simpleName, access)) {
+                val kind = if (hasIndexedType(simpleName, access) ||
+                    hasIndexedAlias(simpleName, access) ||
+                    hasIndexedConstant(simpleName, access)
+                ) {
                     UnresolvedKind.UNREQUIRED
                 } else {
                     UnresolvedKind.UNKNOWN
                 }
                 return (firstConstantLeaf(call.receiver) ?: nameElement) to kind
             }
+            if (aliasReceiver) return null
         }
         return if (CrystalDotCallTargetResolver.resolve(access) is DotCallResolution.Unresolved) {
             nameElement to UnresolvedKind.UNKNOWN
@@ -306,6 +322,56 @@ object CrystalUnresolvedName {
     private fun hasIndexedType(name: String, context: PsiElement): Boolean {
         return try {
             CrystalRequireVisibility.hasIndexedType(name, context.project, allScope(context))
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun hasIndexedAlias(name: String, context: PsiElement): Boolean {
+        return try {
+            CrystalRequireVisibility.hasIndexedAlias(name, context.project, allScope(context))
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * True when [name] names an alias declaration whose defining file belongs
+     * to [context]'s require closure (the file itself counts): aliases are
+     * indexed type declarations, only they live in the alias index.
+     */
+    private fun isAliasVisibleInSources(
+        name: String,
+        context: PsiElement,
+        sources: CrystalEffectiveSourceSet,
+    ): Boolean {
+        return try {
+            CrystalRequireVisibility.isAliasNameVisible(name, context.project, allScope(context), sources)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /** Same-file alias fallback for unindexed or unjudgeable contexts. */
+    private fun hasSameFileAlias(name: String, context: PsiElement): Boolean {
+        val file = context.containingFile ?: return false
+        return try {
+            PsiTreeUtil.findChildrenOfType(file, CrystalAliasDefinition::class.java).any { it.name == name }
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * True when [name] names an alias declaration visible from [context]:
+     * an alias used as a DOT receiver root (e.g. `Bytes.new`) is a type
+     * declaration, judged through the same require closure as classes.
+     */
+    private fun isAliasTypeVisible(name: String, context: PsiElement): Boolean {
+        return try {
+            CrystalIndexService.findAliases(name, context.project, allScope(context)).any { candidate ->
+                CrystalRequireVisibility.isVisible(candidate, context)
+            }
         } catch (_: Throwable) {
             false
         }

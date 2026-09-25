@@ -301,6 +301,57 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    // ==================== Aliases ====================
+
+    fun testPreludeAliasReceiverBytesStaysClean() {
+        myFixture.configureByText("test.cr", """
+            bytes = Bytes.new(4)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSameFileAliasReceiverStaysClean() {
+        myFixture.configureByText("test.cr", """
+            alias Foo = String
+
+            foo = Foo.new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRequiredAliasReceiverStaysClean() {
+        myFixture.addFileToProject("aliases.cr", """
+            alias Foo = String
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./aliases"
+
+            foo = Foo.new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredAliasReceiverIsWeakWarning() {
+        myFixture.addFileToProject("aliases.cr", """
+            alias Foo = String
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            foo = <weak_warning descr="Cannot find 'Foo'">Foo</weak_warning>.new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSameFileAliasTypeAnnotationStaysClean() {
+        myFixture.configureByText("test.cr", """
+            alias Foo = String
+
+            def render(value : Foo) : Foo
+              value
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Namespaces ====================
 
     fun testUnknownNamespaceRootIsWarning() {

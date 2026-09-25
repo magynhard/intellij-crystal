@@ -38,7 +38,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   silently falling back to `Any (Variable)`. Truly unknown names warn; names visible
   only outside the current require closure warn weakly, matching dependency-aware
   completion. Macro-uncertain types, incomplete hierarchies, and macro contexts stay
-  silent. Covered by `CrystalUnresolvedNameInspectionTest`; specified in
+  silent. Prelude types are always known, also as DOT receivers (`Bytes.new` with no
+  SDK), and type aliases are indexed declarations: a require-visible or same-file
+  alias is known as receiver/namespace/type-path root, and calls on an alias
+  receiver stay silent instead of flagging the method name. Covered by
+  `CrystalUnresolvedNameInspectionTest`; specified in
   docs/specs/unresolved-names.md.
 - **Cross-file constant resolution through require closures** — top-level constants
   (`KODORRA = 123`), member constants (`class Foo; BAR = 1; end`), and lib constants
