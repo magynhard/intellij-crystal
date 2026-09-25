@@ -9,12 +9,6 @@
   deduplicate collisions deterministically, invalidate root changes without compiler processes on completion paths,
   and retain the existing project-`lib/` and stdlib-traversal shadowing guarantees.
 
-## Implement Members (Issue #5)
-
-- [ ] **Discover abstract methods** from parent classes/modules
-- [ ] **Generate implementing stubs** with correct method signatures
-- [ ] **Register OverrideImplement action** in plugin.xml
-
 ## Indexed Declaration Follow-up
 
 - [ ] **Design instance/class-variable declaration indexing** only if a valid stubbed declaration model can represent declarations without indexing arbitrary usages or assignments.
