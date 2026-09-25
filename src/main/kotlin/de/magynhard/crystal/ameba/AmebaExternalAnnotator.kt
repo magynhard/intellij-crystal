@@ -95,17 +95,29 @@ class AmebaExternalAnnotator : ExternalAnnotator<AmebaExternalAnnotator.Info, Am
     override fun apply(file: PsiFile, annotationResult: Result, holder: AnnotationHolder) {
         ProgressManager.checkCanceled()
         val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return
-        if (document.modificationStamp != annotationResult.modificationStamp) return
+        if (document.modificationStamp != annotationResult.modificationStamp) {
+            return
+        }
         if (annotationResult.error != null) {
             notifyErrorOnce(file, annotationResult.error)
         }
         for (issue in annotationResult.issues) {
             ProgressManager.checkCanceled()
             val range = AmebaRanges.toRange(document, issue) ?: continue
-            holder.newAnnotation(mapSeverity(issue.severity), annotationText(issue))
+            val builder = holder.newAnnotation(mapSeverity(issue.severity), annotationText(issue))
                 .range(range)
                 .withFix(AmebaFileFix())
-                .create()
+            // Ameba offers no correction for char-literal syntax errors, so
+            // the IDE converts single to double quotes itself — same popup.
+            if (shouldOfferQuoteFix(issue, document.charsSequence.getOrNull(range.startOffset))) {
+                builder.withFix(SingleQuoteToDoubleQuoteFix())
+            }
+            // Empty collections likewise carry no correction: offer the type
+            // annotation with completion, verified against the literal shape.
+            if (shouldOfferCollectionFix(issue, file, range.startOffset)) {
+                builder.withFix(EmptyCollectionTypeFix())
+            }
+            builder.create()
         }
     }
 

@@ -130,6 +130,12 @@ internal fun isInAnnotationContext(position: PsiElement): Boolean {
     return beforeBracket.node.elementType == CrystalTypes.AT
 }
 
+internal fun isAfterOfKeyword(position: PsiElement): Boolean =
+    getPreviousNonWhitespaceLeaf(position)?.node?.elementType == CrystalTypes.OF
+
+internal fun isAfterHashArrow(position: PsiElement): Boolean =
+    getPreviousNonWhitespaceLeaf(position)?.node?.elementType == CrystalTypes.DOUBLE_ARROW
+
 internal fun isDotCompletion(position: PsiElement): Boolean =
     getPreviousNonWhitespaceLeaf(position)?.node?.elementType == CrystalTypes.DOT
 

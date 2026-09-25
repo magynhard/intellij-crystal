@@ -1,13 +1,17 @@
 package de.magynhard.crystal.completion
 
+import com.intellij.codeInsight.AutoPopupController
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.codeInsight.completion.CompletionContributor
 import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionProvider
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.CompletionType
+import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeIdentity
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
@@ -85,6 +89,19 @@ class CrystalCompletionContributor : CompletionContributor() {
             }
 
             if (isAfterNumericLiteral(position)) return
+
+            if (isAfterOfKeyword(position) || isAfterHashArrow(position)) {
+                // After `of` (and in the hash `=>` chain) only class names
+                // make sense — skip require/locals/constant scans entirely.
+                val beforeOf = getPreviousNonWhitespaceLeaf(position)
+                    ?.let(::getPreviousNonWhitespaceLeaf)
+                val hashChain = isAfterOfKeyword(position) &&
+                    beforeOf?.node?.elementType == CrystalTypes.RBRACE
+                for (lookup in CrystalTypeCompletionProvider.getTypeLookups(position, project, result.prefixMatcher)) {
+                    result.addElement(if (hashChain) lookup.chainHashArrow() else lookup)
+                }
+                return
+            }
 
             val requirePrefix = result.prefixMatcher.prefix
             val lowercaseRPrefix = requirePrefix.isEmpty() || requirePrefix[0].isLowerCase()
@@ -214,3 +231,24 @@ internal object CrystalTypeObjectCompletionProvider {
         }
     }
 }
+
+/**
+ * After `{} of `, confirming a class in the popup inserts the ` => `
+ * separator behind it and immediately reopens completion for the value type.
+ * The reopening is posted past the current dispatch so the selecting
+ * lookup's own disposal can never tear the new popup down again.
+ */
+private fun LookupElementBuilder.chainHashArrow(): LookupElementBuilder =
+    withInsertHandler { context, _ ->
+        val tail = " => "
+        context.document.insertString(context.tailOffset, tail)
+        context.editor.caretModel.moveToOffset(context.tailOffset + tail.length)
+        context.commitDocument()
+        val editor = context.editor
+        val project = context.project
+        ApplicationManager.getApplication().invokeLater {
+            if (!editor.isDisposed) {
+                AutoPopupController.getInstance(project).scheduleAutoPopup(editor)
+            }
+        }
+    }

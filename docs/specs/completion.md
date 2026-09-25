@@ -110,6 +110,13 @@ candidates by exact file membership before emitting lookup elements:
   declaration is visible; a known-but-unrequired declaration hides the name.
 - **Type annotations** (`CrystalTypeCompletionProvider.getTypeLookups`): same rule as
   free-text types — prelude baseline plus visible indexed and require-gated names.
+- **After `of` / after hash `=>`** (collection type chains, e.g. `[] of <caret>`,
+  `{} of String => <caret>`): classes only — the same candidate set as type
+  annotations, with no local variables, no `require` keyword, and no constant
+  scan. In the hash chain directly after `of`, confirming a class in the popup
+  inserts ` => ` behind it and immediately reopens completion for the value
+  type (posted past the selecting lookup's disposal, so the reopened popup
+  cannot be torn down by the same dispatch).
 
 Injected fragments without their own require closure (ECR) keep the legacy unfiltered
 behavior, because the host template is not part of the require graph. Require-path

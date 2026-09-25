@@ -816,6 +816,60 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Should contain project type Birne", names.contains("Birne"))
     }
 
+    // ==================== After `of` (collection type chains) ====================
+
+    fun testAfterOfKeywordOffersClassesOnly() {
+        myFixture.configureByText("main.cr", """
+            def foo
+              a = [] of <caret>
+            end
+        """.trimIndent())
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertTrue("Should contain Int32", names.contains("Int32"))
+        assertFalse("Should not offer local variable a", names.contains("a"))
+        assertFalse("Should not offer require keyword", names.contains("require"))
+    }
+
+    fun testAfterOfKeywordInsideHashOffersClassesOnly() {
+        myFixture.configureByText("main.cr", "a = {} of <caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertFalse("Should not offer local variable a", names.contains("a"))
+        assertFalse("Should not offer require keyword", names.contains("require"))
+    }
+
+    fun testHashOfChainSelectionInsertsArrowAndMovesCaret() {
+        myFixture.configureByText("main.cr", "a = {} of <caret>")
+        myFixture.completeBasic()
+        myFixture.type("Str")
+        myFixture.finishLookup('\n')
+        assertEquals("a = {} of String => ", myFixture.editor.document.text)
+        assertEquals("a = {} of String => ".length, myFixture.editor.caretModel.offset)
+    }
+
+    fun testArrayDoesNotInsertHashArrowOnSelection() {
+        myFixture.configureByText("main.cr", "a = [] of <caret>")
+        myFixture.completeBasic()
+        myFixture.type("Str")
+        myFixture.finishLookup('\n')
+        assertEquals("a = [] of String", myFixture.editor.document.text)
+    }
+
+    fun testAfterHashArrowOffersClassesOnly() {
+        myFixture.configureByText("main.cr", "a = {} of String => <caret>")
+        val lookups = myFixture.complete(CompletionType.BASIC)
+        assertNotNull("Should return completions", lookups)
+        val names = lookups.map { it.lookupString }
+        assertTrue("Should contain String", names.contains("String"))
+        assertFalse("Should not offer local variable a", names.contains("a"))
+        assertFalse("Should not offer require keyword", names.contains("require"))
+    }
+
     // ==================== Dependency-aware completion ====================
 
     fun testFreeTextHidesUnrequiredShardType() {

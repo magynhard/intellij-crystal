@@ -117,6 +117,28 @@ correctable (e.g. syntax errors) and surfaces a general info instead of a
 progress dump. Balloon output is stripped of ANSI
 color escapes (Ameba colorizes even piped output).
 
+## Single-Quote Quickfix
+
+Ameba offers no correction for char-literal syntax errors, so annotations
+with a syntax rule (`Lint/Syntax`, any prefix) anchored on a `'`
+additionally carry "Convert single quotes to double quotes" (same popup,
+Alt+Enter, plus batch quickfix). Only *invalid* literals convert — a valid
+single char (`'a'`, `'\n'`) is left alone (type change, not a fix).
+Escapes pass through, `"` becomes `\"`, `#{` becomes `\#`, a trailing lone
+backslash is dropped; unterminated literals close at end of line only when
+nothing but whitespace follows (code is never swallowed into a string).
+
+## Empty-Collection Quickfix
+
+Empty `[]`/`{}` findings likewise carry no correction, so syntax-rule
+annotations on an empty, untyped literal additionally offer "Add collection
+type annotation": inserts ` of `, places the caret, and opens completion
+restricted to classes (same candidate set as type annotations — no locals,
+no `require`, no constant scan). In the hash chain, confirming a class
+inserts ` => ` and immediately reopens completion for the value type.
+Verified against the literal PSI shape (blocks never qualify); `.ecr`
+excluded like `--fix`.
+
 ## Overlap Suppression
 
 `AmebaSuppression.isActiveFor(file)` (enabled + resolvable binary + Crystal

@@ -23,6 +23,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   a dev-dependency (editable manifest additions, install, build).
   `ameba --fix` success is judged by file change (corrected issues still
   exit non-zero upstream); failure output is stripped of color escapes.
+  Syntax findings on single quotes additionally offer "Convert single quotes
+  to double quotes" (Ameba itself offers no correction there); empty `[]`
+  and `{}` findings offer "Add collection type annotation" with class-only
+  completion — selecting a class in a hash chain inserts ` => ` and reopens
+  completion for the value type.
   ECR templates lint through the same pipeline (raw text in, template
   coordinates out); `--fix` stays limited to plain Crystal files.
   Optional fix-on-save runs `ameba --fix` after saving (opt-in checkbox,
