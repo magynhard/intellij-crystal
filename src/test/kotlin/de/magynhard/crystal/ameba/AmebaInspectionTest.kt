@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.psi.PsiManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.magynhard.crystal.sdk.AmebaBinary
 import de.magynhard.crystal.sdk.CrystalSettings
 import java.io.File
 
@@ -56,6 +57,8 @@ class AmebaInspectionTest : BasePlatformTestCase() {
     }
 
     fun testBatchCheckSilentWhenDisabled() {
+        CrystalSettings.getInstance(project).state.amebaEnabled = false
+        AmebaBinary.clearCache(project)
         if (SystemInfo.isWindows) return
         writeFakeAmeba()
         // amebaEnabled stays false: no diagnostics, no binary required.

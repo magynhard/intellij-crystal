@@ -42,6 +42,8 @@ class AmebaSuppressionTest : BasePlatformTestCase() {
     }
 
     fun testUnusedVariableReportedWhenAmebaDisabled() {
+        CrystalSettings.getInstance(project).state.amebaEnabled = false
+        AmebaBinary.clearCache(project)
         myFixture.configureByText(
             "test.cr",
             "def f\n  <weak_warning descr=\"Variable 'unused_var' is never used\">unused_var</weak_warning> = 1\nend\n"
@@ -91,6 +93,8 @@ class AmebaSuppressionTest : BasePlatformTestCase() {
     }
 
     fun testColonSpacingReportedWhenAmebaDisabled() {
+        CrystalSettings.getInstance(project).state.amebaEnabled = false
+        AmebaBinary.clearCache(project)
         myFixture.configureByText(
             "test.cr",
             "def foo()<error descr=\"Space required around colon in type annotation (before colon)\">:</error> String\nend\n"
@@ -110,6 +114,8 @@ class AmebaSuppressionTest : BasePlatformTestCase() {
     }
 
     fun testEcrFragmentReportedWhenAmebaDisabled() {
+        CrystalSettings.getInstance(project).state.amebaEnabled = false
+        AmebaBinary.clearCache(project)
         myFixture.configureByText(
             "test.ecr",
             "<% <weak_warning descr=\"Variable 'unused_var' is never used\">unused_var</weak_warning> = 1 %>"

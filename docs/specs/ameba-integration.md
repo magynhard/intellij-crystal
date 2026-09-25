@@ -43,7 +43,9 @@ cache.
 
 ## Settings
 
-`CrystalSettings.State` carries `amebaEnabled` (default off),
+`CrystalSettings.State` carries `amebaEnabled` (default on with
+auto-detect: whoever has a usable ≥1.7.0 binary gets diagnostics, everyone
+else silently keeps the built-in fallback),
 `amebaPath` (empty = auto-resolve), and `amebaConfigPath` (empty = nearest
 `.ameba.yml` walking up from the linted file to the project root).
 The "Ameba Linter" group in Settings | Languages & Frameworks | Crystal
@@ -83,7 +85,10 @@ together with their host file (`AmebaSuppression` judges the top-level
   Error → Error (mirroring RuboCop defaults; deliberately no IDE mapping
   table). Per-finding strength is controlled via `.ameba.yml` per-rule
   `Severity`, which flows through the JSON output into this mapping and
-  stays consistent across IDE, terminal, and CI. Annotations read
+  stays consistent across IDE, terminal, and CI. Rule selection as well is
+  `.ameba.yml`-only (deliberately no per-group or per-rule IDE toggles:
+  single source of truth; muting via inline `ameba:disable` or `Excluded`).
+  Annotations read
   `<message> [Ameba: <rule>]` and carry the
   explicit `ameba --fix` file action (saves the buffer, background task,
   refresh; never on typing).

@@ -10,7 +10,7 @@ class CrystalSettings : PersistentStateComponent<CrystalSettings.State> {
     data class State(
         var crystalPath: String = "",
         var amebaPath: String = "",
-        var amebaEnabled: Boolean = false,
+        var amebaEnabled: Boolean = true,
         var amebaConfigPath: String = "",
         var amebaFixOnSave: Boolean = false
     )
