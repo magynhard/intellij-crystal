@@ -127,6 +127,19 @@ ameba` with a declared `ameba` target, otherwise
 `crystal build -o bin/ameba lib/ameba/bin/ameba.cr`; once per project,
 cancellable, tree refresh on success.
 
+## Install Offer
+
+When linting is enabled but no usable binary resolves anywhere and no
+version problem owns the case, a project-open balloon and a shard.yml
+banner (`NotDeclared` state) offer one-click installation as a dev
+dependency: minimal textual manifest additions (`development_dependencies`
+entry pinned `~> 1.7.0` plus `ameba` build target, undoable, never a
+re-dump), then `shards install`, then the build above — per step reported,
+cancellable, tree refresh. Without any `shard.yml` only the global-install
+docs link is offered (no `shards init` automation). Both surfaces respect a
+per-project dismissal flag and require a Crystal project; the banner path
+uses settings, file stats, and dismissal only (no processes on the EDT).
+
 ## Deliberately Deferred
 
 - `ameba-ls` language server instead of direct CLI: revisit only if the

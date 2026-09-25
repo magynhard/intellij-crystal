@@ -48,6 +48,12 @@ class AmebaBuildBannerProvider : EditorNotificationProvider, DumbAware {
                     )
                 }
             }
+            BannerState.NotDeclared -> Function {
+                EditorNotificationPanel().apply {
+                    text("Ameba linting is enabled but not installed for this project.")
+                    createActionLabel("Install as dev-dependency") { AmebaInstall.installAsDevDependency(project) }
+                }
+            }
         }
     }
 
@@ -55,6 +61,7 @@ class AmebaBuildBannerProvider : EditorNotificationProvider, DumbAware {
         data object None : BannerState
         data object BinaryMissing : BannerState
         data class PinnedOld(val requirement: String) : BannerState
+        data object NotDeclared : BannerState
     }
 
     internal fun bannerState(project: Project, file: VirtualFile): BannerState {
@@ -66,7 +73,18 @@ class AmebaBuildBannerProvider : EditorNotificationProvider, DumbAware {
         // A missing binary is actionable (build it); an old pin is reported
         // only when the binary question is settled. Only evaluable `version:`
         // requirements warn — branch/commit/tag pins cannot be judged.
-        val requirement = AmebaBinary.amebaRequirement(project) ?: return BannerState.None
+        // Without any declaration the install offer applies when linting is
+        // enabled but nothing obvious resolves (and the offer was not
+        // dismissed). EDT-safe by construction: settings, file stats, and
+        // dismissal only. resolve()/versionProblem() spawn processes and
+        // stay in the pooled-thread balloon path; a PATH binary may
+        // additionally exist, in which case the install still yields a
+        // reproducible project-local binary on top.
+        val requirement = AmebaBinary.amebaRequirement(project)
+        if (requirement == null) {
+            if (bannerInstallOfferApplies(project)) return BannerState.NotDeclared
+            return BannerState.None
+        }
         return if (AmebaVersion.pinAllowsMinimum(requirement) == false) {
             BannerState.PinnedOld(requirement)
         } else {
@@ -76,6 +94,15 @@ class AmebaBuildBannerProvider : EditorNotificationProvider, DumbAware {
 
     internal fun bannerNeeded(project: Project, file: VirtualFile): Boolean {
         return bannerState(project, file) == BannerState.BinaryMissing
+    }
+
+    private fun bannerInstallOfferApplies(project: Project): Boolean {
+        if (project.isDisposed || AmebaInstall.isDismissed(project)) return false
+        val state = CrystalSettings.getInstance(project).state
+        if (!state.amebaEnabled || state.amebaPath.isNotBlank()) return false
+        val basePath = project.basePath ?: return false
+        if (java.io.File(basePath, "bin/ameba").let { it.isFile && it.canExecute() }) return false
+        return true
     }
 }
 
@@ -98,11 +125,40 @@ class AmebaBuildStatusActivity : ProjectActivity, DumbAware {
             if (!CrystalSettings.getInstance(project).state.amebaEnabled) {
                 return@executeOnPooledThread
             }
+            // Install offer when linting is switched on but nothing usable
+            // resolves anywhere and no version problem owns the case.
+            if (AmebaInstall.shouldOfferInstall(project)) {
+                notifyWithInstallAction(project)
+                return@executeOnPooledThread
+            }
             when (val problem = AmebaBinary.versionProblem(project)) {
                 null -> {}
                 else -> AmebaNotifications.errorOnce(project, AmebaVersion.warningText(problem))
             }
         }
+    }
+
+    private fun notifyWithInstallAction(project: Project) {
+        if (project.isDisposed) return
+        val notification = com.intellij.notification.NotificationGroupManager.getInstance()
+            .getNotificationGroup(AmebaNotifications.GROUP_ID)
+            .createNotification(
+                "Ameba linter not found",
+                "Ameba linting is enabled but no Ameba binary resolves.",
+                NotificationType.INFORMATION
+            )
+        if (AmebaInstall.hasShardYml(project)) {
+            notification.addAction(object : NotificationAction("Install as dev-dependency") {
+                override fun actionPerformed(event: AnActionEvent, notification: com.intellij.notification.Notification) {
+                    notification.expire()
+                    event.project?.let(AmebaInstall::installAsDevDependency)
+                }
+            })
+        } else {
+            notification.addAction(AmebaInstall.docsLinkAction())
+        }
+        notification.addAction(AmebaInstall.dismissAction(project))
+        notification.notify(project)
     }
 
     private fun notifyWithBuildAction(project: Project) {

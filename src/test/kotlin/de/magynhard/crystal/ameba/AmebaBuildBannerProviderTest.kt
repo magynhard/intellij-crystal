@@ -108,6 +108,73 @@ class AmebaBuildBannerProviderTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBannerShowsInstallOfferWhenUndeclared() {
+        writeProjectFile("shard.yml", "name: app\n")
+        withAmebaEnabled {
+            val file = requireNotNull(
+                LocalFileSystem.getInstance().findFileByPath("${requireNotNull(project.basePath)}/shard.yml")
+            )
+            assertEquals(
+                AmebaBuildBannerProvider.BannerState.NotDeclared,
+                AmebaBuildBannerProvider().bannerState(project, file)
+            )
+        }
+    }
+
+    fun testBannerSilentWhenInstallDismissed() {
+        writeProjectFile("shard.yml", "name: app\n")
+        withAmebaEnabled {
+            AmebaInstall.dismiss(project)
+            val file = requireNotNull(
+                LocalFileSystem.getInstance().findFileByPath("${requireNotNull(project.basePath)}/shard.yml")
+            )
+            assertEquals(
+                AmebaBuildBannerProvider.BannerState.None,
+                AmebaBuildBannerProvider().bannerState(project, file)
+            )
+        }
+    }
+
+    fun testBannerSilentWhenDisabled() {
+        writeProjectFile("shard.yml", "name: app\n")
+        val state = de.magynhard.crystal.sdk.CrystalSettings.getInstance(project).state
+        val saved = state.amebaEnabled
+        state.amebaEnabled = false
+        de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+        try {
+            val file = requireNotNull(
+                LocalFileSystem.getInstance().findFileByPath("${requireNotNull(project.basePath)}/shard.yml")
+            )
+            assertEquals(
+                AmebaBuildBannerProvider.BannerState.None,
+                AmebaBuildBannerProvider().bannerState(project, file)
+            )
+        } finally {
+            state.amebaEnabled = saved
+            de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+        }
+    }
+
+    private fun withAmebaEnabled(block: () -> Unit) {
+        val state = de.magynhard.crystal.sdk.CrystalSettings.getInstance(project).state
+        val savedEnabled = state.amebaEnabled
+        val savedPath = state.amebaPath
+        state.amebaEnabled = true
+        state.amebaPath = ""
+        de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+        com.intellij.ide.util.PropertiesComponent.getInstance(project)
+            .unsetValue("crystal.ameba.install.dismissed")
+        try {
+            block()
+        } finally {
+            state.amebaEnabled = savedEnabled
+            state.amebaPath = savedPath
+            de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
+            com.intellij.ide.util.PropertiesComponent.getInstance(project)
+                .unsetValue("crystal.ameba.install.dismissed")
+        }
+    }
+
     private fun writeExecutableProjectFile(path: String) {
         writeProjectFile(path, "#!/bin/sh\necho ameba\n")
         java.io.File(requireNotNull(project.basePath), path).setExecutable(true)

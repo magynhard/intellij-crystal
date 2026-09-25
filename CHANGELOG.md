@@ -18,6 +18,9 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   aside while Ameba is active and remain the offline fallback otherwise. A missing
   project binary is offered for explicit opt-in `shards build ameba` via shard.yml
   banner and project-open balloon — never built silently.
+  When linting is enabled but no Ameba resolves anywhere, a dismissible
+  project-open balloon and shard.yml banner offer one-click installation as
+  a dev-dependency (editable manifest additions, install, build).
   ECR templates lint through the same pipeline (raw text in, template
   coordinates out); `--fix` stays limited to plain Crystal files.
   Optional fix-on-save runs `ameba --fix` after saving (opt-in checkbox,
