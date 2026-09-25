@@ -1,6 +1,9 @@
 package de.magynhard.crystal.ameba
 
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 
 /**
  * Parses Ameba machine-readable output into [AmebaIssue]s.
@@ -25,46 +28,54 @@ object AmebaOutputParser {
     fun parseJson(output: String, expectedPath: String): List<AmebaIssue> {
         if (output.isBlank()) return emptyList()
         return try {
-            val root = JsonParser.parseString(output).asJsonObject
-            val sources = root.getAsJsonArray("sources") ?: return emptyList()
-            val issues = mutableListOf<AmebaIssue>()
-            for (source in sources) {
-                val obj = source.asJsonObject
-                val path = obj.get("path")?.asString ?: continue
-                if (!samePath(path, expectedPath)) continue
-                val entries = obj.getAsJsonArray("issues") ?: continue
-                for (entry in entries) {
-                    parseJsonIssue(entry.asJsonObject)?.let(issues::add)
-                }
-            }
-            issues
+            parseJsonInner(output, expectedPath)
         } catch (_: Exception) {
             emptyList()
         }
     }
 
-    private fun parseJsonIssue(obj: com.google.gson.JsonObject): AmebaIssue? {
-        return try {
-            val location = obj.getAsJsonObject("location") ?: return null
-            val line = location.get("line")?.asInt ?: return null
-            val column = location.get("column")?.asInt ?: return null
-            if (line < 1 || column < 1) return null
-            val end = obj.getAsJsonObject("end_location")
-            val message = obj.get("message")?.asString?.trim().orEmpty()
-            if (message.isEmpty()) return null
-            AmebaIssue(
-                ruleName = obj.get("rule_name")?.asString?.trim().takeIf { !it.isNullOrEmpty() } ?: "Unknown",
-                severity = AmebaSeverity.parse(obj.get("severity")?.asString),
-                message = message,
-                line = line,
-                column = column,
-                endLine = end?.get("line")?.asInt?.takeIf { it >= line },
-                endColumn = end?.get("column")?.asInt
-            )
-        } catch (_: Exception) {
-            null
+    private fun parseJsonInner(output: String, expectedPath: String): List<AmebaIssue> {
+        val root = JsonParser.parseString(output) as? JsonObject ?: return emptyList()
+        val sources = root.get("sources") as? JsonArray ?: return emptyList()
+        val issues = mutableListOf<AmebaIssue>()
+        for (source in sources) {
+            val obj = source as? JsonObject ?: continue
+            val path = obj.str("path")
+            if (path == null || !samePath(path, expectedPath)) continue
+            val entries = obj.get("issues") as? JsonArray ?: continue
+            for (entry in entries) {
+                parseJsonIssue(entry as? JsonObject ?: continue)?.let(issues::add)
+            }
         }
+        return issues
     }
+
+    private fun parseJsonIssue(obj: JsonObject): AmebaIssue? {
+        val location = obj.get("location") as? JsonObject ?: return null
+        val line = location.int("line") ?: return null
+        val column = location.int("column") ?: return null
+        if (line < 1 || column < 1) return null
+        val end = obj.get("end_location") as? JsonObject
+        val message = obj.str("message")?.trim().orEmpty()
+        if (message.isEmpty()) return null
+        return AmebaIssue(
+            ruleName = obj.str("rule_name")?.trim()?.takeIf { it.isNotEmpty() } ?: "Unknown",
+            severity = AmebaSeverity.parse(obj.str("severity")),
+            message = message,
+            line = line,
+            column = column,
+            endLine = end?.int("line")?.takeIf { it >= line },
+            endColumn = end?.int("column")
+        )
+    }
+
+    /** Null- and type-safe string member: Gson's `asString` throws on nulls. */
+    private fun JsonObject.str(name: String): String? =
+        (get(name) as? JsonPrimitive)?.takeIf { it.isString }?.asString
+
+    /** Null- and type-safe int member. */
+    private fun JsonObject.int(name: String): Int? =
+        (get(name) as? JsonPrimitive)?.takeIf { it.isNumber }?.asInt
 
     private val flycheckPattern =
         Regex("""^(.+?):(\d+):(\d+):\s*([A-Za-z]+):\s*(?:\[(.+?)]\s*)?(.*)$""")

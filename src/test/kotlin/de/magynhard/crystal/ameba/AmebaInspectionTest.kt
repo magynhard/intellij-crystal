@@ -38,6 +38,22 @@ class AmebaInspectionTest : BasePlatformTestCase() {
         }
     }
 
+    fun testOnTheFlyCheckFileNeverRunsBinary() {
+        if (SystemInfo.isWindows) return
+        val binary = writeFakeAmeba()
+        enableAmeba(binary.absolutePath)
+        val file = writeProjectFile("main.cr", "a.try { |i| i.odd? }\n")
+        val psi = requireNotNull(PsiManager.getInstance(project).findFile(file))
+
+        // Threading contract: the 3-arg overload runs under a read action
+        // (live highlighting and batch alike), where synchronous process
+        // execution is forbidden — and it must not duplicate the annotator's
+        // diagnostics. Batch work happens only in runBatchCheck.
+        // onTheFly=true exercises the live path, false the batch dispatch.
+        assertNull(AmebaInspection().checkFile(psi, InspectionManager.getInstance(project), true))
+        assertNull(AmebaInspection().checkFile(psi, InspectionManager.getInstance(project), false))
+    }
+
     fun testBatchCheckReportsFakeFindings() {
         if (SystemInfo.isWindows) return
         val binary = writeFakeAmeba()
@@ -45,7 +61,7 @@ class AmebaInspectionTest : BasePlatformTestCase() {
         val file = writeProjectFile("main.cr", "a.try { |i| i.odd? }\n")
         val psi = requireNotNull(PsiManager.getInstance(project).findFile(file))
 
-        val descriptors = AmebaInspection().checkFile(psi, InspectionManager.getInstance(project), false)
+        val descriptors = AmebaInspection().runBatchCheck(psi, InspectionManager.getInstance(project))
 
         assertNotNull(descriptors)
         assertEquals(1, descriptors!!.size)
@@ -65,18 +81,19 @@ class AmebaInspectionTest : BasePlatformTestCase() {
         val file = writeProjectFile("main.cr", "a.try { |i| i.odd? }\n")
         val psi = requireNotNull(PsiManager.getInstance(project).findFile(file))
 
-        val descriptors = AmebaInspection().checkFile(psi, InspectionManager.getInstance(project), false)
+        val descriptors = AmebaInspection().runBatchCheck(psi, InspectionManager.getInstance(project))
 
         assertTrue(descriptors == null || descriptors.isEmpty())
     }
 
-    fun testBatchCheckSilentWithoutBinary() {        CrystalSettings.getInstance(project).state.amebaEnabled = true
+    fun testBatchCheckSilentWithoutBinary() {
+        CrystalSettings.getInstance(project).state.amebaEnabled = true
         CrystalSettings.getInstance(project).state.amebaPath = "/nonexistent/ameba"
         de.magynhard.crystal.sdk.AmebaBinary.clearCache(project)
         val file = writeProjectFile("main.cr", "puts 1\n")
         val psi = requireNotNull(PsiManager.getInstance(project).findFile(file))
 
-        val descriptors = AmebaInspection().checkFile(psi, InspectionManager.getInstance(project), false)
+        val descriptors = AmebaInspection().runBatchCheck(psi, InspectionManager.getInstance(project))
 
         assertTrue(descriptors == null || descriptors.isEmpty())
     }
@@ -91,7 +108,7 @@ class AmebaInspectionTest : BasePlatformTestCase() {
         )
         val psi = requireNotNull(PsiManager.getInstance(project).findFile(file))
 
-        val descriptors = AmebaInspection().checkFile(psi, InspectionManager.getInstance(project), false)
+        val descriptors = AmebaInspection().runBatchCheck(psi, InspectionManager.getInstance(project))
 
         assertNotNull(descriptors)
         assertEquals(1, descriptors!!.size)

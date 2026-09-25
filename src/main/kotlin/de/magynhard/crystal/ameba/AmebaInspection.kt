@@ -20,8 +20,12 @@ import de.magynhard.crystal.sdk.CrystalSettings
  * via the platform `ExternalToolPass` contract; the master switch stays the
  * "Enable Ameba linting" checkbox in the Crystal settings.
  *
- * `checkFile` runs the binary synchronously (batch context permits slow
- * work) and converts issues to descriptors with the explicit `--fix` action.
+ * Threading contract (platform-enforced): the 3-arg [checkFile] overload runs
+ * under a read action — it must never start a process and always returns
+ * null (live highlighting is the annotator's job). Only [runBatchCheck],
+ * reached via the [ExternalAnnotatorBatchInspection] overload that runs
+ * without a read action, executes the binary synchronously and converts
+ * issues to descriptors with the explicit `--fix` action.
  * Defensive throughout: any failure yields no descriptors, never exceptions.
  */
 class AmebaInspection : LocalInspectionTool(), ExternalAnnotatorBatchInspection {
@@ -41,9 +45,12 @@ class AmebaInspection : LocalInspectionTool(), ExternalAnnotatorBatchInspection 
         manager: InspectionManager,
         isOnTheFly: Boolean
     ): Array<ProblemDescriptor>? {
-        // Batch entry point used by tests and the IDE; see the
-        // ExternalAnnotatorBatchInspection overload below for Inspect Code.
-        return checkFileWithRunner(file, manager)
+        // Never runs the binary: the InspectionRunner invokes this overload
+        // under a read action (live highlighting and batch alike), where
+        // synchronous process execution is forbidden and would additionally
+        // duplicate the annotator's diagnostics. Batch work happens only in
+        // runBatchCheck via the ExternalAnnotatorBatchInspection overload.
+        return null
     }
 
     override fun checkFile(
@@ -51,10 +58,10 @@ class AmebaInspection : LocalInspectionTool(), ExternalAnnotatorBatchInspection 
         context: GlobalInspectionContext,
         manager: InspectionManager
     ): Array<ProblemDescriptor> {
-        return checkFileWithRunner(file, manager) ?: emptyArray()
+        return runBatchCheck(file, manager) ?: emptyArray()
     }
 
-    private fun checkFileWithRunner(file: PsiFile, manager: InspectionManager): Array<ProblemDescriptor>? {
+    internal fun runBatchCheck(file: PsiFile, manager: InspectionManager): Array<ProblemDescriptor>? {
         return try {
             val project = file.project
             if (!CrystalSettings.getInstance(project).state.amebaEnabled) return null

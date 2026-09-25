@@ -45,7 +45,9 @@ object AmebaRunner {
         } catch (e: Exception) {
             if (e is com.intellij.openapi.progress.ProcessCanceledException) throw e
             return Result(emptyList(), "Cannot run Ameba '${request.binaryPath}': ${e.message ?: "unknown error"}")
-        } ?: return Result(emptyList(), "Ameba timed out after ${request.timeoutMs}ms.")
+        } ?: run {
+            return Result(emptyList(), "Ameba timed out after ${request.timeoutMs}ms.")
+        }
         ProgressManager.checkCanceled()
         if (looksLikeUnknownFormatter(output.stderr)) {
             // Binary predates JSON support: one retry with flycheck output.
@@ -107,7 +109,7 @@ object AmebaRunner {
      */
     private fun errorForExit(exitCode: Int, stderr: String, request: Request): String? {
         if (exitCode == 0) return null
-        val trimmed = stderr.trim().take(2000)
+        val trimmed = stripAnsi(stderr).trim().take(2000)
         if (trimmed.isEmpty()) return null
         if (looksLikeUnknownFormatter(trimmed)) return null
         return "Ameba '${request.binaryPath}' reported an error: $trimmed"

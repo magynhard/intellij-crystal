@@ -105,6 +105,18 @@ templates (verified against 1.7.0), while read-only diagnostics still flow
 for them. No loops: disk writes refresh without save events, and a second
 run finds nothing to correct.
 
+## Fix Outcome
+
+Success is judged by file change, not exit code: `ameba --fix` re-reports
+corrected issues and exits non-zero even when it fixed everything
+(verified: `[Corrected]` plus "1 failure"). File changed means applied
+corrections (remaining issues reappear as diagnostics); non-zero exit
+without change and with error output means real failure; non-zero exit
+without change and empty stderr means the run worked but had nothing
+correctable (e.g. syntax errors) and surfaces a general info instead of a
+progress dump. Balloon output is stripped of ANSI
+color escapes (Ameba colorizes even piped output).
+
 ## Overlap Suppression
 
 `AmebaSuppression.isActiveFor(file)` (enabled + resolvable binary + Crystal

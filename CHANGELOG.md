@@ -21,6 +21,8 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   When linting is enabled but no Ameba resolves anywhere, a dismissible
   project-open balloon and shard.yml banner offer one-click installation as
   a dev-dependency (editable manifest additions, install, build).
+  `ameba --fix` success is judged by file change (corrected issues still
+  exit non-zero upstream); failure output is stripped of color escapes.
   ECR templates lint through the same pipeline (raw text in, template
   coordinates out); `--fix` stays limited to plain Crystal files.
   Optional fix-on-save runs `ameba --fix` after saving (opt-in checkbox,

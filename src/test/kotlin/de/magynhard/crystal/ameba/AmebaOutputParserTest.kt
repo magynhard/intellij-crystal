@@ -119,4 +119,37 @@ class AmebaOutputParserTest : TestCase() {
         assertEquals(AmebaSeverity.CONVENTION, AmebaSeverity.parse(null))
         assertEquals(AmebaSeverity.CONVENTION, AmebaSeverity.parse("mystery"))
     }
+
+    fun testNullFieldsNeverAbortParsing() {
+        // Gson throws on asString/asInt of JsonNull: every nullable member
+        // must degrade gracefully instead of dropping valid siblings.
+        val json = """
+            {"sources": [
+              {"path": null, "issues": [
+                {"rule_name": "R", "severity": "Warning", "message": "lost with path",
+                 "location": {"line": 1, "column": 1}}
+              ]},
+              "not-an-object",
+              {"path": "main.cr", "issues": null},
+              {"path": "main.cr", "issues": [
+                {"rule_name": null, "severity": null, "message": "kept as Unknown",
+                 "location": {"line": 2, "column": 3}},
+                {"rule_name": "R", "severity": "Warning", "message": null,
+                 "location": {"line": 3, "column": 1}},
+                {"rule_name": "R", "severity": "Warning", "message": "no location"},
+                {"rule_name": "R", "severity": "Warning", "message": "null line",
+                 "location": {"line": null, "column": 1}},
+                {"rule_name": "R", "severity": "Warning", "message": "string line",
+                 "location": {"line": "2", "column": 1}}
+              ]}
+            ]}
+        """.trimIndent()
+        val issues = AmebaOutputParser.parseJson(json, "main.cr")
+        assertEquals(1, issues.size)
+        assertEquals("Unknown", issues.single().ruleName)
+        assertEquals(AmebaSeverity.CONVENTION, issues.single().severity)
+        assertEquals("kept as Unknown", issues.single().message)
+        assertEquals(2, issues.single().line)
+        assertEquals(3, issues.single().column)
+    }
 }
