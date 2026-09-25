@@ -19,6 +19,8 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   banner and project-open balloon — never built silently.
   ECR templates lint through the same pipeline (raw text in, template
   coordinates out); `--fix` stays limited to plain Crystal files.
+  Optional fix-on-save runs `ameba --fix` after saving (opt-in checkbox,
+  default off; skips dirty buffers and ECR templates).
 - **Cannot-find warnings for unresolved names** — bare identifiers, call callees,
   DOT method names with exact receivers, constants, and type paths that resolve to
   nothing now report `Cannot find 'name'` (and show the same text on hover) instead of

@@ -80,9 +80,25 @@ chunks may carry generated-code positions (no `#<loc>` markers there);
 together with their host file (`AmebaSuppression` judges the top-level
 `.ecr`), so tag findings are never doubled.
 - Severity mapping is fixed: Convention → Weak Warning, Warning → Warning,
-  Error → Error. Annotations read `<message> [Ameba: <rule>]` and carry the
+  Error → Error (mirroring RuboCop defaults; deliberately no IDE mapping
+  table). Per-finding strength is controlled via `.ameba.yml` per-rule
+  `Severity`, which flows through the JSON output into this mapping and
+  stays consistent across IDE, terminal, and CI. Annotations read
+  `<message> [Ameba: <rule>]` and carry the
   explicit `ameba --fix` file action (saves the buffer, background task,
   refresh; never on typing).
+
+## Fix on Save
+
+Opt-in via "Run ameba --fix on save" in the Crystal settings (default off).
+A `FileDocumentManagerListener.afterDocumentSaved` hook fires after the save
+landed: gated on both switches, local `.cr` files, clean buffers (dirty
+buffers are skipped — the next save retries), and project-source scope,
+then reuses the explicit file fix (background task, refresh). `.ecr` is
+excluded: `--fix` through generated-code positions proved unreliable on
+templates (verified against 1.7.0), while read-only diagnostics still flow
+for them. No loops: disk writes refresh without save events, and a second
+run finds nothing to correct.
 
 ## Overlap Suppression
 

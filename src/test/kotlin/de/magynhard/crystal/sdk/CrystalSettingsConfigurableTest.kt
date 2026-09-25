@@ -277,6 +277,7 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
         state.amebaEnabled = false
         state.amebaPath = ""
         state.amebaConfigPath = ""
+        state.amebaFixOnSave = false
         AmebaBinary.clearCache(project)
     }
 
@@ -296,7 +297,8 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
         configurable: CrystalSettingsConfigurable,
         enabled: Boolean,
         path: String,
-        config: String
+        config: String,
+        fixOnSave: Boolean = false
     ) {
         configurable.javaClass.getDeclaredField("amebaEnabledBox").apply {
             isAccessible = true
@@ -309,6 +311,29 @@ class CrystalSettingsConfigurableTest : BasePlatformTestCase() {
         configurable.javaClass.getDeclaredField("amebaConfigField").apply {
             isAccessible = true
             set(configurable, TextFieldWithBrowseButton().apply { text = config })
+        }
+        configurable.javaClass.getDeclaredField("amebaFixOnSaveBox").apply {
+            isAccessible = true
+            set(configurable, com.intellij.ui.components.JBCheckBox().apply { isSelected = fixOnSave })
+        }
+    }
+
+    fun testApplyPersistsAmebaFixOnSave() {
+        resetAmebaState()
+        try {
+            val configurable = CrystalSettingsConfigurable.forTest(project) { _, _ -> }
+            setCrystalPath(configurable, CrystalSettings.getInstance(project).state.crystalPath)
+            setAmebaFields(
+                configurable, enabled = true, path = "", config = "", fixOnSave = true
+            )
+            assertTrue(configurable.isModified())
+
+            configurable.apply()
+
+            assertTrue(CrystalSettings.getInstance(project).state.amebaFixOnSave)
+            assertFalse(configurable.isModified())
+        } finally {
+            resetAmebaState()
         }
     }
 

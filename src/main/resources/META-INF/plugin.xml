@@ -731,5 +731,8 @@
         <listener
                 class="de.magynhard.crystal.refactoring.CrystalRenameVerifier"
                 topic="com.intellij.refactoring.listeners.RefactoringEventListener"/>
+        <listener
+                class="de.magynhard.crystal.ameba.AmebaFixOnSaveListener"
+                topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
     </projectListeners>
 </idea-plugin>

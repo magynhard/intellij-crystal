@@ -11,7 +11,8 @@ class CrystalSettings : PersistentStateComponent<CrystalSettings.State> {
         var crystalPath: String = "",
         var amebaPath: String = "",
         var amebaEnabled: Boolean = false,
-        var amebaConfigPath: String = ""
+        var amebaConfigPath: String = "",
+        var amebaFixOnSave: Boolean = false
     )
 
     private var myState = State()

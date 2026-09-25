@@ -42,6 +42,7 @@ class CrystalSettingsConfigurable private constructor(
     private var amebaPathField: TextFieldWithBrowseButton = TextFieldWithBrowseButton()
     private var amebaVersionLabel: JLabel = JBLabel("")
     private var amebaConfigField: TextFieldWithBrowseButton = TextFieldWithBrowseButton()
+    private var amebaFixOnSaveBox: JBCheckBox = JBCheckBox("Run ameba --fix on save")
 
     override fun getDisplayName(): String = "Crystal"
 
@@ -140,6 +141,12 @@ class CrystalSettingsConfigurable private constructor(
                 row {
                     comment("Leave empty to use the nearest .ameba.yml above the linted file.")
                 }
+                row {
+                    cell(amebaFixOnSaveBox)
+                }
+                row {
+                    comment("Runs ameba --fix on Crystal files after saving (never on ECR templates).")
+                }
             }
         }.also {
             // Load current state
@@ -151,6 +158,7 @@ class CrystalSettingsConfigurable private constructor(
             amebaPathField.text = settings.state.amebaPath
             updateAmebaVersion(AmebaBinary.resolve(project)?.path ?: settings.state.amebaPath)
             amebaConfigField.text = settings.state.amebaConfigPath
+            amebaFixOnSaveBox.isSelected = settings.state.amebaFixOnSave
         }
     }
 
@@ -159,19 +167,22 @@ class CrystalSettingsConfigurable private constructor(
         return crystalPathField.text != settings.state.crystalPath ||
             amebaEnabledBox.isSelected != settings.state.amebaEnabled ||
             amebaPathField.text != settings.state.amebaPath ||
-            amebaConfigField.text != settings.state.amebaConfigPath
+            amebaConfigField.text != settings.state.amebaConfigPath ||
+            amebaFixOnSaveBox.isSelected != settings.state.amebaFixOnSave
     }
 
     override fun apply() {
         val settings = CrystalSettings.getInstance(project)
         val amebaChanged = amebaEnabledBox.isSelected != settings.state.amebaEnabled ||
             amebaPathField.text != settings.state.amebaPath ||
-            amebaConfigField.text != settings.state.amebaConfigPath
+            amebaConfigField.text != settings.state.amebaConfigPath ||
+            amebaFixOnSaveBox.isSelected != settings.state.amebaFixOnSave
         val oldRoots = resolveStdlibRoots()
         settings.state.crystalPath = crystalPathField.text
         settings.state.amebaEnabled = amebaEnabledBox.isSelected
         settings.state.amebaPath = amebaPathField.text
         settings.state.amebaConfigPath = amebaConfigField.text
+        settings.state.amebaFixOnSave = amebaFixOnSaveBox.isSelected
         AmebaBinary.clearCache(project)
         AmebaNotifications.reset(project)
         if (amebaChanged) {
@@ -202,6 +213,7 @@ class CrystalSettingsConfigurable private constructor(
         amebaPathField.text = settings.state.amebaPath
         updateAmebaVersion(AmebaBinary.resolve(project)?.path ?: settings.state.amebaPath)
         amebaConfigField.text = settings.state.amebaConfigPath
+        amebaFixOnSaveBox.isSelected = settings.state.amebaFixOnSave
     }
 
     private fun updateAmebaVersion(path: String) {
