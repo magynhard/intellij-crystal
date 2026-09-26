@@ -316,8 +316,11 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testConditionalAssignmentMakesPlainBeginAmbiguousDespiteLaterAssignment() {
-        assertUnresolved(
+    fun testUnconditionalAssignmentAfterBeginResolves() {
+        // `value = Final.new` runs on every path, so the receiver is exactly
+        // Final — verified against the compiler (`undefined method 'run' for
+        // Final`). The old pin documented the evidence mechanism's limit.
+        assertResolved(
             """
                 class First
                 end
@@ -334,7 +337,8 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                   value = Final.new
                 end
                 value.run
-            """.trimIndent()
+            """.trimIndent(),
+            ExactReceiverType("Final", "Final")
         )
     }
 
@@ -397,8 +401,11 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testDirectSelectAssignmentIsUnresolved() {
-        assertUnresolved(
+    fun testDirectSelectAssignmentResolves() {
+        // The select branch always runs before the code after it (or blocks
+        // forever), so the receiver is exactly Service — verified against the
+        // compiler (`undefined method 'run' for Service`).
+        assertResolved(
             """
                 class Service
                 end
@@ -407,7 +414,8 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                   value = Service.new
                 end
                 value.run
-            """.trimIndent()
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
         )
     }
 
@@ -439,8 +447,11 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
         )
     }
 
-    fun testBeginWithElseAssignmentIsUnresolved() {
-        assertUnresolved(
+    fun testBeginWithElseAssignmentResolvesTryBranch() {
+        // `else` without `rescue` is rejected by the compiler (`'else' is
+        // useless without 'rescue'`), so any resolution here is best-effort;
+        // the try branch is the only meaningful path.
+        assertResolved(
             """
                 class Service
                 end
@@ -450,12 +461,16 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                   nil
                 end
                 value.run
-            """.trimIndent()
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
         )
     }
 
-    fun testBeginWithEnsureAssignmentIsUnresolved() {
-        assertUnresolved(
+    fun testBeginWithEnsureAssignmentResolves() {
+        // On the exception path the code after `begin` is unreachable, so the
+        // receiver is exactly Service — verified against the compiler
+        // (`undefined method 'run' for Service`).
+        assertResolved(
             """
                 class Service
                 end
@@ -465,7 +480,8 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                   nil
                 end
                 value.run
-            """.trimIndent()
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
         )
     }
 
@@ -572,6 +588,183 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
                 end
                 def execute(value : Service | Other)
                   value.run
+                end
+            """.trimIndent()
+        )
+    }
+
+    // ==================== Narrowed receivers ====================
+
+    fun testIfTruthinessNarrowsNilableReceiver() {
+        assertResolved(
+            """
+                class Service
+                end
+                def execute(value : Service?)
+                  if value
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testIfElseKeepsNilBranchUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                def execute(value : Service?)
+                  if value
+                    1
+                  else
+                    value.run
+                  end
+                end
+            """.trimIndent()
+        )
+    }
+
+    fun testUnlessNilCheckNarrowsReceiver() {
+        assertResolved(
+            """
+                class Service
+                end
+                def execute(value : Service?)
+                  unless value.nil?
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testIfNilCheckElseNarrowsReceiver() {
+        assertResolved(
+            """
+                class Service
+                end
+                def execute(value : Service?)
+                  if value.nil?
+                    1
+                  else
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testIsANarrowsUnionReceiver() {
+        assertResolved(
+            """
+                class Service
+                end
+                class Other
+                end
+                def execute(value : Service | Other)
+                  if value.is_a?(Service)
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testIsAElseNarrowsToRemainder() {
+        assertResolved(
+            """
+                class Service
+                end
+                class Other
+                end
+                def execute(value : Service | Other)
+                  if value.is_a?(Service)
+                    1
+                  else
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Other", "Other")
+        )
+    }
+
+    fun testCaseWhenNarrowsReceiver() {
+        assertResolved(
+            """
+                class Service
+                end
+                class Other
+                end
+                def execute(value : Service | Other)
+                  case value
+                  when Service
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testEarlyReturnGuardNarrowsReceiver() {
+        assertResolved(
+            """
+                class Service
+                end
+                def execute(value : Service?)
+                  return if value.nil?
+                  value.run
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testReassignmentAfterGuardStaysUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                def execute(value : Service?)
+                  if value
+                    value = nil
+                    value.run
+                  end
+                end
+            """.trimIndent()
+        )
+    }
+
+    fun testConditionalAssignmentNarrowsReceiver() {
+        assertResolved(
+            """
+                class Service
+                end
+                def execute(other : Service)
+                  if value = other
+                    value.run
+                  end
+                end
+            """.trimIndent(),
+            ExactReceiverType("Service", "Service")
+        )
+    }
+
+    fun testUnrecognizedConditionKeepsUnionUnresolved() {
+        assertUnresolved(
+            """
+                class Service
+                end
+                def execute(value : Service?, flag : Bool)
+                  if flag
+                    value.run
+                  end
                 end
             """.trimIndent()
         )

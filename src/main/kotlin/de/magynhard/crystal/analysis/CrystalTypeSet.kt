@@ -72,11 +72,11 @@ internal fun parseTypeSet(typeText: String): CrystalTypeResolution {
 
 /**
  * Crystal's nilable shorthand `T?` is sugar for `T | Nil`. The resolver models
- * unions explicitly (and documents that condition-based narrowing is not
- * modeled), so a nilable annotation must be expanded here: otherwise
- * `Array(String)?` stays a single pseudo-type name that neither element
- * extraction nor compatibility can decompose. A proc type (`Int32 -> String?`)
- * keeps the `?` on its return type and is left untouched.
+ * unions explicitly (guard narrowing refines reads in branches, but the
+ * declared type itself stays a union), so a nilable annotation must be
+ * expanded here: otherwise `Array(String)?` stays a single pseudo-type name
+ * that neither element extraction nor compatibility can decompose. A proc type
+ * (`Int32 -> String?`) keeps the `?` on its return type and is left untouched.
  */
 private fun normalizeNilable(typeText: String): String {
     val trimmed = typeText.trim()

@@ -1025,14 +1025,557 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         name: String,
         incoming: VariableState
     ): VariableState? {
-        if (next !is CrystalRescueClause) return null
-        val body = when (container) {
-            is CrystalBeginStatement -> container.statementList
-            is CrystalMethodBody -> container.statementList
+        if (next is CrystalRescueClause) {
+            val body = when (container) {
+                is CrystalBeginStatement -> container.statementList
+                is CrystalMethodBody -> container.statementList
+                else -> return null
+            }
+            val flow = flowStatementList(body, name, incoming)
+            return exceptionalIncoming(flow, incoming)
+        }
+        return conditionalBranchIncoming(container, next, name, incoming)
+    }
+
+    /**
+     * Refined entry state when descending from a conditional into one of its
+     * branches, or null to keep today's sibling folding. A returned state
+     * replaces the fold (the guard already accounts for preceding siblings);
+     * null preserves the existing behavior exactly. States equal to [incoming]
+     * are reported as null so unchanged descents keep folding as before.
+     */
+    private fun conditionalBranchIncoming(
+        container: PsiElement,
+        next: PsiElement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState? {
+        val conditional = (container as? CrystalStatement)?.let { statement ->
+            statement.node.getChildren(null).map { it.psi }.firstOrNull {
+                it is CrystalIfStatement || it is CrystalUnlessStatement || it is CrystalCaseStatement
+            }
+        } ?: container
+        return when (conditional) {
+            is CrystalIfStatement -> ifBranchIncoming(conditional, next, name, incoming)
+            is CrystalUnlessStatement -> unlessBranchIncoming(conditional, next, name, incoming)
+            is CrystalCaseStatement -> caseBranchIncoming(conditional, next, name, incoming)
+            else -> null
+        }
+    }
+
+    private fun ifBranchIncoming(
+        ifStatement: CrystalIfStatement,
+        next: PsiElement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState? {
+        if (next === ifStatement.statementList) {
+            val condition = ifStatement.condition ?: return null
+            return narrowedBranchState(condition, name, incoming, true)?.takeIfChanged(incoming)
+        }
+        if (next is CrystalElseClause) {
+            val conditions = listOf(ifStatement.condition) +
+                ifStatement.elsifClauseList.map { it.condition }
+            val remaining = remainingAfterFalse(name, incoming, conditions)
+            return remaining.takeIfChanged(incoming)
+        }
+        val clauseIndex = ifStatement.elsifClauseList.indexOf(next)
+        if (clauseIndex < 0) return null
+        // Descending into an elsif clause (e.g. its condition): all previous
+        // conditions are false. The clause body's own condition refines one
+        // descent step later, through the same hook.
+        val previous = listOf(ifStatement.condition) +
+            ifStatement.elsifClauseList.take(clauseIndex).map { it.condition }
+        val remaining = remainingAfterFalse(name, incoming, previous)
+        return remaining.takeIfChanged(incoming)
+    }
+
+    private fun unlessBranchIncoming(
+        unlessStatement: CrystalUnlessStatement,
+        next: PsiElement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState? {
+        val condition = unlessStatement.condition ?: return null
+        if (next === unlessStatement.statementList) {
+            return narrowedBranchState(condition, name, incoming, false)?.takeIfChanged(incoming)
+        }
+        if (next is CrystalElseClause) {
+            return narrowedBranchState(condition, name, incoming, true)?.takeIfChanged(incoming)
+        }
+        return null
+    }
+
+    private fun caseBranchIncoming(
+        caseStatement: CrystalCaseStatement,
+        next: PsiElement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState? {
+        if (next is CrystalInClause) return null
+        if (next is CrystalElseClause) {
+            return caseElseState(caseStatement, name, incoming)?.takeIfChanged(incoming)
+        }
+        if (next !is CrystalWhenClause) return null
+        // Assignment subjects bind through normal folding; only bare-variable
+        // subjects refine here.
+        if (!isBareVariableSubject(caseStatement, name)) return null
+        val matched = matchWhenTypes(next) ?: return null
+        return VariableState.Bound(
+            CrystalTypeResolution.Known(matched.map { CrystalResolvedType(it, false) }),
+            incoming.provenance,
+        ).takeIfChanged(incoming)
+    }
+
+    private fun VariableState.takeIfChanged(incoming: VariableState): VariableState? =
+        takeIf { it != incoming }
+
+    /** Threads FALSE polarity through [conditions] for else/falling states. */
+    private fun remainingAfterFalse(
+        name: String,
+        incoming: VariableState,
+        conditions: List<PsiElement?>,
+    ): VariableState {
+        var remaining = incoming
+        for (condition in conditions) {
+            if (condition != null) {
+                remaining = narrowedBranchState(condition, name, remaining, false) ?: remaining
+            }
+        }
+        return remaining
+    }
+
+    private fun isBareVariableSubject(caseStatement: CrystalCaseStatement, name: String): Boolean {
+        val subject = caseSubjectElement(caseStatement) ?: return false
+        val unwrapped = unwrapGrouping(subject)
+        return unwrapped is CrystalVariableReference && unwrapped.text == name
+    }
+
+    /**
+     * The `else`/falling state of a `case`: the incoming members minus every
+     * matched `when` type, or incoming when anything is unrecognized.
+     */
+    private fun caseElseState(
+        caseStatement: CrystalCaseStatement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState {
+        val incomingKnown = (incoming as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
+            ?: return incoming
+        if (!isBareVariableSubject(caseStatement, name)) return incoming
+        val matchedAll = mutableListOf<String>()
+        for (whenClause in caseStatement.whenClauseList) {
+            matchedAll.addAll(matchWhenTypes(whenClause) ?: return incoming)
+        }
+        if (caseStatement.inClauseList.isNotEmpty()) return incoming
+        val remainder = incomingKnown.types.filter { it.name !in matchedAll }
+        if (remainder.isEmpty()) return incoming
+        return VariableState.Bound(
+            CrystalTypeResolution.Known(remainder),
+            incoming.provenance,
+        )
+    }
+
+    /**
+     * Refines [incoming] for a branch entered when [condition] holds
+     * ([conditionHolds] = true) or does not hold (false), or null when the
+     * condition is not a directly provable guard for [name]. Guards stay
+     * syntactically direct on purpose: a false positive here would create
+     * incorrect navigation or diagnostics. Supported: bare-variable
+     * truthiness, conditional assignment, `.nil?`, and `.is_a?(Type)` —
+     * everything else (binary conditions, negations, method calls, `== nil`)
+     * keeps the incoming state.
+     */
+    private fun narrowedBranchState(
+        condition: PsiElement,
+        name: String,
+        incoming: VariableState,
+        conditionHolds: Boolean,
+    ): VariableState? {
+        // Locals and parameters only: constants and ivars keep today's behavior.
+        if (!isNarrowableName(name)) return null
+        val target = unwrapGrouping(condition)
+        // Conditional assignment binds first, then the truthiness test applies.
+        val assignment = listOfNotNull(
+            target as? CrystalAssignment,
+            condition as? CrystalAssignment,
+        ).firstOrNull { assignmentName(it) == name }
+        if (assignment != null) {
+            val rhs = assignment.assignment ?: assignment.expression ?: return null
+            val bound = VariableState.Bound(
+                resolve(rhs),
+                CrystalVariableProvenance.ASSIGNMENT,
+            )
+            return narrowTruthiness(bound, conditionHolds)
+        }
+        // Bare-variable truthiness: `if x` / `unless x`.
+        val variable = target as? CrystalVariableReference
+        if (variable != null && variable.text == name) {
+            return narrowTruthiness(incoming, conditionHolds)
+        }
+        // Flat `x = rhs` conditions inline as bare leaves (no composite).
+        flatAssignRhs(target, name)?.let { rhs ->
+            val resolved = resolve(rhs)
+            if (resolved !is CrystalTypeResolution.Known) return null
+            return narrowTruthiness(
+                VariableState.Bound(resolved, CrystalVariableProvenance.ASSIGNMENT),
+                conditionHolds,
+            )
+        }
+        // Inline `is_a?` shape: `Expression[var-ref, DOT, IS_A, (TypeRef)]`
+        // carries no dot-call access; the method name is a dedicated token.
+        inlineIsAType(target, name)?.let { typeText ->
+            return narrowIsAByName(typeText, target, incoming, conditionHolds)
+        }
+        // `x.nil?` / chained `.is_a?` dot-call shapes.
+        val guard = dotGuardCall(target, name) ?: return null
+        if (guard.methodName == "nil?") {
+            return narrowNilCheck(incoming, conditionHolds)
+        }
+        if (guard.methodName == "is_a?") {
+            val typeText = guard.firstArgumentText?.trim().orEmpty()
+            return narrowIsAByName(typeText, target, incoming, conditionHolds)
+        }
+        return null
+    }
+
+    /**
+     * Names that guards may refine: locals and parameters. Constants and
+     * instance/class variables keep today's unrefined behavior.
+     */
+    private fun isNarrowableName(name: String): Boolean {
+        val first = name.firstOrNull() ?: return false
+        return first.isLowerCase() || first == '_'
+    }
+
+    /**
+     * Descends through transparent single-child wrappers (condition and
+     * expression composites, grouped expressions) and stops at the first
+     * shape the guard checks understand: a variable, an assignment, or a
+     * dot-call. Anything else stops the descent, and the guards reject it.
+     */
+    private fun unwrapGrouping(element: PsiElement): PsiElement {
+        var current = element
+        while (current !is CrystalVariableReference &&
+            current !is CrystalAssignment &&
+            current !is CrystalDotCallAccess
+        ) {
+            val kids = current.node.getChildren(null).map { it.psi }.filterNot {
+                it is PsiWhiteSpace || it.node.elementType == CrystalTypes.NEWLINE
+            }
+            if (kids.size != 1) return current
+            current = kids.single()
+        }
+        return current
+    }
+
+    /** Truthiness refinement: `if x` drops `Nil`; `else` keeps only falsy members. */
+    private fun narrowTruthiness(base: VariableState, holds: Boolean): VariableState? {
+        val known = (base as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
+            ?: return null
+        // `false` has no literal type in the model; Bool is kept as an
+        // honest over-approximation of the falsy arm.
+        val remaining = if (holds) {
+            known.types.filter { it.name != "Nil" }
+        } else {
+            known.types.filter { it.name == "Nil" || it.name == "Bool" }
+        }
+        if (remaining.isEmpty()) return null
+        return VariableState.Bound(
+            CrystalTypeResolution.Known(remaining),
+            base.provenance,
+        )
+    }
+
+    /** `.nil?` refinement: the taken arm proves nil, the other drops it. */
+    private fun narrowNilCheck(incoming: VariableState, holds: Boolean): VariableState? {
+        if (holds) {
+            val members = (incoming as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
+            if (members?.types?.any { it.name == "Nil" } != true) return null
+            return VariableState.Bound(
+                CrystalTypeResolution.Known(listOf(CrystalResolvedType("Nil", false))),
+                incoming.provenance,
+            )
+        }
+        val known = (incoming as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
+            ?: return null
+        val remaining = known.types.filter { it.name != "Nil" }
+        if (remaining.isEmpty()) return null
+        return VariableState.Bound(
+            CrystalTypeResolution.Known(remaining),
+            incoming.provenance,
+        )
+    }
+
+    /**
+     * Right-hand side of a flat `x = rhs` condition (bare `IDENTIFIER`,
+     * `ASSIGN`, single value element), or null for anything else. Composite
+     * assignments (postfix conditions carry the mixin) are handled separately;
+     * multi-element shapes are not single assignable forms.
+     */
+    private fun flatAssignRhs(target: PsiElement, name: String): PsiElement? {
+        val kids = target.node.getChildren(null).map { it.psi }.filterNot {
+            it is PsiWhiteSpace || it.node.elementType == CrystalTypes.NEWLINE
+        }
+        if (kids.size != 3) return null
+        val first = kids[0]
+        if (first.firstChild != null) return null
+        if (first.node.elementType != CrystalTypes.IDENTIFIER || first.text != name) return null
+        if (kids[1].node.elementType != CrystalTypes.ASSIGN) return null
+        return kids[2]
+    }
+
+    /**
+     * The type text of an inline `x.is_a?(T)` / `x.is_a? T` shape for the bare
+     * tracked variable, or null. Only the exact flat shape qualifies; longer
+     * expressions (`x.is_a?(T) == true`) stay out of scope.
+     */
+    private fun inlineIsAType(target: PsiElement, name: String): String? {
+        if (target is CrystalDotCallAccess) return null
+        val kids = significantChildren(target)
+        if (kids.size < 4) return null
+        val receiver = unwrapGrouping(kids[0])
+        if (receiver !is CrystalVariableReference || receiver.text != name) return null
+        if (kids[1].node.elementType != CrystalTypes.DOT) return null
+        if (kids[2].node.elementType != CrystalTypes.IS_A) return null
+        val rest = kids.drop(3)
+        val typeRef = when {
+            rest.size == 1 && rest[0] is CrystalTypeReference -> rest[0]
+            rest.size == 3 && rest[0].node.elementType == CrystalTypes.LPAREN &&
+                rest[1] is CrystalTypeReference &&
+                rest[2].node.elementType == CrystalTypes.RPAREN -> rest[1]
             else -> return null
         }
-        val flow = flowStatementList(body, name, incoming)
-        return exceptionalIncoming(flow, incoming)
+        return typeRef.text.trim()
+    }
+
+    /**
+     * `.is_a?(Type)` refinement: the taken arm replaces the state with the
+     * named type (the check proves it even from an unknown incoming state);
+     * the other arm subtracts it from a known union.
+     */
+    private fun narrowIsAByName(
+        typeText: String,
+        context: PsiElement,
+        incoming: VariableState,
+        holds: Boolean,
+    ): VariableState? {
+        if (typeText.removePrefix("::").firstOrNull()?.isUpperCase() != true) return null
+        val identity = resolveType(typeText, context) ?: return null
+        if (holds) {
+            return VariableState.Bound(
+                CrystalTypeResolution.Known(
+                    listOf(CrystalResolvedType(identity.qualifiedName, false))
+                ),
+                incoming.provenance,
+            )
+        }
+        val known = (incoming as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
+            ?: return null
+        val remaining = known.types.filter { it.name != identity.qualifiedName }
+        if (remaining.isEmpty()) return null
+        return VariableState.Bound(
+            CrystalTypeResolution.Known(remaining),
+            incoming.provenance,
+        )
+    }
+
+    private data class DotGuardCall(
+        val access: CrystalDotCallAccess,
+        val methodName: String,
+        val firstArgumentText: String?,
+    )
+
+    /**
+     * Recognizes `name.<method>` / `name.<method>(args)` guard shapes, where
+     * the receiver is the bare tracked variable: either flat siblings under
+     * one expression (`value.nil?` parses as `Expression[ref, DotCall(.nil?)]`)
+     * or a lone dot access whose receiver is the previous sibling. Anything
+     * else (chained receivers like `foo.bar.nil?`, extra siblings) stays out
+     * of scope and yields null.
+     */
+    private fun dotGuardCall(target: PsiElement, name: String): DotGuardCall? {
+        val (receiverCandidate, access) = if (target is CrystalDotCallAccess) {
+            (previousSignificantSibling(target) ?: return null) to target
+        } else {
+            val kids = significantChildren(target)
+            if (kids.size != 2) return null
+            val directAccess = kids[1] as? CrystalDotCallAccess ?: return null
+            kids[0] to directAccess
+        }
+        val receiver = unwrapGrouping(receiverCandidate)
+        if (receiver !is CrystalVariableReference || receiver.text != name) return null
+        val accessKids = significantChildren(access)
+        val dotIndex = accessKids.indexOfFirst { it.node.elementType == CrystalTypes.DOT }
+        if (dotIndex < 0) return null
+        val nameLeaf = accessKids.getOrNull(dotIndex + 1) ?: return null
+        if (nameLeaf.firstChild != null) return null
+        val methodName = nameLeaf.text
+        if (methodName != "nil?" && methodName != "is_a?") return null
+        val rest = accessKids.drop(dotIndex + 2)
+        if (methodName == "nil?" && rest.isNotEmpty()) return null
+        val holder = rest.singleOrNull()
+        if (holder != null && holder !is CrystalCallArgs && holder !is CrystalBareArgumentList) {
+            return null
+        }
+        val firstArgumentText = holder
+            ?.let { CrystalPsiCallArguments.argumentElements(it).firstOrNull() }
+            ?.text?.trim()
+        return DotGuardCall(access, methodName, firstArgumentText)
+    }
+
+    private fun previousSignificantSibling(element: PsiElement): PsiElement? {
+        var current = element.prevSibling
+        while (current != null &&
+            (current is PsiWhiteSpace || current.node?.elementType == CrystalTypes.NEWLINE)
+        ) {
+            current = current.prevSibling
+        }
+        return current
+    }
+
+    /**
+     * Folds an `if`/`elsif` chain with per-branch refined entry states: each
+     * branch runs under its condition at TRUE polarity, and the remaining
+     * state carries every previous condition at FALSE polarity into the next
+     * branch, the `else` body, or the falling state. Unrecognized conditions
+     * keep the current state, preserving today's behavior exactly there.
+     */
+    private fun flowConditionBranches(
+        name: String,
+        incoming: VariableState,
+        conditions: List<PsiElement?>,
+        bodies: List<CrystalStatementList?>,
+        elseBody: CrystalStatementList?,
+    ): VariableFlow {
+        var remaining = incoming
+        val flows = mutableListOf<VariableFlow>()
+        for ((condition, body) in conditions.zip(bodies)) {
+            val branchIncoming = condition?.let { narrowedBranchState(it, name, remaining, true) }
+                ?: remaining
+            flows.add(flowStatementList(body, name, branchIncoming))
+            if (condition != null) {
+                remaining = narrowedBranchState(condition, name, remaining, false) ?: remaining
+            }
+        }
+        if (elseBody != null) {
+            flows.add(flowStatementList(elseBody, name, remaining))
+        } else {
+            // Falling state first, preserving the historical merge order.
+            flows.add(0, VariableFlow.falling(remaining))
+        }
+        return mergeFlows(flows)
+    }
+
+    /**
+     * Folds a `case` statement with per-branch refined entry states for a bare
+     * variable subject (`case x when String`): each `when` arm replaces the
+     * state with its matched types, and the `else`/falling state keeps the
+     * incoming members minus every matched type. Assignment subjects
+     * (`case x = expr`) bind the right-hand side in every arm without pattern
+     * refinement. Anything else (missing or complex subject, `in` patterns,
+     * unresolvable pattern types) keeps today's unrefined behavior.
+     */
+    private fun flowCaseBranches(
+        caseStatement: CrystalCaseStatement,
+        name: String,
+        incoming: VariableState,
+    ): VariableFlow {
+        val subject = caseSubjectElement(caseStatement)
+        val unwrapped = subject?.let(::unwrapGrouping)
+        val assigned = (unwrapped as? CrystalAssignment)?.takeIf { assignmentName(it) == name }
+            ?: (subject as? CrystalAssignment)?.takeIf { assignmentName(it) == name }
+        if (assigned != null) {
+            val rhs = assigned.assignment ?: assigned.expression
+            val bound = rhs?.let {
+                VariableState.Bound(resolve(it), CrystalVariableProvenance.ASSIGNMENT)
+            } ?: incoming
+            val flows = caseStatement.whenClauseList.map { flowStatementList(it.statementList, name, bound) } +
+                caseStatement.inClauseList.map { flowStatementList(it.statementList, name, bound) }
+            return mergeFlows(flows +
+                (caseStatement.elseClause?.statementList?.let { listOf(flowStatementList(it, name, bound)) }
+                    ?: listOf(VariableFlow.falling(bound))))
+        }
+        val variable = unwrapped as? CrystalVariableReference
+        if (variable == null || variable.text != name) {
+            return flowCaseBranchesUnrefined(caseStatement, name, incoming)
+        }
+        val flows = mutableListOf<VariableFlow>()
+        for (whenClause in caseStatement.whenClauseList) {
+            val matched = matchWhenTypes(whenClause)
+            val armState = if (matched == null) {
+                incoming
+            } else {
+                VariableState.Bound(
+                    CrystalTypeResolution.Known(matched.map { CrystalResolvedType(it, false) }),
+                    incoming.provenance,
+                )
+            }
+            flows.add(flowStatementList(whenClause.statementList, name, armState))
+        }
+        for (inClause in caseStatement.inClauseList) {
+            flows.add(flowStatementList(inClause.statementList, name, incoming))
+        }
+        val elseState = caseElseState(caseStatement, name, incoming)
+        if (caseStatement.elseClause?.statementList != null) {
+            flows.add(flowStatementList(caseStatement.elseClause?.statementList, name, elseState))
+        } else {
+            flows.add(VariableFlow.falling(elseState))
+        }
+        return mergeFlows(flows)
+    }
+
+    /** Today's case folding without refinement: every arm starts from incoming. */
+    private fun flowCaseBranchesUnrefined(
+        caseStatement: CrystalCaseStatement,
+        name: String,
+        incoming: VariableState,
+    ): VariableFlow {
+        val lists = significantChildren(caseStatement).mapNotNull {
+            when (it) {
+                is CrystalWhenClause -> it.statementList
+                is CrystalInClause -> it.statementList
+                else -> null
+            }
+        }
+        return mergeFlows(lists.map { flowStatementList(it, name, incoming) } +
+            (caseStatement.elseClause?.statementList?.let { listOf(flowStatementList(it, name, incoming)) }
+                ?: listOf(VariableFlow.falling(incoming))))
+    }
+
+    /**
+     * The subject of `case <subject> when ...`: the single significant child
+     * between the `CASE` token and the first `when`/`in` clause, or null.
+     */
+    private fun caseSubjectElement(caseStatement: CrystalCaseStatement): PsiElement? {
+        var seenCase = false
+        val parts = mutableListOf<PsiElement>()
+        for (child in caseStatement.node.getChildren(null).map { it.psi }) {
+            if (!seenCase) {
+                if (child.node.elementType == CrystalTypes.CASE) seenCase = true
+                continue
+            }
+            if (child is CrystalWhenClause || child is CrystalInClause) break
+            if (child is PsiWhiteSpace || child.node.elementType == CrystalTypes.NEWLINE) continue
+            parts.add(child)
+        }
+        return parts.singleOrNull()
+    }
+
+    /**
+     * The qualified type names of a `when` clause's patterns, or null when any
+     * pattern is not a resolvable type (values, ranges, regexes, unions the
+     * resolver cannot name, macro interpolations).
+     */
+    private fun matchWhenTypes(whenClause: CrystalWhenClause): List<String>? {
+        val result = mutableListOf<String>()
+        for (pattern in whenClause.expressionList) {
+            val text = pattern.text.trim()
+            if (text.removePrefix("::").firstOrNull()?.isUpperCase() != true) return null
+            val identity = resolveType(text, whenClause) ?: return null
+            result.add(identity.qualifiedName)
+        }
+        return result
     }
 
     private fun flowElement(element: PsiElement, name: String, incoming: VariableState): VariableFlow {
@@ -1077,8 +1620,22 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             if (condition != null && !condition.fallsThrough) return condition
             val abrupt = flowAbruptValues(abruptStatement, name, base, kind)
             if (condition == null) return abrupt
+            // The abrupt arm takes the guard: fall-through keeps the surviving
+            // polarity (`return "" if x.nil?` continues with non-nil `x`).
+            // Anything else (including a missing keyword) keeps the base state.
+            val surviving = postfix?.let { modifier ->
+                if (modifier.node.findChildByType(CrystalTypes.UNLESS) != null &&
+                    modifier.node.findChildByType(CrystalTypes.IF) == null
+                ) {
+                    narrowedBranchState(modifier.conditionElement(), name, base, true)
+                } else if (modifier.node.findChildByType(CrystalTypes.IF) != null) {
+                    narrowedBranchState(modifier.conditionElement(), name, base, false)
+                } else {
+                    null
+                }
+            } ?: base
             return VariableFlow(
-                base,
+                surviving,
                 fallsThrough = true,
                 exceptionalStates = condition.exceptionalStates + abrupt.exceptionalStates,
                 abruptExits = condition.abruptExits + abrupt.abruptExits,
@@ -1149,18 +1706,36 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         }
         val ifStatement = (element as? CrystalStatement)?.ifStatement ?: element as? CrystalIfStatement
         if (ifStatement != null) {
-            val branches = listOf(ifStatement.statementList) + ifStatement.elsifClauseList.map { it.statementList }
-            val branchFlows = branches.map { flowStatementList(it, name, incoming) }
-            return ifStatement.elseClause?.statementList?.let {
-                mergeFlows(branchFlows + flowStatementList(it, name, incoming))
-            } ?: mergeFlows(listOf(VariableFlow.falling(incoming)) + branchFlows)
+            return flowConditionBranches(
+                name = name,
+                incoming = incoming,
+                conditions = listOf(ifStatement.condition) +
+                    ifStatement.elsifClauseList.map { it.condition },
+                bodies = listOf(ifStatement.statementList) +
+                    ifStatement.elsifClauseList.map { it.statementList },
+                elseBody = ifStatement.elseClause?.statementList,
+            )
         }
         val unlessStatement = (element as? CrystalStatement)?.unlessStatement ?: element as? CrystalUnlessStatement
         if (unlessStatement != null) {
-            val bodyFlow = flowStatementList(unlessStatement.statementList, name, incoming)
+            val condition = unlessStatement.condition
+            val bodyIncoming = condition?.let { narrowedBranchState(it, name, incoming, false) }
+                ?: incoming
+            val bodyFlow = flowStatementList(unlessStatement.statementList, name, bodyIncoming)
+            val elseIncoming = condition?.let { narrowedBranchState(it, name, incoming, true) }
+                ?: incoming
             return unlessStatement.elseClause?.statementList?.let {
-                mergeFlows(listOf(bodyFlow, flowStatementList(it, name, incoming)))
-            } ?: mergeFlows(listOf(VariableFlow.falling(incoming), bodyFlow))
+                mergeFlows(listOf(bodyFlow, flowStatementList(it, name, elseIncoming)))
+            } ?: mergeFlows(listOf(VariableFlow.falling(elseIncoming), bodyFlow))
+        }
+        val directCase = element as? CrystalCaseStatement
+        val nestedCase = (element as? CrystalStatement)
+            ?.node?.getChildren(null).orEmpty().map { it.psi }
+            .filterIsInstance<CrystalCaseStatement>()
+            .firstOrNull()
+        val caseStatement = directCase ?: nestedCase
+        if (caseStatement != null) {
+            return flowCaseBranches(caseStatement, name, incoming)
         }
         val begin = (element as? CrystalStatement)?.beginStatement ?: element as? CrystalBeginStatement
         if (begin != null) return flowProtectedBody(begin, name, incoming)
@@ -1200,18 +1775,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             return flow
         }
         val expression = element as? CrystalExpression
-        val caseStatement = expression?.let { PsiTreeUtil.findChildOfType(it, CrystalCaseStatement::class.java) }
-        if (caseStatement != null) {
-            val lists = significantChildren(caseStatement).mapNotNull {
-                when (it) {
-                    is CrystalWhenClause -> it.statementList
-                    is CrystalInClause -> it.statementList
-                    else -> null
-                }
-            }
-            return mergeFlows(lists.map { flowStatementList(it, name, incoming) } +
-                (caseStatement.elseClause?.statementList?.let { listOf(flowStatementList(it, name, incoming)) }
-                    ?: listOf(VariableFlow.falling(incoming))))
+        val embeddedCase = expression?.let { PsiTreeUtil.findChildOfType(it, CrystalCaseStatement::class.java) }
+        if (embeddedCase != null) {
+            return flowCaseBranches(embeddedCase, name, incoming)
         }
         if (element is CrystalBlock &&
             (containsAssignment(element, name) || containsExpressionAbrupt(element))
@@ -1596,16 +2162,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun flowExpression(element: PsiElement, name: String, incoming: VariableState): VariableFlow {
         val caseStatement = PsiTreeUtil.findChildOfType(element, CrystalCaseStatement::class.java)
         if (caseStatement != null) {
-            val branches = significantChildren(caseStatement).mapNotNull {
-                when (it) {
-                    is CrystalWhenClause -> flowStatementList(it.statementList, name, incoming)
-                    is CrystalInClause -> flowStatementList(it.statementList, name, incoming)
-                    else -> null
-                }
-            }
-            return mergeFlows(branches +
-                (caseStatement.elseClause?.statementList?.let { listOf(flowStatementList(it, name, incoming)) }
-                    ?: listOf(VariableFlow.falling(incoming))))
+            return flowCaseBranches(caseStatement, name, incoming)
         }
         val children = significantChildren(element)
         val firstType = children.firstOrNull()?.node?.elementType

@@ -70,6 +70,22 @@ result `Unknown`; the resolver never picks the first reverse descendant assignme
 - Instance variables stop at the nearest class, module, struct, or enum. Nested and sibling types
   never inherit lexical instance-variable evidence from an outer type.
 
+## Guard Narrowing
+
+Branch conditions refine a local's or parameter's union for the branches they prove:
+`if x` drops `Nil` (the `else` keeps only falsy members), `unless x.nil?` and the `else`
+of `if x.nil?` drop `Nil`, `if x.is_a?(T)` replaces the state with `T` (the `else`
+subtracts it from a known union), `case x when T` replaces it per arm (the `else`
+keeps the remainder), conditional assignment (`if x = expr`) binds first, and abrupt
+guards (`return "" if x.nil?`) narrow the fall-through. Guards stay syntactically
+direct — bare variables, `.nil?`, and `.is_a?(Type)` only; binary conditions, negations,
+method calls, `== nil`, loops, `&&` right-hand sides, `responds_to?`, `in` patterns,
+and macros keep the incoming state. Reassignment inside a branch overwrites the refined
+state like any other binding. Unrecognized or empty remainders keep the incoming state,
+never an empty union. The exact-receiver fallback consumes narrowed states only for
+locals and parameters; anything else (unions, unknown, nil-only) stays suppressed
+exactly as before.
+
 ## Expression Values
 
 Scalar literals resolve to Crystal's default runtime types. Arrays, hashes, and tuples preserve
@@ -91,9 +107,9 @@ instead of degrading to `Unknown`.
 
 Crystal's nilable shorthand `T?` is expanded to `T | Nil` while annotations, parameters, and return
 types are parsed, so a nilable generic (`Array(String)?`) participates in element extraction and
-union compatibility instead of staying an opaque pseudo-type name. Because condition-based narrowing
-is not modeled, a nilable collection indexed without `?` still yields the non-nil element (the `Nil`
-union member is dropped by the element mapping), and `arr[i]?` keeps `T | Nil`.
+union compatibility instead of staying an opaque pseudo-type name. A nilable collection indexed
+without `?` still yields the non-nil element (the `Nil` union member is dropped by the element
+mapping), and `arr[i]?` keeps `T | Nil`.
 
 Conditional expression values merge only falling-through paths. `if`, `unless`, and `case` share
 the same structured execution result, so a terminating arm contributes its return but not an
@@ -248,7 +264,10 @@ mechanism.
 
 - Completed-call overload selection is not argument-aware; multiple exact candidates are unknown.
 - Generic type parameters are not substituted through method signatures.
-- Nil/type narrowing from conditions is not modeled.
+- Guard narrowing covers only syntactically direct guards (bare-variable truthiness, `.nil?`,
+  conditional assignment, `.is_a?(Type)`, type `case`, abrupt guards); loops, `&&`/`||`
+  right-hand sides, `responds_to?`, `== nil`, complex booleans, `in` patterns, and macros
+  keep the incoming state.
 - Proc result inference is not modeled.
 - Cross-file reopening precedence remains strict and incomplete when multiple relevant declarations
   inside the effective source snapshot have an order that the index cannot prove. Reopenings outside

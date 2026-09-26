@@ -100,7 +100,28 @@ internal object CrystalExactReceiverTypeResolver {
     ): ExactReceiverType? {
         val nameNode = receiver.node.findChildByType(CrystalTypes.IDENTIFIER) ?: return null
         val evidence = findLocalEvidence(receiver, nameNode.text, call, session)
-        return if (evidence.found) evidence.type else null
+        if (evidence.found && evidence.type != null) return evidence.type
+        return narrowedReceiverType(receiver, call, session)
+    }
+
+    /**
+     * Flow-narrowed fallback for locals and parameters the declaration
+     * evidence cannot type exactly (untyped parameters, guard-refined
+     * branches): a single known non-nil type with an exact identity resolves;
+     * anything else — unions, unknown, nil-only — stays suppressed exactly
+     * as before.
+     */
+    private fun narrowedReceiverType(
+        receiver: CrystalVariableReference,
+        call: CrystalDotCallAccess,
+        session: CrystalTypeResolutionSession,
+    ): ExactReceiverType? {
+        val known = session.resolve(receiver) as? CrystalTypeResolution.Known ?: return null
+        if (known.types.size != 1) return null
+        val single = known.types.single()
+        if (single.name == "Nil") return null
+        val identity = session.resolveType(single.name, call) ?: return null
+        return ExactReceiverType(identity.simpleName, identity.qualifiedName)
     }
 
     private fun findLocalEvidence(

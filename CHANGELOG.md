@@ -54,6 +54,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   Alias-to-alias chains recurse with a depth guard; ambiguous or unresolvable targets
   stay unresolved with no fallback. Covered by `CrystalCompletionTest`; specified in
   docs/specs/type-inference.md.
+- **Control-flow narrowing for union and nilable receivers** — branch guards refine a
+  local or parameter to one exact type before resolving DOT-calls: `if x` drops `Nil`,
+  `unless x.nil?` and the `else` of `if x.nil?` drop it too, `if x.is_a?(T)` replaces
+  the state with `T` (the `else` keeps the remainder), `case x when T` narrows per arm,
+  conditional assignment binds first, and abrupt guards (`return "" if x.nil?`) narrow
+  the fall-through. Navigation, completion, and argument diagnostics work inside guards;
+  remaining unions, reassigned variables, and unrecognized guards stay silent. Covered by
+  `CrystalExactReceiverTypeResolverTest`, `CrystalTypeSetResolverTest`, and
+  `CrystalArgumentCountInspectionTest`; specified in docs/specs/type-inference.md.
 - **Bracket-call navigation and arity checks** — tight `[]` calls (`Foo[]`, `Foo[1]`,
   `obj[0]`) form a dedicated composite with a reference resolving to the `def []`
   targets, enabling Go to Definition, hover, and argument-count

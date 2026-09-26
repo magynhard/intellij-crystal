@@ -414,6 +414,75 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    // ==================== Guard narrowing ====================
+
+    fun testIfTruthinessNarrowsVariableType() {
+        assertTypes(
+            "def f(x : String?)\n  if x\n    <caret>x\n  end\nend",
+            "String"
+        )
+    }
+
+    fun testIfElseKeepsNilBranch() {
+        assertTypes(
+            "def f(x : String?)\n  if x\n    1\n  else\n    <caret>x\n  end\nend",
+            "Nil"
+        )
+    }
+
+    fun testUnlessNilCheckNarrowsVariableType() {
+        assertTypes(
+            "def f(x : String?)\n  unless x.nil?\n    <caret>x\n  end\nend",
+            "String"
+        )
+    }
+
+    fun testIsANarrowsUnionVariableType() {
+        assertTypes(
+            "class Service\nend\nclass Other\nend\n" +
+                "def f(x : Service | Other)\n  if x.is_a?(Service)\n    <caret>x\n  end\nend",
+            "Service"
+        )
+    }
+
+    fun testIsAElseNarrowsToRemainder() {
+        assertTypes(
+            "class Service\nend\nclass Other\nend\n" +
+                "def f(x : Service | Other)\n  if x.is_a?(Service)\n    1\n  else\n    <caret>x\n  end\nend",
+            "Other"
+        )
+    }
+
+    fun testCaseWhenNarrowsVariableType() {
+        assertTypes(
+            "class Service\nend\nclass Other\nend\n" +
+                "def f(x : Service | Other)\n  case x\n  when Service\n    <caret>x\n  end\nend",
+            "Service"
+        )
+    }
+
+    fun testEarlyReturnGuardNarrowsVariableType() {
+        assertTypes(
+            "def f(x : String?)\n  return if x.nil?\n  <caret>x\nend",
+            "String"
+        )
+    }
+
+    fun testReassignmentAfterGuardWidensVariableType() {
+        assertTypes(
+            "def f(x : String?)\n  if x\n    x = nil\n    <caret>x\n  end\nend",
+            "Nil"
+        )
+    }
+
+    fun testUnrecognizedConditionKeepsUnion() {
+        assertTypes(
+            "def f(x : String?, flag : Bool)\n  if flag\n    <caret>x\n  end\nend",
+            "String",
+            "Nil"
+        )
+    }
+
     fun testPostfixAndLoopAssignmentsMergeIncomingBinding() {
         assertTypes("value = 1\nvalue = \"text\" if true\n<caret>value", "Int32", "String")
         assertTypes("value = 1\nwhile true\n  value = \"text\"\nend\n<caret>value", "Int32", "String")

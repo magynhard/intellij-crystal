@@ -2965,4 +2965,32 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testNarrowedReceiverEnablesArgumentDiagnostic() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def run(arg)
+              end
+            end
+            def execute(value : Service?)
+              if value
+                value.<error descr="Missing required argument(s): 'arg'">run</error>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRemainingUnionReceiverStaysSilent() {
+        myFixture.configureByText("test.cr", """
+            class Service
+              def run(arg)
+              end
+            end
+            def execute(value : Service?)
+              value.run
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

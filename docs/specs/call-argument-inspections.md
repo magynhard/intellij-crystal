@@ -228,7 +228,9 @@ Record fallback retains exact identity. A record nested as `Other::Config` canno
 Argument diagnostics require exact resolution. The inspection emits no argument-count or named-argument diagnostic when the target depends on any of the following:
 
 - An unknown or ambiguous receiver identity.
-- A union or nilable receiver type, until control-flow narrowing supplies one exact non-nil type.
+- A union or nilable receiver type, unless control-flow narrowing supplies one exact non-nil
+  type in a guard-refined branch (bare-variable truthiness, `.nil?`, conditional assignment,
+  `.is_a?(Type)`, type `case`, abrupt guards).
 - Conflicting local-variable receiver information that prevents one exact nearest assignment from being resolved.
 - Conflicting instance-variable assignment types.
 - A class-variable receiver.
