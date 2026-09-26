@@ -12,6 +12,7 @@ import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalFunDefinition
+import de.magynhard.crystal.psi.CrystalMacroContext
 import de.magynhard.crystal.psi.CrystalMethodCallExpression
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
@@ -75,6 +76,11 @@ object CrystalDotCallTargetResolver {
         access: CrystalDotCallAccess,
         session: CrystalTypeResolutionSession
     ): DotCallResolution {
+        // Macro context (`{{ … }}` interpolations, macro bodies): receivers
+        // are macro-runtime objects (TypeNode, StringLiteral, …) dispatching
+        // to the `Crystal::Macros` compiler API, never to runtime defs —
+        // resolving them would navigate to false targets.
+        if (CrystalMacroContext.isInMacroContext(access)) return DotCallResolution.Suppressed
         val call = CrystalCallExtractor.extractDotCall(access) ?: return DotCallResolution.Unresolved
         if (containsMacroInterpolation(call.receiver) || containsMacroInterpolation(call.methodNameElement)) {
             return DotCallResolution.Suppressed

@@ -284,6 +284,17 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testMacroOnlyDotCallStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Apfel
+              macro essen(a)
+              end
+            end
+            Apfel.essen(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testUnknownDotReceiverFlagsReceiver() {
         myFixture.configureByText("test.cr", """
             <warning descr="Cannot find 'Missing'">Missing</warning>.new

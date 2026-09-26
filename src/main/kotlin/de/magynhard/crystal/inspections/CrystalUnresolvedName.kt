@@ -255,11 +255,20 @@ object CrystalUnresolvedName {
             }
             if (aliasReceiver) return null
         }
-        return if (CrystalDotCallTargetResolver.resolve(access) is DotCallResolution.Unresolved) {
-            nameElement to UnresolvedKind.UNKNOWN
-        } else {
-            null
+        if (CrystalDotCallTargetResolver.resolve(access) is DotCallResolution.Unresolved) {
+            // Macro-only DOT target (`Foo.bar(1)` with `macro bar` in Foo and
+            // no def): the call is valid but the resolver has no macro
+            // variant — a visible receiver-owned macro heals the diagnostic.
+            val root = CrystalReceiverExpression.extractExactConstantTypeRoot(call.receiver)
+                ?.substringBefore("(")?.trim()
+            if (root != null &&
+                receiverMacros(call.methodName, root.removePrefix("::"), access).isNotEmpty()
+            ) {
+                return null
+            }
+            return nameElement to UnresolvedKind.UNKNOWN
         }
+        return null
     }
     /**
      * Returns the flagged leaf and its kind for a qualified `A::B` path, or

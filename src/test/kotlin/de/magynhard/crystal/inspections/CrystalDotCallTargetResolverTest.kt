@@ -2279,6 +2279,27 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertSame(DotCallResolution.Suppressed, call.resolution)
     }
 
+    // ==================== Macro context ====================
+
+    // Inside `{{ … }}` receivers are macro-runtime objects (TypeNode,
+    // StringLiteral, …) dispatching to the `Crystal::Macros` compiler API,
+    // never to runtime defs: resolving them would navigate to false targets.
+    fun testSuppressesDotCallInsideMacroInterpolation() {
+        val call = resolveCall(
+            """
+                class String
+                  def upcase
+                  end
+                end
+                macro probe
+                  {{ "x".upcase }}
+                end
+            """.trimIndent(),
+            "upcase", "\"x\""
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
     // ==================== Literal Receivers ====================
 
     fun testResolvesLiteralArrayReceiverWithElementUnion() {

@@ -191,6 +191,21 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   argument-count/type-check/resolver/reference/unresolved/index regressions;
   specified in docs/specs/call-argument-inspections.md and
   docs/specs/indexed-navigation.md.
+- **Joint method+macro overload pool for argument counts** — a macro and a
+  same-named `def` are now evaluated together by applicability (verified:
+  `bar(1)` calls `def bar(a)` while `bar(1, 2)` calls `macro bar(a, b)`), so
+  macro-satisfied calls no longer report false excess against the `def`, and
+  macro-only calls report missing/excess/unknown-named against the macro
+  parameter lists. Only require-visible, call-site-reachable macros
+  participate (top-level macros anywhere once required, type-owned macros
+  from their owner or its nesters; unrequired macros stay silent), and
+  DOT calls only through receiver-owned macros. DOT calls inside `{{ … }}`
+  resolve to nothing instead of false runtime targets, and macro-only DOT
+  calls heal the `Cannot find` diagnostic. Macro argument types stay
+  unchecked (macro arguments are ASTs). Covered by argument-count,
+  resolver, and unresolved regressions; specified in
+  docs/specs/call-argument-inspections.md, docs/specs/unresolved-names.md,
+  and docs/specs/indexed-navigation.md.
 
 ### Changed
 - **Dependency-aware name completion** — free-text and type-annotation completion now

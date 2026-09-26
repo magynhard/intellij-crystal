@@ -267,6 +267,7 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - A class-variable receiver.
 - A record instance method until record values use exact generated-signature resolution.
 - A macro-interpolated receiver, method name, or constructor target.
+- A DOT call inside `{{ … }}` or a macro body: its receiver is a macro-runtime object (TypeNode, StringLiteral, …) dispatching to the `Crystal::Macros` compiler API, never to a runtime `def`.
 
 Macro interpolation contained only inside an argument does not suppress an otherwise exact target. The argument cannot be validated before expansion, so a call whose argument list starts an argument with `{{ … }}` is exempt from arity diagnostics (see Macro context).
 
@@ -289,6 +290,16 @@ process # Valid
 ```
 
 When no overload accepts the supplied arguments, the inspection reports from the uniquely closest overload using the existing overload ranking. Equally close overloads that omit different required parameter names are ranked deterministically by the sorted missing-name list (then sorted unknown named args), so the diagnostic does not follow collection order.
+
+## Joint method+macro pool
+
+Verified against the compiler, a macro and a same-named `def` form one overload pool selected by applicability: `bar(1)` calls `def bar(a)` while `bar(1, 2)` calls `macro bar(a, b)`, and only when nothing applies does the compiler blame the `def` (`wrong number of arguments for 'bar' (given 3, expected 1)`). The count inspection therefore evaluates macros alongside methods:
+
+- Unqualified calls consider require-visible macros that are callable from the call site: top-level macros anywhere once required, type-owned macros only from their owner or its nesters (a `Foo`-owned macro is invisible at top level, mirroring `def` visibility; macros cannot have receivers, so no `self`-method exclusion applies).
+- When no `def` applies but a visible macro accepts the arity, the call stays silent (`bar(1, 2)` against `def bar(a)` plus `macro bar(a, b)`); when nothing applies, the diagnostic still blames the closest `def`, matching the compiler.
+- Macro-only calls report against the macro parameter lists (macro definitions reuse the method `parameter_list` grammar, so required, defaulted, splat, and named shapes evaluate identically, including `Unknown named argument` — the compiler reports `no parameter named 'zzz'`).
+- DOT calls suppress `def`-based arity only through receiver-owned visible macros (`Foo.bar(1, 2)` with `macro bar(a, b)` in `Foo`); a top-level macro is never reachable through a receiver (`undefined method 'bar' for Foo.class`), and inherited or included macro owners are excluded. Macro-only DOT calls stay silent (no macro resolution variant) but heal the `Cannot find` diagnostic.
+- Limits: argument types of macro calls stay unchecked everywhere (macro arguments are ASTs); bare argumentless references keep their suppress-on-macro-existence rule; unrequired macros never participate.
 
 ## Diagnostics
 
@@ -379,6 +390,12 @@ by macro expansion, not typed values. Resolution and diagnostics rules:
   the same name (e.g. `Catalyst::CLI.run`) are NOT candidates there.
 - Argument-count and type-check inspections suppress all argument
   diagnostics for calls inside macro context.
+- DOT calls inside macro context resolve to nothing (`{{ "x".upcase }}` must
+  not navigate to `String#upcase`): `{{ receiver.method }}` dispatch targets
+  the macro-API classes compiled into the compiler, so resolving them against
+  runtime `def`s would be false. Receiver-method resolution inside `{{ … }}`
+  is deliberately unsupported; only bare names resolve (to macros or builtin
+  macro-methods).
 - A macro-spliced argument (`{{ … }}`) outside macro context makes the call's
   arity unknowable before expansion: the splice may expand to zero or more
   arguments, or to an operator between operands. `to_f32 {{ op.id }} other`

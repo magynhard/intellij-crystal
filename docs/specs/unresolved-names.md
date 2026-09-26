@@ -80,6 +80,9 @@ call-argument inspections:
   the same rules as constants: the prelude baseline applies (`Bytes.new`
   with no SDK is silent), and an alias receiver silences the whole call
   (unjudgeable members) instead of flagging the root or the method name.
+  A visible receiver-owned macro heals a macro-only DOT call (`Apfel.essen`
+  with `macro essen` in `Apfel` and no `def`): the call is valid but has no
+  method resolution target.
 
 ## Hover
 

@@ -132,8 +132,12 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         if (crystalReference?.resolveLocalDeclaration() != null) return
 
         if (CrystalIndexService.findTypes(methodName, project, scope).isNotEmpty()) return
-        // Same-name macros (stdlib ones included) make the name a macro
-        // invocation rather than a runtime call.
+        // Same-name macros (stdlib ones included) may capture the call: methods
+        // and macros form one applicability-selected pool, so an argumentless
+        // reference can no longer be measured against the defs alone — and a
+        // bare word is too often a DSL token or a misparsed operator to blame
+        // a macro shape either. Bare references stay silent here; calls with
+        // argument lists are evaluated against the joint pool in checkCall.
         if (CrystalIndexService.findMacros(methodName, project, GlobalSearchScope.allScope(project)).isNotEmpty()) {
             return
         }
@@ -213,7 +217,28 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
         }
 
-        if (methods.isEmpty()) return
+        val macros = callableMacros(methodName, callExpr)
+        if (methods.isEmpty()) {
+            // Macro-only call (`bar(1)` against `macro bar(a, b)`): the
+            // compiler reports these (`wrong number of arguments for macro
+            // 'bar'`), so the macro parameter lists become the overload pool.
+            // Unresolvable shapes stay silent via the shared guards.
+            checkParameterListCounts(macros.map { it.parameterList }, arguments, methodNameElement, holder)
+            return
+        }
+        if (macros.isNotEmpty()) {
+            val counts = effectiveCounts(arguments) ?: return
+            // Joint method+macro pool (verified: `bar(1)` calls `def bar(a)`
+            // while `bar(1, 2)` calls `macro bar(a, b)`): a satisfied macro
+            // wins over rejecting defs, so the defs' arity must not report.
+            // When nothing applies the compiler blames the def, which is
+            // exactly what the fallthrough below reports.
+            if (rejectsAll(methods.map { it.parameterList }, counts) &&
+                !rejectsAll(macros.map { it.parameterList }, counts)
+            ) {
+                return
+            }
+        }
 
         checkArgumentCount(methods, arguments, methodNameElement, holder)
     }
@@ -237,12 +262,28 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         if (arguments.any { CrystalMacroContext.isMacroSplicedArgument(it.element) }) return
 
         when (resolution) {
-            is DotCallResolution.Methods -> checkArgumentCount(
-                resolution.methods,
-                arguments,
-                call.methodNameElement,
-                holder
-            )
+            is DotCallResolution.Methods -> {
+                val macros = receiverMacros(call.methodName, resolution.receiverType.qualifiedName, access)
+                if (macros.isNotEmpty()) {
+                    val counts = effectiveCounts(arguments) ?: return
+                    // Same joint pool as unqualified calls (`Foo.bar(1, 2)`
+                    // calls `macro bar(a, b)` in Foo, never `def bar(a)`):
+                    // a satisfied receiver-owned macro suppresses the defs'
+                    // arity. Macros never report here — without defs the
+                    // resolution is Unresolved and already silent.
+                    if (rejectsAll(resolution.methods.map { it.parameterList }, counts) &&
+                        !rejectsAll(macros.map { it.parameterList }, counts)
+                    ) {
+                        return
+                    }
+                }
+                checkArgumentCount(
+                    resolution.methods,
+                    arguments,
+                    call.methodNameElement,
+                    holder
+                )
+            }
             is DotCallResolution.ImplicitConstructor -> checkImplicitConstructorArguments(
                 arguments,
                 call.methodNameElement,
@@ -440,10 +481,56 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         methodNameElement: PsiElement,
         holder: ProblemsHolder
     ) {
+        checkParameterListCounts(methods.map { it.parameterList }, arguments, methodNameElement, holder)
+    }
+
+    /**
+     * Arity check against bare parameter lists: the shared loop behind method
+     * overloads and macro-only calls (macro definitions reuse the method
+     * `parameter_list` grammar, so every shape evaluates identically).
+     */
+    private fun checkParameterListCounts(
+        parameterLists: List<CrystalParameterList?>,
+        arguments: List<ArgumentInfo>,
+        methodNameElement: PsiElement,
+        holder: ProblemsHolder
+    ) {
+        val counts = effectiveCounts(arguments) ?: return
+
+        // Check each overload
+        var bestMatch: OverloadMatch? = null
+
+        for (parameterList in parameterLists) {
+            val match = evaluateOverload(parameterList, counts.total, counts.positional, counts.named)
+
+            if (match.isValid) return // At least one overload accepts this call
+
+            // Track best (closest) match for error reporting
+            if (bestMatch == null || match.isBetterThan(bestMatch)) {
+                bestMatch = match
+            }
+        }
+
+        // No overload matched — report problem
+        val match = bestMatch ?: return
+        reportArgumentMismatch(match, arguments, counts.total, methodNameElement, holder)
+    }
+
+    /** True when no parameter list in [parameterLists] accepts [counts]. */
+    private fun rejectsAll(parameterLists: List<CrystalParameterList?>, counts: EffectiveCounts): Boolean =
+        parameterLists.none { evaluateOverload(it, counts.total, counts.positional, counts.named).isValid }
+
+    /** Effective call shape, or null when unresolvable splats make the arity unknowable. */
+    private data class EffectiveCounts(
+        val positional: Int,
+        val named: Set<String>,
+        val total: Int
+    )
+
+    private fun effectiveCounts(arguments: List<ArgumentInfo>): EffectiveCounts? {
         // If any argument has an unresolvable splat/double-splat, skip the check entirely
-        val hasUnresolvedSplat = arguments.any { it.isSplat && it.resolvedSplatCount == null }
-        val hasUnresolvedDoubleSplat = arguments.any { it.isDoubleSplat && it.resolvedDoubleSplatKeys == null }
-        if (hasUnresolvedSplat || hasUnresolvedDoubleSplat) return
+        if (arguments.any { it.isSplat && it.resolvedSplatCount == null }) return null
+        if (arguments.any { it.isDoubleSplat && it.resolvedDoubleSplatKeys == null }) return null
 
         // Expand resolved splats into effective argument counts
         val effectivePositionalCount = arguments.sumOf { arg ->
@@ -466,24 +553,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         }
 
         val effectiveArgCount = effectivePositionalCount + namedArgNames.size
-
-        // Check each overload
-        var bestMatch: OverloadMatch? = null
-
-        for (method in methods) {
-            val match = evaluateOverload(method.parameterList, effectiveArgCount, effectivePositionalCount, namedArgNames)
-
-            if (match.isValid) return // At least one overload accepts this call
-
-            // Track best (closest) match for error reporting
-            if (bestMatch == null || match.isBetterThan(bestMatch)) {
-                bestMatch = match
-            }
-        }
-
-        // No overload matched — report problem
-        val match = bestMatch ?: return
-        reportArgumentMismatch(match, arguments, effectiveArgCount, methodNameElement, holder)
+        return EffectiveCounts(effectivePositionalCount, namedArgNames, effectiveArgCount)
     }
 
     /**

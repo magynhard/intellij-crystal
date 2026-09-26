@@ -3120,4 +3120,147 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Macro calls (joint method+macro pool) ====================
+
+    fun testMacroOnlyMissingIsReported() {
+        myFixture.configureByText("test.cr", """
+            macro bar(a, b)
+            end
+            <error descr="Missing required argument(s): 'b'">bar</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroOnlyExactAndDefaultsAndSplatStayClean() {
+        myFixture.configureByText("test.cr", """
+            macro bar(a, b)
+            end
+            macro with_default(a, b = 1)
+            end
+            macro splatty(*args)
+            end
+            bar(1, 2)
+            with_default(1)
+            with_default(1, 2)
+            splatty(1, 2, 3)
+            splatty()
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroOnlyExcessIsReported() {
+        myFixture.configureByText("test.cr", """
+            macro bar(a, b)
+            end
+            bar(1, 2, <error descr="Too many arguments: expected at most 2, got 3">3</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroOnlyUnknownNamedIsReported() {
+        myFixture.configureByText("test.cr", """
+            macro named(a = 1)
+            end
+            named(1)
+            named(a: 2)
+            named(<error descr="Unknown named argument 'zzz'">zzz: 1</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroWithBlockStaysClean() {
+        myFixture.configureByText("test.cr", """
+            macro wrap(a)
+              {{ yield }}
+            end
+            wrap(1) do
+              2
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testJointPoolMacroAcceptanceSuppressesDefExcess() {
+        myFixture.configureByText("test.cr", """
+            macro bar(a, b)
+            end
+            def bar(a)
+            end
+            bar(1)
+            bar(1, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testJointPoolBlameStaysWithDefs() {
+        myFixture.configureByText("test.cr", """
+            macro bar(a, b)
+            end
+            def bar(a)
+            end
+            bar(1, <error descr="Too many arguments: expected at most 1, got 3">2</error>, <error descr="Too many arguments: expected at most 1, got 3">3</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredMacroStaysSilent() {
+        myFixture.addFileToProject("ffi.cr", """
+            macro bar(a, b)
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            bar(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRequiredMacroIsChecked() {
+        myFixture.addFileToProject("ffi.cr", """
+            macro bar(a, b)
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            require "./ffi"
+
+            <error descr="Missing required argument(s): 'b'">bar</error>(1)
+            bar(1, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testTypeOwnedMacroIsInvisibleAtTopLevel() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              macro bar(a)
+              end
+            end
+            bar(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDotCallJointPoolMacroAcceptanceSuppressesDefExcess() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              macro bar(a, b)
+              end
+              def self.bar(a)
+              end
+            end
+            Foo.bar(1, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDotCallWithoutMacroStillReportsExcess() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def self.bar(a)
+              end
+            end
+            Foo.bar(1, <error descr="Too many arguments: expected at most 1, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

@@ -72,10 +72,13 @@ object CrystalMacroContext {
      *
      * Only a block whose owner resolves to a macro is gated. A block owned by
      * a regular method (`each do`, `describe`-style runtime bodies) keeps its
-     * diagnostics. Real methods and macros live in the same overload table, so
-     * a name that has a macro at all is a macro call in Crystal — the macro
-     * index is checked against the whole scope because stdlib macros sit
-     * outside the project content root.
+     * diagnostics. Verified against the compiler, methods and macros form one
+     * overload pool selected by applicability (`bar(1)` calls `def bar(a)`
+     * while `bar(1, 2)` calls `macro bar(a, b)`), so a macro-owned call site
+     * may still execute a same-named def — but the block body holds macro
+     * data often enough (and the macro may win) that ordinary argument
+     * diagnostics stay suppressed. The macro index is checked against the
+     * whole scope because stdlib macros sit outside the project content root.
      */
     fun isInsideMacroCallBlock(element: PsiElement): Boolean {
         var current: PsiElement? = element
