@@ -128,6 +128,16 @@ parameter declared after an optional positional parameter (`def foo(a = 1, b)`) 
 after a bare `*` or a splat stay valid (`def foo(*a, b)`, `def foo(*, b)`), as do optional
 parameters before a block or double splat.
 
+## Argument Ordering
+
+Once a named argument appears, Crystal accepts only further named arguments, block passes,
+and `do` blocks: `f(a: 1, 2)` fails with `expected named argument, not 2`, as do splats
+(`*`), double splats (`**`), `out` arguments, and heredoc markers after a named argument.
+`CrystalArgumentOrderInspection` flags the offending argument with the compiler's message
+and `GENERIC_ERROR`, in both parenthesized and bare lists. Spaced-colon type shapes
+(`x : Type`) never open the named phase (`f(x : Int32, 2)` is valid), and macro-controlled
+tails stop reporting because their expansion is unknown.
+
 ## Call Discovery And Ownership
 
 Argumentless calls without parentheses do not contain an argument-list PSI element:

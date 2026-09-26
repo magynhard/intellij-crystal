@@ -55,10 +55,6 @@
 
 ## Parser Follow-up
 
-- [ ] **Enforce named-argument ordering in call grammar** — once the first named argument appears,
-  Crystal rejects later positional, splat, and positional `out` arguments. The current generic
-  `argument_list` also accepts this pre-existing invalid ordering for ordinary named arguments;
-  model the positional-to-named transition without breaking macro trivia or heredoc markers.
 - [ ] **Investigate flaky `CrystalIndexServiceTest` scope tests** — recurring full-suite
   failures (`testProcessesTypeNameCandidatesOutsideProvidedScope`) with StubIndex results
   missing just-added fixture types (`expected:<[ExcludedType]> but was:<[]>`), while the

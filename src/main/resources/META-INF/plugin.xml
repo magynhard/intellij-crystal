@@ -430,6 +430,15 @@
         <localInspection
                 language="Crystal"
                 groupName="Crystal"
+                displayName="Positional argument after named argument"
+                shortName="CrystalArgumentOrder"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="de.magynhard.crystal.inspections.CrystalArgumentOrderInspection"/>
+
+        <localInspection
+                language="Crystal"
+                groupName="Crystal"
                 displayName="Invalid single-quote string"
                 shortName="CrystalSingleQuoteString"
                 enabledByDefault="true"

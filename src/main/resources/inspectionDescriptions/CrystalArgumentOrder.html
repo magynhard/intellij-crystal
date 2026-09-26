@@ -1,0 +1,10 @@
+<html><body>
+Reports a positional, splat, double-splat, <code>out</code>, or heredoc argument after a
+named argument.
+Crystal rejects anything but another named argument once the named phase starts.
+<p>Example: <code>f(a: 1, 2)</code> is invalid; the trailing argument must be named
+(<code>f(a: 1, b: 2)</code>). Block passes (<code>&amp;blk</code>) and <code>do</code>
+blocks stay allowed after named arguments, as do macro-controlled tails whose expansion
+is unknown. Spaced-colon type shapes (<code>x : Type</code>) never open the named
+phase.</p>
+</body></html>

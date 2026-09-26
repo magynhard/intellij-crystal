@@ -174,6 +174,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   (`Foo /bar/`), operator definitions (`def /(`), variable receivers (`@x / scalar`),
   expression-ending keywords, magic constants, and unterminated regexes. Covered by
   `BareCallRegexArgument` parser golden and lexer regressions.
+- **Positional arguments after named arguments are rejected** — `f(a: 1, 2)`,
+  `f(a: 1, *xs)`, `f(a: 1, out x)`, and heredoc markers after a named argument now report
+  `expected named argument, not ...` like the compiler, in both parenthesized and bare
+  calls. Block passes, `do` blocks, splats before named arguments, and spaced-colon type
+  shapes (`x : Type`) stay valid; macro-controlled tails stay silent. Covered by
+  `CrystalArgumentOrderInspectionTest`.
 - **Overload tie diagnostics are deterministic** — when equally close overloads omit different
   required parameter names, the argument-count inspection now ranks them by the sorted
   missing-name list instead of collection order, so the reported parameter is stable. Covered by
