@@ -2,6 +2,8 @@ package de.magynhard.crystal.ameba
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
+import com.intellij.notification.NotificationAction
+import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
@@ -76,6 +78,53 @@ object AmebaBuild {
         return null
     }
 
+    /**
+     * Whether a failed build may be fixed by updating the locked revision
+     * (`shards update ameba`): offered for every shards-driven build failure
+     * while the manifest declares an `ameba` dependency — a stale lock is the
+     * prime suspect for any ameba-source compile failure, and matching the
+     * output against known upstream breakages would go stale with the next
+     * one. Never offered without a shards binary or without a declared
+     * dependency (direct crystal builds have no lock to update).
+     */
+    fun updateOfferApplies(shardYmlText: String?, shardsAvailable: Boolean): Boolean {
+        if (!shardsAvailable) return false
+        val names = shardYmlText?.let {
+            try {
+                CrystalShardManifest.parse(it)?.dependencies?.map { dependency -> dependency.name }
+            } catch (_: Exception) {
+                null
+            }
+        } ?: return false
+        return "ameba" in names
+    }
+
+    /**
+     * Ensures the `bin/` output directory exists under [basePath] (pure
+     * filesystem operation, tested). True when the directory exists
+     * afterwards, false when it is missing and cannot be created.
+     */
+    internal fun ensureBinDir(basePath: String): Boolean {
+        val bin = File(basePath, "bin")
+        return try {
+            if (bin.isDirectory) true else bin.mkdirs()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun updateAndRebuildAction(): NotificationAction {
+        return object : NotificationAction("Update Ameba and rebuild") {
+            override fun actionPerformed(event: AnActionEvent, notification: com.intellij.notification.Notification) {
+                val project = event.project ?: return
+                notification.expire()
+                CrystalShardsInstall.runUpdate(project, "ameba") {
+                    runBuild(project)
+                }
+            }
+        }
+    }
+
     private fun runBuildCommand(project: Project, indicator: ProgressIndicator) {
         val basePath = project.basePath
         if (basePath == null) {
@@ -103,6 +152,13 @@ object AmebaBuild {
         val commandLine = GeneralCommandLine(listOf(plan.executable) + plan.args)
             .withCharset(StandardCharsets.UTF_8)
             .withWorkDirectory(basePath)
+        // Neither `shards build` nor the linker creates the output directory:
+        // without `bin/` the build dies in ld (`cannot open output file`).
+        // Creating it here covers both build plans on every shards version.
+        if (!ensureBinDir(basePath)) {
+            AmebaNotifications.error(project, "Cannot build Ameba", "Could not create the 'bin' directory.")
+            return
+        }
         val result = try {
             CapturingProcessHandler(commandLine).runProcessWithProgressIndicator(indicator)
         } catch (_: Exception) {
@@ -116,11 +172,23 @@ object AmebaBuild {
                 AmebaNotifications.info(project, "Ameba built", "bin/ameba is ready for linting.")
             } else {
                 val output = (result.stderr + result.stdout).trim().take(2000)
-                AmebaNotifications.error(
-                    project,
-                    "Building Ameba failed",
-                    output.ifBlank { "Exit code ${result.exitCode}." }
-                )
+                val content = output.ifBlank { "Exit code ${result.exitCode}." }
+                if (updateOfferApplies(shardYml, shards != null)) {
+                    AmebaNotifications.error(
+                        project,
+                        "Building Ameba failed",
+                        content,
+                        "The locked revision may predate an upstream fix — updating pulls the " +
+                            "newest matching revision, then rebuilds automatically.",
+                        updateAndRebuildAction()
+                    )
+                } else {
+                    AmebaNotifications.error(
+                        project,
+                        "Building Ameba failed",
+                        content
+                    )
+                }
             }
         }
     }

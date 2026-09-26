@@ -82,40 +82,111 @@ internal object CrystalShardsInstall {
         }.queue()
     }
 
+    /**
+     * Targeted `shards update <dependency>`: re-resolves one locked revision
+     * (e.g. a branch-pinned `ameba` whose locked commit predates an upstream
+     * fix) without touching other pins. Shares the install guard, so install
+     * and update never run concurrently. [onUpdateSuccess] runs once after a
+     * successful update — the single chaining point for automatic rebuilds;
+     * a chained failure only re-offers the action, so no retry loop exists.
+     */
+    fun runUpdate(project: Project, dependency: String, onUpdateSuccess: (() -> Unit)? = null) {
+        if (project.isDisposed) return
+        val running = synchronized(RUNNING_KEY) {
+            project.getUserData(RUNNING_KEY) ?: AtomicBoolean(false).also { project.putUserData(RUNNING_KEY, it) }
+        }
+        if (!running.compareAndSet(false, true)) return
+        object : Task.Backgroundable(project, "Updating Crystal shard '$dependency'", true) {
+            override fun run(indicator: ProgressIndicator) {
+                try {
+                    runUpdateCommand(project, indicator, dependency, onUpdateSuccess)
+                } finally {
+                    running.set(false)
+                }
+            }
+        }.queue()
+    }
+
     private fun runInstallCommand(project: Project, indicator: ProgressIndicator) {
+        executeShards(
+            project,
+            indicator,
+            args = listOf("install"),
+            startFailureTitle = "Cannot run shards install",
+            successTitle = "Shards installed",
+            successMessage = "Dependencies installed successfully.",
+            failureTitle = "shards install failed"
+        )
+    }
+
+    private fun runUpdateCommand(
+        project: Project,
+        indicator: ProgressIndicator,
+        dependency: String,
+        onUpdateSuccess: (() -> Unit)?
+    ) {
+        executeShards(
+            project,
+            indicator,
+            args = listOf("update", dependency),
+            startFailureTitle = "Cannot run shards update",
+            successTitle = "Shard '$dependency' updated",
+            successMessage = "Lock updated to the newest matching revision.",
+            failureTitle = "shards update failed",
+            onSuccess = onUpdateSuccess
+        )
+    }
+
+    /**
+     * Shared `shards` execution behind install and update: binary lookup,
+     * cancellable run, tree refresh, truncated failure output. Success
+     * invokes [onSuccess] (once, on the EDT path) — the only automatic
+     * chaining point; failures only notify.
+     */
+    private fun executeShards(
+        project: Project,
+        indicator: ProgressIndicator,
+        args: List<String>,
+        startFailureTitle: String,
+        successTitle: String,
+        successMessage: String,
+        failureTitle: String,
+        onSuccess: (() -> Unit)? = null
+    ) {
         val executable = shardsExecutable(project)
         if (executable == null) {
             notify(
                 project,
                 NotificationType.ERROR,
-                "Cannot run shards install",
+                startFailureTitle,
                 "'shards' executable not found. Install Shards or configure the Crystal SDK path."
             )
             return
         }
         val basePath = project.basePath
         if (basePath == null) {
-            notify(project, NotificationType.ERROR, "Cannot run shards install", "Project has no base path.")
+            notify(project, NotificationType.ERROR, startFailureTitle, "Project has no base path.")
             return
         }
-        val commandLine = GeneralCommandLine(executable.absolutePath, "install")
+        val commandLine = GeneralCommandLine(listOf(executable.absolutePath) + args)
             .withWorkDirectory(basePath)
         val result = try {
             CapturingProcessHandler(commandLine).runProcessWithProgressIndicator(indicator)
         } catch (_: Exception) {
-            notify(project, NotificationType.ERROR, "Cannot run shards install", "Failed to start '${executable.absolutePath}'.")
+            notify(project, NotificationType.ERROR, startFailureTitle, "Failed to start '${executable.absolutePath}'.")
             return
         }
         ApplicationManager.getApplication().invokeLater {
             VfsUtil.markDirtyAndRefresh(false, true, true, File(basePath))
             if (result.exitCode == 0) {
-                notify(project, NotificationType.INFORMATION, "Shards installed", "Dependencies installed successfully.")
+                notify(project, NotificationType.INFORMATION, successTitle, successMessage)
+                onSuccess?.invoke()
             } else {
                 val output = (result.stderr + result.stdout).trim().take(2000)
                 notify(
                     project,
                     NotificationType.ERROR,
-                    "shards install failed",
+                    failureTitle,
                     output.ifBlank { "Exit code ${result.exitCode}." }
                 )
             }

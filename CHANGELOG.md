@@ -220,6 +220,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   the shared `CrystalOverloadArity` helper. Covered by argument-count,
   type-check, resolver, reference, and unresolved regressions; specified in
   docs/specs/call-argument-inspections.md and docs/specs/indexed-navigation.md.
+- **Update-and-rebuild after failed Ameba builds** — a failed `shards build ameba`
+  now offers "Update Ameba and rebuild" in the error balloon whenever the manifest
+  declares an `ameba` dependency and `shards` is available: the locked revision may
+  predate an upstream fix, so `shards update ameba` (only that pin) runs and rebuilds
+  automatically once on success. A chained failure only re-offers the action, never
+  loops. The build ensures `bin/` exists first (neither `shards build` nor the
+  linker creates the output directory). Covered by build-offer regressions; specified in
+  docs/specs/ameba-integration.md.
 
 ### Changed
 - **Dependency-aware name completion** — free-text and type-annotation completion now

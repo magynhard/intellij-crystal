@@ -159,7 +159,16 @@ editor banner over the project-root manifest and a one-time project-open
 balloon offer the explicit opt-in build — never silently. `shards build
 ameba` with a declared `ameba` target, otherwise
 `crystal build -o bin/ameba lib/ameba/bin/ameba.cr`; once per project,
-cancellable, tree refresh on success.
+cancellable, tree refresh on success. The build ensures `bin/` exists first
+(neither `shards build` nor the linker creates the output directory).
+
+A failed build keeps the compiler output in the balloon and additionally
+offers "Update Ameba and rebuild" whenever the manifest declares an `ameba`
+dependency and `shards` is available: the locked revision may predate an
+upstream fix, so `shards update ameba` (only that pin, nothing else) runs
+and rebuilds automatically once on success. A chained failure only re-offers
+the action — no retry loop. The hint promises no fix; direct crystal builds
+without a shards binary keep the plain error balloon.
 
 ## Install Offer
 

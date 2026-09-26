@@ -51,6 +51,23 @@ object AmebaNotifications {
         notify(project, NotificationType.ERROR, title, content, openSettingsAction())
     }
 
+    /**
+     * Error balloon with a leading recovery action (e.g. update-and-rebuild
+     * after a failed Ameba build) and no settings action: build failures are
+     * not settings problems, so the settings link would only suggest a
+     * non-existent fix. The hint text explains the recovery without promising
+     * a fix.
+     */
+    fun error(
+        project: Project,
+        title: String,
+        content: String,
+        hint: String,
+        recoveryAction: NotificationAction
+    ) {
+        notify(project, NotificationType.ERROR, title, "$content\n\n$hint", recoveryAction)
+    }
+
     fun openSettingsAction(): NotificationAction {
         return object : NotificationAction("Open Crystal settings") {
             override fun actionPerformed(event: AnActionEvent, notification: com.intellij.notification.Notification) {
@@ -66,13 +83,13 @@ object AmebaNotifications {
         type: NotificationType,
         title: String,
         content: String,
-        action: NotificationAction?
+        vararg actions: NotificationAction?
     ) {
         if (project.isDisposed) return
         val notification = NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
             .createNotification(title, content, type)
-        action?.let(notification::addAction)
+        actions.filterNotNull().forEach(notification::addAction)
         notification.notify(project)
     }
 
