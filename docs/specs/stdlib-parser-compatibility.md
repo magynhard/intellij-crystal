@@ -195,10 +195,15 @@ calls with trailing arguments (`HANDLERS.insert (position || @h), ch1`);
 minus); and dot-setter chains as nested assignment values. The indexed corpus
 drops from 128 errors in 92 files to 115 errors in 78 files and the complete
 distribution from 2,625 errors in 714 files to 2,583 errors in 665 files;
-no previously clean file regresses. `y = match /abc/` — a bare callee followed
-by a whitespace-separated regex without a dotted receiver — remains a known
-limitation: Crystal resolves it through parser-level backtracking that a PEG
-lexer/parser split cannot reproduce, and it is tracked in `TODO.md`.
+no previously clean file regresses. Bare callees followed by a whitespace-separated
+regex (`y = match /abc/`, `foo a /b/`, `take save? /re/`, `match /a/, /b/`) lex as
+regex as well: the compiler commits to the regex reading and strands trailing operands
+instead of falling back to division (`a /b/ c` fails with `unexpected token: "c"`), so
+the lexer prefers regex after lowercase-led (or single-underscore) callee words when a
+terminator is present. Digits keep division (`12 /2`), as do constants (`Foo /bar/`),
+operator definitions (`def /(`), variable receivers (`@x / scalar`),
+expression-ending keywords (`end`, `true`, `false`, `nil`, `self`), magic constants
+(`__FILE__`), and unterminated regexes.
 
 The indexed corpus now includes the compiler source tree: ameba (bundled
 with kemal) requires `compiler/crystal/syntax/*` and reopens

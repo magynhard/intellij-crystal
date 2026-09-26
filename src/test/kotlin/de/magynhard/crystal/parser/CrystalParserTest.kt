@@ -83,6 +83,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testBareCallRegexArgument() {
+        doTest(true)
+    }
+
     fun testTernaryAssignments() {
         doTest(true)
     }

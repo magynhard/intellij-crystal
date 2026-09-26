@@ -141,6 +141,74 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testBareRegexArgumentAfterPlainIdentifier() {
+        val tokens = nonWhitespaceTokens("y = match /abc/")
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_END })
+        assertFalse(tokens.any { it.first == CrystalTypes.SLASH })
+    }
+
+    @Test
+    fun testNestedBareRegexArgumentAfterPlainIdentifier() {
+        val tokens = nonWhitespaceTokens("foo a /b/")
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_END })
+        assertFalse(tokens.any { it.first == CrystalTypes.SLASH })
+    }
+
+    @Test
+    fun testBareRegexArgumentAfterPredicateMethod() {
+        val tokens = nonWhitespaceTokens("take save? /re/")
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        assertTrue(tokens.any { it.first == CrystalTypes.REGEX_END })
+        assertFalse(tokens.any { it.first == CrystalTypes.SLASH })
+    }
+
+    @Test
+    fun testSpacedDivisionKeepsDivision() {
+        for (input in listOf("a / b / c", "x = 10 / 2 / 5")) {
+            val tokens = nonWhitespaceTokens(input)
+            assertEquals("Both slashes in '$input'", 2, tokens.count { it.first == CrystalTypes.SLASH })
+            assertFalse("No regex in '$input'", tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+        }
+    }
+
+    @Test
+    fun testDigitPredecessorKeepsDivision() {
+        val tokens = nonWhitespaceTokens("x = 12 /2")
+        assertTrue(tokens.any { it.first == CrystalTypes.SLASH })
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
+    fun testConstantPredecessorKeepsDivision() {
+        val tokens = nonWhitespaceTokens("Foo /bar/")
+        assertTrue(tokens.any { it.first == CrystalTypes.SLASH })
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
+    fun testOperatorMethodDefinitionKeepsDivision() {
+        val tokens = nonWhitespaceTokens("def /(scalar : Float64)")
+        assertTrue(tokens.any { it.first == CrystalTypes.SLASH })
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
+    fun testInstanceVariableReceiverKeepsDivision() {
+        val tokens = nonWhitespaceTokens("@x / scalar")
+        assertTrue(tokens.any { it.first == CrystalTypes.SLASH })
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
+    fun testUnterminatedBareRegexStaysDivision() {
+        val tokens = nonWhitespaceTokens("y = match /abc")
+        assertTrue(tokens.any { it.first == CrystalTypes.SLASH })
+        assertFalse(tokens.any { it.first == CrystalTypes.REGEX_BEGIN })
+    }
+
+    @Test
     fun testSlashAfterDotCallWithoutRegexTerminatorIsDivision() {
         val tokens = nonWhitespaceTokens("object.value /2")
         assertTrue(tokens.any { it.first == CrystalTypes.SLASH })

@@ -326,8 +326,21 @@ context, matching the compiler and preserving `object.value / 2 / 3` as two
 division operators. Without a closing slash, `object.value /2` also remains
 division.
 
-These rules are covered by `DotCompoundAssignment`, `DotRegexDivision`, and
-`KemalRangeBlock` parser goldens plus dedicated lexer tests.
+A bare callee (no dotted receiver) takes the same reading: `y = match /abc/`,
+`foo a /b/`, `take save? /re/`, and `match /a/, /b/` lex the slash as a regex
+argument when the preceding word can open a call — lowercase-led (predicate
+`?`/`!` endings included) or a single-underscore private name — and a
+terminator exists. The compiler commits to the regex reading and strands
+trailing operands (`a /b/ c` fails with `unexpected token: "c"`), so no
+fallback to division is attempted. Digits keep division because a slash after
+a literal is an operator (`12 /2`); constants cannot call (`Foo /bar/`);
+operator definitions (`def /(`), variable receivers (`@x / scalar`),
+expression-ending keywords (`end`, `true`, `false`, `nil`, `self`), and magic
+constants (`__FILE__`) keep their operator reading.
+
+These rules are covered by `DotCompoundAssignment`, `DotRegexDivision`,
+`KemalRangeBlock`, and `BareCallRegexArgument` parser goldens plus dedicated
+lexer tests.
 
 ## Empty Regex Literals (`//`)
 

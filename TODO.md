@@ -13,16 +13,6 @@
 
 - [ ] **Design instance/class-variable declaration indexing** only if a valid stubbed declaration model can represent declarations without indexing arbitrary usages or assignments.
 
-## Parser Recovery Follow-up
-
-- [ ] **Support bare callees followed by whitespace-separated regex arguments** — valid Crystal
-  such as `y = match /abc/` cannot be disambiguated lexically: after a plain identifier the
-  slash must stay division for `a /b/ c`, and Crystal resolves the call-vs-division conflict
-  with parser-level backtracking that a PEG lexer/parser split cannot reproduce. The dotted
-  (`range.match /re/`), nested-callee (`x.should match /re/`), and keyword (`when /^get_/`)
-  contexts are covered by lexer heuristics; a correct general solution needs parse-context
-  feedback into lexing.
-
 ## Call Argument Inspection Follow-up
 
 - [ ] **De-fuse binary operand mismatch from untyped-parameter constants** — stdlib

@@ -1161,6 +1161,17 @@ class CrystalLexer implements FlexLexer {
         while (before >= 0 && (zzBuffer.charAt(before) == ' ' || zzBuffer.charAt(before) == '\t')) before--;
         if (before >= 0 && hasDottedReceiverBefore(before)) return true;
       }
+      // A bare callee followed by a whitespace-separated regex takes the regex
+      // as its argument, exactly like the compiler: `y = match /abc/`,
+      // `foo a /b/`, `take save? /re/`. The compiler commits to the regex
+      // reading and strands any trailing operand instead of falling back to
+      // division (`a /b/ c` fails with `unexpected token: "c"`), so the lexer
+      // prefers regex here as well. Only words that can open a bare call
+      // qualify (lowercase or single-underscore start, no operator definition
+      // or variable receiver): digits keep division because a slash after a
+      // literal is an operator (`12 /2`), and constants cannot call
+      // (`Foo /bar/` fails downstream either way).
+      if (wordStart >= 0 && isBareCalleeStart(wordStart, pos)) return true;
       return false;
     }
     // After identifiers, constants, numbers, ), ] — it's division, not regex.
@@ -1177,6 +1188,35 @@ class CrystalLexer implements FlexLexer {
       start--;
     }
     return start < end ? start + 1 : -1;
+  }
+
+  /**
+   * True when the word spanning [wordStart, wordEnd] can open a bare call, so
+   * a following whitespace-separated regex is its argument. Bare callees are
+   * lowercase-led (predicate `?`/`!` endings included) or single-underscore
+   * private names: digits can only end a value (`12 /2` is division),
+   * constants cannot call, variable receivers (`@x`, `@@x`, `$x`) keep their
+   * operator reading, and operator definitions (`def /(`) plus
+   * expression-ending keywords (`end`, `true`, `false`, `nil`, `self`) leave
+   * the slash in operator position, as do magic constants (`__FILE__`).
+   */
+  private boolean isBareCalleeStart(int wordStart, int wordEnd) {
+    if (wordStart > 0) {
+      char before = zzBuffer.charAt(wordStart - 1);
+      if (before == '@' || before == '$') return false;
+    }
+    char first = zzBuffer.charAt(wordStart);
+    if (first == '_') {
+      return wordEnd <= wordStart || zzBuffer.charAt(wordStart + 1) != '_';
+    }
+    if (!Character.isLetter(first) || !Character.isLowerCase(first)) return false;
+    String word = zzBuffer.subSequence(wordStart, wordEnd + 1).toString();
+    switch (word) {
+      case "def": case "end": case "true": case "false": case "nil": case "self":
+        return false;
+      default:
+        return true;
+    }
   }
 
   /**

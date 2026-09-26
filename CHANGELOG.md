@@ -165,6 +165,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Bare callees with whitespace-separated regex arguments parse like the compiler** —
+  `y = match /abc/`, `foo a /b/`, `take save? /re/`, and `match /a/, /b/` no longer
+  produce error markers: a slash after a lowercase-led (or single-underscore) callee word
+  starts a regex argument when a terminator is present, mirroring the compiler, which
+  commits to the regex reading and strands trailing operands (`a /b/ c` fails with
+  `unexpected token: "c"`). Digits keep division (`12 /2`), as do constants
+  (`Foo /bar/`), operator definitions (`def /(`), variable receivers (`@x / scalar`),
+  expression-ending keywords, magic constants, and unterminated regexes. Covered by
+  `BareCallRegexArgument` parser golden and lexer regressions.
 - **Overload tie diagnostics are deterministic** — when equally close overloads omit different
   required parameter names, the argument-count inspection now ranks them by the sorted
   missing-name list instead of collection order, so the reported parameter is stable. Covered by
