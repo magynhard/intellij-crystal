@@ -3384,4 +3384,78 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Callee-filling macro parameters ====================
+
+    /**
+     * stdlib concurrent.cr shape: the `spawn` macro receives the compiler's
+     * call node as its leading `call` parameter, which no call site ever
+     * spells. Measuring the macro parameter list as a call-argument contract
+     * reported "Missing required argument(s): 'call'" on every `spawn { … }`.
+     */
+    fun testMacroWithCalleeParameterStaysClean() {
+        myFixture.configureByText("test.cr", """
+            macro spawn(call, *, name = nil, same_thread = false, &block)
+              {{ call }}
+            end
+            spawn { 1 }
+            spawn(name: "worker") { 1 }
+            spawn 1
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroWithCalleeParameterAndMethodStaysClean() {
+        myFixture.configureByText("test.cr", """
+            macro spawn(call, *, name = nil, same_thread = false, &block)
+              {{ call }}
+            end
+            def spawn(*, name : String? = nil, same_thread = false, &block)
+            end
+            spawn { 1 }
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroWithoutCalleeParameterStillReportsMissing() {
+        myFixture.configureByText("test.cr", """
+            macro bar(a, b)
+            end
+            <error descr="Missing required argument(s): 'b'">bar</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testDefCalleeNamedParameterStaysRequired() {
+        myFixture.configureByText("test.cr", """
+            def foo(call)
+            end
+            <error descr="Missing required argument(s): 'call'">foo</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroWithCalleeParameterStillReportsMissingNamedOnly() {
+        // Compiler (crystal eval): `macro m(call, *, name); m` →
+        // "missing arguments: call, name". The `call` slot is compiler-bound
+        // (unreportable), the named-only `name` stays checkable. Parenthesized
+        // form: an argumentless bare name stays silent whenever a macro of that
+        // name exists (pre-existing rule).
+        myFixture.configureByText("test.cr", """
+            macro needs(call, *, name)
+            end
+            <error descr="Missing required argument(s): 'name'">needs</error>()
+            needs(name: "x")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroWithCalleeParameterStillReportsUnknownNamed() {
+        myFixture.configureByText("test.cr", """
+            macro spawnish(call, *, name = nil)
+            end
+            spawnish(<error descr="Unknown named argument 'zzz'">zzz: 1</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

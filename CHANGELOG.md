@@ -245,6 +245,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Compiler-bound macro `call` parameters no longer report false argument errors** —
+  every `spawn { … }` reported `Missing required argument(s): 'call'`, because the
+  macro's leading `call` slot — which the compiler fills with the macro's own call
+  node (stdlib `macro spawn(call, *, name = nil, same_thread = false, &block)`) or
+  with a written positional argument (`spawn 1`) — was measured as an ordinary
+  required parameter. That slot is now excluded from macro arity and positional
+  shape stays unchecked for such macros, while named arguments and the remaining
+  parameters are still verified. `def foo(call)` keeps its required parameter, and
+  macros without a leading `call` still report missing arguments as before.
 - **Branch-pinned shard dependencies no longer report phantom version mismatches** —  lock entries record the installed commit as SemVer build metadata
   (`1.7.1-dev+git.commit.…`, e.g. kemal's `ameba: {branch: master}`) while the
   installed manifest carries the base version (`1.7.1-dev`); since build metadata

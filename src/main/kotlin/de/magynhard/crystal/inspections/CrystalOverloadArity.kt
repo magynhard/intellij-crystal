@@ -1,9 +1,10 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
-import de.magynhard.crystal.psi.CrystalParameterList
 import de.magynhard.crystal.psi.CrystalCallArgs
+import de.magynhard.crystal.psi.CrystalMacroDefinition
 import de.magynhard.crystal.psi.CrystalParameter
+import de.magynhard.crystal.psi.CrystalParameterList
 import de.magynhard.crystal.psi.CrystalPsiCallArguments
 import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.psi.parameterNameInfo
@@ -39,12 +40,13 @@ internal data class OverloadMatch(
 }
 
 internal fun evaluateOverload(
-    parameterList: CrystalParameterList?,
+    signature: AritySignature,
     argCount: Int,
     positionalCount: Int,
     namedArgNames: Set<String>
 ): OverloadMatch {
-    val params = parameterList?.parameterList.orEmpty()
+    val parameterList = signature.parameterList
+    val params = signature.parameters
     val namedOnlyNames = namedOnlyParameterNames(parameterList)
     val regularParams = mutableListOf<ParamInfo>()
     var hasSplat = false
@@ -63,10 +65,13 @@ internal fun evaluateOverload(
         val hasDefault = param.expression != null
         regularParams.add(ParamInfo(name, hasDefault, name in namedOnlyNames))
     }
+    // A compiler-bound positional slot (a macro's leading `call`) makes the
+    // positional shape unknowable: it may be filled by the call node or by a
+    // written argument, so excess can never be derived (see macroAritySignature).
+    if (signature.positionalArityUncheckable) hasSplat = true
 
     val paramNames = regularParams.map { it.name }.toSet()
     val requiredParams = regularParams.filter { !it.hasDefault }
-
     // Check unknown named args (only if no double-splat)
     if (!hasDoubleSplat) {
         val unknown = namedArgNames - paramNames
@@ -141,6 +146,50 @@ private fun namedOnlyParameterNames(parameterList: CrystalParameterList?): Set<S
 }
 
 internal data class ParamInfo(val name: String, val hasDefault: Boolean, val namedOnly: Boolean = false)
+
+/**
+ * The parameters one declaration contributes to arity evaluation. The written
+ * [parameterList] stays available because bare `*` / `**` separators live on
+ * the list, not on its parameters. [positionalArityUncheckable] marks a
+ * declaration whose positional shape the compiler binds itself (a macro's
+ * leading `call` slot), so no positional mismatch may be derived from it.
+ */
+internal data class AritySignature(
+    val parameterList: CrystalParameterList?,
+    val parameters: List<CrystalParameter>,
+    val positionalArityUncheckable: Boolean = false,
+)
+
+/** Arity contract of an ordinary `def`: every written parameter counts. */
+internal fun methodAritySignature(parameterList: CrystalParameterList?): AritySignature =
+    AritySignature(parameterList, parameterList?.parameterList.orEmpty())
+
+/**
+ * Arity contract of a `macro` invocation. A leading parameter named `call`
+ * is compiler-bound and never checkable from the call site: with a block (or
+ * without arguments) the compiler hands the macro its own call node —
+ * stdlib `macro spawn(call, *, name = nil, same_thread = false, &block)`
+ * inspects `call.is_a?(Call)` — while a written positional argument binds to
+ * the same slot (`spawn 1` compiles, `macro m(call, *, name); m` reports
+ * `missing arguments: call, name`). Measuring it as an ordinary required
+ * parameter reported `Missing required argument(s): 'call'` on every
+ * `spawn { … }`; counting it as a plain parameter reported a false excess on
+ * `spawn 1`. The slot is therefore dropped and positional arity is left
+ * unchecked for such a macro; named arguments stay verified against the
+ * remaining names. Only macros bind that slot — a `def foo(call)` keeps a
+ * normal required parameter.
+ */
+internal fun macroAritySignature(macro: CrystalMacroDefinition): AritySignature {
+    val parameterList = macro.parameterList
+    val parameters = parameterList?.parameterList.orEmpty()
+    val compilerBoundCall = parameters.firstOrNull()
+        ?.parameterNameInfo()?.callSiteName == "call"
+    return if (compilerBoundCall) {
+        AritySignature(parameterList, parameters.drop(1), positionalArityUncheckable = true)
+    } else {
+        AritySignature(parameterList, parameters)
+    }
+}
 
 /** Effective call shape, or null when unresolvable splats make the arity unknowable. */
 internal data class CallArgCounts(

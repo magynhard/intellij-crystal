@@ -223,7 +223,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             // compiler reports these (`wrong number of arguments for macro
             // 'bar'`), so the macro parameter lists become the overload pool.
             // Unresolvable shapes stay silent via the shared guards.
-            checkParameterListCounts(macros.map { it.parameterList }, arguments, methodNameElement, holder)
+            checkParameterListCounts(macros.map(::macroAritySignature), arguments, methodNameElement, holder)
             return
         }
         if (macros.isNotEmpty()) {
@@ -233,8 +233,8 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             // wins over rejecting defs, so the defs' arity must not report.
             // When nothing applies the compiler blames the def, which is
             // exactly what the fallthrough below reports.
-            if (rejectsAll(methods.map { it.parameterList }, counts) &&
-                !rejectsAll(macros.map { it.parameterList }, counts)
+            if (rejectsAll(methods.map { methodAritySignature(it.parameterList) }, counts) &&
+                !rejectsAll(macros.map(::macroAritySignature), counts)
             ) {
                 return
             }
@@ -271,8 +271,8 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     // a satisfied receiver-owned macro suppresses the defs'
                     // arity. Macros never report here — without defs the
                     // resolution is Unresolved and already silent.
-                    if (rejectsAll(resolution.methods.map { it.parameterList }, counts) &&
-                        !rejectsAll(macros.map { it.parameterList }, counts)
+                    if (rejectsAll(resolution.methods.map { methodAritySignature(it.parameterList) }, counts) &&
+                        !rejectsAll(macros.map(::macroAritySignature), counts)
                     ) {
                         return
                     }
@@ -481,7 +481,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         methodNameElement: PsiElement,
         holder: ProblemsHolder
     ) {
-        checkParameterListCounts(methods.map { it.parameterList }, arguments, methodNameElement, holder)
+        checkParameterListCounts(methods.map { methodAritySignature(it.parameterList) }, arguments, methodNameElement, holder)
     }
 
     /**
@@ -490,7 +490,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
      * `parameter_list` grammar, so every shape evaluates identically).
      */
     private fun checkParameterListCounts(
-        parameterLists: List<CrystalParameterList?>,
+        signatures: List<AritySignature>,
         arguments: List<ArgumentInfo>,
         methodNameElement: PsiElement,
         holder: ProblemsHolder
@@ -500,8 +500,8 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         // Check each overload
         var bestMatch: OverloadMatch? = null
 
-        for (parameterList in parameterLists) {
-            val match = evaluateOverload(parameterList, counts.total, counts.positional, counts.named)
+        for (signature in signatures) {
+            val match = evaluateOverload(signature, counts.total, counts.positional, counts.named)
 
             if (match.isValid) return // At least one overload accepts this call
 
@@ -516,9 +516,9 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         reportArgumentMismatch(match, arguments, counts.total, methodNameElement, holder)
     }
 
-    /** True when no parameter list in [parameterLists] accepts [counts]. */
-    private fun rejectsAll(parameterLists: List<CrystalParameterList?>, counts: CallArgCounts): Boolean =
-        parameterLists.none { evaluateOverload(it, counts.total, counts.positional, counts.named).isValid }
+    /** True when no signature in [signatures] accepts [counts]. */
+    private fun rejectsAll(signatures: List<AritySignature>, counts: CallArgCounts): Boolean =
+        signatures.none { evaluateOverload(it, counts.total, counts.positional, counts.named).isValid }
 
     private fun effectiveCounts(arguments: List<ArgumentInfo>): CallArgCounts? {
         // If any argument has an unresolvable splat/double-splat, skip the check entirely

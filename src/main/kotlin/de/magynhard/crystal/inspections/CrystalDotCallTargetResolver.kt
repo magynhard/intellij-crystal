@@ -182,7 +182,12 @@ object CrystalDotCallTargetResolver {
         if (containsMacroInterpolation(args)) return null
         val counts = countCallArguments(args) ?: return null
         val applicable = methods.methods.filter {
-            evaluateOverload(it.parameterList, counts.total, counts.positional, counts.named).isValid
+            evaluateOverload(
+                methodAritySignature(it.parameterList),
+                counts.total,
+                counts.positional,
+                counts.named,
+            ).isValid
         }
         if (applicable.isEmpty()) return null
         val returns = applicable.map {
