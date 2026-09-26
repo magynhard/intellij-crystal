@@ -83,9 +83,23 @@ recognizes the exact shape (constant type-root receiver + `LBRACKET`
 Non-Number receivers with their own `def self.[]` (`Env[]`, `Path[]`,
 `Dir::Glob`-style, custom classes) and all variable receivers STAY Unknown —
 honest instead of guessing, consistent with the "unsolved receivers stay
-honest" rule. Known follow-ups (see `TODO.md`): `X[]` navigation to the macro
-definition, and the `Slice`/`StaticArray` family (`Slice[1, 2]` is its own
-stdlib `[]` family, not Number).
+honest" rule.
+
+## Type inference for the `Slice`/`StaticArray` `[]` macro families
+
+`Slice[...]` and `StaticArray[...]` invoke their own stdlib `[]` macros
+(`macro [](*args, read_only = false)` in `slice.cr`,
+`macro [](*args)` in `static_array.cr`), which build the container from the
+union of the argument types: `Slice(typeof(args...))` and
+`StaticArray(typeof(args...), args.size)`. `bracketCallResolution` recognizes
+the exact `Slice`/`StaticArray` roots (require-aware, no namespaced lookalikes)
+and resolves every positional argument: `Slice[1, 2]` → `Slice(Int32)`,
+`Slice[1, "a"]` → `Slice(Int32 | String)` (sorted like the compiler),
+`StaticArray[1, 2]` → `StaticArray(Int32, 2)`. The `read_only:` option
+contributes no element; any other named argument (and any named argument to
+`StaticArray`), splats, unknown arguments, and empty calls stay Unknown —
+as do instantiated-generic receivers (`Slice(Int32)[1, 2]` is a compiler
+error, not a cast).
 
 ## Covered by
 

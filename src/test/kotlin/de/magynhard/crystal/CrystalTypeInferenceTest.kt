@@ -350,4 +350,66 @@ bet = bohne 22
         configureTypeFixture("y = not_resolvable()\nx = y[]")
         assertEquals("Unknown", CrystalTypeInference.inferType("x", myFixture.file, project))
     }
+
+    // Hermetic Slice/StaticArray declarations: the bracket-call gates match the
+    // exact top-level names, so local stand-ins exercise the same path the
+    // stdlib declarations take through the require-effective source set.
+    private fun configureSliceFixture(code: String) {
+        myFixture.configureByText(
+            "test.cr",
+            """
+            class Slice
+            end
+            class StaticArray
+            end
+            $code
+            """.trimIndent()
+        )
+    }
+
+    fun testInferSliceBracketCallHomogeneous() {
+        configureSliceFixture("x = Slice[1, 2]")
+        assertEquals("Slice(Int32)", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testInferSliceBracketCallMixedSortsUnion() {
+        configureSliceFixture("x = Slice[1, \"a\"]")
+        assertEquals("Slice(Int32 | String)", CrystalTypeInference.inferType("x", myFixture.file, project))
+        configureSliceFixture("x = Slice[\"a\", 1]")
+        assertEquals("Slice(Int32 | String)", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testInferStaticArrayBracketCallIncludesLength() {
+        configureSliceFixture("x = StaticArray[1, 2]")
+        assertEquals("StaticArray(Int32, 2)", CrystalTypeInference.inferType("x", myFixture.file, project))
+        configureSliceFixture("x = StaticArray[\"a\", 1]")
+        assertEquals("StaticArray(Int32 | String, 2)", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testSliceReadOnlyOptionExcludedFromElements() {
+        configureSliceFixture("x = Slice[1, 2, read_only: true]")
+        assertEquals("Slice(Int32)", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testEmptySliceFamilyStaysUnknown() {
+        configureSliceFixture("x = Slice[]")
+        assertEquals("Unknown", CrystalTypeInference.inferType("x", myFixture.file, project))
+        configureSliceFixture("x = StaticArray[]")
+        assertEquals("Unknown", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testSliceSplatArgumentStaysUnknown() {
+        configureSliceFixture("xs = {1, 2}\nx = Slice[*xs]")
+        assertEquals("Unknown", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testStaticArrayNamedArgumentStaysUnknown() {
+        configureSliceFixture("x = StaticArray[1, read_only: true]")
+        assertEquals("Unknown", CrystalTypeInference.inferType("x", myFixture.file, project))
+    }
+
+    fun testSliceIndexReadKeepsElementType() {
+        configureSliceFixture("x = Slice[1]\ny = x[0]")
+        assertEquals("Int32", CrystalTypeInference.inferType("y", myFixture.file, project))
+    }
 }

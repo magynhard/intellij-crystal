@@ -64,11 +64,6 @@
   (VFS refresh vs. StubIndex query) plus cross-project name bleed in the shared test index.
   Reproduction filter to keep at hand: `./gradlew test --rerun-tasks` (full suite) reproduces
   roughly every other run; isolation always green.
-- [ ] **Infer the `Slice`/`StaticArray` `[]` families** — `Slice[1, 2]` / `StaticArray[1, 2]`
-  are their own stdlib class `[]` constructors (not `Number` receivers), so the bracket-call
-  typing gate (Number-family walk) leaves them Unknown. Add per-family gates with slice
-  element casts (Slice uses `new!`, so reading `.to_i`-style values needs care) once their
-  PSI shape is covered by navigation.
 - [ ] **Close the cold-cache stdlib window in `CrystalRequireGraphService`** — the production
   constructor wires its stdlib-root supplier to `cachedStdlibPath` only, so until some other component
   (typically the async library provider) publishes a discovered root, bare stdlib requires resolve to

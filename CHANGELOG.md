@@ -65,6 +65,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   suppressed; spaced brackets and index reads keep their shapes and behavior.
   Covered by `CrystalBracketCallReferenceTest` and argument-count/type-check regressions;
   specified in docs/specs/indexed-navigation.md and docs/specs/call-argument-inspections.md.
+- **Slice and StaticArray bracket literals infer their types** — `Slice[1, 2]` infers
+  `Slice(Int32)`, mixed arguments form a sorted union (`Slice(Int32 | String)`), and
+  `StaticArray[1, 2]` includes the length (`StaticArray(Int32, 2)`), mirroring the
+  stdlib `[]` macros; the `read_only:` option contributes no element, and empty calls,
+  splats, and unknown arguments stay `Unknown`. Downstream index reads keep their
+  element types through the existing machinery. Covered by type-inference regressions;
+  specified in docs/specs/empty-collection-inspection.md.
 - **Cross-file constant resolution through require closures** — top-level constants
   (`KODORRA = 123`), member constants (`class Foo; BAR = 1; end`), and lib constants
   (`lib LibC; F_GETFD = 1`) now resolve across files via two new stub indexes

@@ -319,8 +319,10 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * (`macro [](*nums)` in stdlib number.cr), which builds `Array(self)` with
      * every element cast to the receiver type — including zero arguments
      * (spec/std/number_spec.cr:398). Receivers inside the Number family with an
-     * exact constant type root therefore resolve to `Array(<receiver>)`;
-     * everything else (variable receivers, non-Number types with their own
+     * exact constant type root therefore resolve to `Array(<receiver>)`.
+     * `Slice[...]` and `StaticArray[...]` invoke their own stdlib `[]` macros
+     * over the union of the argument types (see [sliceFamilyResolution]).
+     * Everything else (variable receivers, non-family types with their own
      * `def self.[]`, unresolvable roots) stays Unknown.
      */
     private fun bracketCallResolution(children: List<PsiElement>): CrystalTypeResolution? {
@@ -331,8 +333,64 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val receiverElements = flat.take(openIndex)
         val root = CrystalReceiverExpression.extractExactConstantTypeRoot(receiverElements) ?: return null
         val identity = resolveTypeIdentity(root, receiverElements.first())?.toShared() ?: return null
-        if (!hierarchy.reachesSuperclassName(identity, "Number")) return null
-        return knownType("Array(${identity.qualifiedName})")
+        if (hierarchy.reachesSuperclassName(identity, "Number")) {
+            return knownType("Array(${identity.qualifiedName})")
+        }
+        return sliceFamilyResolution(identity, flat)
+    }
+
+    /**
+     * `Slice[1, 2]` and `StaticArray[1, 2]` invoke the stdlib `[]` macros
+     * (`macro [](*args, read_only = false)` in slice.cr,
+     * `macro [](*args)` in static_array.cr), which build the container from
+     * the union of the argument types: `Slice(typeof(args...))` and
+     * `StaticArray(typeof(args...), args.size)`. Every positional argument
+     * must resolve to a known type; the `read_only:` option (Slice only) is
+     * skipped as an option, not an element. Any other named argument, splat,
+     * block pass, `out`, unknown argument, or empty call stays Unknown — as do
+     * receivers that are not exactly `Slice`/`StaticArray`. The union is
+     * sorted to match the compiler's canonical order.
+     */
+    private fun sliceFamilyResolution(
+        identity: CrystalTypeIdentity,
+        flat: List<PsiElement>,
+    ): CrystalTypeResolution? {
+        val family = identity.qualifiedName
+        if (family != "Slice" && family != "StaticArray") return null
+        val args = flat.filterIsInstance<CrystalArgumentList>().singleOrNull()?.argumentList.orEmpty()
+        val elementNames = mutableListOf<String>()
+        var elementCount = 0
+        for (arg in args) {
+            val label = CrystalPsiCallArguments.getNamedLabel(arg)
+            if (label != null) {
+                // Only the Slice `read_only:` option is allowed through (and
+                // contributes no element); any other named argument — and any
+                // named argument to StaticArray — leaves the type Unknown.
+                if (family != "Slice" || label != "read_only") return null
+                continue
+            }
+            if (isNonPositionalBracketArgument(arg)) return null
+            val expression = arg.expression ?: return null
+            val known = resolve(expression) as? CrystalTypeResolution.Known ?: return null
+            elementNames.addAll(known.types.map { it.name })
+            elementCount++
+        }
+        if (elementCount == 0) return null
+        val union = elementNames.distinct().sorted().joinToString(" | ")
+        if (union.isEmpty()) return null
+        return knownType(
+            if (family == "Slice") "Slice($union)"
+            else "StaticArray($union, $elementCount)"
+        )
+    }
+
+    /** Splat, double-splat, block-pass, and `out` arguments have no element type. */
+    private fun isNonPositionalBracketArgument(arg: CrystalArgument): Boolean {
+        return when (arg.node.getChildren(null).firstOrNull()?.elementType) {
+            CrystalTypes.STAR, CrystalTypes.DOUBLE_STAR,
+            CrystalTypes.AMPERSAND, CrystalTypes.OUT -> true
+            else -> false
+        }
     }
 
     /**
