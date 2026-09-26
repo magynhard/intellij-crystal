@@ -15,11 +15,6 @@
 
 ## Call Argument Inspection Follow-up
 
-- [ ] **De-fuse binary operand mismatch from untyped-parameter constants** — stdlib
-  array.cr:2175 (`offset = @capacity - old_capacity` with both sides derived from untyped
-  parameters) produces "Type mismatch: expected 'UInt64', got 'Int32'". Track
-  instantiation-derived integer width propagation for assignments through method bodies,
-  or restrict definite numeric-width verdicts to cases with typed evidence on both legs.
 - [ ] **Deepen generic include-edge leaf comparison** — the include-edge traversal (CrystalGenericIncludeCompat) accepts `Array(TestHeaderHandler)` against `Enumerable(HTTP::Handler)` structurally and leaves leaf comparisons to the existing user-type leniency; when the hierarchy gains concrete user-subclass relations for the type checker, wire the leaf comparison through it so genuinely wrong element types inside include-compatible generics are reported.
 - [ ] **Validate `lib fun` calls** — add indexed FFI function declaration resolution, then apply argument-count and argument-type diagnostics to calls such as `LibC.exit`, `LibC.exit()`, and `LibC.exit(value)`.
 - [ ] **Expand unqualified call applicability** — support inherited unqualified methods and other unqualified calls that cannot yet resolve to one exact applicable overload set, without introducing name-only fallbacks.
