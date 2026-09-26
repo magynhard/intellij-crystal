@@ -110,7 +110,7 @@ class CrystalBracketCallReferenceTest : BasePlatformTestCase() {
         assertNull("Should NOT resolve when the receiver type is ambiguous", resolved)
     }
 
-    fun testInstanceReceiverResolvesToNothing() {
+    fun testInstanceReceiverResolvesToDefinition() {
         val resolved = resolveAtCaret("""
             class Bar
               def []
@@ -120,6 +120,33 @@ class CrystalBracketCallReferenceTest : BasePlatformTestCase() {
             obj = Bar.new
             obj[<caret>]
         """.trimIndent())
-        assertNull("Instance receivers stay suppressed (index reads keep their own resolution)", resolved)
+        assertNotNull("obj[] should resolve to def []", resolved)
+        assertTrue("Should resolve to a method definition",
+            resolved is CrystalMethodDefinition)
+        assertEquals("[]", (resolved as CrystalMethodDefinition).name)
+    }
+
+    fun testInstanceReceiverWithArgumentResolvesToDefinition() {
+        val resolved = resolveAtCaret("""
+            class Box
+              def [](i : Int32)
+                i
+              end
+            end
+            b = Box.new
+            b[<caret>0]
+        """.trimIndent())
+        assertNotNull("b[0] should resolve to def [](i : Int32)", resolved)
+        assertTrue("Should resolve to a method definition",
+            resolved is CrystalMethodDefinition)
+        assertEquals("[]", (resolved as CrystalMethodDefinition).name)
+    }
+
+    fun testInstanceReceiverWithoutTargetResolvesToNothing() {
+        val resolved = resolveAtCaret("""
+            arr = [1, 2, 3]
+            arr[<caret>0]
+        """.trimIndent())
+        assertNull("Array without stdlib has no indexed def [] — must stay suppressed", resolved)
     }
 }

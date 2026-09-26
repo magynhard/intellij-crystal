@@ -44,12 +44,12 @@ An existing polyvariant DOT reference is authoritative even when exact resolutio
 
 ## Bracket-Call Navigation
 
-`CrystalBracketCallReference` resolves tight `[]` calls (`Foo[]`, `Foo[1]`) to their
-exact static `def self.[]` targets through `CrystalBracketCallResolver`: the receiver
-must be an exact constant type root, the hierarchy collection for `"[]"` in static mode
-must be complete, and every overload is returned. Macro-backed (`Int64[]`), unknown,
-ambiguous, and instance receivers resolve to nothing and stay suppressed, so no
-name-only fallback can navigate to an unrelated definition.
+`CrystalBracketCallReference` resolves tight `[]` calls (`Foo[]`, `Foo[1]`, `obj[0]`)
+to their `def []` targets through `CrystalBracketCallResolver`: constant roots resolve
+in static mode (`def self.[]`), value receivers resolve through type inference in
+instance mode (every inferred arm must yield a complete collection). Macro-backed
+(`Int64[]`), unknown, and ambiguous receivers resolve to nothing and stay suppressed,
+so no name-only fallback can navigate to an unrelated definition.
 
 ## Completion Type Lookup
 

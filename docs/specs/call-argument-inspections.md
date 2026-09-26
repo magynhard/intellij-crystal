@@ -140,14 +140,15 @@ tails stop reporting because their expansion is unknown.
 
 ## Bracket Calls
 
-Tight brackets after an expression form `CrystalBracketCallAccess` (`Foo[]`, `Foo[1]`),
-never an array literal. `CrystalArgumentCountInspection` checks arity against the exact
-static `def self.[]` targets resolved through `CrystalBracketCallResolver`: `Foo[]` against
+Tight brackets after an expression form `CrystalBracketCallAccess` (`Foo[]`, `Foo[1]`,
+`obj[0]`), never an array literal. `CrystalArgumentCountInspection` checks arity against
+the `def []` targets resolved through `CrystalBracketCallResolver`: `Foo[]` against
 `def self.[](x)` reports `Missing required argument(s): 'x'`, `Foo[1, 2]` reports the
 excess form. `CrystalTypeCheckInspection` checks the bracket arguments against the same
 targets through the shared overload machinery (`Foo["a"]` against `def self.[](x : Int)`
 reports the mismatch form); zero-argument calls have nothing to compare and return early.
-Macro-backed (`Int64[]`), unknown, ambiguous, and instance receivers resolve
+Constant roots resolve in static mode, value receivers through type inference in instance
+mode. Macro-backed (`Int64[]`), unknown, and ambiguous receivers resolve
 to nothing and stay suppressed; index reads and the Number `[]` macro typing path are
 preserved by flattening the wrapper back to its token sequence before matching.
 

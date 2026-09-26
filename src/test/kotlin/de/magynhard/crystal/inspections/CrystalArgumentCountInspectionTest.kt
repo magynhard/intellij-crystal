@@ -2931,4 +2931,38 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    fun testBracketCallInstanceMissingArgumentIsReported() {
+        myFixture.configureByText("test.cr", """
+            class Cfg
+              def [](x)
+                x
+              end
+            end
+            c = Cfg.new
+            c<error descr="Missing required argument(s): 'x'">[]</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallInstanceExactArityStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Box
+              def [](i : Int32)
+                i
+              end
+            end
+            b = Box.new
+            b[0]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallInstanceWithoutTargetStaysClean() {
+        myFixture.configureByText("test.cr", """
+            arr = [1, 2, 3]
+            arr[0]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

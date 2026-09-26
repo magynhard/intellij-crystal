@@ -54,10 +54,10 @@ Pictures: `ary = Int64[]` parses as
   if a future Crystal version adds it, extend the tight-empty alternative with
   the existing `[QUESTION]` suffix used by the index postfix.
 - Tight brackets form a dedicated `CrystalBracketCallAccess` composite with a
-  reference (`Foo[]`, `foo[0]`): exact static `def self.[]` targets resolve for
-  navigation, hover, and arity diagnostics; macro-backed (`Int64[]`), unknown,
-  ambiguous, and instance receivers stay suppressed. Spaced `f []` and standalone
-  `[]` keep their old shapes.
+  reference (`Foo[]`, `foo[0]`): `def []` targets resolve for navigation, hover,
+  and arity diagnostics — constant roots in static mode, value receivers through
+  type inference; macro-backed (`Int64[]`), unknown, and ambiguous receivers stay
+  suppressed. Spaced `f []` and standalone `[]` keep their old shapes.
 
 ## Type inference for the Number `[]` macro family
 
