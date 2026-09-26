@@ -64,6 +64,10 @@ public class CrystalVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitBracketCallAccess(@NotNull CrystalBracketCallAccess o) {
+    visitPsiElement(o);
+  }
+
   public void visitBreakStatement(@NotNull CrystalBreakStatement o) {
     visitAbruptStatement(o);
   }

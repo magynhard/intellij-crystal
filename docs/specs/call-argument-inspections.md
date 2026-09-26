@@ -138,6 +138,16 @@ and `GENERIC_ERROR`, in both parenthesized and bare lists. Spaced-colon type sha
 (`x : Type`) never open the named phase (`f(x : Int32, 2)` is valid), and macro-controlled
 tails stop reporting because their expansion is unknown.
 
+## Bracket Calls
+
+Tight brackets after an expression form `CrystalBracketCallAccess` (`Foo[]`, `Foo[1]`),
+never an array literal. `CrystalArgumentCountInspection` checks arity against the exact
+static `def self.[]` targets resolved through `CrystalBracketCallResolver`: `Foo[]` against
+`def self.[](x)` reports `Missing required argument(s): 'x'`, `Foo[1, 2]` reports the
+excess form. Macro-backed (`Int64[]`), unknown, ambiguous, and instance receivers resolve
+to nothing and stay suppressed; index reads and the Number `[]` macro typing path are
+preserved by flattening the wrapper back to its token sequence before matching.
+
 ## Call Discovery And Ownership
 
 Argumentless calls without parentheses do not contain an argument-list PSI element:

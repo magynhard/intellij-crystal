@@ -65,6 +65,12 @@ public class CrystalExpressionImpl extends ASTWrapperPsiElement implements Cryst
 
   @Override
   @NotNull
+  public List<CrystalBracketCallAccess> getBracketCallAccessList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalBracketCallAccess.class);
+  }
+
+  @Override
+  @NotNull
   public List<CrystalCallArgs> getCallArgsList() {
     return PsiTreeUtil.getChildrenOfTypeAsList(this, CrystalCallArgs.class);
   }

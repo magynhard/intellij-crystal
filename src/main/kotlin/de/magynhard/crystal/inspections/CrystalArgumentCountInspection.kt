@@ -55,6 +55,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     is CrystalDotCallAccess -> if (element.callArgs == null && element.bareArgumentList == null) {
                         checkDotCall(element, holder)
                     }
+                    is CrystalBracketCallAccess -> checkBracketCall(element, holder)
                     is CrystalCallArgs, is CrystalBareArgumentList -> findOwningDotCall(element)?.let {
                         checkDotCall(it, holder)
                     }
@@ -256,6 +257,20 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             }
             DotCallResolution.Suppressed, DotCallResolution.Unresolved -> Unit
         }
+    }
+
+    /**
+     * Arity check for `[]` calls with an exact static target (`Foo[]` against
+     * `def self.[]`, `Foo[1]` against `def self.[](x)`). Unknown, ambiguous,
+     * macro-backed (`Int64[]`), and instance receivers resolve to nothing and
+     * stay suppressed.
+     */
+    private fun checkBracketCall(access: CrystalBracketCallAccess, holder: ProblemsHolder) {
+        val methods = CrystalBracketCallResolver.resolveMethods(access)
+        if (methods.isEmpty()) return
+        val arguments = access.argumentList?.argumentList.orEmpty().map(::extractArgInfo)
+        if (arguments.any { CrystalMacroContext.isMacroSplicedArgument(it.element) }) return
+        checkArgumentCount(methods, arguments, access, holder)
     }
 
     private fun checkImplicitConstructorArguments(

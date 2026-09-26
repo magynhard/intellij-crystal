@@ -53,11 +53,11 @@ Pictures: `ary = Int64[]` parses as
 - Real Crystal also rejects `foo[]?` — no `[]?` empty-call support was added;
   if a future Crystal version adds it, extend the tight-empty alternative with
   the existing `[QUESTION]` suffix used by the index postfix.
-- The zero-arity call currently produces plain tokens under the expression —
-  there is no dedicated `CrystalEmptyCallAccess` composite with a reference;
-  resolution (`Int64[]` → the `Number` `[]` macro definition) is NOT wired up.
-  Called-out follow-up: navigation/hover for `X[]` would need the same shared
-  exact DOT-target resolver the DOT-calls use. See `TODO.md`.
+- Tight brackets form a dedicated `CrystalBracketCallAccess` composite with a
+  reference (`Foo[]`, `foo[0]`): exact static `def self.[]` targets resolve for
+  navigation, hover, and arity diagnostics; macro-backed (`Int64[]`), unknown,
+  ambiguous, and instance receivers stay suppressed. Spaced `f []` and standalone
+  `[]` keep their old shapes.
 
 ## Type inference for the Number `[]` macro family
 

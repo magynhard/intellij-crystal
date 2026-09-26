@@ -13,6 +13,21 @@ import de.magynhard.crystal.stubs.CrystalNamedStub
  */
 object CrystalPsiUtils {
 
+    /**
+     * Expands bracket-call wrappers into their flat token sequence
+     * (`LBRACKET`, optional `CrystalArgumentList`, `RBRACKET`, optional `?`),
+     * reproducing the pre-wrapper postfix shape. Lets flat-shape consumers
+     * (index reads, the Number `[]` macro path) work unchanged.
+     */
+    fun flattenBracketAccess(children: List<PsiElement>): List<PsiElement> =
+        children.flatMap { child ->
+            if (child is CrystalBracketCallAccess) {
+                child.node.getChildren(null).map { it.psi }
+            } else {
+                listOf(child)
+            }
+        }
+
     data class RecordDefinition(
         val qualifiedName: String,
         val call: CrystalMethodCallExpression

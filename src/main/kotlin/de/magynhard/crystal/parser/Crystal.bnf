@@ -1202,6 +1202,18 @@ private postfix_expression ::= primary_expression postfix_op*
 private bang_suffix ::= NLS DOT BANG !LPAREN
                       | NLS DOT BANG LPAREN NLS RPAREN
 
+// Tight bracket call (`Foo[]`, `foo[0]`): the brackets (+ optional args)
+// after a tight receiver form a bracket-call access. Non-private so it gets
+// a real PSI composite with a CrystalBracketCallAccessMixin providing
+// getReference() — enables Go to Definition and hover for `[]` calls. The
+// receiver is the prevSibling in the flattened postfix_expression sequence,
+// like dot_call_access. Tight only: spaced `f []` stays a call with an empty
+// array argument, and the empty shape never becomes an array literal (which
+// would trigger the "Empty array literal requires type" false positive).
+bracket_call_access ::= &<<isTokenTightAfterPreviousToken>> LBRACKET [argument_list] RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION] {
+  mixin="de.magynhard.crystal.psi.impl.CrystalBracketCallAccessMixin"
+}
+
 private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference RPAREN
                      | NLS bang_suffix
                       // PEG: member assignment must precede ordinary dot-call access, otherwise
@@ -1222,16 +1234,10 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
                      // ameba admonition): tight only, so the spaced ternary `a ? b : c`
                      // keeps binding at the expression level.
                      | &<<isTokenTightAfterPreviousToken>> QUESTION
-                     | namespace_access
-                     | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
-                     // Empty tight brackets after an expression are an EMPTY-ARGUMENT
-                     // call (`Int64[]` invokes the Number `[]` macro with zero args,
-                     // number_spec.cr:398), never an array literal — the array-literal
-                     // path would strand a standalone CrystalArrayLiteral and trigger
-                     // the "Empty array literal requires type" false positive. Tight
-                     // only: spaced `f []` stays a call with an empty array argument.
-                     | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
-                     | call_args [block]
+                          | namespace_access
+                          | bracket_call_access
+                          | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
+                          | call_args [block]
                      // Macro-operator juxtaposition (`@x {{op.id}} other.x` in
                      // {% for %} bodies, e.g. raytracer.cr): the interpolation
                      // expands to a binary operator — proven by evaluation
@@ -1733,10 +1739,8 @@ private bare_postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_refere
                            // invalid Crystal anyway.
                            | NLS dot_call_access [brace_block]
                           | namespace_access
+                          | bracket_call_access
                           | LBRACKET argument_list RBRACKET [&<<isTokenTightAfterPreviousToken>> QUESTION]
-                          // Empty tight brackets after a bare expression are an
-                          // empty-argument call (`Int64[]`), not an array literal.
-                          | &<<isTokenTightAfterPreviousToken>> LBRACKET RBRACKET
                           | call_args
 
 // Bare primary: like primary but no blocks or method calls with bare args (to prevent ambiguity)

@@ -2874,4 +2874,61 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
             },
         )
     }
+
+    // ==================== Bracket calls (`Foo[]`, `Foo[1]`) ====================
+
+    fun testBracketCallMissingArgumentIsReported() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def self.[](x)
+                x
+              end
+            end
+            Foo<error descr="Missing required argument(s): 'x'">[]</error>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallExcessArgumentIsReported() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def self.[](x)
+                x
+              end
+            end
+            Foo[1, <error descr="Too many arguments: expected at most 1, got 2">2</error>]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallExactArityStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def self.[]
+                42
+              end
+              def self.[](x)
+                x
+              end
+            end
+            Foo[]
+            Foo[1]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallMacroBackedStaysClean() {
+        myFixture.configureByText("test.cr", """
+            Int64[]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallUnknownReceiverStaysClean() {
+        myFixture.configureByText("test.cr", """
+            Nope[]
+            Nope[1]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

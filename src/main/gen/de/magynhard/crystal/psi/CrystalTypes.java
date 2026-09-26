@@ -24,6 +24,7 @@ public interface CrystalTypes {
   IElementType BARE_METHOD_CALL_EXPRESSION = new CrystalElementType("BARE_METHOD_CALL_EXPRESSION");
   IElementType BEGIN_STATEMENT = new CrystalElementType("BEGIN_STATEMENT");
   IElementType BLOCK = new CrystalElementType("BLOCK");
+  IElementType BRACKET_CALL_ACCESS = new CrystalElementType("BRACKET_CALL_ACCESS");
   IElementType BREAK_STATEMENT = new CrystalElementType("BREAK_STATEMENT");
   IElementType CALL_ARGS = new CrystalElementType("CALL_ARGS");
   IElementType CASE_STATEMENT = new CrystalElementType("CASE_STATEMENT");
@@ -341,6 +342,9 @@ public interface CrystalTypes {
       }
       else if (type == BLOCK) {
         return new CrystalBlockImpl(node);
+      }
+      else if (type == BRACKET_CALL_ACCESS) {
+        return new CrystalBracketCallAccessImpl(node);
       }
       else if (type == BREAK_STATEMENT) {
         return new CrystalBreakStatementImpl(node);

@@ -64,13 +64,6 @@
   (VFS refresh vs. StubIndex query) plus cross-project name bleed in the shared test index.
   Reproduction filter to keep at hand: `./gradlew test --rerun-tasks` (full suite) reproduces
   roughly every other run; isolation always green.
-- [ ] **Wire resolution/navigation for zero-arity `X[]` empty-call expressions** — the tight
-  empty-bracket postfix (`Int64[]`, `foo[]`) now parses and infers (Number-family receivers
-  resolve to `Array(X)`; spec: docs/specs/empty-collection-inspection.md) but produces plain
-  token children without a reference composite; `X[]` does not resolve to the `Number` `[]`
-  macro / matching `def self.[]` for navigation, hover-on-call, or argument-count inspection
-  routing. Reuse the shared exact DOT-target resolver used by DOT-calls if a composite shape
-  is introduced.
 - [ ] **Infer the `Slice`/`StaticArray` `[]` families** — `Slice[1, 2]` / `StaticArray[1, 2]`
   are their own stdlib class `[]` constructors (not `Number` receivers), so the bracket-call
   typing gate (Number-family walk) leaves them Unknown. Add per-family gates with slice

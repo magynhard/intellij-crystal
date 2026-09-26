@@ -26,6 +26,9 @@ public interface CrystalExpression extends PsiElement {
   List<CrystalBlock> getBlockList();
 
   @NotNull
+  List<CrystalBracketCallAccess> getBracketCallAccessList();
+
+  @NotNull
   List<CrystalCallArgs> getCallArgsList();
 
   @NotNull

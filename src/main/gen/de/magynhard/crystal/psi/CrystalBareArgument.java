@@ -29,6 +29,9 @@ public interface CrystalBareArgument extends PsiElement {
   List<CrystalBlock> getBlockList();
 
   @NotNull
+  List<CrystalBracketCallAccess> getBracketCallAccessList();
+
+  @NotNull
   List<CrystalCallArgs> getCallArgsList();
 
   @Nullable

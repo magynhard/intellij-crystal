@@ -77,6 +77,24 @@ internal object CrystalCompletionReceiverResolver {
                 index++
                 continue
             }
+            if (element is CrystalBracketCallAccess) {
+                // Tight brackets form a bracket-call access: unwrap to the
+                // same LBRACKET/args/RBRACKET triple the flat shape provided.
+                // Empty brackets (`Foo[]`) are a zero-arg call, not an index
+                // read, and stay unresolved like before.
+                val inner = element.node.getChildren(null).map { it.psi }
+                val arguments = inner.getOrNull(1) as? CrystalArgumentList
+                    ?: return CompletionReceiver.Unknown
+                if (inner.getOrNull(0)?.node?.elementType != CrystalTypes.LBRACKET ||
+                    inner.getOrNull(2)?.node?.elementType != CrystalTypes.RBRACKET
+                ) {
+                    return CompletionReceiver.Unknown
+                }
+                receiver = resolveIndexedReceiver(expression, element, arguments, session)
+                if (receiver == CompletionReceiver.Unknown) return receiver
+                index++
+                continue
+            }
             if (element.node.elementType == CrystalTypes.LBRACKET) {
                 val arguments = tail.getOrNull(index + 1) as? CrystalArgumentList
                     ?: return CompletionReceiver.Unknown

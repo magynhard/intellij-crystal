@@ -324,10 +324,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * `def self.[]`, unresolvable roots) stays Unknown.
      */
     private fun bracketCallResolution(children: List<PsiElement>): CrystalTypeResolution? {
-        if (children.lastOrNull()?.node?.elementType != CrystalTypes.RBRACKET) return null
-        val openIndex = children.indexOfLast { it.node.elementType == CrystalTypes.LBRACKET }
+        val flat = CrystalPsiUtils.flattenBracketAccess(children)
+        if (flat.lastOrNull()?.node?.elementType != CrystalTypes.RBRACKET) return null
+        val openIndex = flat.indexOfLast { it.node.elementType == CrystalTypes.LBRACKET }
         if (openIndex < 0) return null
-        val receiverElements = children.take(openIndex)
+        val receiverElements = flat.take(openIndex)
         val root = CrystalReceiverExpression.extractExactConstantTypeRoot(receiverElements) ?: return null
         val identity = resolveTypeIdentity(root, receiverElements.first())?.toShared() ?: return null
         if (!hierarchy.reachesSuperclassName(identity, "Number")) return null
@@ -347,18 +348,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * charge.
      */
     private fun indexedReadResolution(children: List<PsiElement>): CrystalTypeResolution? {
-        val firstBracket = children.indexOfFirst { it.node.elementType == CrystalTypes.LBRACKET }
+        val flat = CrystalPsiUtils.flattenBracketAccess(children)
+        val firstBracket = flat.indexOfFirst { it.node.elementType == CrystalTypes.LBRACKET }
         if (firstBracket <= 0) return null
-        val receiver = resolveIndexedReceiver(children.take(firstBracket)) ?: return null
+        val receiver = resolveIndexedReceiver(flat.take(firstBracket)) ?: return null
         var current: CrystalTypeResolution = receiver
         var index = firstBracket
         var sawBracket = false
-        while (index < children.size) {
-            when (children[index].node.elementType) {
+        while (index < flat.size) {
+            when (flat[index].node.elementType) {
                 CrystalTypes.LBRACKET -> {
-                    if (index + 2 >= children.size) return null
-                    val arguments = children[index + 1] as? CrystalArgumentList ?: return null
-                    if (children[index + 2].node.elementType != CrystalTypes.RBRACKET) return null
+                    if (index + 2 >= flat.size) return null
+                    val arguments = flat[index + 1] as? CrystalArgumentList ?: return null
+                    if (flat[index + 2].node.elementType != CrystalTypes.RBRACKET) return null
                     current = indexedElementResolution(current, arguments) ?: return null
                     sawBracket = true
                     index += 3
