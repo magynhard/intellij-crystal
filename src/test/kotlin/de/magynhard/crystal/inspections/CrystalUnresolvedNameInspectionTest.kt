@@ -295,6 +295,34 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testChainedCallUnknownOuterMethodIsWarning() {
+        myFixture.configureByText("test.cr", """
+            class Response
+              def status(code : Symbol) : Response
+                self
+              end
+            end
+            env = Response.new
+            env.status(:not_found).<warning descr="Cannot find 'nope'">nope</warning>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallUnknownInnerFlagsInnerOnly() {
+        myFixture.configureByText("test.cr", """
+            class Response
+              def status(code : Symbol) : Response
+                self
+              end
+              def json(payload : String)
+              end
+            end
+            env = Response.new
+            env.<warning descr="Cannot find 'bogus'">bogus</warning>.json("ok")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testUnknownDotReceiverFlagsReceiver() {
         myFixture.configureByText("test.cr", """
             <warning descr="Cannot find 'Missing'">Missing</warning>.new

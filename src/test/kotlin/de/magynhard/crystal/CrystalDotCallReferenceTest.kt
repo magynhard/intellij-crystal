@@ -472,4 +472,25 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         assertEquals(1, gotoTargetsAtCaret(code).filterIsInstance<CrystalFunDefinition>().size)
     }
 
+    // ==================== Chained calls ====================
+
+    fun testChainedCallResolvesToMethodDefinition() {
+        val code = """
+            class Response
+              def status(code : Symbol) : Response
+                self
+              end
+              def json(payload : String)
+              end
+            end
+            env = Response.new
+            env.status(:not_found).js<caret>on("ok")
+        """.trimIndent()
+
+        val resolved = resolveAtCaret(code)
+        assertNotNull("chained .json should resolve to def json", resolved)
+        assertTrue("Should resolve to a method definition", resolved is CrystalMethodDefinition)
+        assertEquals("json", (resolved as CrystalMethodDefinition).name)
+    }
+
 }

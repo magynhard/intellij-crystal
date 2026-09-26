@@ -69,12 +69,20 @@ sealed interface DotCallResolution {
 
 object CrystalDotCallTargetResolver {
 
+    /**
+     * Maximum nesting of completed preceding calls resolved as receiver
+     * evidence (`a.b.c.d.e` needs three levels). Bounds hierarchy lookups on
+     * pathological chains; deeper chains stay suppressed.
+     */
+    private const val MAX_CHAIN_DEPTH = 4
+
     fun resolve(access: CrystalDotCallAccess): DotCallResolution =
         resolve(access, CrystalTypeSetResolver.session(access))
 
     internal fun resolve(
         access: CrystalDotCallAccess,
-        session: CrystalTypeResolutionSession
+        session: CrystalTypeResolutionSession,
+        depth: Int = 0
     ): DotCallResolution {
         // Macro context (`{{ … }}` interpolations, macro bodies): receivers
         // are macro-runtime objects (TypeNode, StringLiteral, …) dispatching
@@ -84,6 +92,18 @@ object CrystalDotCallTargetResolver {
         val call = CrystalCallExtractor.extractDotCall(access) ?: return DotCallResolution.Unresolved
         if (containsMacroInterpolation(call.receiver) || containsMacroInterpolation(call.methodNameElement)) {
             return DotCallResolution.Suppressed
+        }
+
+        // Chained call (`env.status(:not_found).json(...)`): the receiver is
+        // itself a completed DOT call. Its annotated return type becomes the
+        // receiver evidence — but only when the preceding call is applicable
+        // and unambiguous (see resolveChainReceiver). Anything else stays
+        // suppressed exactly like before.
+        if (call.receiver is CrystalDotCallAccess) {
+            if (depth >= MAX_CHAIN_DEPTH) return DotCallResolution.Suppressed
+            val chained = resolveChainReceiver(call.receiver, call.access, session, depth)
+                ?: return DotCallResolution.Suppressed
+            return finishResolve(call, chained, ReceiverMode.INSTANCE, session)
         }
 
         val normalizedReceiver = CrystalReceiverExpression.normalize(call.receiver)
@@ -111,6 +131,20 @@ object CrystalDotCallTargetResolver {
         }
 
         val mode = if (constantReceiver) ReceiverMode.STATIC else ReceiverMode.INSTANCE
+        return finishResolve(call, receiverType, mode, session)
+    }
+
+    /**
+     * Shared tail behind every receiver shape: collect the exact candidate
+     * methods, suppress incomplete hierarchies, fall back to accessor-macro
+     * bindings, and report the methods or the unresolved name.
+     */
+    private fun finishResolve(
+        call: DotCallDescriptor,
+        receiverType: ExactReceiverType,
+        mode: ReceiverMode,
+        session: CrystalTypeResolutionSession
+    ): DotCallResolution {
         val collection = collectMethods(receiverType, mode, call.methodName, session)
         if (!collection.complete) return DotCallResolution.Suppressed
         if (collection.methods.isEmpty()) {
@@ -123,6 +157,44 @@ object CrystalDotCallTargetResolver {
             return DotCallResolution.Unresolved
         }
         return DotCallResolution.Methods(call, receiverType, collection.methods)
+    }
+
+    /**
+     * Receiver evidence from a completed preceding call
+     * (`env.status(:not_found)` as the receiver of `.json(...)`): the inner
+     * call resolves through this same resolver, so only exact (never
+     * name-only) targets participate. The inner arguments must satisfy at
+     * least one overload by arity, every applicable overload must carry the
+     * same annotated return type (absent annotations are never inferred, and
+     * union or nilable returns stay suppressed like other union receivers),
+     * and the return must resolve to one exact type identity. Constructor,
+     * accessor, lib-fun, and macro-spliced predecessors stay suppressed.
+     */
+    private fun resolveChainReceiver(
+        innerAccess: CrystalDotCallAccess,
+        context: PsiElement,
+        session: CrystalTypeResolutionSession,
+        depth: Int
+    ): ExactReceiverType? {
+        val inner = resolve(innerAccess, session, depth + 1)
+        val methods = (inner as? DotCallResolution.Methods) ?: return null
+        val args = methods.call.argumentHolder
+        if (containsMacroInterpolation(args)) return null
+        val counts = countCallArguments(args) ?: return null
+        val applicable = methods.methods.filter {
+            evaluateOverload(it.parameterList, counts.total, counts.positional, counts.named).isValid
+        }
+        if (applicable.isEmpty()) return null
+        val returns = applicable.map {
+            it.typeReference?.text?.filterNot(Char::isWhitespace) ?: return null
+        }.distinct()
+        if (returns.size != 1) return null
+        val returnText = returns.single()
+        // Union and nilable chain results have no single exact identity —
+        // they stay suppressed like any other union receiver.
+        if (returnText.contains("|") || returnText.endsWith("?")) return null
+        val identity = session.resolveType(returnText, context) ?: return null
+        return ExactReceiverType(identity.simpleName, identity.qualifiedName)
     }
 
     /**

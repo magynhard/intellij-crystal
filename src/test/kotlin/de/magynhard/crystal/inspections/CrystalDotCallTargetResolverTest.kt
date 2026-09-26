@@ -2300,6 +2300,67 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertSame(DotCallResolution.Suppressed, call.resolution)
     }
 
+    // ==================== Chained calls ====================
+
+    fun testResolvesChainedCallReceiver() {
+        val call = resolveCall(
+            """
+                class Response
+                  def status(code : Symbol) : Response
+                    self
+                  end
+                  def json(payload : String)
+                  end
+                end
+                env = Response.new
+                env.status(:not_found).json("ok")
+            """.trimIndent(),
+            "json", ".status(:not_found)"
+        )
+        val resolution = call.resolution as DotCallResolution.Methods
+        assertEquals("Response", resolution.receiverType.qualifiedName)
+        assertEquals(1, resolution.methods.size)
+    }
+
+    fun testSuppressesChainedCallWithUntypedPredecessor() {
+        val call = resolveCall(
+            """
+                class Response
+                  def status(code)
+                    self
+                  end
+                  def json(payload : String)
+                  end
+                end
+                env = Response.new
+                env.status(:not_found).json("ok")
+            """.trimIndent(),
+            "json", ".status(:not_found)"
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testSuppressesChainedCallWithAmbiguousPredecessor() {
+        val call = resolveCall(
+            """
+                class Response
+                  def status(code : Symbol) : Response
+                    self
+                  end
+                  def status(code : Symbol, flag = true) : String
+                    ""
+                  end
+                  def json(payload : String)
+                  end
+                end
+                env = Response.new
+                env.status(:not_found).json("ok")
+            """.trimIndent(),
+            "json", ".status(:not_found)"
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
     // ==================== Literal Receivers ====================
 
     fun testResolvesLiteralArrayReceiverWithElementUnion() {

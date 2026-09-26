@@ -206,6 +206,20 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   resolver, and unresolved regressions; specified in
   docs/specs/call-argument-inspections.md, docs/specs/unresolved-names.md,
   and docs/specs/indexed-navigation.md.
+- **Chained-call receivers with exact typing** — a DOT call on a completed
+  preceding call (`env.status(:not_found).json(...)`) now resolves the inner
+  call through the shared exact resolver and checks the outer arguments
+  against the methods of its single annotated return type, enabling argument
+  count/type diagnostics, Go to Definition, and `Cannot find` healing for
+  the outer link. The inner call must be applicable (its arguments satisfy
+  an overload by arity) and unambiguous (every applicable overload carries
+  the same annotated return); unannotated, union/nilable, ambiguous,
+  constructor, accessor-macro, and lib-fun predecessors stay suppressed, as
+  do splat/double-splat predecessor arguments and nesting beyond four
+  preceding calls. The arity core (`evaluateOverload`) moved unchanged into
+  the shared `CrystalOverloadArity` helper. Covered by argument-count,
+  type-check, resolver, reference, and unresolved regressions; specified in
+  docs/specs/call-argument-inspections.md and docs/specs/indexed-navigation.md.
 
 ### Changed
 - **Dependency-aware name completion** — free-text and type-annotation completion now

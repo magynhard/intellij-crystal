@@ -1200,4 +1200,36 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Chained calls ====================
+
+    fun testChainedCallTypeMismatchIsReported() {
+        myFixture.configureByText("test.cr", """
+            class Response
+              def status(code : Symbol) : Response
+                self
+              end
+              def json(payload : String)
+              end
+            end
+            env = Response.new
+            env.status(:not_found).json(<error descr="Type mismatch: expected 'String', got 'Int32'">42</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallMatchingTypeStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Response
+              def status(code : Symbol) : Response
+                self
+              end
+              def json(payload : String)
+              end
+            end
+            env = Response.new
+            env.status(:not_found).json("ok")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

@@ -183,6 +183,34 @@ argument to any other pointer spelling is a definite mismatch even though the sh
 rules treat the `Char*` spelling as unknown — otherwise a missing char alias would
 pass silently.
 
+## Chained calls
+
+A DOT call whose receiver is itself a completed DOT call
+(`env.status(:not_found).json(...)`) resolves the preceding call through the same
+exact resolver and uses its annotated return type as the receiver evidence for the
+outer call. No chain-specific fallback exists in the inspections: once the receiver
+type is exact, the outer call flows through the ordinary method pool, arity, type,
+navigation, and `Cannot find` paths.
+
+The preceding call must be applicable and unambiguous:
+
+- It resolves to exact methods (never name-only); constructor, accessor-macro,
+  lib-fun, and unresolved predecessors stay suppressed.
+- Its arguments satisfy at least one overload by arity (the shared
+  `evaluateOverload` shapes; splat, double-splat, and macro-spliced arguments
+  make the shape unknowable). When no overload applies, the outer call stays
+  silent and the inner call reports its own diagnostic at its own site.
+- Every applicable overload carries the same annotated return type. Absent
+  annotations are never inferred from bodies, and union or nilable returns stay
+  suppressed like any other union receiver.
+- The return resolves to one exact type identity; nesting deeper than four
+  preceding calls stays suppressed to bound hierarchy lookups.
+
+Argument types of the inner call do not participate in overload selection: a
+type-mismatched inner argument is the inner call's own diagnostic and does not
+invalidate the return-type evidence, while arity ambiguity among applicable
+overloads suppresses rather than guesses.
+
 ## Call Discovery And Ownership
 
 Argumentless calls without parentheses do not contain an argument-list PSI element:
@@ -213,7 +241,7 @@ Every DOT-call must resolve its receiver to one distinct, exact type identity be
 
 Relevant instance-variable assignments are all assignments to that instance variable within the current enclosing type declaration, regardless of source order or control-flow branch. Assignments inside nested type declarations and assignments from inherited type bodies are excluded. Every relevant assignment must resolve to the same exact type; an unknown, ambiguous, union, nilable, or conflicting assignment suppresses resolution rather than selecting a type by proximity or source order. Support for inherited instance-variable declarations and assignments is deferred in `TODO.md`.
 
-Transparent parentheses do not change receiver identity. A grouped receiver is transparent only when it contains one expression whose complete structure is a local/instance-variable access or a constant path composed of an optional leading `::`, one constant root, and namespace accesses. The resolver preserves the full written qualified or absolute path through nested grouping. Assignment, comma, conditional, union, nilable, call-valued, or other composite expressions are not transparent and remain suppressed.
+Transparent parentheses do not change receiver identity. A grouped receiver is transparent only when it contains one expression whose complete structure is a local/instance-variable access or a constant path composed of an optional leading `::`, one constant root, and namespace accesses. The resolver preserves the full written qualified or absolute path through nested grouping. Assignment, comma, conditional, union, nilable, or other composite expressions are not transparent and remain suppressed. Call-valued receivers resolve only through the chained-call rule below; every other call shape stays suppressed.
 
 Constant receivers search class methods. Inferred value receivers search instance methods. Top-level methods, instance methods on unrelated types, and class methods on unrelated types never enter the candidate set. Resolution and hierarchy lookup use StubIndex-backed declarations across project and synthetic-library scopes and must not scan project files or fall back to a method name alone.
 
@@ -267,6 +295,7 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - A class-variable receiver.
 - A record instance method until record values use exact generated-signature resolution.
 - A macro-interpolated receiver, method name, or constructor target.
+- A chained call whose preceding call cannot serve as exact evidence: unannotated predecessors (annotations are never inferred from bodies), union or nilable returns, several applicable overloads with distinct returns, constructor/accessor-macro/lib-fun predecessors, splat or double-splat predecessor arguments, macro-spliced predecessor arguments, or nesting deeper than four preceding calls.
 - A DOT call inside `{{ … }}` or a macro body: its receiver is a macro-runtime object (TypeNode, StringLiteral, …) dispatching to the `Crystal::Macros` compiler API, never to a runtime `def`.
 
 Macro interpolation contained only inside an argument does not suppress an otherwise exact target. The argument cannot be validated before expansion, so a call whose argument list starts an argument with `{{ … }}` is exempt from arity diagnostics (see Macro context).

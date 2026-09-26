@@ -3263,4 +3263,125 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Chained calls ====================
+
+    private fun chainedFixture(): String = """
+        class Response
+          def status(code : Symbol) : Response
+            self
+          end
+          def json(payload : String)
+          end
+        end
+        env = Response.new
+    """.trimIndent()
+
+    fun testChainedCallBadOuterArgIsReported() {
+        myFixture.configureByText("test.cr", """
+            ${chainedFixture()}
+            env.status(:not_found).json("a", <error descr="Too many arguments: expected at most 1, got 2">"b"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallCleanStaysClean() {
+        myFixture.configureByText("test.cr", """
+            ${chainedFixture()}
+            env.status(:not_found).json("ok")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallMissingOuterArgIsReported() {
+        myFixture.configureByText("test.cr", """
+            ${chainedFixture()}
+            env.status(:not_found).<error descr="Missing required argument(s): 'payload'">json</error>()
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallUntypedPredecessorStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Response
+              def status(code)
+                self
+              end
+              def json(payload : String)
+              end
+            end
+            env = Response.new
+            env.status(:not_found).json(42)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallAmbiguousPredecessorStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Response
+              def status(code : Symbol) : Response
+                self
+              end
+              def status(code : Symbol, flag = true) : String
+                ""
+              end
+              def json(payload : String)
+              end
+            end
+            env = Response.new
+            env.status(:not_found).json(42)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallBrokenInnerReportsInnerOnly() {
+        myFixture.configureByText("test.cr", """
+            ${chainedFixture()}
+            env.status(:a, <error descr="Too many arguments: expected at most 1, got 2">:b</error>).json("ok")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallUnionReturnStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Response
+              def status(code : Symbol) : Response | Nil
+                self
+              end
+              def json(payload : String)
+              end
+            end
+            env = Response.new
+            env.status(:not_found).json(42)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallThreeLinks() {
+        myFixture.configureByText("test.cr", """
+            class Store
+              def fetch(key : Symbol) : Response
+                Response.new
+              end
+            end
+            ${chainedFixture()}
+            store = Store.new
+            store.fetch(:k).status(:not_found).json("a", <error descr="Too many arguments: expected at most 1, got 2">"b"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testChainedCallArgumentlessInnerLink() {
+        myFixture.configureByText("test.cr", """
+            ${chainedFixture()}
+            class Mid
+              def wrap : Response
+                Response.new
+              end
+            end
+            mid = Mid.new
+            mid.wrap.json("a", <error descr="Too many arguments: expected at most 1, got 2">"b"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

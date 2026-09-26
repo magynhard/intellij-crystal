@@ -517,17 +517,10 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     /** True when no parameter list in [parameterLists] accepts [counts]. */
-    private fun rejectsAll(parameterLists: List<CrystalParameterList?>, counts: EffectiveCounts): Boolean =
+    private fun rejectsAll(parameterLists: List<CrystalParameterList?>, counts: CallArgCounts): Boolean =
         parameterLists.none { evaluateOverload(it, counts.total, counts.positional, counts.named).isValid }
 
-    /** Effective call shape, or null when unresolvable splats make the arity unknowable. */
-    private data class EffectiveCounts(
-        val positional: Int,
-        val named: Set<String>,
-        val total: Int
-    )
-
-    private fun effectiveCounts(arguments: List<ArgumentInfo>): EffectiveCounts? {
+    private fun effectiveCounts(arguments: List<ArgumentInfo>): CallArgCounts? {
         // If any argument has an unresolvable splat/double-splat, skip the check entirely
         if (arguments.any { it.isSplat && it.resolvedSplatCount == null }) return null
         if (arguments.any { it.isDoubleSplat && it.resolvedDoubleSplatKeys == null }) return null
@@ -553,7 +546,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         }
 
         val effectiveArgCount = effectivePositionalCount + namedArgNames.size
-        return EffectiveCounts(effectivePositionalCount, namedArgNames, effectiveArgCount)
+        return CallArgCounts(effectivePositionalCount, namedArgNames, effectiveArgCount)
     }
 
     /**
@@ -621,133 +614,6 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
     }
 
     // ==================== Overload Evaluation ====================
-
-    data class OverloadMatch(
-        val isValid: Boolean,
-        val missingParams: List<String> = emptyList(),
-        val excessStartIndex: Int = -1,
-        val maxArgs: Int = 0,
-        val unknownNamedArgs: Set<String> = emptySet()
-    ) {
-        fun isBetterThan(other: OverloadMatch): Boolean {
-            // Prefer the match with fewer missing params.
-            if (missingParams.size != other.missingParams.size) {
-                return missingParams.size < other.missingParams.size
-            }
-            // Equally close overloads that omit different required names must
-            // rank deterministically instead of following collection order.
-            val thisMissing = missingParams.sorted().joinToString("\u0000")
-            val otherMissing = other.missingParams.sorted().joinToString("\u0000")
-            if (thisMissing != otherMissing) return thisMissing < otherMissing
-            val thisUnknown = unknownNamedArgs.sorted().joinToString("\u0000")
-            val otherUnknown = other.unknownNamedArgs.sorted().joinToString("\u0000")
-            return thisUnknown < otherUnknown
-        }
-    }
-
-    private fun evaluateOverload(
-        parameterList: CrystalParameterList?,
-        argCount: Int,
-        positionalCount: Int,
-        namedArgNames: Set<String>
-    ): OverloadMatch {
-        val params = parameterList?.parameterList.orEmpty()
-        val namedOnlyNames = namedOnlyParameterNames(parameterList)
-        val regularParams = mutableListOf<ParamInfo>()
-        var hasSplat = false
-        var hasDoubleSplat = false
-
-        for (param in params) {
-            when {
-                param.node.findChildByType(CrystalTypes.AMPERSAND) != null -> continue
-                param.node.findChildByType(CrystalTypes.STAR) != null -> { hasSplat = true; continue }
-                param.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null -> { hasDoubleSplat = true; continue }
-                // Macro-generated splat fragments (`{{ items.splat }}`) expand to an
-                // unknown number of parameters: suppress count diagnostics like a splat.
-                param.node.findChildByType(CrystalTypes.MACRO_INTERPOLATION) != null -> { hasSplat = true; continue }
-            }
-            val name = param.parameterNameInfo().callSiteName ?: continue
-            val hasDefault = param.expression != null
-            regularParams.add(ParamInfo(name, hasDefault, name in namedOnlyNames))
-        }
-
-        val paramNames = regularParams.map { it.name }.toSet()
-        val requiredParams = regularParams.filter { !it.hasDefault }
-
-        // Check unknown named args (only if no double-splat)
-        if (!hasDoubleSplat) {
-            val unknown = namedArgNames - paramNames
-            if (unknown.isNotEmpty()) {
-                return OverloadMatch(isValid = false, unknownNamedArgs = unknown)
-            }
-        }
-
-        // Check: which required params are satisfied?
-        val satisfiedByName = namedArgNames.intersect(requiredParams.map { it.name }.toSet())
-        val requiredNotSatisfiedByName = requiredParams.filter { it.name !in satisfiedByName }
-
-        // Named-only parameters (after a bare `*` or a `*splat`) can only be
-        // satisfied by name; positional arguments never fill them. Report
-        // missing parameters in declaration order to keep messages stable.
-        val missing = mutableListOf<String>()
-        var positionalSlot = 0
-        for (param in requiredNotSatisfiedByName) {
-            if (param.namedOnly) {
-                missing.add(param.name)
-            } else {
-                if (positionalSlot >= positionalCount) missing.add(param.name)
-                positionalSlot++
-            }
-        }
-        if (missing.isNotEmpty()) {
-            return OverloadMatch(isValid = false, missingParams = missing)
-        }
-
-        // Check too many args (only if no splat)
-        if (!hasSplat) {
-            val positionalParams = regularParams.filterNot { it.namedOnly }
-            val namedSatisfied = namedArgNames.intersect(positionalParams.map { it.name }.toSet())
-            val maxPositional = positionalParams.size - namedSatisfied.size
-            if (positionalCount > maxPositional) {
-                return OverloadMatch(
-                    isValid = false,
-                    excessStartIndex = argCount - (positionalCount - maxPositional),
-                    maxArgs = regularParams.size
-                )
-            }
-        }
-
-        return OverloadMatch(isValid = true)
-    }
-
-    /**
-     * Names of parameters that follow a bare `*` separator or a `*splat`
-     * parameter. Crystal requires such parameters to be passed by name, so a
-     * positional argument must never satisfy them.
-     */
-    private fun namedOnlyParameterNames(parameterList: CrystalParameterList?): Set<String> {
-        val result = mutableSetOf<String>()
-        if (parameterList == null) return result
-        var namedOnly = false
-        for (child in parameterList.node.getChildren(null)) {
-            when (child.elementType) {
-                CrystalTypes.STAR, CrystalTypes.DOUBLE_STAR -> namedOnly = true
-                else -> {
-                    val param = child.psi as? CrystalParameter ?: continue
-                    if (namedOnly) {
-                        param.parameterNameInfo().callSiteName?.let { result.add(it) }
-                    }
-                    if (param.node.findChildByType(CrystalTypes.STAR) != null ||
-                        param.node.findChildByType(CrystalTypes.DOUBLE_STAR) != null) {
-                        namedOnly = true
-                    }
-                }
-            }
-        }
-        return result
-    }
-
-    data class ParamInfo(val name: String, val hasDefault: Boolean, val namedOnly: Boolean = false)
 
     // ==================== Argument Extraction ====================
 
