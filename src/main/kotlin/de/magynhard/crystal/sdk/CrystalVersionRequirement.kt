@@ -90,6 +90,15 @@ internal object CrystalVersionRequirement {
 
     private data class VersionPart(val number: Int?, val rest: String)
 
+    /**
+     * Version without SemVer build metadata (`1.7.1-dev+git.commit.abc` →
+     * `1.7.1-dev`). Build metadata never participates in precedence, so lock
+     * entries for branch-pinned dependencies (which record the installed
+     * commit) compare equal to the base version in the installed manifest.
+     */
+    internal fun stripBuildMetadata(version: String): String =
+        version.substringBefore('+').ifEmpty { version }
+
     private fun parseVersion(text: String): List<VersionPart>? {
         val parts = splitVersion(text.trim())
         if (parts.isEmpty()) return null
@@ -98,7 +107,7 @@ internal object CrystalVersionRequirement {
 
     private fun splitVersion(text: String): List<VersionPart> {
         if (text.isEmpty()) return emptyList()
-        return text.split('.').map { segment ->
+        return stripBuildMetadata(text).split('.').map { segment ->
             val digits = segment.takeWhile { it.isDigit() }
             VersionPart(
                 number = digits.takeIf { it.isNotEmpty() }?.toIntOrNull(),

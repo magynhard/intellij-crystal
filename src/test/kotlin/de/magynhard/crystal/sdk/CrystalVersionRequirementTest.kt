@@ -58,4 +58,13 @@ class CrystalVersionRequirementTest : BasePlatformTestCase() {
         assertNull(CrystalVersionRequirement.satisfies(">= 1.0, fancy", "1.5"))
         assertNull(CrystalVersionRequirement.satisfies(">= 1.0", null))
     }
+
+    fun testBuildMetadataIsIgnoredInPrecedence() {
+        // SemVer: build metadata never participates in precedence — a locked
+        // branch commit (`+git.commit.…`) satisfies the same base version.
+        assertEquals(true, CrystalVersionRequirement.satisfies("1.7.1-dev", "1.7.1-dev+git.commit.7f18f0d"))
+        assertEquals(true, CrystalVersionRequirement.satisfies("~> 1.7", "1.7.1-dev+git.commit.7f18f0d"))
+        assertEquals(false, CrystalVersionRequirement.satisfies("~> 1.7.1", "1.7.0+git.commit.aaa111"))
+        assertEquals(false, CrystalVersionRequirement.satisfies("1.7.1-dev", "1.7.0+git.commit.aaa111"))
+    }
 }

@@ -36,7 +36,10 @@ Per declared dependency, in manifest order:
 - **VersionMismatch(expected, actual)** — installed
   `lib/<name>/shard.yml` `version:` disagrees with the lock's exact
   version, or violates the manifest requirement when no lock pins it.
-  Unverifiable cases (no installed version, unevaluable requirement)
+  SemVer build metadata (`+git.commit.…`, which lock entries record for
+  branch-pinned dependencies while the installed manifest carries the base
+  version) never participates in precedence and is ignored by both
+  comparisons. Unverifiable cases (no installed version, unevaluable requirement)
   stay silent.
 - **Ok** — everything else.
 

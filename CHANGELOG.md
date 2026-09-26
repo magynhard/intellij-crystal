@@ -237,6 +237,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Branch-pinned shard dependencies no longer report phantom version mismatches** —  lock entries record the installed commit as SemVer build metadata
+  (`1.7.1-dev+git.commit.…`, e.g. kemal's `ameba: {branch: master}`) while the
+  installed manifest carries the base version (`1.7.1-dev`); since build metadata
+  never participates in precedence, lock and requirement comparisons now ignore it
+  instead of demanding `shards install` in a loop. Genuinely different base versions
+  still report. Covered by shard status and version-requirement regressions.
 - **Bare callees with whitespace-separated regex arguments parse like the compiler** —
   `y = match /abc/`, `foo a /b/`, `take save? /re/`, and `match /a/, /b/` no longer
   produce error markers: a slash after a lowercase-led (or single-underscore) callee word

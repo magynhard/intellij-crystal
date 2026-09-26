@@ -65,7 +65,15 @@ internal object CrystalShardStatus {
         if (installDir == null || !installDir.isDirectory) return DependencyState.Missing
         val installedVersion = installedVersion(basePath, dependency.name) ?: return DependencyState.Ok
         lock?.get(dependency.name)?.let { locked ->
-            if (locked != null && locked != installedVersion) {
+            // Lock entries for branch-pinned dependencies record the installed
+            // commit as build metadata (`1.7.1-dev+git.commit.…`) while the
+            // installed manifest carries the base version (`1.7.1-dev`):
+            // SemVer ignores build metadata in precedence, so only the base
+            // versions decide. The reported mismatch keeps the raw strings.
+            if (locked != null &&
+                CrystalVersionRequirement.stripBuildMetadata(locked) !=
+                CrystalVersionRequirement.stripBuildMetadata(installedVersion)
+            ) {
                 return DependencyState.VersionMismatch(locked, installedVersion)
             }
             if (locked != null) return DependencyState.Ok
