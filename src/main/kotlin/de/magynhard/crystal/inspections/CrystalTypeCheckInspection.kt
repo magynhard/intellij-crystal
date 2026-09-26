@@ -62,6 +62,9 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                     is CrystalBareMethodCallExpression -> {
                         checkMethodCall(element, holder)
                     }
+                    is CrystalBracketCallAccess -> {
+                        checkBracketCall(element, holder)
+                    }
                     is CrystalCallArgs, is CrystalBareArgumentList -> {
                         findOwningDotCall(element)?.let { checkDotCall(it, holder) }
                     }
@@ -290,6 +293,21 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             DotCallResolution.Suppressed,
             DotCallResolution.Unresolved -> return
         }
+    }
+
+    /**
+     * Type-checks a `[]` call with an exact static target (`Foo["a"]` against
+     * `def self.[](x : Int)`). Only exact receiver resolutions are checked —
+     * unknown, suppressed, macro-backed (`Int64[]`), and ambiguous receivers
+     * stay silent, like DOT-calls.
+     */
+    private fun checkBracketCall(access: CrystalBracketCallAccess, holder: ProblemsHolder) {
+        val methods = CrystalBracketCallResolver.resolveMethods(access)
+        if (methods.isEmpty()) return
+        val args = access.argumentList?.argumentList.orEmpty()
+        val arguments = args.mapNotNull(::extractArgumentInfo)
+        if (arguments.isEmpty()) return
+        checkOverloadTypes(methods, arguments, holder, access)
     }
 
     private fun extractDotCallArguments(argsElement: PsiElement?): List<ArgumentInfo> {

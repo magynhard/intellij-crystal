@@ -58,9 +58,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   form a dedicated composite with a reference resolving to the exact static
   `def self.[]` targets, enabling Go to Definition, hover, and argument-count
   diagnostics (`Foo[]` against `def self.[](x)` reports the missing argument).
+  `CrystalTypeCheckInspection` checks bracket arguments against the same targets
+  (`Foo["a"]` against `def self.[](x : Int)` reports the mismatch form).
   Macro-backed (`Int64[]`), unknown, ambiguous, and instance receivers stay
   suppressed; spaced brackets and index reads keep their shapes and behavior.
-  Covered by `CrystalBracketCallReferenceTest` and argument-count regressions;
+  Covered by `CrystalBracketCallReferenceTest` and argument-count/type-check regressions;
   specified in docs/specs/indexed-navigation.md and docs/specs/call-argument-inspections.md.
 - **Cross-file constant resolution through require closures** — top-level constants
   (`KODORRA = 123`), member constants (`class Foo; BAR = 1; end`), and lib constants

@@ -1046,4 +1046,67 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         }
         return null
     }
+
+    // ==================== Bracket calls (`Foo[]`, `Foo[1]`) ====================
+
+    fun testBracketCallTypeMismatchIsReported() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def self.[](x : Int32)
+                x
+              end
+            end
+            Foo[<error descr="Type mismatch: expected 'Int32', got 'String'">"a"</error>]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallMatchingTypeStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def self.[](x : Int32)
+                x
+              end
+            end
+            Foo[1]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallMacroBackedStaysClean() {
+        myFixture.configureByText("test.cr", """
+            Int64[1]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallUnknownReceiverStaysClean() {
+        myFixture.configureByText("test.cr", """
+            Nope["a"]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallInstanceReceiverStaysClean() {
+        myFixture.configureByText("test.cr", """
+            arr = [1, 2, 3]
+            arr["a"]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBracketCallOverloadAcceptsMatching() {
+        myFixture.configureByText("test.cr", """
+            class Foo
+              def self.[](x : Int32)
+                x
+              end
+              def self.[](x : String)
+                x
+              end
+            end
+            Foo["a"]
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }
