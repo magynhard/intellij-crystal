@@ -8,13 +8,28 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
+import com.intellij.extapi.psi.StubBasedPsiElementBase;
+import de.magynhard.crystal.stubs.CrystalFunDefinitionStub;
 import de.magynhard.crystal.psi.*;
+import com.intellij.psi.stubs.IStubElementType;
+import com.intellij.psi.tree.IElementType;
 
-public class CrystalFunDefinitionImpl extends ASTWrapperPsiElement implements CrystalFunDefinition {
+public class CrystalFunDefinitionImpl extends StubBasedPsiElementBase<CrystalFunDefinitionStub> implements CrystalFunDefinition {
+
+  public CrystalFunDefinitionImpl(@NotNull CrystalFunDefinitionStub stub, @NotNull IStubElementType<?, ?> type) {
+    super(stub, type);
+  }
+
+  public CrystalFunDefinitionImpl(@NotNull CrystalFunDefinitionStub stub, @NotNull IElementType type) {
+    super(stub, type);
+  }
 
   public CrystalFunDefinitionImpl(@NotNull ASTNode node) {
     super(node);
+  }
+
+  public CrystalFunDefinitionImpl(CrystalFunDefinitionStub stub, IElementType type, ASTNode node) {
+    super(stub, type, node);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {

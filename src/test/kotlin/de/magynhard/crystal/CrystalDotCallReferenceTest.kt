@@ -452,4 +452,24 @@ class CrystalDotCallReferenceTest : BasePlatformTestCase() {
         assertEquals(2, gotoTargetsAtCaret(code).filterIsInstance<CrystalMethodDefinition>().size)
     }
 
+    // ==================== Lib fun calls ====================
+
+    fun testLibFunCallResolvesToFunDefinition() {
+        val code = """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+            end
+            LibC.ex<caret>it(1)
+        """.trimIndent()
+
+        val resolved = resolveAtCaret(code)
+        assertNotNull("LibC.exit should resolve to fun exit", resolved)
+        assertTrue("Should resolve to a fun definition", resolved is CrystalFunDefinition)
+        assertEquals(
+            "LibC",
+            CrystalPsiUtils.libOwnerQualifiedName(resolved as CrystalFunDefinition)
+        )
+        assertEquals(1, gotoTargetsAtCaret(code).filterIsInstance<CrystalFunDefinition>().size)
+    }
+
 }

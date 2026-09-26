@@ -108,6 +108,22 @@ class CrystalLibIndex : StringStubIndexExtension<CrystalLibDefinition>() {
 }
 
 /**
+ * Index that maps FFI function declaration names to their `fun` definitions
+ * (`exit` → `fun exit(status : Int32)` in `lib LibC`). Keyed by the simple
+ * declaration name only; the owning library comes from the stub's
+ * [CrystalFunDefinitionStub.ownerQualifiedName] and is filtered at query time,
+ * mirroring the method index. External symbol aliases are never indexed.
+ */
+class CrystalLibFunIndex : StringStubIndexExtension<CrystalFunDefinition>() {
+    override fun getKey(): StubIndexKey<String, CrystalFunDefinition> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalFunDefinition> =
+            StubIndexKey.createIndexKey("crystal.lib.fun.index")
+    }
+}
+
+/**
  * Index that maps constant names to their declarations (`KODORRA = 123`,
  * `class Foo; BAR = 1; end`, `lib LibC; F_GETFD = 1; end`).
  *

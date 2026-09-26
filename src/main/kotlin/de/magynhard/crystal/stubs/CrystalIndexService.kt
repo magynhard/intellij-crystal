@@ -9,6 +9,7 @@ import com.intellij.util.indexing.IdFilter
 import de.magynhard.crystal.psi.CrystalAliasDefinition
 import de.magynhard.crystal.psi.CrystalAnnotationDefinition
 import de.magynhard.crystal.psi.CrystalConstantAssignment
+import de.magynhard.crystal.psi.CrystalFunDefinition
 import de.magynhard.crystal.psi.CrystalLibDefinition
 import de.magynhard.crystal.psi.CrystalMacroDefinition
 import de.magynhard.crystal.psi.CrystalMethodDefinition
@@ -117,6 +118,13 @@ object CrystalIndexService {
         scope: GlobalSearchScope
     ): Collection<CrystalLibDefinition> =
         StubIndex.getElements(CrystalLibIndex.KEY, name, project, scope, CrystalLibDefinition::class.java)
+
+    fun findLibFunctions(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope
+    ): Collection<CrystalFunDefinition> =
+        StubIndex.getElements(CrystalLibFunIndex.KEY, name, project, scope, CrystalFunDefinition::class.java)
 
     fun findConstants(
         name: String,

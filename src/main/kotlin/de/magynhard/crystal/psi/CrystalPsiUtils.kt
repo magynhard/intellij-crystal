@@ -255,6 +255,46 @@ object CrystalPsiUtils {
     }
 
     /**
+     * Qualified owner library of a `fun` declaration — or of a `lib`
+     * definition itself (`LibC`, `Outer::Inner`) — following the enclosing
+     * `lib` chain and prefixing an enclosing type like constant owners do.
+     * Null when no enclosing lib exists. Used identically at stub-build time
+     * and query time so indexed owner strings always match resolution-time
+     * receiver roots.
+     */
+    fun libOwnerQualifiedName(element: PsiElement): String? {
+        val libs = mutableListOf<String>()
+        if (element is CrystalLibDefinition) {
+            libs.add(element.name ?: return null)
+        }
+        var outer: String? = null
+        var current: PsiElement? = element.parent
+        while (current != null && current !is PsiFile) {
+            when (current) {
+                is CrystalLibDefinition -> libs.add(0, current.name ?: return null)
+                is CrystalClassDefinition,
+                is CrystalModuleDefinition,
+                is CrystalStructDefinition,
+                is CrystalEnumDefinition -> {
+                    outer = buildQualifiedName(current) ?: return null
+                    current = null
+                    continue
+                }
+            }
+            current = current?.parent
+        }
+        if (libs.isEmpty()) return null
+        val chain = libs.joinToString("::")
+        return if (outer != null) "$outer::$chain" else chain
+    }
+
+    /**
+     * Qualified name of a `lib` definition itself, for matching receiver
+     * roots (`LibC`, `Outer::Inner`).
+     */
+    fun libQualifiedName(lib: CrystalLibDefinition): String? = libOwnerQualifiedName(lib)
+
+    /**
      * Returns the qualified owner governing a constant declaration: the
      * lexically enclosing class/module/struct/enum, or the enclosing lib
      * (qualified by an outer type when nested, e.g. `Foo::LibBar`). Returns

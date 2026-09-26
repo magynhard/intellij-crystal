@@ -301,6 +301,16 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testKnownLibFunCallStaysClean() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+            end
+            LibC.exit(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     // ==================== Aliases ====================
 
     fun testPreludeAliasReceiverBytesStaysClean() {

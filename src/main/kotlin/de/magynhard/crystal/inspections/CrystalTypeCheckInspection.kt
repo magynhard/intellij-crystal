@@ -289,6 +289,11 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
                 if (fieldArguments.isEmpty()) return
                 checkRecordTypeArgs(recordParamsFrom(fieldArguments), arguments, holder)
             }
+            is DotCallResolution.LibFunctions -> {
+                val arguments = extractDotCallArguments(resolution.call.argumentHolder)
+                if (arguments.isEmpty()) return
+                checkFunOverloadTypes(resolution, arguments, holder, access)
+            }
             is DotCallResolution.ImplicitConstructor,
             DotCallResolution.Suppressed,
             DotCallResolution.Unresolved -> return
@@ -308,6 +313,115 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
         val arguments = args.mapNotNull(::extractArgumentInfo)
         if (arguments.isEmpty()) return
         checkOverloadTypes(methods, arguments, holder, access)
+    }
+
+    /**
+     * Type-checks a `lib fun` call against its resolved declaration. The
+     * signature model carries named, unnamed, and variadic parameters;
+     * untyped positions stay unchecked, and FFI-only implicit conversions
+     * (`String` to C-char pointers, `nil` to any pointer) apply on top of the
+     * shared compatibility rules.
+     */
+    private fun checkFunOverloadTypes(
+        resolution: DotCallResolution.LibFunctions,
+        arguments: List<ArgumentInfo>,
+        holder: ProblemsHolder,
+        context: PsiElement,
+    ) {
+        if (resolution.funs.size != 1) return
+        val signature = signatureOf(resolution.funs.single()) ?: return
+        val slots = materializeEffectiveSlots(arguments) ?: return
+        for ((index, slot) in slots.withIndex()) {
+            val verdict = evaluateFunExpandedSlot(signature, slots, index, context, resolution.funs)
+            if (verdict.accepted) continue
+            if (!verdict.compared || verdict.expectedType == null) continue
+            holder.registerProblem(
+                slot.highlight,
+                "Type mismatch: expected '${verdict.expectedType}', got '${slot.typeName}'",
+                ProblemHighlightType.GENERIC_ERROR
+            )
+        }
+    }
+
+    /**
+     * Sequential parameter walker over one lib-fun signature. Mirrors
+     * [evaluateExpandedSlot]: positional slots consume parameters in order
+     * (named and unnamed alike), named slots match by name, and a trailing
+     * `...` absorbs the rest unchecked. Unknown named keys and untyped
+     * positions stay unchecked conservatively.
+     */
+    private fun evaluateFunExpandedSlot(
+        signature: LibFunSignature,
+        slots: List<EffectiveSlot>,
+        targetIndex: Int,
+        context: PsiElement,
+        funs: List<CrystalFunDefinition>,
+    ): ExpandedSlotVerdict {
+        var paramIdx = 0
+        val params = signature.parameters
+        fun nextPositionalParam(): LibFunParameter? {
+            while (paramIdx < params.size) {
+                val param = params[paramIdx]
+                paramIdx++
+                return param
+            }
+            return null
+        }
+
+        for ((index, slot) in slots.withIndex()) {
+            val isTarget = index == targetIndex
+            when (slot) {
+                is EffectiveSlot.Named -> {
+                    val param = params.firstOrNull { it.name == slot.name }
+                        ?: return if (isTarget) ExpandedSlotVerdict.SKIPPED else continue
+                    if (!isTarget) continue
+                    val typeText = param.typeText ?: return ExpandedSlotVerdict.SKIPPED
+                    val argTypeName = slot.typeName ?: return ExpandedSlotVerdict.SKIPPED
+                    return ExpandedSlotVerdict(
+                        accepted = funSlotAccepted(context, argTypeName, typeText, funs),
+                        compared = true,
+                        expectedType = typeText,
+                    )
+                }
+                is EffectiveSlot.Positional -> {
+                    if (signature.isVariadic && paramIdx >= params.size) continue
+                    val param = nextPositionalParam() ?: run {
+                        // Arity overflow is the argument-count inspection's domain.
+                        return if (isTarget) ExpandedSlotVerdict.SKIPPED else continue
+                    }
+                    if (!isTarget) continue
+                    val typeText = param.typeText ?: return ExpandedSlotVerdict.SKIPPED
+                    val argTypeName = slot.typeName ?: return ExpandedSlotVerdict.SKIPPED
+                    return ExpandedSlotVerdict(
+                        accepted = funSlotAccepted(context, argTypeName, typeText, funs),
+                        compared = true,
+                        expectedType = typeText,
+                    )
+                }
+            }
+        }
+        return ExpandedSlotVerdict.SKIPPED
+    }
+
+    /**
+     * Acceptance for one `lib fun` slot. A `String` argument reaches a
+     * pointer parameter only through the FFI conversion (`LibC.getenv("x")`
+     * with `alias Char = UInt8`): the shared rules treat the `Char*`
+     * spelling as an unknown type and would wave it through silently, which
+     * would also mask a missing char alias. Every other shape keeps the
+     * shared rules (plus the FFI conversions) unchanged.
+     */
+    private fun funSlotAccepted(
+        context: PsiElement,
+        argTypeName: String,
+        typeText: String,
+        funs: List<CrystalFunDefinition>,
+    ): Boolean {
+        if (argTypeName == "String" && pointerPointee(typeText) != null) {
+            return isLibFunImplicitConversion(argTypeName, typeText, context, funs)
+        }
+        return argumentCompatible(context, argTypeName, typeText) ||
+            isLibFunImplicitConversion(argTypeName, typeText, context, funs)
     }
 
     private fun extractDotCallArguments(argsElement: PsiElement?): List<ArgumentInfo> {

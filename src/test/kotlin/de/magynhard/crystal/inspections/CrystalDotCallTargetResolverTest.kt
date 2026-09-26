@@ -2187,6 +2187,98 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         return matches.single()
     }
 
+    // ==================== Lib fun receivers ====================
+
+    fun testResolvesLibFunCall() {
+        val call = resolveCall(
+            """
+                lib LibC
+                  fun exit(status : Int32) : NoReturn
+                end
+                LibC.exit(1)
+            """.trimIndent(),
+            "exit", "LibC"
+        )
+        val resolution = call.resolution as DotCallResolution.LibFunctions
+        assertEquals(1, resolution.funs.size)
+        assertEquals(
+            "LibC",
+            de.magynhard.crystal.psi.CrystalPsiUtils.libOwnerQualifiedName(resolution.funs.single())
+        )
+    }
+
+    fun testSuppressesUnknownLibFun() {
+        val call = resolveCall(
+            """
+                lib LibC
+                  fun exit(status : Int32) : NoReturn
+                end
+                LibC.nope(1)
+            """.trimIndent(),
+            "nope", "LibC"
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testSuppressesUnknownLib() {
+        val call = resolveCall(
+            """
+                Nope.exit(1)
+            """.trimIndent(),
+            "exit", "Nope"
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testSuppressesUnrequiredLibFun() {
+        myFixture.addFileToProject("ffi.cr", """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+            end
+        """.trimIndent())
+        val call = resolveCall(
+            """
+                LibC.exit(1)
+            """.trimIndent(),
+            "exit", "LibC"
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
+    fun testResolvesRequiredLibFun() {
+        myFixture.addFileToProject("ffi.cr", """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+            end
+        """.trimIndent())
+        val call = resolveCall(
+            """
+                require "./ffi"
+
+                LibC.exit(1)
+            """.trimIndent(),
+            "exit", "LibC"
+        )
+        val resolution = call.resolution as DotCallResolution.LibFunctions
+        assertEquals(1, resolution.funs.size)
+    }
+
+    fun testSuppressesAmbiguousLibFun() {
+        val call = resolveCall(
+            """
+                lib LibC
+                  fun duped(x : Int32) : Int32
+                end
+                lib LibC
+                  fun duped(x : String) : String
+                end
+                LibC.duped(1)
+            """.trimIndent(),
+            "duped", "LibC"
+        )
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
     // ==================== Literal Receivers ====================
 
     fun testResolvesLiteralArrayReceiverWithElementUnion() {

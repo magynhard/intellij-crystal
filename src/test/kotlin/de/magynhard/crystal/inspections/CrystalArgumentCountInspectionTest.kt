@@ -2993,4 +2993,131 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Lib fun calls ====================
+
+    fun testLibFunMissingArgumentIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+            end
+            LibC.<error descr="Missing required argument(s): 'status'">exit</error>()
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunExcessArgumentIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+            end
+            LibC.exit(1, <error descr="Too many arguments: expected at most 1, got 2">2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunExactArityStaysClean() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+              fun getpid() : Int32
+            end
+            LibC.exit(1)
+            LibC.getpid()
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunUnnamedMissingUsesCountMessage() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun pack(Int32, Int32)
+            end
+            TestLib.<error descr="wrong number of arguments for 'TestLib#pack' (given 0, expected 2)">pack</error>()
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunUnnamedPartialUsesCountMessage() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun pack(Int32, Int32)
+            end
+            TestLib.<error descr="wrong number of arguments for 'TestLib#pack' (given 1, expected 2)">pack</error>(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunUnnamedExcessIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun pack(Int32, Int32)
+            end
+            TestLib.pack(1, 2, <error descr="Too many arguments: expected at most 2, got 3">3</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunNamedMissingIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun add(a : Int32, b : Int32) : Int32
+            end
+            TestLib.<error descr="Missing required argument(s): 'b'">add</error>(a: 1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunUnknownNamedIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun add(a : Int32, b : Int32) : Int32
+            end
+            TestLib.add(a: 1, <error descr="Unknown named argument 'z'">z: 2</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunEmptyParensEnforcesZeroArity() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun nop()
+            end
+            TestLib.nop()
+            TestLib.nop(<error descr="Too many arguments: expected at most 0, got 1">1</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunVariadicStaysClean() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun flex(x : Int32, ...)
+            end
+            TestLib.flex(1)
+            TestLib.flex(1, 2, 3)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunWithoutParameterListStaysClean() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun getch = GetChar
+            end
+            TestLib.getch(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunUnknownStaysClean() {
+        myFixture.configureByText("test.cr", """
+            Nope.exit(1)
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+            end
+            LibC.nope(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

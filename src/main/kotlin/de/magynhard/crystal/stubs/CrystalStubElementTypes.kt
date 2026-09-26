@@ -2,9 +2,11 @@ package de.magynhard.crystal.stubs
 
 import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
+import com.intellij.psi.TokenType
 import com.intellij.psi.stubs.*
 import com.intellij.psi.tree.IFileElementType
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.psi.impl.*
 
@@ -259,6 +261,68 @@ class CrystalLibDefinitionElementType(debugName: String) :
     }
 
     override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
+class CrystalFunDefinitionElementType(debugName: String) :
+    IStubElementType<CrystalFunDefinitionStub, CrystalFunDefinition>(debugName, CrystalLanguage) {
+
+    override fun getExternalId(): String = "crystal.FUN_DEFINITION"
+
+    override fun serialize(stub: CrystalFunDefinitionStub, dataStream: StubOutputStream) {
+        dataStream.writeName(stub.name)
+        dataStream.writeName(stub.ownerQualifiedName)
+    }
+
+    override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalFunDefinitionStub {
+        val name = dataStream.readNameString()
+        val ownerQualifiedName = dataStream.readNameString()
+        return CrystalFunDefinitionStub(parentStub, this, name, ownerQualifiedName)
+    }
+
+    override fun createStub(psi: CrystalFunDefinition, parentStub: StubElement<out PsiElement>?): CrystalFunDefinitionStub {
+        return CrystalFunDefinitionStub(
+            parentStub,
+            this,
+            funDefinitionName(psi),
+            CrystalPsiUtils.libOwnerQualifiedName(psi),
+        )
+    }
+
+    override fun createPsi(stub: CrystalFunDefinitionStub): CrystalFunDefinition {
+        return CrystalFunDefinitionImpl(stub, this)
+    }
+
+    override fun indexStub(stub: CrystalFunDefinitionStub, sink: IndexSink) {
+        stub.name?.let { sink.occurrence(CrystalLibFunIndex.KEY, it) }
+    }
+
+    override fun shouldCreateStub(node: ASTNode?): Boolean = true
+}
+
+/**
+ * The declaration name of a `fun` (`fun exit`, `fun iconv = libiconv`):
+ * the first name-like leaf after `FUN`, stopping at `=`, `(` or `:`.
+ * Macro-spliced names (`fun {{name}}`) are dynamic — never indexable.
+ */
+private fun funDefinitionName(psi: CrystalFunDefinition): String? {
+    var seenFun = false
+    for (child in psi.node.getChildren(null)) {
+        val type = child.elementType
+        if (!seenFun) {
+            if (type == CrystalTypes.FUN) seenFun = true
+            continue
+        }
+        if (type == TokenType.WHITE_SPACE || type == CrystalTypes.NEWLINE) continue
+        if (type == CrystalTypes.ASSIGN || type == CrystalTypes.LPAREN || type == CrystalTypes.COLON) break
+        if (type == CrystalTypes.MACRO_INTERPOLATION_BEGIN) return null
+        if (type == CrystalTypes.IDENTIFIER || type == CrystalTypes.CONSTANT ||
+            CrystalTokenTypes.KEYWORDS.contains(type)
+        ) {
+            return child.text.takeIf { it.isNotBlank() }
+        }
+        return null
+    }
+    return null
 }
 
 class CrystalAnnotationDefinitionElementType(debugName: String) :

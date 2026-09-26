@@ -152,6 +152,37 @@ mode. Macro-backed (`Int64[]`), unknown, and ambiguous receivers resolve
 to nothing and stay suppressed; index reads and the Number `[]` macro typing path are
 preserved by flattening the wrapper back to its token sequence before matching.
 
+## Lib Fun Calls
+
+FFI calls (`LibC.exit(1)`) resolve through `CrystalLibFunIndex` to their
+`CrystalFunDefinition` declarations (stub v21 carries the declaration name and the
+qualified library owner; only the Crystal declaration name is indexed, never an
+external symbol alias or macro-spliced name). `CrystalDotCallTargetResolver` returns a
+`LibFunctions` result only for exact qualified library identities inside the effective
+require closure; candidates group by signature shape and absent or ambiguous targets
+stay suppressed. Navigation returns the same targets through `CrystalDotCallReference`,
+and a resolved `LibFunctions` result heals the `Cannot find` diagnostic.
+
+All `lib fun` parameters are required (the compiler rejects defaults and splats), so
+the count check needs no optional states: named, unnamed, and variadic parameters
+count positionally, unknown named keys report `Unknown named argument 'z'`, and a
+trailing `...` absorbs the rest unchecked. Unnamed type-only parameters (`Int32`,
+`Char*`, including `|`-continuations and proc fragments) count explicitly — their PSI
+shape (`CrystalTypePath` leaves, parenthesized fragments) differs from ordinary
+`CrystalParameter` elements. Parentheseless declarations (`fun getch = GetChar`) carry
+no checkable shape and suppress the call, while empty parentheses (`fun nop()`)
+enforce zero arity; splat, block, and macro-spliced parameters suppress the signature.
+
+The type check applies the shared compatibility rules plus FFI-only implicit
+conversions: `String` converts to a C-char pointer (pointee `UInt8`, directly or
+through a require-visible alias such as `alias Char = UInt8`), and `nil` is a valid
+null pointer for any pointee. A lib-local alias shadows global same-name aliases
+(lexical scope); lib bodies use the unstubbed `type_alias_lib` shape, so the owner
+library of the resolved `fun` is consulted before the global alias index. A `String`
+argument to any other pointer spelling is a definite mismatch even though the shared
+rules treat the `Char*` spelling as unknown — otherwise a missing char alias would
+pass silently.
+
 ## Call Discovery And Ownership
 
 Argumentless calls without parentheses do not contain an argument-list PSI element:

@@ -224,6 +224,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
             is DotCallResolution.Methods -> resolution.call
             is DotCallResolution.ImplicitConstructor -> resolution.call
             is DotCallResolution.RecordFallback -> resolution.call
+            is DotCallResolution.LibFunctions -> resolution.call
             // Accessor declarations have no call-shape beyond their
             // macro-generated reader/setter shape — no arg diagnostics.
             is DotCallResolution.Accessor -> return
@@ -255,8 +256,129 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                     holder
                 )
             }
+            is DotCallResolution.LibFunctions -> checkFunArgumentCount(
+                resolution,
+                arguments,
+                call.methodNameElement,
+                holder
+            )
             DotCallResolution.Suppressed, DotCallResolution.Unresolved -> Unit
         }
+    }
+
+    /**
+     * Arity check for `lib fun` calls against a single resolved `fun`
+     * declaration. All `lib fun` parameters are required (the compiler
+     * rejects defaults, splats, and bare separators in declarations);
+     * unnamed type-only parameters count positionally, a trailing `...`
+     * leaves excess unchecked, and unknown named arguments are invalid
+     * (no `**kwargs` in FFI). Declarations without a parameter list at all
+     * (bare external-symbol aliases) carry no checkable shape and stay silent.
+     */
+    private fun checkFunArgumentCount(
+        resolution: DotCallResolution.LibFunctions,
+        arguments: List<ArgumentInfo>,
+        methodNameElement: PsiElement,
+        holder: ProblemsHolder
+    ) {
+        if (resolution.funs.size != 1) return
+        val funDef = resolution.funs.single()
+        val signature = signatureOf(funDef) ?: return
+        // If any argument has an unresolvable splat/double-splat, skip the check entirely
+        val hasUnresolvedSplat = arguments.any { it.isSplat && it.resolvedSplatCount == null }
+        val hasUnresolvedDoubleSplat = arguments.any { it.isDoubleSplat && it.resolvedDoubleSplatKeys == null }
+        if (hasUnresolvedSplat || hasUnresolvedDoubleSplat) return
+
+        val effectivePositionalCount = arguments.sumOf { arg ->
+            when {
+                arg.isBlockPass -> 0
+                arg.isSplat -> arg.resolvedSplatCount ?: 1
+                arg.isDoubleSplat -> 0
+                arg.name != null -> 0
+                else -> 1
+            }
+        }
+        val namedArgNames = mutableSetOf<String>()
+        for (arg in arguments) {
+            if (arg.name != null) namedArgNames.add(arg.name)
+            if (arg.isDoubleSplat && arg.resolvedDoubleSplatKeys != null) {
+                namedArgNames.addAll(arg.resolvedDoubleSplatKeys)
+            }
+        }
+        val effectiveArgCount = effectivePositionalCount + namedArgNames.size
+
+        val params = signature.parameters
+        val paramNames = params.mapNotNull { it.name }.toSet()
+        val unknown = namedArgNames - paramNames
+        if (unknown.isNotEmpty()) {
+            reportArgumentMismatch(
+                OverloadMatch(isValid = false, unknownNamedArgs = unknown),
+                arguments,
+                effectiveArgCount,
+                methodNameElement,
+                holder
+            )
+            return
+        }
+
+        var positionalSlot = 0
+        val missingNamed = mutableListOf<String>()
+        var missingUnnamed = 0
+        for (param in params) {
+            val name = param.name
+            if (name != null && name in namedArgNames) continue
+            if (positionalSlot < effectivePositionalCount) {
+                positionalSlot++
+                continue
+            }
+            if (name != null) missingNamed.add(name) else missingUnnamed++
+        }
+        if (missingNamed.isNotEmpty() && missingUnnamed == 0) {
+            reportArgumentMismatch(
+                OverloadMatch(isValid = false, missingParams = missingNamed),
+                arguments,
+                effectiveArgCount,
+                methodNameElement,
+                holder
+            )
+            return
+        }
+        if (missingNamed.isNotEmpty() || missingUnnamed > 0) {
+            // Unnamed parameters have no name to report: use the compiler's
+            // count shape instead of the named shape.
+            val displayName = "'${callDisplayName(resolution)}'"
+            holder.registerProblem(
+                methodNameElement,
+                "wrong number of arguments for $displayName " +
+                    "(given $effectiveArgCount, expected ${params.size})",
+                ProblemHighlightType.GENERIC_ERROR
+            )
+            return
+        }
+
+        if (!signature.isVariadic) {
+            val namedSatisfied = namedArgNames.intersect(paramNames).size
+            val maxPositional = params.size - namedSatisfied
+            if (effectivePositionalCount > maxPositional) {
+                reportArgumentMismatch(
+                    OverloadMatch(
+                        isValid = false,
+                        excessStartIndex = effectiveArgCount - (effectivePositionalCount - maxPositional),
+                        maxArgs = params.size
+                    ),
+                    arguments,
+                    effectiveArgCount,
+                    methodNameElement,
+                    holder
+                )
+            }
+        }
+    }
+
+    /** `'LibC#exit'` display name for count-style mismatch messages. */
+    private fun callDisplayName(resolution: DotCallResolution.LibFunctions): String {
+        val root = resolution.call.receiverText.removePrefix("::").substringBefore("(").trim()
+        return "$root#${resolution.call.methodName}"
     }
 
     /**
@@ -361,7 +483,20 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
 
         // No overload matched — report problem
         val match = bestMatch ?: return
+        reportArgumentMismatch(match, arguments, effectiveArgCount, methodNameElement, holder)
+    }
 
+    /**
+     * Reports an arity mismatch with the shared message shapes. Used by both
+     * method overloads and lib-fun signatures.
+     */
+    private fun reportArgumentMismatch(
+        match: OverloadMatch,
+        arguments: List<ArgumentInfo>,
+        effectiveArgCount: Int,
+        methodNameElement: PsiElement,
+        holder: ProblemsHolder
+    ) {
         when {
             match.missingParams.isNotEmpty() -> {
                 val missing = match.missingParams.joinToString(", ") { "'$it'" }

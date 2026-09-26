@@ -11,7 +11,7 @@
   elementTypeHolderClass="de.magynhard.crystal.psi.CrystalTypes"
   elementTypeClass="de.magynhard.crystal.psi.CrystalElementType"
   tokenTypeClass="de.magynhard.crystal.lexer.CrystalTokenType"
-  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition|lib_definition|annotation_definition|alias_definition|constant_assignment")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
+  elementTypeFactory("class_definition|module_definition|struct_definition|enum_definition|method_definition|macro_definition|lib_definition|annotation_definition|alias_definition|constant_assignment|fun_definition")="de.magynhard.crystal.stubs.CrystalStubElementTypeFactory.create"
 
   parserImports=[
     "static de.magynhard.crystal.parser.CrystalParserPredicates.*"
@@ -403,7 +403,9 @@ private lib_external_symbol ::= IDENTIFIER | CONSTANT | keyword_identifier | str
 private lib_fun_name ::= macro_spliced_name | IDENTIFIER | CONSTANT | keyword_identifier
 private top_level_fun_name ::= macro_spliced_name | IDENTIFIER | keyword_identifier
 
-fun_definition ::= FUN lib_fun_name [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1}
+fun_definition ::= FUN lib_fun_name [NLS ASSIGN NLS lib_fun_external_symbol [NLS &(LPAREN | COLON)]] [LPAREN NLS lib_fun_parameter_list NLS RPAREN] [COLON type_reference] {pin=1
+  stubClass="de.magynhard.crystal.stubs.CrystalFunDefinitionStub"
+}
 
 top_level_fun ::= FUN top_level_fun_name [LPAREN NLS parameter_list NLS RPAREN] [COLON type_reference] method_body END {pin=1}
 

@@ -36,7 +36,10 @@ class CrystalParserDefinition : ParserDefinition {
             // visibility modifiers) carry stubs and populate the constant and
             // constant-by-owner indexes; statement-context assignments stay
             // unstubbed.
-            override fun getStubVersion(): Int = 20
+            // v21: `fun` declarations in lib bodies carry stubs (declaration
+            // name + qualified owner library) and populate the new lib-fun
+            // index; persisted indexes must rebuild.
+            override fun getStubVersion(): Int = 21
         }
     }
 

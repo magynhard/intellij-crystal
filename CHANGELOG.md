@@ -175,6 +175,22 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   rejected as syntax errors, and argument-count/type-check/completion consumers see
   the decoded label through `parameterNameInfo`. Covered by a parser golden,
   parameter-name unit tests, and invalid-name regressions.
+- **`lib fun` resolution and call validation** — FFI calls (`LibC.exit(1)`) now
+  resolve to their `fun` declarations through a new stub index (`CrystalLibFunIndex`;
+  stub v21 carries the declaration name and qualified library owner), enabling Go to
+  Definition, hover, `Cannot find` healing, and the existing argument-count and
+  argument-type inspections. All `lib fun` parameters are required: named, unnamed
+  (`Int32`, `Char*`), and variadic (`...`) parameters count positionally, unknown
+  named keys report `Unknown named argument`, and parentheseless declarations
+  (`fun getch = GetChar`) stay unchecked while empty parentheses enforce zero arity.
+  Type checks add FFI-only conversions — `String` to a C-char pointer (pointee
+  `UInt8`, directly or through a lib-local or require-visible `alias Char = UInt8`)
+  and `nil` to any pointer — while `String` to any other pointer spelling is a
+  definite mismatch. Only exact qualified library identities inside the require
+  closure resolve; unknown and ambiguous targets stay suppressed. Covered by
+  argument-count/type-check/resolver/reference/unresolved/index regressions;
+  specified in docs/specs/call-argument-inspections.md and
+  docs/specs/indexed-navigation.md.
 
 ### Changed
 - **Dependency-aware name completion** — free-text and type-annotation completion now

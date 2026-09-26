@@ -51,6 +51,14 @@ instance mode (every inferred arm must yield a complete collection). Macro-backe
 (`Int64[]`), unknown, and ambiguous receivers resolve to nothing and stay suppressed,
 so no name-only fallback can navigate to an unrelated definition.
 
+## Lib-Fun Navigation
+
+`CrystalDotCallReference` resolves FFI calls (`LibC.exit(1)`) to their
+`CrystalFunDefinition` declarations through the shared exact DOT-call target
+resolver: only exact qualified library identities inside the effective require
+closure navigate, and absent or ambiguous targets resolve to nothing. `multiResolve()`
+returns every same-shape declaration on the exact library identity.
+
 ## Completion Type Lookup
 
 Type lookup searches project scope before all scope. When multiple indexed classes, modules, structs, or enums have the same name and a current file is supplied, the definition in that file takes precedence.

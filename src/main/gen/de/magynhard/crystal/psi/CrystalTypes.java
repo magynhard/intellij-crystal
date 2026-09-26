@@ -46,7 +46,7 @@ public interface CrystalTypes {
   IElementType EXPRESSION_STATEMENT = new CrystalElementType("EXPRESSION_STATEMENT");
   IElementType EXTEND_STATEMENT = new CrystalElementType("EXTEND_STATEMENT");
   IElementType FOR_STATEMENT = new CrystalElementType("FOR_STATEMENT");
-  IElementType FUN_DEFINITION = new CrystalElementType("FUN_DEFINITION");
+  IElementType FUN_DEFINITION = CrystalStubElementTypeFactory.create("FUN_DEFINITION");
   IElementType GROUPED_EXPRESSION = new CrystalElementType("GROUPED_EXPRESSION");
   IElementType HASH_ENTRY = new CrystalElementType("HASH_ENTRY");
   IElementType HASH_ENTRY_LIST = new CrystalElementType("HASH_ENTRY_LIST");

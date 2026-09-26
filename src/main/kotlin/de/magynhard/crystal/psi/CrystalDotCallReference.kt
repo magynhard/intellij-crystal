@@ -25,6 +25,7 @@ class CrystalDotCallReference(
             // Accessor macros: the interface between the methodology is the
             // ARGUMENT (property foo declaration).
             is DotCallResolution.Accessor -> resolution.accessorArgs
+            is DotCallResolution.LibFunctions -> resolution.funs
             is DotCallResolution.ImplicitConstructor,
             DotCallResolution.Unresolved,
             DotCallResolution.Suppressed -> emptyList()

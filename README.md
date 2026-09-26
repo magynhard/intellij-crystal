@@ -44,7 +44,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 
 ### Inspections
 
-- Argument count and argument type validation, including named arguments, defaults, overloads, splats, double splats, and named-only parameters
+- Argument count and argument type validation, including named arguments, defaults, overloads, splats, double splats, named-only parameters, and `lib fun` FFI calls
 - Instance-variable type validation and unused-assignment detection
 - Diagnostics for invalid empty collections, `lib fun` parameters without types, invalid single-quoted strings, colon spacing, and required parameters after optional ones
 - Crystal-specific diagnostics for invalid dynamic `require` contexts and malformed multiline union types

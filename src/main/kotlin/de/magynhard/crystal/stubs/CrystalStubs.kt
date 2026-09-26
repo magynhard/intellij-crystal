@@ -78,6 +78,16 @@ class CrystalLibDefinitionStub(
     override val name: String?
 ) : StubBase<CrystalLibDefinition>(parent, elementType), CrystalNamedStub
 
+// ==================== Fun Stub ====================
+
+class CrystalFunDefinitionStub(
+    parent: StubElement<*>?,
+    elementType: IStubElementType<*, *>,
+    override val name: String?,
+    /** Qualified owner library (`LibC`, `Outer::Inner`); null when unresolvable. */
+    val ownerQualifiedName: String? = null,
+) : StubBase<CrystalFunDefinition>(parent, elementType), CrystalNamedStub
+
 // ==================== Annotation Stub ====================
 
 class CrystalAnnotationDefinitionStub(

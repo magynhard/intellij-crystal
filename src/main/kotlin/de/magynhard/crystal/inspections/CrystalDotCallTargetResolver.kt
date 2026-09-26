@@ -1,18 +1,24 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.StubBasedPsiElement
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalReceiverMode
 import de.magynhard.crystal.analysis.CrystalTypeIdentity
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.CrystalDotCallAccess
+import de.magynhard.crystal.psi.CrystalFunDefinition
 import de.magynhard.crystal.psi.CrystalMethodCallExpression
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
 import de.magynhard.crystal.navigation.CrystalAccessorCoupling
 import de.magynhard.crystal.psi.CrystalReceiverExpression
+import de.magynhard.crystal.stubs.CrystalFunDefinitionStub
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 sealed interface DotCallResolution {
     data class Methods(
@@ -43,6 +49,17 @@ sealed interface DotCallResolution {
         val call: DotCallDescriptor,
         val receiverType: ExactReceiverType,
         val accessorArgs: List<com.intellij.psi.PsiElement>
+    ) : DotCallResolution
+
+    /**
+     * An FFI call resolved through the lib-fun index (`LibC.exit`): the
+     * receiver is a library identity, not a type, and the targets are `fun`
+     * declarations (possibly several identical ones across platform files).
+     * Macros, unknown, and ambiguous targets never reach this variant.
+     */
+    data class LibFunctions(
+        val call: DotCallDescriptor,
+        val funs: List<CrystalFunDefinition>
     ) : DotCallResolution
 
     data object Unresolved : DotCallResolution
@@ -76,7 +93,11 @@ object CrystalDotCallTargetResolver {
         }
         val receiverType = if (constantReceiver) {
             val identity = session.resolveType(normalizedReceiverText, call.access)
-                ?: return DotCallResolution.Suppressed
+            if (identity == null) {
+                // Library receiver (`LibC.exit`): types never resolve — the
+                // lib-fun index owns these calls.
+                return resolveLibCall(call, normalizedReceiverText)
+            }
             ExactReceiverType(identity.simpleName, identity.qualifiedName)
         } else {
             CrystalExactReceiverTypeResolver.resolve(normalizedReceiver, call.access, session)
@@ -96,6 +117,66 @@ object CrystalDotCallTargetResolver {
             return DotCallResolution.Unresolved
         }
         return DotCallResolution.Methods(call, receiverType, collection.methods)
+    }
+
+    /**
+     * Resolves an FFI call (`LibC.exit`) through the lib-fun index. Only exact
+     * qualified library identities resolve: every candidate library must share
+     * the receiver's qualified name and be require-visible, and the surviving
+     * `fun` declarations must agree on one signature — platform-duplicated
+     * declarations (e.g. per-OS `LibC` files) collapse, genuinely different
+     * ones suppress. Unknown, ambiguous, and macro-spliced targets stay
+     * suppressed exactly like unknown types.
+     */
+    private fun resolveLibCall(
+        call: DotCallDescriptor,
+        rootText: String
+    ): DotCallResolution {
+        return try {
+            resolveLibCallInner(call, rootText)
+        } catch (_: Throwable) {
+            DotCallResolution.Suppressed
+        }
+    }
+
+    private fun resolveLibCallInner(
+        call: DotCallDescriptor,
+        rootText: String
+    ): DotCallResolution {
+        val project = call.access.project
+        val scope = GlobalSearchScope.allScope(project)
+        val cleanRoot = rootText.removePrefix("::").substringBefore("(").trim()
+        val simpleRoot = cleanRoot.substringAfterLast("::")
+        if (simpleRoot.isEmpty() || !simpleRoot.first().isUpperCase()) {
+            return DotCallResolution.Suppressed
+        }
+        val libs = CrystalIndexService.findLibs(simpleRoot, project, scope).filter { lib ->
+            CrystalPsiUtils.libQualifiedName(lib) == cleanRoot &&
+                CrystalRequireVisibility.isVisible(lib, call.access)
+        }
+        if (libs.isEmpty()) return DotCallResolution.Suppressed
+        val owners = libs.mapNotNull { CrystalPsiUtils.libQualifiedName(it) }.toSet()
+        val candidates = CrystalIndexService.findLibFunctions(call.methodName, project, scope)
+            .filter { funDef ->
+                funOwnerOf(funDef) in owners &&
+                    CrystalRequireVisibility.isVisible(funDef, call.access)
+            }
+        if (candidates.isEmpty()) return DotCallResolution.Suppressed
+        val groups = candidates.groupBy { signatureOf(it)?.key() ?: "unmodelable" }
+        if (groups.size != 1) return DotCallResolution.Suppressed
+        return DotCallResolution.LibFunctions(call, groups.values.single())
+    }
+
+    /**
+     * Owner of a `fun` declaration: the stub's recorded owner first (no AST
+     * load), falling back to the PSI parent walk. Both use the same
+     * lib-chain rule, so indexed and freshly parsed declarations agree.
+     */
+    private fun funOwnerOf(funDef: CrystalFunDefinition): String? {
+        val stubOwner = (funDef as? StubBasedPsiElement<*>)?.stub
+            ?.let { it as? CrystalFunDefinitionStub }?.ownerQualifiedName
+        if (stubOwner != null) return stubOwner
+        return CrystalPsiUtils.libOwnerQualifiedName(funDef)
     }
 
     private fun resolveConstructor(

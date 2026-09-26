@@ -1109,4 +1109,95 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Lib fun calls ====================
+
+    fun testLibFunTypeMismatchIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun add(a : Int32, b : Int32) : Int32
+            end
+            TestLib.add(1, <error descr="Type mismatch: expected 'Int32', got 'String'">"x"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunMatchingTypesStayClean() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun add(a : Int32, b : Int32) : Int32
+            end
+            TestLib.add(1, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunStringToCharPointerStaysClean() {
+        myFixture.configureByText("test.cr", """
+            lib LibC
+              alias Char = UInt8
+              fun getenv(name : Char*) : Char*
+            end
+            LibC.getenv("hello")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunStringToCharPointerWithoutAliasIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun getenv(name : Char*) : Char*
+            end
+            TestLib.getenv(<error descr="Type mismatch: expected 'Char*', got 'String'">"hello"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunNilToPointerStaysClean() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun foo(x : Int32*) : Int32
+            end
+            TestLib.foo(nil)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunNilToNonPointerIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun add(a : Int32, b : Int32) : Int32
+            end
+            TestLib.add(<error descr="Type mismatch: expected 'Int32', got 'Nil'">nil</error>, 2)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunUnnamedTypeMismatchIsReported() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun pack(Int32, Int32)
+            end
+            TestLib.pack(1, <error descr="Type mismatch: expected 'Int32', got 'String'">"x"</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunVariadicPrefixIsChecked() {
+        myFixture.configureByText("test.cr", """
+            lib TestLib
+              fun flex(x : Int32, ...)
+            end
+            TestLib.flex(<error descr="Type mismatch: expected 'Int32', got 'String'">"x"</error>)
+            TestLib.flex(1, "anything", :whatever)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLibFunUnknownStaysClean() {
+        myFixture.configureByText("test.cr", """
+            Nope.add("x")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

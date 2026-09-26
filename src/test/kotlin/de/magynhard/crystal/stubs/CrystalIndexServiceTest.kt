@@ -282,6 +282,47 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         assertSize(1, CrystalIndexService.findLibs("IndexedLib", project, scope))
     }
 
+    fun testFindsLibFunctions() {
+        myFixture.addFileToProject("ffi.cr", """
+            lib LibC
+              fun exit(status : Int32) : NoReturn
+              fun GetConsoleScreenBufferInfo(handle : Void*) : Int32
+              fun pack(Int32, Int32)
+              fun iconv = libiconv(cd : Int32) : Int32
+              fun getch = GetChar
+            end
+            class Outer
+              lib Inner
+                fun deep(x : Int32) : Int32
+              end
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+
+        val exit = CrystalIndexService.findLibFunctions("exit", project, scope)
+        assertSize(1, exit)
+        assertEquals("LibC", de.magynhard.crystal.psi.CrystalPsiUtils.libOwnerQualifiedName(exit.single()))
+
+        val info = CrystalIndexService.findLibFunctions("GetConsoleScreenBufferInfo", project, scope)
+        assertSize(1, info)
+        assertEquals("LibC", de.magynhard.crystal.psi.CrystalPsiUtils.libOwnerQualifiedName(info.single()))
+
+        // Unnamed type-only parameters are indexed like named ones.
+        assertSize(1, CrystalIndexService.findLibFunctions("pack", project, scope))
+
+        // External symbol aliases index under the declaration name, never the alias.
+        assertSize(1, CrystalIndexService.findLibFunctions("iconv", project, scope))
+        assertSize(0, CrystalIndexService.findLibFunctions("libiconv", project, scope))
+
+        // Bare aliases without a parameter list are indexed by name.
+        assertSize(1, CrystalIndexService.findLibFunctions("getch", project, scope))
+
+        // Nested libraries carry their qualified owner.
+        val deep = CrystalIndexService.findLibFunctions("deep", project, scope)
+        assertSize(1, deep)
+        assertEquals("Outer::Inner", de.magynhard.crystal.psi.CrystalPsiUtils.libOwnerQualifiedName(deep.single()))
+    }
+
     fun testProcessesTypeNameCandidatesOutsideProvidedScope() {
         val included = myFixture.addFileToProject("included.cr", "class IncludedType\nend")
         val excluded = myFixture.addFileToProject("excluded.cr", "class ExcludedType\nend")
