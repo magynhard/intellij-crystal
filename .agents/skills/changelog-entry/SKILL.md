@@ -20,9 +20,16 @@ work.
     - Date: `<year>-xx-yy` (month/day set at release)
     - Add empty sections: `### Added`, `### Bug Fixes`, `### Changed`
 
-### 3. Entry format
-- Follow [Keep a Changelog](https://keepachangelog.com/)
-- Format: `- **Short description** — detailed explanation`
+### 3. Entry format (split layout since 0.3.2)
+- Released versions live in full under `docs/changelog/<date>_<version>.md`
+  (`# <version> — <date>` header, then the `### Added` / `### Bug Fixes` /
+  `### Changed` / `### Removed` sections verbatim); `CHANGELOG.md` keeps only
+  one line per entry:
+  `- **[Short description](docs/changelog/<date>_<version>.md)**`
+- The unreleased topmost section stays complete inside `CHANGELOG.md` until
+  its release; on release day rename its header to the release version and
+  date, then extract it into `docs/changelog/` like any other version.
+- Full entry text (unreleased section only): `- **Short description** — detailed explanation`
 - Place entry under correct section:
   - `### Added` — new features
   - `### Bug Fixes` — bug fixes
