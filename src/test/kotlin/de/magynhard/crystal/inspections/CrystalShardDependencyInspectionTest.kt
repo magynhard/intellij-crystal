@@ -120,7 +120,7 @@ class CrystalShardDependencyInspectionTest : BasePlatformTestCase() {
             val parent = VfsUtil.createDirectories(if (parentPath.isEmpty()) base else "$base/$parentPath")
             result = parent.findChild(path.substringAfterLast('/'))
                 ?: parent.createChildData(this, path.substringAfterLast('/'))
-            VfsUtil.saveText(result!!, content)
+            VfsUtil.saveText(result, content)
         }
         return requireNotNull(result)
     }

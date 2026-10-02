@@ -367,7 +367,7 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
         val parameter = PsiTreeUtil.getParentOfType(leaf, CrystalParameter::class.java)!!
         assertEquals("@uses_loop", parameter.parameterNameInfo().storageName)
 
-        val refs = com.intellij.openapi.application.ReadAction.compute<List<PsiReference>, RuntimeException> {
+        val refs = com.intellij.openapi.application.ReadAction.computeBlocking<List<PsiReference>, RuntimeException> {
             com.intellij.psi.search.searches.ReferencesSearch.search(parameter).findAll().filterNotNull()
         }
         assertTrue(
@@ -594,7 +594,7 @@ class CrystalAccessorRenameTest : BasePlatformTestCase() {
         val described = com.intellij.psi.ElementDescriptionUtil.getElementDescription(
             def,
             com.intellij.usageView.UsageViewNodeTextLocation.INSTANCE,
-        ) ?: error("no node-text description")
+        )
         assertEquals(
             "dialog target display carries the header only",
             "private def in_call_args(value = true, &)",

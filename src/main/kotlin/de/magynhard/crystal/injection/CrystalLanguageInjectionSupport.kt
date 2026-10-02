@@ -41,5 +41,10 @@ class CrystalLanguageInjectionSupport : AbstractLanguageInjectionSupport() {
             (host is CrystalPercentLiteral && CrystalPercentLiteralMixin.isStringLike(host)) ||
             (host is CrystalSymbolStringExpression && CrystalSymbolStringExpressionMixin.isStringForm(host))
 
+    // Required live dispatch: the platform's CommentLanguageInjector consults
+    // this per host. Deprecated forRemoval upstream, but removing the override
+    // would re-enable the generic comment injector today; it goes away
+    // together with the platform hook.
+    @Deprecated("Kept for IntelliLang dispatch until the platform removes the hook.")
     override fun useDefaultCommentInjector(): Boolean = false
 }

@@ -68,7 +68,7 @@ class CrystalHoverAssignmentLhsTest : BasePlatformTestCase() {
         """.trimIndent())
         val method = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalMethodDefinition::class.java)
             .firstOrNull { it.name == "colorize_markdown" }!!
-        val statements = method.methodBody!!.statementList!!.statementList
+        val statements = method.methodBody!!.statementList.statementList
         assertEquals(3, statements.size)
 
         // Hover targets: the two assignment LHS identifiers + the final read.

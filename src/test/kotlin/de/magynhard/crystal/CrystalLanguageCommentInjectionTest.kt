@@ -242,6 +242,15 @@ class CrystalLanguageCommentInjectionTest : BasePlatformTestCase() {
 
     // ==================== Generic IntelliLang contributor silencer ====================
 
+    // Direct call by design: the platform's generic comment injector only
+    // contributes when a user-configured injection matches, which never
+    // exists in fixtures — a behavioral count assertion would stay green
+    // with or without the opt-out (verified via override flip). The direct
+    // assertion is the only precise guard; the override itself stays because
+    // production environments with configured injections would double-inject
+    // without it. The platform method is deprecated forRemoval but still
+    // live dispatch (CommentLanguageInjector consults it per host).
+    @Suppress("DEPRECATION")
     fun testGenericCommentContributorStaysSilentForCrystalHosts() {
         myFixture.configureByText("main.cr", "# language=SQL\ns = \"SELECT 1\"\n")
         val host = PsiTreeUtil.findChildrenOfType(myFixture.file, CrystalStringExpression::class.java).first()

@@ -700,8 +700,8 @@ class CrystalTestEventsConverterTest {
             assertTrue("URL should contain protocol", test2.url!!.startsWith(CrystalTestLocator.PROTOCOL))
 
             // Verify URLs point to different lines
-            val url1 = test1.url!!.substringAfterLast(":")
-            val url2 = test2.url!!.substringAfterLast(":")
+            val url1 = test1.url.substringAfterLast(":")
+            val url2 = test2.url.substringAfterLast(":")
             assertNotEquals("Tests should navigate to different lines", url1, url2)
         } finally {
             tempFile.delete()
