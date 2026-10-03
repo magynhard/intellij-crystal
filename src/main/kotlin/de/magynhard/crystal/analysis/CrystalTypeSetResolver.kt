@@ -212,11 +212,77 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             hierarchy.constructorDispatchSignatures(initializer).none(explicitSignatures::contains)
         }
         val methods = selfNew.methods + forwardedInitializers
-        return if (methods.isEmpty()) {
-            CrystalConstructorResolution.Implicit(identity)
-        } else {
-            CrystalConstructorResolution.Methods(identity, methods)
+        if (methods.isEmpty()) {
+            // A macro hook in the ancestry can generate `initialize` /
+            // `self.new` invisibly (stdlib LSP `Initializer` defines
+            // `self.new(**args)` for every includer through `macro included`):
+            // the zero-argument fallback would be a false verdict there, so
+            // the call stays suppressed instead.
+            return if (hasConstructorGeneratingMacroHook(identity)) {
+                CrystalConstructorResolution.Incomplete(identity)
+            } else {
+                CrystalConstructorResolution.Implicit(identity)
+            }
         }
+        return CrystalConstructorResolution.Methods(identity, methods)
+    }
+
+    /**
+     * True when a non-empty `macro included` / `macro inherited` hook exists
+     * anywhere it fires for [identity]: `macro included` in a directly or
+     * transitively included module, or `macro inherited` in a superclass.
+     * Such hooks run at type-definition time and can generate constructors
+     * that stub indexing never sees, so the implicit zero-argument
+     * constructor must not apply. Hooks in the type's own declarations never
+     * fire for itself and don't count; `property` and other
+     * constructor-less macros never trigger this either.
+     */
+    private fun hasConstructorGeneratingMacroHook(identity: CrystalTypeIdentity): Boolean {
+        val visited = mutableSetOf<CrystalTypeIdentity>()
+        val queue = ArrayDeque<Pair<CrystalTypeIdentity, Boolean>>()
+        queue.add(identity to false)
+        while (queue.isNotEmpty()) {
+            val (current, viaInclude) = queue.removeFirst()
+            if (!visited.add(current)) continue
+            for (declaration in hierarchy.findExactTypeDeclarations(current)) {
+                val body = when (declaration) {
+                    is CrystalClassDefinition -> declaration.classBody
+                    is CrystalStructDefinition -> declaration.classBody
+                    is CrystalModuleDefinition -> declaration.classBody
+                    else -> null
+                } ?: continue
+                // Own hooks never fire for the type itself — only inherited
+                // hooks (superclass chain) and included hooks (include edges).
+                val relevantHookNames = if (viaInclude) {
+                    setOf("included")
+                } else if (current != identity) {
+                    setOf("inherited")
+                } else {
+                    emptySet()
+                }
+                if (relevantHookNames.isNotEmpty() && body.macroDefinitionList.any { macro ->
+                        macro.name in relevantHookNames && !macro.macroBody?.text.isNullOrBlank()
+                    }
+                ) {
+                    return true
+                }
+                if (!viaInclude) {
+                    val superclass = when (declaration) {
+                        is CrystalClassDefinition -> declaration.superclassClause?.typeReference
+                        is CrystalStructDefinition -> declaration.superclassClause?.typeReference
+                        else -> null
+                    }?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { resolveType(it, declaration) }
+                    if (superclass != null) queue.add(superclass to false)
+                }
+                for (include in body.includeStatementList) {
+                    val target = include.typeReference?.text?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                        resolveType(it, include)
+                    } ?: continue
+                    queue.add(target to true)
+                }
+            }
+        }
+        return false
     }
 
     private fun resolveUncached(element: PsiElement): CrystalTypeResolution {

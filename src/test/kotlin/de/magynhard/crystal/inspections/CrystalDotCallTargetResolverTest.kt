@@ -1424,6 +1424,30 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         assertTrue(structCall.descriptor.argumentHolder is CrystalCallArgs)
     }
 
+    // ==================== Macro-hook-generated constructors ====================
+
+    fun testMacroHookGeneratedConstructorIsSuppressed() {
+        val call = resolveCall(
+            """
+                module Initializer
+                  macro included
+                    def generated_helper
+                    end
+                  end
+                end
+                class Request
+                  include Initializer
+                end
+                Request.new(id: 0)
+            """.trimIndent(),
+            "new", "Request"
+        )
+        // Not Unresolved (which would flag `new`) and not ImplicitConstructor
+        // (which would report the arguments): the hook may generate
+        // constructors invisibly.
+        assertSame(DotCallResolution.Suppressed, call.resolution)
+    }
+
     fun testStructConstructorUsesExplicitInitializeDefinitionSet() {
         val methods = assertMethods(
             """

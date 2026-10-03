@@ -3458,4 +3458,84 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Macro-hook-generated constructors ====================
+
+    /**
+     * stdlib LSP shape (`module Initializer` with `macro included` defining
+     * `self.new(**args)` for every includer): no written `initialize` exists,
+     * but the implicit zero-argument constructor must not apply — the hook
+     * may generate constructors invisibly.
+     */
+    fun testMacroIncludedHookSuppressesImplicitConstructor() {
+        myFixture.configureByText("test.cr", """
+            module Initializer
+              macro included
+                def generated_helper
+                end
+              end
+            end
+            class Request
+              include Initializer
+            end
+            Request.new(id: 0)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroIncludedHookSuppressesImplicitStructConstructor() {
+        myFixture.configureByText("test.cr", """
+            module Initializer
+              macro included
+                def generated_helper
+                end
+              end
+            end
+            struct Params
+              include Initializer
+            end
+            Params.new(token: "x")
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroInheritedHookSuppressesImplicitConstructor() {
+        myFixture.configureByText("test.cr", """
+            class Base
+              macro inherited
+                def generated_helper
+                end
+              end
+            end
+            class Child < Base
+            end
+            Child.new(id: 0)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testEmptyMacroHookKeepsImplicitConstructor() {
+        myFixture.configureByText("test.cr", """
+            module EmptyHook
+              macro included
+              end
+            end
+            class UsesEmpty
+              include EmptyHook
+            end
+            UsesEmpty.new(<error descr="Too many arguments: expected at most 0, got 1">1</error>)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPropertyOnlyClassKeepsImplicitConstructor() {
+        myFixture.configureByText("test.cr", """
+            class WithProp
+              property x : Int32
+            end
+            WithProp.new(<error descr="Too many arguments: expected at most 0, got 1">1</error>)
+            WithProp.new
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

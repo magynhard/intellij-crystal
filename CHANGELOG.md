@@ -245,6 +245,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Macro-hook-generated constructors no longer report false zero-arity errors** —
+  `Request.new(id: 0)` on a class including a module with `macro included` (stdlib
+  LSP `Initializer`, which defines `self.new(**args)` for every includer) reported
+  "Too many arguments: expected at most 0, got 1", because the implicit zero-argument
+  constructor applied despite having no proof that no constructor exists. A non-empty
+  `macro included` hook in an included module, or a non-empty `macro inherited` hook
+  in a superclass, now suppresses the implicit fallback instead; empty hooks and
+  constructor-less macros (`property`, `getter`) keep it. Covered by constructor
+  regressions; specified in docs/specs/call-argument-inspections.md.
 - **Compiler-bound macro `call` parameters no longer report false argument errors** —
   every `spawn { … }` reported `Missing required argument(s): 'call'`, because the
   macro's leading `call` slot — which the compiler fills with the macro's own call
