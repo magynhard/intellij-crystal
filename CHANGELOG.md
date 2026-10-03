@@ -228,6 +228,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   loops. The build ensures `bin/` exists first (neither `shards build` nor the
   linker creates the output directory). Covered by build-offer regressions; specified in
   docs/specs/ameba-integration.md.
+- **Honest stale-field note after successful installs** — when `shards install`
+  (or `shards update`) succeeds but a version mismatch persists with an unchanged
+  installed field, the lock-vs-field comparison cannot be at fault (shards
+  guarantees code==lock on success), so the field itself must be stale upstream.
+  Instead of looping the install suggestion, one informational balloon names the
+  affected dependencies ("installed at the locked revision, but its own shard.yml
+  still reports … — the version was never bumped upstream"). No markers, no
+  banners: there is nothing actionable left. Covered by status regressions;
+  specified in docs/specs/shard-support.md.
 
 ### Changed
 - **Dependency-aware name completion** — free-text and type-annotation completion now
@@ -245,6 +254,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Locked shard dependencies trust shards instead of the version field** —
+  a lock entry now means Ok without consulting the installed `version:` field:
+  a successful install guarantees the checked-out code matches the locked
+  revision, while the field is author-maintained and may be stale (sentry tags
+  v0.5.0 while its manifest still says 0.3.2 — previously a perpetual
+  "expected 0.5.0" with an install button that could never fix it). Without a
+  lock entry, the manifest-requirement comparison applies as before. Covered by
+  shard status regressions; specified in docs/specs/shard-support.md.
 - **Inspect Code no longer stalls on files with deep variable dependencies** —
   mutually dependent locals could send variable-flow resolution (`mayRaise` ↔
   `resolveVariableValue`) into unbounded recursion, stalling whole-project

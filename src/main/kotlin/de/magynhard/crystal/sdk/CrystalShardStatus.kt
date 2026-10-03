@@ -55,6 +55,37 @@ internal object CrystalShardStatus {
     fun problems(project: Project): List<Entry> =
         dependencies(project).filter { it.state != DependencyState.Ok }
 
+    /**
+     * Installed `version:` fields per declared dependency (null when absent
+     * or unreadable). Snapshot before running shards, compare after: a field
+     * that still disagrees although install succeeded proves a stale upstream
+     * field, not a stale checkout.
+     */
+    internal fun snapshotVersions(project: Project): Map<String, String?> {
+        val basePath = project.basePath ?: return emptyMap()
+        val manifest = when (val loaded = CrystalShardManifest.load(project)) {
+            is CrystalShardManifest.LoadResult.Found -> loaded.manifest
+            else -> return emptyMap()
+        }
+        return manifest.dependencies.associate { it.name to installedVersion(basePath, it.name) }
+    }
+
+    /**
+     * Entries whose mismatch provably comes from a stale upstream version
+     * field: still `VersionMismatch` after a successful install/update
+     * although the installed field did not change (and the dependency already
+     * existed). Genuinely fixed, new, or never-installed entries never match.
+     */
+    internal fun staleFieldNotes(
+        before: Map<String, String?>,
+        after: Map<String, String?>,
+        entries: List<Entry>
+    ): List<Entry> = entries.filter { entry ->
+        entry.state is DependencyState.VersionMismatch &&
+            before[entry.dependency.name] != null &&
+            before[entry.dependency.name] == after[entry.dependency.name]
+    }
+
     private fun stateOf(
         basePath: String,
         dependency: CrystalShardManifest.Dependency,
@@ -65,17 +96,13 @@ internal object CrystalShardStatus {
         if (installDir == null || !installDir.isDirectory) return DependencyState.Missing
         val installedVersion = installedVersion(basePath, dependency.name) ?: return DependencyState.Ok
         lock?.get(dependency.name)?.let { locked ->
-            // Lock entries for branch-pinned dependencies record the installed
-            // commit as build metadata (`1.7.1-dev+git.commit.…`) while the
-            // installed manifest carries the base version (`1.7.1-dev`):
-            // SemVer ignores build metadata in precedence, so only the base
-            // versions decide. The reported mismatch keeps the raw strings.
-            if (locked != null &&
-                CrystalVersionRequirement.stripBuildMetadata(locked) !=
-                CrystalVersionRequirement.stripBuildMetadata(installedVersion)
-            ) {
-                return DependencyState.VersionMismatch(locked, installedVersion)
-            }
+            // A lock entry means shards owns the truth: a successful install
+            // guarantees the checked-out code matches the locked revision,
+            // while the dependency's own `version:` field is author-maintained
+            // and may be stale (e.g. sentry tags v0.5.0 while its manifest
+            // still says 0.3.2). Comparing the field against the lock can
+            // therefore never be fixed by installing — so a pinned dependency
+            // is Ok without consulting the field.
             if (locked != null) return DependencyState.Ok
         }
         val requirement = dependency.requirement ?: return DependencyState.Ok

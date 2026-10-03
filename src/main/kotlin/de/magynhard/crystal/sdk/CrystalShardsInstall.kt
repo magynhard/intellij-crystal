@@ -141,7 +141,9 @@ internal object CrystalShardsInstall {
      * Shared `shards` execution behind install and update: binary lookup,
      * cancellable run, tree refresh, truncated failure output. Success
      * invokes [onSuccess] (once, on the EDT path) — the only automatic
-     * chaining point; failures only notify.
+     * chaining point; failures only notify. After success, remaining
+     * mismatches with unchanged fields get one informational balloon
+     * (proven stale upstream fields, nothing actionable).
      */
     private fun executeShards(
         project: Project,
@@ -168,6 +170,7 @@ internal object CrystalShardsInstall {
             notify(project, NotificationType.ERROR, startFailureTitle, "Project has no base path.")
             return
         }
+        val before = CrystalShardStatus.snapshotVersions(project)
         val commandLine = GeneralCommandLine(listOf(executable.absolutePath) + args)
             .withWorkDirectory(basePath)
         val result = try {
@@ -180,6 +183,7 @@ internal object CrystalShardsInstall {
             VfsUtil.markDirtyAndRefresh(false, true, true, File(basePath))
             if (result.exitCode == 0) {
                 notify(project, NotificationType.INFORMATION, successTitle, successMessage)
+                showStaleFieldNotes(project, before)
                 onSuccess?.invoke()
             } else {
                 val output = (result.stderr + result.stdout).trim().take(2000)
@@ -191,6 +195,32 @@ internal object CrystalShardsInstall {
                 )
             }
         }
+    }
+
+    /**
+     * One informational balloon for mismatches that survived a successful
+     * install/update with an unchanged installed field: shards guarantees
+     * code==lock on success, so the field itself must be stale upstream.
+     * Never a marker or banner — there is nothing actionable left.
+     */
+    private fun showStaleFieldNotes(project: Project, before: Map<String, String?>) {
+        if (project.isDisposed) return
+        val entries = CrystalShardStatus.dependencies(project)
+        val after = CrystalShardStatus.snapshotVersions(project)
+        val lines = CrystalShardStatus.staleFieldNotes(before, after, entries).mapNotNull { entry ->
+            val mismatch = entry.state as? CrystalShardStatus.DependencyState.VersionMismatch
+                ?: return@mapNotNull null
+            "'${entry.dependency.name}' was just installed successfully, but its own shard.yml " +
+                "still reports ${mismatch.actual} instead of the expected ${mismatch.expected} — " +
+                "the version was never bumped upstream. Nothing for you to do."
+        }
+        if (lines.isEmpty()) return
+        notify(
+            project,
+            NotificationType.INFORMATION,
+            "Shard version fields are outdated upstream",
+            lines.joinToString("<br/>")
+        )
     }
 
     fun notify(

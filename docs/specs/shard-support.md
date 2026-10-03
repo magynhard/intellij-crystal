@@ -33,14 +33,18 @@ non-numeric bounds — yields no verdict instead of guessing.
 Per declared dependency, in manifest order:
 
 - **Missing** — no `lib/<name>/` directory.
-- **VersionMismatch(expected, actual)** — installed
-  `lib/<name>/shard.yml` `version:` disagrees with the lock's exact
-  version, or violates the manifest requirement when no lock pins it.
-  SemVer build metadata (`+git.commit.…`, which lock entries record for
-  branch-pinned dependencies while the installed manifest carries the base
-  version) never participates in precedence and is ignored by both
-  comparisons. Unverifiable cases (no installed version, unevaluable requirement)
-  stay silent.
+- **VersionMismatch(expected, actual)** — without a lock entry, the installed
+  `lib/<name>/shard.yml` `version:` violates the manifest requirement.
+  A lock entry means shards owns the truth (a successful install guarantees
+  the checked-out code matches the locked revision), so pinned dependencies
+  are Ok without consulting the installed field at all — that field is
+  author-maintained and may be stale (sentry tags v0.5.0 while its manifest
+  still says 0.3.2), and comparing it against the lock could never be fixed
+  by installing. SemVer build metadata (`+git.commit.…`, which lock entries
+  record for branch-pinned dependencies while the installed manifest carries
+  the base version) never participates in precedence and is ignored by the
+  requirement comparison. Unverifiable cases (no installed version,
+  unevaluable requirement) stay silent.
 - **Ok** — everything else.
 
 Stateless by design: manifest, lock, and `lib/` entries are re-read per
@@ -92,4 +96,11 @@ business.
   and runs it as a cancellable per-project-guarded background task in
   the project root; success refreshes VFS (banners and markers
   re-evaluate), failure reports truncated process output. Installs run
-  only on explicit user click — never automatically.
+  only on explicit user click — never automatically. After success the
+  status is re-evaluated against a pre-install snapshot of the installed
+  fields: mismatches that persist with an unchanged field prove a stale
+  upstream field (shards guarantees code==lock on success) and produce one
+  informational balloon naming them — never a marker or banner, since there
+  is nothing actionable left. The same post-check runs after
+  `shards update` (whose success notification and rebuild chaining are
+  unaffected).
