@@ -35,6 +35,16 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private val resolving = java.util.Collections.newSetFromMap(IdentityHashMap<PsiElement, Boolean>())
     private val resolvingMethods = java.util.Collections.newSetFromMap(IdentityHashMap<CrystalMethodDefinition, Boolean>())
     private val methodReturnMemo = IdentityHashMap<CrystalMethodDefinition, CrystalTypeResolution>()
+    // Variable-flow results keyed by (name, read site): flow analysis
+    // re-derives the same variables per scope without memoization, which is
+    // exponential on interdependent locals. Same stability contract as `memo`.
+    private val variableFlowMemo = IdentityHashMap<PsiElement, MutableMap<String, VariableState>>()
+    // Reentrancy guard for the mayRaise ↔ resolveVariableValue ↔ flow cycle:
+    // mutually dependent reads would otherwise recurse without bound (no
+    // other guard covers this path). A nested re-entry is genuinely
+    // unknowable, exactly like the existing Unknown-on-cycle verdicts.
+    private val resolvingVariables =
+        java.util.Collections.newSetFromMap(IdentityHashMap<Pair<String, PsiElement>, Boolean>())
     private val typeCache = mutableMapOf<String, List<CrystalNamedElement>>()
     private val methodCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
     private val methodsByTypeCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
@@ -996,6 +1006,18 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun resolveVariableValue(name: String, position: PsiElement): VariableState {
+        variableFlowMemo[position]?.get(name)?.let { return it }
+        if (!resolvingVariables.add(name to position)) return VariableState.Unknown
+        try {
+            val result = resolveVariableValueUncached(name, position)
+            variableFlowMemo.getOrPut(position) { mutableMapOf() }[name] = result
+            return result
+        } finally {
+            resolvingVariables.remove(name to position)
+        }
+    }
+
+    private fun resolveVariableValueUncached(name: String, position: PsiElement): VariableState {
         val containingAssignment = PsiTreeUtil.getParentOfType(position, CrystalAssignment::class.java, false)
         if (containingAssignment != null && assignmentName(containingAssignment) == name) {
             return VariableState.Bound(

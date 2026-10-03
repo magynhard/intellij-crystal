@@ -239,13 +239,18 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 return
             }
         }
-        if (sameTypePoolMayBePartial(callExpr)) {
-            // Same-type overloads may hide outside the effective sources
-            // (file opened in isolation, lazily grown requirer union): a
-            // rejecting verdict would blame a partial pool. Diagnostics resume
-            // automatically once the union grows.
-            val counts = effectiveCounts(arguments) ?: return
-            if (rejectsAll(methods.map { methodAritySignature(it.parameterList) }, counts)) return
+        // Same-type overloads may hide outside the effective sources (file
+        // opened in isolation, lazily grown requirer union): a rejecting
+        // verdict would blame a partial pool, so it stays silent while
+        // acceptance verdicts flow through unchanged. The pure arity verdict
+        // runs first so the index-backed partiality check only fires on
+        // rejecting calls; diagnostics resume automatically once the union
+        // grows.
+        val counts = effectiveCounts(arguments) ?: return
+        if (rejectsAll(methods.map { methodAritySignature(it.parameterList) }, counts) &&
+            sameTypePoolMayBePartial(callExpr)
+        ) {
+            return
         }
 
         checkArgumentCount(methods, arguments, methodNameElement, holder)

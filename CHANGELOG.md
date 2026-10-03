@@ -245,6 +245,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Inspect Code no longer stalls on files with deep variable dependencies** —
+  mutually dependent locals could send variable-flow resolution (`mayRaise` ↔
+  `resolveVariableValue`) into unbounded recursion, stalling whole-project
+  inspection on a single file (observed as an hours-long hang in one file with
+  the process burning CPU but producing no output). Flow results are now
+  memoized per session and nested re-entries resolve as `Unknown`, matching the
+  existing Unknown-on-cycle verdicts. Qualified type names additionally prefer
+  the stub tree over file parsing under the global lock. Covered by index
+  regressions; specified in docs/specs/type-inference.md.
 - **Unqualified calls no longer report from partial same-type overload pools** —
   forwarding to a wider overload of a reopened type (crystalline's
   `declare_meta_type_var(…, location: info.location)` against the compiler's

@@ -277,3 +277,8 @@ mechanism.
 - Nonphysical injected Crystal PSI has no exact Crystal caller file. It therefore receives only the
   configured prelude closure. Core literal methods remain available inside ECR, but project, shard,
   current-host, reverse, and sibling context is not inferred. An all-project fallback is forbidden.
+- Variable-flow results are memoized per session and mutually dependent reads terminate as
+  `Unknown` (reentrant computation is genuinely unknowable, like the existing
+  Unknown-on-cycle verdicts) instead of recursing without bound.
+- Qualified type names prefer the stub tree (no file parsing under the global lock);
+  only qualified headers fall back to the PSI walk, which stays authoritative.

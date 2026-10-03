@@ -255,7 +255,10 @@ internal fun sameTypePoolMayBePartial(callExpr: PsiElement): Boolean {
     var partial = false
     try {
         CrystalIndexService.processTypes(simpleName, project, GlobalSearchScope.allScope(project)) { element ->
-            val qualified = CrystalPsiUtils.buildQualifiedName(element)
+            // Stub-first: the PSI walk parses the file under the global
+            // PsiLock per candidate, which convoys under parallel
+            // inspections; stubs answer without materialization.
+            val qualified = CrystalPsiUtils.stubAwareQualifiedName(element)
             if (qualified != null && qualified.removePrefix("::") == expected && !sources.contains(element)) {
                 partial = true
                 false

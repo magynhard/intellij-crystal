@@ -427,4 +427,46 @@ class CrystalIndexServiceTest : BasePlatformTestCase() {
         assertTrue(process(Processor { names.add(it) }))
         assertContainsElements(names, expectedName)
     }
+
+    /**
+     * Stub-first qualified names must agree with the PSI walk on every shape:
+     * nested, qualified two-segment headers, and three-segment headers
+     * (whose middle segments stubs never store — the PSI fallback stays
+     * authoritative there).
+     */
+    fun testStubAwareQualifiedNameMatchesPsiNames() {
+        myFixture.addFileToProject("types.cr", """
+            module Outer
+              class Inner
+              end
+            end
+            struct FooBar
+            end
+            struct Foo::Bar
+            end
+            struct A::B::C
+            end
+            enum Color : UInt8
+              RED
+            end
+        """.trimIndent())
+        val scope = GlobalSearchScope.projectScope(project)
+        val expected = mapOf(
+            "Inner" to "Outer::Inner",
+            "FooBar" to "FooBar",
+            "Bar" to "Foo::Bar",
+            "C" to "A::B::C",
+            "Color" to "Color",
+        )
+        for ((simple, qualified) in expected) {
+            val found = CrystalIndexService.findTypes(simple, project, scope)
+            assertTrue("expected indexed $simple", found.isNotEmpty())
+            for (element in found) {
+                assertEquals(
+                    qualified,
+                    de.magynhard.crystal.psi.CrystalPsiUtils.stubAwareQualifiedName(element)
+                )
+            }
+        }
+    }
 }

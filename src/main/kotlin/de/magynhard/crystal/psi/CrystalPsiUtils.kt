@@ -4,9 +4,17 @@ import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.StubBasedPsiElement
+import com.intellij.psi.stubs.PsiFileStub
+import com.intellij.psi.stubs.StubElement
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.lexer.CrystalTokenTypes
+import de.magynhard.crystal.stubs.CrystalAliasDefinitionStub
+import de.magynhard.crystal.stubs.CrystalClassDefinitionStub
+import de.magynhard.crystal.stubs.CrystalEnumDefinitionStub
+import de.magynhard.crystal.stubs.CrystalModuleDefinitionStub
 import de.magynhard.crystal.stubs.CrystalNamedStub
+import de.magynhard.crystal.stubs.CrystalStructDefinitionStub
 
 /**
  * Utility functions for Crystal PSI elements.
@@ -399,20 +407,58 @@ object CrystalPsiUtils {
     /**
      * Builds the fully-qualified name of a class/module/struct/enum definition
      * from a stub element, using the stub tree for faster traversal.
+     * Returns null whenever the stub chain cannot prove the exact name, so
+     * callers fall back to the PSI walk (which stays authoritative):
+     * a qualified header (`struct Foo::Bar`) stores only its first segment,
+     * so anything deeper (`A::B::C`, whose middle segments stubs never
+     * store) is unprovable. Other named scopes (macros, methods, libs) are
+     * skipped exactly like [buildQualifiedName] skips them.
      */
     fun buildQualifiedNameFromStub(stub: com.intellij.psi.stubs.StubElement<*>): String? {
         val parts = mutableListOf<String>()
         var current: com.intellij.psi.stubs.StubElement<*>? = stub
         while (current != null) {
-            if (current is CrystalNamedStub) {
-                val name = current.name
-                if (name != null) {
+            if (current is PsiFileStub<*>) break
+            when (current) {
+                is CrystalClassDefinitionStub,
+                is CrystalModuleDefinitionStub,
+                is CrystalStructDefinitionStub,
+                is CrystalEnumDefinitionStub,
+                is CrystalAliasDefinitionStub,
+                -> {
+                    val name = (current as CrystalNamedStub).name ?: return null
                     parts.add(0, name)
+                    if (hasQualifiedHeader(current)) return null
                 }
+                else -> Unit
             }
             current = current.parentStub
         }
         return if (parts.isNotEmpty()) parts.joinToString("::") else null
+    }
+
+    /** True when a type stub carries a qualified header (`struct Foo::Bar`). */
+    private fun hasQualifiedHeader(stub: StubElement<*>): Boolean = when (stub) {
+        is CrystalClassDefinitionStub -> stub.enclosingNamespace != null
+        is CrystalModuleDefinitionStub -> stub.enclosingNamespace != null
+        is CrystalStructDefinitionStub -> stub.enclosingNamespace != null
+        is CrystalEnumDefinitionStub -> stub.enclosingNamespace != null
+        else -> false
+    }
+
+    /**
+     * Qualified name without forcing stub→PSI materialization: index-hot paths
+     * call this per candidate, and each PSI walk parses the file under the
+     * global PsiLock. Stub-based elements resolve from the stub tree alone;
+     * anything inconclusive (or already-loaded trees, where the walk is
+     * cheap) falls back to [buildQualifiedName].
+     */
+    fun stubAwareQualifiedName(element: PsiElement): String? {
+        val stub = (element as? StubBasedPsiElement<*>)?.stub
+        if (stub != null) {
+            buildQualifiedNameFromStub(stub)?.let { return it }
+        }
+        return buildQualifiedName(element)
     }
 
     /**
