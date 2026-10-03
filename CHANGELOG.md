@@ -245,6 +245,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Unqualified calls no longer report from partial same-type overload pools** —
+  forwarding to a wider overload of a reopened type (crystalline's
+  `declare_meta_type_var(…, location: info.location)` against the compiler's
+  overload) reported "Unknown named argument 'location'", because only the
+  same-file override was visible while the compiler overloads hid behind the
+  lazily grown requirer union. When the enclosing type has indexed declarations
+  outside the effective sources and no visible overload accepts by arity, both
+  argument-count and type diagnostics stay silent instead of blaming the partial
+  pool; acceptance verdicts are unaffected and diagnostics resume once the union
+  grows. Covered by count and type regressions; specified in
+  docs/specs/call-argument-inspections.md.
 - **Macro-hook-generated constructors no longer report false zero-arity errors** —
   `Request.new(id: 0)` on a class including a module with `macro included` (stdlib
   LSP `Initializer`, which defines `self.new(**args)` for every includer) reported

@@ -239,6 +239,14 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
                 return
             }
         }
+        if (sameTypePoolMayBePartial(callExpr)) {
+            // Same-type overloads may hide outside the effective sources
+            // (file opened in isolation, lazily grown requirer union): a
+            // rejecting verdict would blame a partial pool. Diagnostics resume
+            // automatically once the union grows.
+            val counts = effectiveCounts(arguments) ?: return
+            if (rejectsAll(methods.map { methodAritySignature(it.parameterList) }, counts)) return
+        }
 
         checkArgumentCount(methods, arguments, methodNameElement, holder)
     }
@@ -515,10 +523,6 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val match = bestMatch ?: return
         reportArgumentMismatch(match, arguments, counts.total, methodNameElement, holder)
     }
-
-    /** True when no signature in [signatures] accepts [counts]. */
-    private fun rejectsAll(signatures: List<AritySignature>, counts: CallArgCounts): Boolean =
-        signatures.none { evaluateOverload(it, counts.total, counts.positional, counts.named).isValid }
 
     private fun effectiveCounts(arguments: List<ArgumentInfo>): CallArgCounts? {
         // If any argument has an unresolvable splat/double-splat, skip the check entirely

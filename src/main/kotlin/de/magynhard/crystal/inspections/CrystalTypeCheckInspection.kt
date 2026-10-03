@@ -167,6 +167,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             return
         }
 
+        if (sameTypePoolRejectsArity(callExpr, methods)) return
+
         // Check each argument against all overloads (with splat expansion).
         // The unqualified-call lookup is name-based; the overload set may mix
         // unrelated definitions, so unknown slots simply skip their comparison.
@@ -262,6 +264,28 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
             .firstOrNull {
                 it.callArgs === argumentHolder || it.bareArgumentList === argumentHolder
             }
+    }
+
+    /**
+     * True when no visible overload accepts the call by arity while same-type
+     * overloads may hide outside the effective sources (file opened in
+     * isolation, lazily grown requirer union): per-slot type verdicts would
+     * blame a partial pool, so the whole call stays silent. Arity-accepting
+     * pools keep their slot diagnostics; splats make the shape unknowable
+     * and skip the gate. Mirrors the argument-count gate.
+     */
+    private fun sameTypePoolRejectsArity(
+        callExpr: PsiElement,
+        methods: List<CrystalMethodDefinition>
+    ): Boolean {
+        val holder: PsiElement? = when (callExpr) {
+            is CrystalMethodCallExpression -> callExpr.callArgs ?: callExpr.bareArgumentList
+            is CrystalBareMethodCallExpression -> callExpr.callArgs ?: callExpr.bareArgumentList
+            else -> null
+        } ?: return false
+        val counts = countCallArguments(holder) ?: return false
+        return rejectsAll(methods.map { methodAritySignature(it.parameterList) }, counts) &&
+            sameTypePoolMayBePartial(callExpr)
     }
 
     /**

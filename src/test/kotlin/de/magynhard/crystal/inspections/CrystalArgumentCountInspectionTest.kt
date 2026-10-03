@@ -3538,4 +3538,101 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Overloads across reopened types ====================
+
+    /**
+     * crystalline ext/compiler.cr shape: a reopened struct adds an overload
+     * that forwards to a wider overload (with a `location:` named argument)
+     * from another declaration of the same type. The call must resolve
+     * against the union of all overloads.
+     */
+    fun testReopenedTypeOverloadsShareOnePoolSameFile() {
+        myFixture.configureByText("test.cr", """
+            struct Widget
+              private def run(vars, owner, name, info, freeze_type = true)
+              end
+              private def run(vars, owner, name, type, location = nil, freeze_type = true)
+              end
+            end
+            struct Widget
+              private def run(vars, owner, name, info, freeze_type = true)
+                run(vars, owner, name, info, freeze_type: freeze_type, location: 1)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testReopenedTypeOverloadsShareOnePoolAcrossRequire() {
+        myFixture.addFileToProject("base.cr", """
+            struct Widget
+              private def run(vars, owner, name, info, freeze_type = true)
+              end
+              private def run(vars, owner, name, type, location = nil, freeze_type = true)
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            require "./base"
+
+            struct Widget
+              private def run(vars, owner, name, info, freeze_type = true)
+                run(vars, owner, name, info, freeze_type: freeze_type, location: 1)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testReopenedNamespacedTypeOverloadsShareOnePool() {
+        myFixture.addFileToProject("base.cr", """
+            module Crystal
+              struct Widget
+                private def run(vars, owner, name, info, freeze_type = true)
+                end
+                private def run(vars, owner, name, type, location = nil, freeze_type = true)
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            require "./base"
+
+            module Crystal
+              struct Widget
+                private def run(vars, owner, name, info, freeze_type = true)
+                  run(vars, owner, name, info, freeze_type: freeze_type, location: 1)
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testReopenedOverloadsVisibleOnlyThroughRequirerUnion() {
+        myFixture.addFileToProject("base.cr", """
+            struct Widget
+              private def run(vars, owner, name, info, freeze_type = true)
+              end
+              private def run(vars, owner, name, type, location = nil, freeze_type = true)
+              end
+            end
+        """.trimIndent())
+        myFixture.addFileToProject("requires.cr", """
+            require "./base"
+        """.trimIndent())
+        myFixture.addFileToProject("main.cr", """
+            require "./requires"
+            require "./ext/*"
+        """.trimIndent())
+        myFixture.configureByText("ext.cr", """
+            struct Widget
+              private def run(vars, owner, name, info, freeze_type = true)
+                run(vars, owner, name, info, freeze_type: freeze_type, location: 1)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

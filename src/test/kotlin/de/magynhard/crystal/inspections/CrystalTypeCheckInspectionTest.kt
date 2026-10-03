@@ -1232,4 +1232,53 @@ class CrystalTypeCheckInspectionTest : BasePlatformTestCase() {
         """.trimIndent())
         myFixture.checkHighlighting()
     }
+
+    // ==================== Partial same-type pools ====================
+
+    fun testPartialPoolSuppressesTypeMismatch() {
+        myFixture.addFileToProject("base.cr", """
+            struct Widget
+              private def run(vars : Int32, owner, name, info, freeze_type = true)
+              end
+              private def run(vars : Int32, owner, name, type, location = nil, freeze_type = true)
+              end
+            end
+        """.trimIndent())
+        myFixture.addFileToProject("requires.cr", """
+            require "./base"
+        """.trimIndent())
+        myFixture.addFileToProject("main.cr", """
+            require "./requires"
+            require "./ext/*"
+        """.trimIndent())
+        myFixture.configureByText("ext.cr", """
+            struct Widget
+              private def run(vars : Int32, owner, name, info, freeze_type = true)
+                run("s", owner, name, info, freeze_type: freeze_type, location: 1)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCompletePoolStillReportsTypeMismatch() {
+        myFixture.addFileToProject("base.cr", """
+            struct Widget
+              private def run(vars : Int32, owner, name, info, freeze_type = true)
+              end
+              private def run(vars : Int32, owner, name, type, location = nil, freeze_type = true)
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            require "./base"
+
+            struct Widget
+              private def run(vars : Int32, owner, name, info, freeze_type = true)
+                run(<error descr="Type mismatch: expected 'Int32', got 'String'">"s"</error>, owner, name, info, freeze_type: freeze_type, location: 1)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
 }

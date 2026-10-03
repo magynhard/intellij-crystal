@@ -1,13 +1,17 @@
 package de.magynhard.crystal.inspections
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.search.GlobalSearchScope
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.psi.CrystalCallArgs
 import de.magynhard.crystal.psi.CrystalMacroDefinition
 import de.magynhard.crystal.psi.CrystalParameter
 import de.magynhard.crystal.psi.CrystalParameterList
 import de.magynhard.crystal.psi.CrystalPsiCallArguments
+import de.magynhard.crystal.psi.CrystalPsiUtils
 import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.psi.parameterNameInfo
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
  * Shared arity-applicability core behind argument-count diagnostics and
@@ -225,4 +229,42 @@ internal fun countCallArguments(argumentHolder: PsiElement?): CallArgCounts? {
         if (label != null) named.add(label) else positional++
     }
     return CallArgCounts(positional, named, positional + named.size)
+}
+
+/** True when no signature in [signatures] accepts [counts]. */
+internal fun rejectsAll(signatures: List<AritySignature>, counts: CallArgCounts): Boolean =
+    signatures.none { evaluateOverload(it, counts.total, counts.positional, counts.named).isValid }
+
+/**
+ * True when [callExpr] sits lexically inside a type whose exact identity has
+ * indexed declarations outside the effective sources. Same-type overloads
+ * from those declarations may be missing from the pool (file opened in
+ * isolation, lazily grown requirer union), so only acceptance verdicts are
+ * trustworthy; rejections stay silent. Diagnostics resume automatically once
+ * the union grows.
+ */
+internal fun sameTypePoolMayBePartial(callExpr: PsiElement): Boolean {
+    val callSiteType = CrystalPsiUtils.callSiteOwnerQualifiedName(callExpr) ?: return false
+    val simpleName = callSiteType.substringAfterLast("::")
+    if (simpleName.isEmpty()) return false
+    val project = callExpr.project
+    val sources = CrystalRequireGraphService
+        .getInstance(project).effectiveSources(callExpr)
+    if (sources.files.isEmpty()) return false
+    val expected = callSiteType.removePrefix("::")
+    var partial = false
+    try {
+        CrystalIndexService.processTypes(simpleName, project, GlobalSearchScope.allScope(project)) { element ->
+            val qualified = CrystalPsiUtils.buildQualifiedName(element)
+            if (qualified != null && qualified.removePrefix("::") == expected && !sources.contains(element)) {
+                partial = true
+                false
+            } else {
+                true
+            }
+        }
+    } catch (_: Throwable) {
+        return false
+    }
+    return partial
 }
