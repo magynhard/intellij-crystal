@@ -42,6 +42,11 @@ class CrystalUnresolvedNameInspection : LocalInspectionTool() {
                 ) {
                     return
                 }
+                // Annotation arguments are metadata, not ordinary unresolved-name reads.
+                val annotation = com.intellij.psi.util.PsiTreeUtil.getParentOfType(
+                    element, CrystalAnnotationUsage::class.java
+                )
+                if (annotation != null && element !== annotation.typePath) return
                 when (element) {
                     is CrystalVariableReference -> checkVariableReference(element, holder)
                     is CrystalMethodCallExpression,

@@ -7,6 +7,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.completion.CrystalCompletionHelper
 import de.magynhard.crystal.stubs.CrystalIndexService
 
@@ -61,9 +62,20 @@ class CrystalReference(
         val sources = CrystalRequireGraphService.getInstance(element.project).effectiveSources(element)
         if (sources.files.isEmpty()) return null
 
-        val types = CrystalIndexService.findTypes(name, element.project, scope())
-            .filter { sources.contains(it) }
-        if (types.isNotEmpty()) return types.first()
+        // Share lexical identity lookup with receiver inference: a visible
+        // Hash::Entry must never capture Benchmark::IPS::Job's bare Entry.
+        val session = CrystalTypeSetResolver.session(element)
+        val identity = session.resolveType(name, element)
+        if (identity != null) {
+            val types = session.findExactTypeDeclarations(identity)
+            if (types.isNotEmpty()) {
+                return types.minWithOrNull(
+                    compareBy<CrystalNamedElement> { it.containingFile != element.containingFile }
+                        .thenBy { it.containingFile?.virtualFile?.path ?: "" }
+                        .thenBy { it.textOffset }
+                )
+            }
+        }
 
         // Bare CONSTANT reads resolve to constant declarations visible
         // through the require closure (file top level, type and lib bodies).

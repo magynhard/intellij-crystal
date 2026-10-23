@@ -11,6 +11,139 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== Bare identifiers ====================
 
+    fun testCompilerAnnotationsStayKnownWithoutSdk() {
+        myFixture.configureByText("test.cr", """
+            @[Deprecated("Use another method")]
+            @[AlwaysInline]
+            def run
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMisspelledAnnotationWarns() {
+        myFixture.configureByText("test.cr", """
+            @[<warning descr="Cannot find 'Deprecatted'">Deprecatted</warning>]
+            def run
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testIncompleteAnnotationDoesNotReportMissingName() {
+        myFixture.configureByText("test.cr", "@[Deprecatted(")
+        assertFalse(myFixture.doHighlighting().any { it.description?.startsWith("Cannot find") == true })
+    }
+
+    fun testNamespacedBuiltinSpellingIsNotAutomaticallyKnown() {
+        myFixture.configureByText("test.cr", """
+            @[Other::<warning descr="Cannot find 'Deprecated'">Deprecated</warning>]
+            class Job
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testAnnotationArgumentsAreNotOrdinaryNameReads() {
+        myFixture.configureByText("test.cr", """
+            annotation Mark
+            end
+            @[Mark(UnknownMetadata, unknown_metadata(), MissingType.new)]
+            class Job
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testRequiredQualifiedAnnotationStaysClean() {
+        myFixture.addFileToProject("marks.cr", "module Outer\nannotation Mark\nend\nend")
+        myFixture.configureByText("test.cr", """
+            require "./marks"
+            @[Outer::Mark]
+            class Job
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredAnnotationIsWeakWarning() {
+        myFixture.addFileToProject("marks.cr", "annotation Mark\nend")
+        myFixture.configureByText("test.cr", """
+            @[<weak_warning descr="Cannot find 'Mark'">Mark</weak_warning>]
+            class Job
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testOrdinaryTypeDoesNotHideUnknownAnnotation() {
+        myFixture.configureByText("test.cr", """
+            class Mark
+            end
+            @[<warning descr="Cannot find 'Mark'">Mark</warning>]
+            class Job
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testKnownNamespaceDoesNotHideUnknownAnnotationMember() {
+        myFixture.configureByText("test.cr", """
+            module Outer
+            end
+            @[Outer::<warning descr="Cannot find 'Missing'">Missing</warning>]
+            class Job
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLexicallyVisibleNestedConstructorStaysClean() {
+        myFixture.configureByText("test.cr", """
+            class Hash
+              struct Entry(K, V)
+              end
+            end
+            module Benchmark
+              module IPS
+                class Job
+                  def report(label, action) : Benchmark::IPS::Entry
+                    Entry.new(label, action)
+                  end
+                end
+                class Entry
+                  def initialize(@label : String, @action : ->)
+                  end
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredLexicalConstructorStillWarns() {
+        myFixture.addFileToProject("entry.cr", """
+            module Benchmark
+              module IPS
+                class Entry
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            module Benchmark
+              module IPS
+                class Job
+                  def report
+                    <weak_warning descr="Cannot find 'Entry'">Entry</weak_warning>.new
+                  end
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testUnknownBareIdentifierIsWarning() {
         myFixture.configureByText("test.cr", """
             puts <warning descr="Cannot find 'abc'">abc</warning>

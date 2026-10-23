@@ -390,6 +390,7 @@ object CrystalPsiUtils {
                 is CrystalStructDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalEnumDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalAliasDefinition -> current.name
+                is CrystalAnnotationDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalMethodCallExpression -> recordDeclaredName(current)
                 else -> null
             }

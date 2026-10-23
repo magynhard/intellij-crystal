@@ -36,7 +36,24 @@ Runtime project-wide `FileTypeIndex` scans, including iteration over every Cryst
 
 Go to Class exposes indexed classes, modules, structs, enums, aliases, annotations, and libraries. Go to Symbol exposes those definitions plus indexed methods, macros, and constants. Both contributors cheaply enumerate project-wide name candidates; only navigation items resolved through `processElementsWithName()` are constrained by `FindSymbolParameters.searchScope`. Type navigation items retain their concrete class, module, struct, or enum kind and icon.
 
+## Annotation References
+
+Annotation-use type paths have a dedicated `CrystalAnnotationReference`. They
+query `CrystalAnnotationIndex` in all scope and filter candidates through the
+effective require/prelude source set. Simple names search lexical namespaces
+from nearest to outermost, then global; qualified and absolute names require
+their exact identity. Ordinary types never substitute for annotations. The same
+reference supplies documentation targets. Compiler-created annotations are known
+even without source declarations, but cannot navigate without an indexed target.
+
 ## DOT-Call Navigation
+
+Bare type references use the shared type-resolution session's ordered lexical
+identities: nearest enclosing namespace, then each outer namespace, then the
+global identity. Candidates must belong to the effective require/prelude source
+set. A same-simple-name type in an unrelated namespace is never a fallback.
+Navigation and documentation use the same resolved declaration; reopenings of
+the selected exact identity prefer the current file, then stable file/offset order.
 
 `CrystalDotCallReference` delegates to the shared exact DOT-call target resolver. Transparent grouping therefore preserves static constants, qualified and absolute constant paths, locals, typed parameters, instance variables, and constructors through arbitrary parenthesis depth. `multiResolve()` returns every overload on the exact receiver identity, while `resolve()` returns a target only when that result is unique.
 

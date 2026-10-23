@@ -89,6 +89,8 @@ abstract class CrystalBareMethodCallExpressionMixin(node: ASTNode) : ASTWrapperP
 }
 
 abstract class CrystalTypePathMixin(node: ASTNode) : ASTWrapperPsiElement(node) {
-    override fun getReference(): PsiReference? = createCrystalReference(this)
+    override fun getReference(): PsiReference? =
+        if (parent is CrystalAnnotationUsage) CrystalAnnotationReference(this as CrystalTypePath)
+        else createCrystalReference(this)
     override fun getReferences(): Array<PsiReference> = reference?.let { arrayOf(it) } ?: PsiReference.EMPTY_ARRAY
 }

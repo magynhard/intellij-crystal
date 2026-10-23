@@ -12,6 +12,7 @@ import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.analysis.CrystalTypeIdentity
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalAnnotationResolver
 import de.magynhard.crystal.completion.CrystalTypeCompletionProvider
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
@@ -233,7 +234,7 @@ object CrystalUnresolvedName {
             // alias receiver is known, and member resolution through it is
             // unjudgeable until the type session unwraps aliases — silence.
             val aliasReceiver = isAliasTypeVisible(simpleName, access)
-            if (!isReceiverTypeVisible(cleanRoot, simpleName, access) &&
+            if (!isReceiverTypeVisible(cleanRoot, access) &&
                 !aliasReceiver &&
                 !isVisibleConstantRoot(access, simpleName) &&
                 !isLibVisible(cleanRoot, access)
@@ -289,6 +290,13 @@ object CrystalUnresolvedName {
      * root rule, mirroring namespace paths.
      */
     fun typePathFlagElement(path: CrystalTypePath): Pair<PsiElement, UnresolvedKind>? {
+        if (path.parent is CrystalAnnotationUsage) {
+            val lookup = CrystalAnnotationResolver.lookup(path) ?: return null
+            if (lookup.known) return null
+            val leaf = path.node.getChildren(null).lastOrNull { it.elementType == CrystalTypes.CONSTANT }?.psi
+                ?: return null
+            return leaf to if (lookup.indexed) UnresolvedKind.UNREQUIRED else UnresolvedKind.UNKNOWN
+        }
         val pieces = path.node.getChildren(null)
             .map { it.psi }
             .filter { it.node?.elementType == CrystalTypes.CONSTANT }
@@ -447,13 +455,9 @@ object CrystalUnresolvedName {
         }
     }
 
-    private fun isReceiverTypeVisible(root: String, simpleName: String, context: PsiElement): Boolean {
+    private fun isReceiverTypeVisible(root: String, context: PsiElement): Boolean {
         return try {
-            val candidates = CrystalIndexService.findTypes(simpleName, context.project, allScope(context))
-            candidates.any { candidate ->
-                CrystalPsiUtils.buildQualifiedName(candidate) == root &&
-                    CrystalRequireVisibility.isVisible(candidate, context)
-            }
+            CrystalTypeSetResolver.session(context).resolveType(root, context) != null
         } catch (_: Throwable) {
             false
         }

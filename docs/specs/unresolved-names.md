@@ -47,6 +47,25 @@ the constant rule per segment, with the root rule for qualified paths.
    their own file, exactly like the compiler.
 6. DOT calls whose receiver resolves exactly and whose method set resolves
    (`Methods`, `ImplicitConstructor`, `RecordFallback`, `Accessor`).
+   Unqualified type receivers use the shared ordered lexical identity lookup,
+   so `Entry.new` inside `Benchmark::IPS::Job` recognizes the visible
+   `Benchmark::IPS::Entry` rather than requiring a global `Entry` declaration.
+7. Annotation names in `@[Name(...)]` resolve through `CrystalAnnotationIndex`,
+   never through ordinary type, method, or constant declarations. Simple names
+   search the nearest enclosing namespace, outer namespaces, then the global
+   identity; qualified and absolute paths retain their exact identity. Only
+   declarations in the effective require/prelude source set are visible.
+   Navigation and documentation use this same annotation reference. An unknown
+   annotation warns on the final name segment; an exact lexical candidate found
+   only outside the source set warns weakly. Ambiguous visible declarations do
+   not choose an arbitrary navigation target and do not warn as missing.
+   Compiler-created annotations (`AlwaysInline`, `CallConvention`, `Extern`,
+   `Flags`, `Link`, `Naked`, `NoInline`, `Packed`, `Primitive`, `Raises`,
+   `ReturnsTwice`, `ThreadLocal`, `Deprecated`, `Experimental`, `TargetFeature`)
+   are known without an SDK; navigation requires an indexed declaration.
+   Indexing mode, unavailable source context, and incomplete annotation syntax
+   remain silent. Annotation arguments are metadata and are not checked by this
+   unresolved-name inspection; the annotation name itself is checked.
 
 ## Silence Rules
 
@@ -69,7 +88,7 @@ call-argument inspections:
   macro-interpolated callees or receivers: silent.
 - Non-code positions: definition names, DOT/DOUBLE_COLON-adjacent segments
   (except the flagged last namespace segment), symbol keys (`sym:`), string
-  literals, `require` paths, annotations, `case ... in` patterns (owned by
+   literals, `require` paths, annotation arguments, `case ... in` patterns (owned by
   `CrystalInvalidInPattern`), macro contexts, macro-call blocks, and arguments
   of macro invocations (`record Config`, `property name` declare API surface
   through expansion), `lib/` and other non-project sources, ECR-lenient

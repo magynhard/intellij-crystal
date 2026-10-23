@@ -254,6 +254,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Annotation-aware name resolution** — annotation names use their dedicated
+  index with lexical namespace and require visibility for navigation,
+  documentation, and missing-name diagnostics. Compiler annotations such as
+  `Deprecated` stay known without an SDK; annotation arguments are no longer
+  mistaken for ordinary unresolved names, while misspelled annotation names warn.
+- **Namespace-aware bare type references** — navigation and documentation resolve
+  types through the shared lexical namespace lookup instead of selecting an
+  unrelated same-named type. Nested constructor receivers such as `Entry.new`
+  inside `Benchmark::IPS::Job` no longer report `Cannot find 'Entry'` when
+  `Benchmark::IPS::Entry` is visible.
 - **Locked shard dependencies trust shards instead of the version field** —
   a lock entry now means Ok without consulting the installed `version:` field:
   a successful install guarantees the checked-out code matches the locked

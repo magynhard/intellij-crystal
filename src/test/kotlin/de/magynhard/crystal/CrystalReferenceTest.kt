@@ -62,6 +62,130 @@ class CrystalReferenceTest : BasePlatformTestCase() {
 
     // ==================== Reference Resolution ====================
 
+    fun testNestedTypeReferencePrefersLexicalNamespace() {
+        myFixture.configureByText("test.cr", """
+            class Hash
+              struct Entry(K, V)
+              end
+            end
+            module Benchmark
+              module IPS
+                class Job
+                  def report
+                    <caret>Entry.new
+                  end
+                end
+                class Entry
+                end
+              end
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.getParentOfType(
+            myFixture.file.findElementAt(myFixture.caretOffset), CrystalVariableReference::class.java
+        )!!
+        val resolved = findReference(usage)?.resolve()
+        assertNotNull(resolved)
+        assertEquals("Benchmark::IPS::Entry", CrystalPsiUtils.buildQualifiedName(resolved!!))
+        val documentationTarget = de.magynhard.crystal.documentation.CrystalDocumentationProvider()
+            .getCustomDocumentationElement(
+                myFixture.editor, myFixture.file,
+                myFixture.file.findElementAt(myFixture.caretOffset), myFixture.caretOffset
+            )
+        assertEquals("Documentation and navigation must agree", resolved, documentationTarget)
+    }
+
+    fun testLexicalTypeReferenceResolvesRequiredNamespace() {
+        myFixture.addFileToProject("entry.cr", """
+            module Outer
+              class Entry
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            require "./entry"
+            class Entry
+            end
+            module Outer
+              class Job
+                def report
+                  <caret>Entry
+                end
+              end
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.getParentOfType(
+            myFixture.file.findElementAt(myFixture.caretOffset), CrystalVariableReference::class.java
+        )!!
+        val resolved = findReference(usage)?.resolve()
+        assertNotNull(resolved)
+        assertEquals("Outer::Entry", CrystalPsiUtils.buildQualifiedName(resolved!!))
+        assertEquals("entry.cr", resolved.containingFile.name)
+    }
+
+    fun testLexicalTypeReferenceFallsBackToGlobalNotUnrequiredNamespace() {
+        myFixture.addFileToProject("unrequired.cr", """
+            module Outer
+              class Entry
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("test.cr", """
+            class Entry
+            end
+            module Outer
+              class Job
+                def report
+                  <caret>Entry
+                end
+              end
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.getParentOfType(
+            myFixture.file.findElementAt(myFixture.caretOffset), CrystalVariableReference::class.java
+        )!!
+        val resolved = findReference(usage)?.resolve()
+        assertNotNull(resolved)
+        assertEquals("Entry", CrystalPsiUtils.buildQualifiedName(resolved!!))
+    }
+
+    fun testNestedTypeReferenceDoesNotResolveUnrelatedNamespace() {
+        myFixture.configureByText("test.cr", """
+            class Hash
+              struct Entry(K, V)
+              end
+            end
+            <caret>Entry
+        """.trimIndent())
+        val usage = PsiTreeUtil.getParentOfType(
+            myFixture.file.findElementAt(myFixture.caretOffset), CrystalVariableReference::class.java
+        )!!
+        assertNull(findReference(usage)?.resolve())
+    }
+
+    fun testTypeReferencePrefersNearestNamespaceOverGlobal() {
+        myFixture.configureByText("test.cr", """
+            class Entry
+            end
+            module Outer
+              class Entry
+              end
+              class Job
+                class Entry
+                end
+                def report
+                  <caret>Entry
+                end
+              end
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.getParentOfType(
+            myFixture.file.findElementAt(myFixture.caretOffset), CrystalVariableReference::class.java
+        )!!
+        val resolved = findReference(usage)?.resolve()
+        assertNotNull(resolved)
+        assertEquals("Outer::Job::Entry", CrystalPsiUtils.buildQualifiedName(resolved!!))
+    }
+
     fun testVariableReferenceResolvesToMethod() {
         // "greet" without args is parsed as variable_reference
         val file = myFixture.configureByText("test.cr", """

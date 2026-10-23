@@ -74,6 +74,8 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         targetOffset: Int
     ): PsiElement? {
         if (contextElement == null) return null
+        annotationNamePath(contextElement)?.let { return it.reference?.resolve() }
+        if (contextElement is CrystalAnnotationDefinition) return contextElement
 
         // 0. Assignment left-hand side: hovering the write target is a
         // variable hover. The name-based fallbacks below resolve through the
@@ -274,6 +276,8 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     private fun resolveTarget(element: PsiElement?): PsiElement? {
         if (element == null) return null
+        if (element is CrystalAnnotationDefinition) return element
+        annotationNamePath(element)?.let { return it.reference?.resolve() }
         // Assignment left-hand side: a variable hover, never a method signature
         // (the name-based fallbacks resolve through the require-graph lens).
         if (element is CrystalAssignment) {
@@ -332,6 +336,10 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         }
         return null
     }
+
+    private fun annotationNamePath(element: PsiElement): CrystalTypePath? =
+        PsiTreeUtil.getParentOfType(element, CrystalTypePath::class.java, false)
+            ?.takeIf { it.parent is CrystalAnnotationUsage }
 
     private fun isVariableIdentifier(element: PsiElement): Boolean {
         // An IDENTIFIER token or CrystalVariableReference that is NOT inside a definition/parameter
