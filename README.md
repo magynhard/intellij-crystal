@@ -80,6 +80,8 @@ ECR code intelligence currently uses the configured Crystal prelude but does not
 - **Crystal 1.x** for project creation, formatting, compiler-assisted checks, running, testing, debugging, and standard-library code intelligence
 - **LLDB DAP** (optional) for debugging
 
+No separate Java installation is needed to use the plugin: use the JetBrains Runtime bundled with your IDE. To build or develop the plugin, install **JDK 25** as described under [Development](#development).
+
 The plugin searches `PATH` and common installation locations for the Crystal compiler. You can configure a different executable under **Settings | Languages & Frameworks | Crystal**.
 
 For debugging, `lldb-dap` must be available as that command or installed in one of the standard locations checked by the plugin. Native Windows support is experimental and less extensively tested than Linux and macOS support.
@@ -199,7 +201,24 @@ External toolchain actions continue to use the canonical Crystal and LLVM tools:
 
 ## Development
 
-The project uses Kotlin, Java, JFlex, GrammarKit, and the IntelliJ Platform SDK. JDK 25 is used by the build; Gradle can provision the toolchain automatically through Foojay.
+The project uses Kotlin, Java, JFlex, GrammarKit, and the IntelliJ Platform SDK.
+
+### Java Setup
+
+Install **JDK 25 (LTS)**; [Eclipse Temurin 25](https://adoptium.net/temurin/releases/?version=25) is recommended. Use a full JDK, not a JRE: the build is configured with a Java 25 toolchain.
+
+Set `JAVA_HOME` to the JDK installation directory and add its `bin` directory to `PATH`. If you build from a JetBrains IDE, select JDK 25 as the **Gradle JVM** under **Settings | Build, Execution, Deployment | Build Tools | Gradle**.
+
+Verify the setup before building:
+
+```bash
+java -version
+javac -version
+```
+
+Both commands should report version 25. Gradle can also provision the Java 25 build toolchain automatically through Foojay, but an installed JDK is still needed to start Gradle. Use the checked-in Gradle wrapper; no separate Gradle installation is required. On Windows, use `gradlew.bat` instead of `./gradlew`.
+
+### Building
 
 ```bash
 git clone https://github.com/magynhard/intellij-crystal.git
