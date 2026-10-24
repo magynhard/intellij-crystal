@@ -254,6 +254,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **FFI expression-path navigation** — Go to Declaration resolves both the
+  library and alias segments in expressions such as `LibGMP::MpLimb.new!(num)`,
+  not only in type annotations. Exact require-visible declarations remain
+  available through the standard target chooser, including conditional aliases
+  and library reopenings, without selecting an arbitrary declaration.
+- **FFI alias constructor diagnostics** — recognize require-visible library
+  aliases such as `LibGMP::MpLimb` in `.new!` receivers, including declarations
+  inside compile-time conditionals. Diagnostics share exact library-member
+  lookup with type-path navigation; unrelated or unrequired aliases do not
+  suppress missing-name warnings.
 - **Stable program-context test fixtures** — create both program entries from
   the same immutable source instead of copying a transient empty PSI snapshot
   into the second file. The fixture now verifies the stored file contents

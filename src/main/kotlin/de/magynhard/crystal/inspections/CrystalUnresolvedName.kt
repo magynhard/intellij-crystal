@@ -233,6 +233,12 @@ object CrystalUnresolvedName {
             // also as DOT receivers and without a configured SDK — same
             // lens as rootFlagElement.
             if (isBaselineConstant(simpleName, access)) return null
+            // FFI aliases have dedicated PSI, not ordinary alias-index entries.
+            // Reuse exact library-member lookup, including conditional declarations.
+            // Their method sets remain unjudgeable without unwrapping the alias.
+            if (CrystalFfiTypeResolver.resolve(cleanRoot, access)?.any { it is CrystalTypeAliasLib } == true) {
+                return null
+            }
             // Aliases are indexed type declarations (alias index): a visible
             // alias receiver is known, and member resolution through it is
             // unjudgeable until the type session unwraps aliases — silence.

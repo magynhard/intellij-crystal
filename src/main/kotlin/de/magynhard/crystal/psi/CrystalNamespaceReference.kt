@@ -25,9 +25,21 @@ class CrystalNamespaceReference(
     private val simpleName: String,
     rangeStart: Int,
     rangeLength: Int
-) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
+) : PsiPolyVariantReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
-    override fun resolve(): PsiElement? {
+    override fun resolve(): PsiElement? = multiResolve(false).singleOrNull()?.element
+
+    override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> {
+        val path = CrystalReceiverExpression.extractExactConstantTypeRoot(element)
+        if (path != null) {
+            CrystalFfiTypeResolver.resolve(path, element)?.let { targets ->
+                return targets.map { PsiElementResolveResult(it) }.toTypedArray()
+            }
+        }
+        return listOfNotNull(resolveOrdinaryDeclaration()).map { PsiElementResolveResult(it) }.toTypedArray()
+    }
+
+    private fun resolveOrdinaryDeclaration(): PsiElement? {
         val project = element.project
         val scope = GlobalSearchScope.allScope(project)
         val fullName = buildFullName()

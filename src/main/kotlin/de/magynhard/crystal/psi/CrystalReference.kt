@@ -25,14 +25,25 @@ class CrystalReference(
     private val name: String,
     rangeStart: Int,
     rangeLength: Int
-) : PsiReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
+) : PsiPolyVariantReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
     companion object {
         /** Builtin macro-method API module (compiler/crystal/macros.cr). */
         const val CRYSTAL_MACROS_MODULE = "Crystal::Macros"
     }
 
-    override fun resolve(): PsiElement? {
+    override fun resolve(): PsiElement? = multiResolve(false).singleOrNull()?.element
+
+    override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> {
+        if (name.firstOrNull()?.isUpperCase() == true && !CrystalMacroContext.isInMacroContext(element)) {
+            CrystalFfiTypeResolver.resolve(name, element)?.let { targets ->
+                return targets.map { PsiElementResolveResult(it) }.toTypedArray()
+            }
+        }
+        return listOfNotNull(resolveOrdinaryDeclaration()).map { PsiElementResolveResult(it) }.toTypedArray()
+    }
+
+    private fun resolveOrdinaryDeclaration(): PsiElement? {
         // 1. Local scope fallback (fast — no I/O, walks up PSI tree)
         val local = resolveLocalDeclaration()
         if (local != null) return local

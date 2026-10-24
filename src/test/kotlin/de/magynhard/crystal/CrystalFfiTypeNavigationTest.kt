@@ -73,6 +73,105 @@ class CrystalFfiTypeNavigationTest : BasePlatformTestCase() {
         assertEquals("LibGMP::Precision", CrystalPsiUtils.buildQualifiedName(target!!))
     }
 
+    fun testConditionalLibraryAliasKeepsBothDeclarationTargets() {
+        myFixture.addFileToProject("lib_gmp.cr", """
+            lib LibGMP
+              {% if flag?(:win32) %}
+                alias MpLimb = UInt64
+              {% else %}
+                alias MpLimb = UInt32
+              {% end %}
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "require \"./lib_gmp\"\nvalue : LibGMP::Mp<caret>Limb")
+        val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+        assertNull(reference.resolve())
+        val targets = reference.multiResolve(false).mapNotNull { it.element }
+        assertEquals(2, targets.size)
+        assertTrue(targets.all { it is CrystalTypeAliasLib })
+    }
+
+    fun testActualGotoOnLibraryRootInAliasConstructorReceiver() {
+        val library = myFixture.addFileToProject("lib_gmp.cr", "lib LibGMP\nalias MpLimb = UInt64\nend")
+        myFixture.configureByText("big_int.cr", "require \"./lib_gmp\"\ndef build(appender, num)\nappender << LibG<caret>MP::MpLimb.new!(num)\nend")
+        assertTrue(targetAtCaret() is CrystalLibDefinition)
+        myFixture.performEditorAction(IdeActions.ACTION_GOTO_DECLARATION)
+        assertTrue(library.virtualFile in FileEditorManager.getInstance(project).selectedFiles)
+    }
+
+    fun testActualGotoOnAliasInConstructorReceiver() {
+        val library = myFixture.addFileToProject("lib_gmp.cr", "lib LibGMP\nalias MpLimb = UInt64\nend")
+        myFixture.configureByText("big_int.cr", "require \"./lib_gmp\"\ndef build(appender, num)\nappender << LibGMP::Mp<caret>Limb.new!(num)\nend")
+        assertTrue(targetAtCaret() is CrystalTypeAliasLib)
+        myFixture.performEditorAction(IdeActions.ACTION_GOTO_DECLARATION)
+        assertTrue(library.virtualFile in FileEditorManager.getInstance(project).selectedFiles)
+    }
+
+    fun testAliasConstructorReceiverKeepsLibraryAndConditionalAliasCandidates() {
+        val source = """
+            lib LibGMP
+              {% if flag?(:win32) %}
+                alias MpLimb = UInt64
+              {% else %}
+                alias MpLimb = UInt32
+              {% end %}
+            end
+        """.trimIndent()
+        val first = myFixture.addFileToProject("first.cr", source)
+        val second = myFixture.addFileToProject("second.cr", source)
+        myFixture.addFileToProject("unrequired.cr", source)
+        myFixture.configureByText("big_int.cr", "require \"./first\"\nrequire \"./second\"\nLibGMP::MpLimb.new!(1)")
+        for (root in listOf(true, false)) {
+            val offset = myFixture.editor.document.text.indexOf(if (root) "LibGMP::" else "MpLimb.new!") + 2
+            myFixture.editor.caretModel.moveToOffset(offset)
+            val reference = myFixture.file.findReferenceAt(offset)
+            assertTrue("Both expression segments must expose polyvariant references", reference is PsiPolyVariantReference)
+            assertNull(reference!!.resolve())
+            val targets = (reference as PsiPolyVariantReference).multiResolve(false).mapNotNull { it.element }
+            assertEquals(if (root) 2 else 4, targets.size)
+            assertEquals(setOf(first.virtualFile, second.virtualFile), targets.map { it.containingFile.virtualFile }.toSet())
+            assertTrue(targets.all { if (root) it is CrystalLibDefinition else it is CrystalTypeAliasLib })
+            assertEquals(targets.toSet(), TargetElementUtil.getInstance().getTargetCandidates(reference).toSet())
+            assertEquals(GotoDeclarationOrUsageHandler2.GTDUOutcome.GTD,
+                GotoDeclarationOrUsageHandler2.testGTDUOutcome(myFixture.editor, myFixture.file, offset))
+        }
+    }
+
+    fun testAliasConstructorReceiverDoesNotNavigateToUnrequiredDeclarations() {
+        myFixture.addFileToProject("lib_gmp.cr", "lib LibGMP\nalias MpLimb = UInt64\nend")
+        myFixture.configureByText("main.cr", "LibG<caret>MP::MpLimb.new!(1)")
+        assertNull(targetAtCaret())
+        myFixture.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("MpLimb") + 2)
+        assertNull(targetAtCaret())
+    }
+
+    fun testMissingAliasReceiverDoesNotNavigateToAnotherLibraryOrGlobalType() {
+        myFixture.addFileToProject("libs.cr", "lib LibGMP\nend\nlib Other\nalias MpLimb = UInt64\nend\nclass MpLimb\nend")
+        myFixture.configureByText("main.cr", "require \"./libs\"\nLibGMP::Mp<caret>Limb.new!(1)")
+        assertNull(targetAtCaret())
+    }
+
+    fun testAbsoluteAliasReceiverBypassesLexicalLibraryForNavigation() {
+        myFixture.addFileToProject("libs.cr", """
+            lib LibGMP
+              alias MpLimb = UInt64
+            end
+            module Big
+              lib LibGMP
+                alias MpLimb = UInt32
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", "require \"./libs\"\nmodule Big\n::LibGMP::Mp<caret>Limb.new!(1)\nend")
+        assertEquals("LibGMP::MpLimb", CrystalPsiUtils.buildQualifiedName(targetAtCaret()!!))
+    }
+
+    fun testAliasReceiverNavigatesToLexicallyOwnedLibraryMember() {
+        myFixture.addFileToProject("libs.cr", "module Big\nlib LibGMP\nalias MpLimb = UInt64\nend\nend")
+        myFixture.configureByText("main.cr", "require \"./libs\"\nmodule Big\nLibGMP::Mp<caret>Limb.new!(1)\nend")
+        assertEquals("Big::LibGMP::MpLimb", CrystalPsiUtils.buildQualifiedName(targetAtCaret()!!))
+    }
+
     fun testLexicalLibraryMemberResolvesInsideNamespace() {
         myFixture.addFileToProject("lib_gmp.cr", "module Big\nlib LibGMP\nstruct MPF\nend\nend\nend")
         myFixture.configureByText("main.cr", """

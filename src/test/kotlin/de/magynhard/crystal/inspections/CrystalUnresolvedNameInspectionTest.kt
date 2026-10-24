@@ -11,6 +11,75 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== Bare identifiers ====================
 
+    fun testConditionalFfiAliasConstructorReceiverStaysClean() {
+        myFixture.addFileToProject("lib_gmp.cr", """
+            lib LibGMP
+              {% if flag?(:win32) %}
+                alias MpLimb = UInt64
+              {% else %}
+                alias MpLimb = UInt32
+              {% end %}
+            end
+        """.trimIndent())
+        myFixture.configureByText("big_int.cr", """
+            require "./lib_gmp"
+            struct BigInt
+              def self.build(num : Int32)
+                LibGMP::MpLimb.new!(num)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testFfiAliasInOtherLibraryDoesNotHealReceiver() {
+        myFixture.addFileToProject("libs.cr", "lib LibGMP\nend\nlib Other\nalias MpLimb = UInt64\nend")
+        myFixture.configureByText("main.cr", """
+            require "./libs"
+            LibGMP::<warning descr="Cannot find 'MpLimb'">MpLimb</warning>.new!(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredFfiAliasDoesNotHealReceiver() {
+        myFixture.addFileToProject("lib_gmp.cr", "lib LibGMP\nalias MpLimb = UInt64\nend")
+        myFixture.configureByText("main.cr", """
+            <weak_warning descr="Cannot find 'LibGMP'">LibGMP</weak_warning>::<warning descr="Cannot find 'MpLimb'">MpLimb</warning>.new!(1)
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLexicalFfiAliasReceiverStaysClean() {
+        myFixture.addFileToProject("lib_gmp.cr", "module Big\nlib LibGMP\nalias MpLimb = UInt64\nend\nend")
+        myFixture.configureByText("main.cr", """
+            require "./lib_gmp"
+            module Big
+              LibGMP::MpLimb.new!(1)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testAbsoluteFfiAliasReceiverBypassesLexicalLibrary() {
+        myFixture.addFileToProject("lib_gmp.cr", """
+            lib LibGMP
+              alias MpLimb = UInt64
+            end
+            module Big
+              lib LibGMP
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("main.cr", """
+            require "./lib_gmp"
+            module Big
+              ::LibGMP::MpLimb.new!(1)
+              LibGMP::<warning descr="Cannot find 'MpLimb'">MpLimb</warning>.new!(1)
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testBangPropertiesExposePlainReadersInBenchmarkStatistics() {
         myFixture.configureByText("test.cr", """
             module Benchmark

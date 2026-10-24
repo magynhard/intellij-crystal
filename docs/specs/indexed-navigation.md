@@ -86,6 +86,12 @@ Ordinary `CrystalTypePath` nodes expose one PSI reference per constant segment.
 JetBrains' standard Go to Declaration action (Ctrl+B / Ctrl+Click) therefore
 resolves `LibGMP` and `MPF` in `@mpf : LibGMP::MPF` independently. Annotation
 paths retain their dedicated annotation reference.
+Expression paths expose polyvariant references on their leading constant and
+each namespace segment as well. In `LibGMP::MpLimb.new!(num)`, Ctrl+B on
+`LibGMP` targets the library declarations and Ctrl+B on `MpLimb` targets the
+alias declarations, independently of the following DOT method's reference.
+Both paths use `CrystalFfiTypeResolver` and the same visibility and multi-target
+rules as type annotations.
 
 Library prefixes are resolved through `CrystalLibIndex` in the effective
 require/prelude source set. Simple library names use ordered lexical namespace
@@ -97,6 +103,10 @@ the dedicated FFI struct/union/alias PSI forms are not ordinary type-index
 entries. This is bounded inspection of the exact indexed libraries, not a
 project-wide file scan. Bare member types within a library resolve against
 that library as well.
+The shared `CrystalFfiTypeResolver` also supplies exact FFI alias lookup for
+DOT-receiver diagnostics. Aliases between compile-time conditional tags remain
+declaration candidates in each branch; no platform branch is selected, and
+navigation retains all candidates rather than arbitrarily choosing an alias.
 
 Unknown, unrequired, macro-interpolated, or incomplete identities produce no
 target. Type-path references are polyvariant: multiple exact library or member declarations

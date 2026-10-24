@@ -8,7 +8,6 @@ import com.intellij.psi.PsiElementResolveResult
 import com.intellij.psi.PsiPolyVariantReferenceBase
 import com.intellij.psi.ResolveResult
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
@@ -32,30 +31,8 @@ class CrystalTypePathReference private constructor(
         val sources = CrystalRequireGraphService.getInstance(path.project).effectiveSources(path)
         if (sources.files.isEmpty()) return emptyList()
         val scope = GlobalSearchScope.allScope(path.project)
-        if (!absolute && parts.size == 1) {
-            val enclosing = PsiTreeUtil.getParentOfType(path, CrystalLibDefinition::class.java)
-            if (enclosing != null && sources.contains(enclosing)) {
-                val localMembers = libraryMembers(listOf(enclosing), parts.single(), sources)
-                if (localMembers.isNotEmpty()) return localMembers
-            }
-        }
-
-        // Prove the exact library prefix before looking up its member. Missing
-        // members never fall back to an unrelated type with the same simple name.
-        for (length in parts.size downTo 1) {
-            val prefix = parts.take(length).joinToString("::")
-            val libraries = CrystalIndexService.findLibs(parts[length - 1], path.project, scope)
-                .filter(sources::contains)
-            for (identity in identities(prefix)) {
-                val matches = libraries.filter { CrystalPsiUtils.libQualifiedName(it) == identity }
-                if (matches.isEmpty()) continue
-                if (length == parts.size) return matches
-                // FFI struct/union/alias nodes are not ordinary type stubs.
-                // Inspect only the bodies of these exact indexed libraries.
-                if (length + 1 != parts.size) return emptyList()
-                return libraryMembers(matches, parts.last(), sources, qualifiedAccess = true)
-            }
-        }
+        val ffiPath = (if (absolute) "::" else "") + parts.joinToString("::")
+        CrystalFfiTypeResolver.resolve(ffiPath, path, sources)?.let { return it }
 
         // Ordinary type paths retain the shared session's lexical/exact lookup.
         val prefix = parts.joinToString("::")
@@ -78,21 +55,6 @@ class CrystalTypePathReference private constructor(
         }
         return emptyList()
     }
-
-    private fun libraryMembers(
-        libraries: List<CrystalLibDefinition>,
-        name: String,
-        sources: CrystalEffectiveSourceSet,
-        qualifiedAccess: Boolean = false,
-    ): List<PsiElement> = libraries.flatMap { it.libBody?.children.orEmpty().toList() }
-        .filter { member ->
-            (member is CrystalLibStructDefinition || member is CrystalLibUnionDefinition ||
-                member is CrystalTypeAliasLib || member is CrystalLibTypeAlias ||
-                member is CrystalEnumDefinition || member is CrystalConstantAssignment) &&
-                member.node.findChildByType(CrystalTypes.CONSTANT)?.text == name &&
-                (member !is CrystalConstantAssignment ||
-                    CrystalRequireVisibility.isConstantCandidateVisible(member, sources, path, qualifiedAccess))
-        }
 
     private fun identities(prefix: String): Set<String> =
         if (absolute || prefix.contains("::")) setOf(prefix)

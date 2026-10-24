@@ -37,7 +37,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Program-aware visibility based on one containing entry's transitive dependencies and the configured Crystal prelude; independent executables never share declarations merely because both load a helper
 - Private type constants resolve across require-visible reopenings of their owning namespace; private file-level constants remain file-local
 - Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View
-- Ctrl+B / Ctrl+Click navigation on individual FFI type-path segments, such as `LibGMP` and `MPF` in `LibGMP::MPF`, with the standard target chooser for multiple matching declarations
+- Ctrl+B / Ctrl+Click navigation on individual FFI path segments in type annotations and expressions, such as `LibGMP::MPF` and `LibGMP::MpLimb.new!(num)`, with the standard target chooser for multiple matching declarations
 - Namespace- and require-aware annotation navigation and documentation, with missing-annotation diagnostics
 - Embedded language highlighting in heredocs and strings — `<<-SQL`, `<<-JAVASCRIPT`, `<<-CSS`, `<<-HTML`, `<<-JSON`, `<<-YAML`, `<<-CRYSTAL` and other language markers inject the target language's syntax highlighting when its plugin is installed; `# language=<id>` comments above heredocs, double-quoted strings, `%q`/`%Q` percent literals, and `:"symbol"` strings do the same (with optional `prefix=`/`suffix=`)
 - Parameter Info for parenthesized calls, bare calls, DOT calls, constructors, and overloads
@@ -47,7 +47,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 
 ### Inspections
 
-- Missing-name diagnostics recognize require-visible FFI library namespaces in type annotations
+- Missing-name diagnostics recognize require-visible FFI library namespaces in type annotations and library aliases in constructor receivers, including conditional aliases such as `LibGMP::MpLimb`
 - Argument count and argument type validation, including named arguments, defaults, overloads, splats, double splats, named-only parameters, and `lib fun` FFI calls
 - Instance-variable type validation and unused-assignment detection
 - Diagnostics for invalid empty collections, `lib fun` parameters without types, invalid single-quoted strings, colon spacing, and required parameters after optional ones

@@ -36,6 +36,12 @@ the constant rule per segment, with the root rule for qualified paths.
    through an alias is unjudgeable until the type session unwraps aliases,
    so calls on an alias receiver stay silent instead of flagging the method
    name.
+   FFI aliases use dedicated library-member PSI rather than the ordinary alias
+   index. Qualified receivers such as `LibGMP::MpLimb.new!(num)` use the same
+   exact, require-visible library lookup as FFI type-path navigation. Aliases
+   declared between compile-time conditional tags count as known; the plugin
+   does not choose a target platform branch or certify the alias's method set.
+   An alias in another library or an unrequired file never heals the receiver.
 4. The compiler-builtin or magic-name baseline: `sizeof`, `typeof`,
    `pointerof`, `instance_sizeof`, `offsetof`, `alignof`, `uninitialized`,
    `__DIR__`, `__FILE__`, `__LINE__`, `__END_LINE__`, `__METHOD__`, and the
