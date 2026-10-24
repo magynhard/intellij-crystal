@@ -254,6 +254,14 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Generated type names and method type parameters** — do not report the
+  static prefix of interpolated types such as `UInt{{n}}` as missing, including
+  their use as expression arguments. Explicit
+  `forall` type parameters are recognized throughout their method's signature
+  and body and navigate to their local declaration instead of an unrelated
+  same-named global type. Dependent paths such as `T::MAX` and `T::MIN` remain
+  unjudgeable before specialization; bindings do not leak into other methods
+  or heal absolute paths.
 - **FFI expression-path navigation** — Go to Declaration resolves both the
   library and alias segments in expressions such as `LibGMP::MpLimb.new!(num)`,
   not only in type annotations. Exact require-visible declarations remain

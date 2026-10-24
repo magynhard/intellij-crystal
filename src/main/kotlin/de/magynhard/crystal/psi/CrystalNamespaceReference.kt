@@ -32,6 +32,8 @@ class CrystalNamespaceReference(
     override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> {
         val path = CrystalReceiverExpression.extractExactConstantTypeRoot(element)
         if (path != null) {
+            // T::MAX depends on specialization; a global T must not capture it.
+            if (CrystalForallBinding.findPathRootDeclaration(path, element) != null) return emptyArray()
             CrystalFfiTypeResolver.resolve(path, element)?.let { targets ->
                 return targets.map { PsiElementResolveResult(it) }.toTypedArray()
             }

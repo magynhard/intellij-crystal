@@ -48,6 +48,17 @@ even without source declarations, but cannot navigate without an indexed target.
 
 ## DOT-Call Navigation
 
+Explicit method-local `forall` type parameters resolve through
+`CrystalForallBinding` before indexed declarations. Simple type references in
+the signature and body navigate to the corresponding constant token in the
+`forall` clause, even when an indexed global type has the same name. Absolute
+paths do not bind to method-local parameters, and method/nested-declaration
+boundaries prevent those bindings from leaking. This is declaration navigation,
+not inference of a concrete specialization or a type parameter's method set.
+Dependent members such as `T::MAX` do not resolve to members of a global `T`;
+only the root navigates to the local `forall` declaration. Tight macro-generated
+expression names such as `UInt{{n}}` likewise never navigate to a static `UInt`.
+
 Bare type references use the shared type-resolution session's ordered lexical
 identities: nearest enclosing namespace, then each outer namespace, then the
 global identity. Candidates must belong to the effective require/prelude source

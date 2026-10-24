@@ -15,6 +15,7 @@ import de.magynhard.crystal.psi.*
  */
 
 private fun createCrystalReference(element: ASTWrapperPsiElement): CrystalReference? {
+    if (CrystalMacroContext.isInterpolatedName(element)) return null
     // Skip if part of a definition name
     val parent = element.parent
     if (parent is CrystalNamedElement) return null

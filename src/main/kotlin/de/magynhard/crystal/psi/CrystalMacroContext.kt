@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.inspections.CrystalCallExtractor
 import de.magynhard.crystal.stubs.CrystalIndexService
 
@@ -18,6 +19,20 @@ import de.magynhard.crystal.stubs.CrystalIndexService
  * argument diagnostics inside macro context.
  */
 object CrystalMacroContext {
+
+    /** `UInt{{n}}` in expression position is parsed as a callee plus a tight macro argument. */
+    fun isInterpolatedName(context: PsiElement): Boolean {
+        val element = if (context.firstChild == null) context.parent else context
+        if (element !is CrystalMethodCallExpression && element !is CrystalBareMethodCallExpression) return false
+        val name = element.node.getChildren(null).firstOrNull {
+            it.elementType == CrystalTypes.CONSTANT || it.elementType == CrystalTypes.IDENTIFIER
+        } ?: return false
+        val arguments = element.children.filterIsInstance<CrystalBareArgumentList>().firstOrNull() ?: return false
+        val argument = arguments.bareArgumentList.firstOrNull() ?: return false
+        val interpolation = PsiTreeUtil.findChildOfType(argument, CrystalMacroInterpolation::class.java) ?: return false
+        // Whitespace separates an ordinary callee from a macro-spliced argument.
+        return name.startOffset + name.textLength == interpolation.textOffset
+    }
 
     fun isInMacroContext(element: PsiElement): Boolean {
         var current: PsiElement? = element

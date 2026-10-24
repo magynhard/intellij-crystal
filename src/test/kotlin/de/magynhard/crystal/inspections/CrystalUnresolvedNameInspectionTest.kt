@@ -11,6 +11,113 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== Bare identifiers ====================
 
+    fun testGeneratedTypeNamesAsCallArgumentsStayClean() {
+        myFixture.configureByText("big_int.cr", """
+            def to_primitive_u(type)
+            end
+            def to_primitive_u!(type)
+            end
+            {% for n in [8, 16, 32, 64, 128] %}
+              def to_u{{n}} : UInt{{n}}
+                to_primitive_u(UInt{{n}})
+              end
+              def to_u{{n}}! : UInt{{n}}
+                to_primitive_u!(UInt{{n}})
+              end
+            {% end %}
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testForallConstantsUsedAsDotReceiversStayClean() {
+        myFixture.configureByText("big_int.cr", """
+            private def to_primitive_i_positive(type : T.class) : T forall T
+              mask = T::MAX >> 1
+              mask
+            end
+            private def to_primitive_i_negative(type : T.class) : T forall T
+              limit = T::MIN.abs_unsigned
+              limit
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroArgumentWithWhitespaceDoesNotHideUnknownCallee() {
+        myFixture.configureByText("test.cr", """
+            def consume(type)
+            end
+            consume(<warning descr="Cannot find 'UInt'">UInt</warning> {{8}})
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testForallDoesNotHealAbsoluteOrOutOfScopeConstantPaths() {
+        myFixture.configureByText("test.cr", """
+            def convert(type : T.class) forall T
+              T::MAX
+              ::<warning descr="Cannot find 'T'">T</warning>::MAX
+            end
+            <warning descr="Cannot find 'T'">T</warning>::MIN
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testMacroInterpolatedReturnTypeDoesNotReportItsStaticPrefix() {
+        myFixture.configureByText("big_int.cr", """
+            {% for n in [8, 16, 32, 64, 128] %}
+              def to_u{{n}} : UInt{{n}}
+              end
+            {% end %}
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testForallTypeParameterIsKnownInSignatureAndBody() {
+        myFixture.configureByText("big_int.cr", """
+            struct BigInt
+              private def to_primitive_i(type : T.class) : T forall T
+                value : T
+                T.zero
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testForallTypeParametersDoNotLeakToOtherMethodsOrTopLevel() {
+        myFixture.configureByText("test.cr", """
+            def convert(type : T.class) : T forall T
+            end
+            def other(type : <warning descr="Cannot find 'T'">T</warning>.class) : <warning descr="Cannot find 'T'">T</warning>
+            end
+            value : <warning descr="Cannot find 'T'">T</warning>
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testForallBindsEveryDeclaredNameButNotUnknownTypes() {
+        myFixture.configureByText("test.cr", """
+            def convert(left : T.class, right : U.class) : U forall T, U
+              value : <warning descr="Cannot find 'MissingType'">MissingType</warning>
+              U.zero
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testNonInterpolatedTypesStillWarnInsideMacroLoops() {
+        myFixture.configureByText("test.cr", """
+            {% for n in [8, 16] %}
+              def generated{{n}} : UInt{{n}}
+              end
+              def fixed : <warning descr="Cannot find 'UInt'">UInt</warning>
+              end
+            {% end %}
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testConditionalFfiAliasConstructorReceiverStaysClean() {
         myFixture.addFileToProject("lib_gmp.cr", """
             lib LibGMP

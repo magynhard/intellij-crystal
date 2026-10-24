@@ -28,6 +28,11 @@ class CrystalTypePathReference private constructor(
 
     private fun resolveTargets(): List<PsiElement> {
         if (DumbService.isDumb(path.project) || CrystalMacroContext.isInMacroContext(path)) return emptyList()
+        if (!absolute) {
+            CrystalForallBinding.findDeclaration(parts.first(), path)?.let {
+                return if (parts.size == 1) listOf(it) else emptyList()
+            }
+        }
         val sources = CrystalRequireGraphService.getInstance(path.project).effectiveSources(path)
         if (sources.files.isEmpty()) return emptyList()
         val scope = GlobalSearchScope.allScope(path.project)

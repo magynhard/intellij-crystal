@@ -36,6 +36,9 @@ class CrystalReference(
 
     override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> {
         if (name.firstOrNull()?.isUpperCase() == true && !CrystalMacroContext.isInMacroContext(element)) {
+            CrystalForallBinding.findDeclaration(name, element)?.let {
+                return arrayOf(PsiElementResolveResult(it))
+            }
             CrystalFfiTypeResolver.resolve(name, element)?.let { targets ->
                 return targets.map { PsiElementResolveResult(it) }.toTypedArray()
             }

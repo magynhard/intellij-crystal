@@ -84,6 +84,7 @@ object CrystalUnresolvedName {
      * [context], or `null` when the name is known or must stay silent.
      */
     fun isUnresolvedBareName(name: String, context: PsiElement): UnresolvedKind? {
+        if (CrystalMacroContext.isInterpolatedName(context)) return null
         if (name in MAGIC_CONSTANTS) return null
         if (name in PRELUDE_TOP_LEVEL_METHODS || name in COMPILER_BUILTIN_CALLS) return null
         if (name in CrystalTypeCompletionProvider.OPTIONAL_STDLIB_TYPES &&
@@ -113,6 +114,7 @@ object CrystalUnresolvedName {
      * through the constant index with require visibility.
      */
     fun isUnresolvedConstant(name: String, context: PsiElement): UnresolvedKind? {
+        if (CrystalMacroContext.isInterpolatedName(context)) return null
         if (isBaselineConstant(name, context)) return null
         if (resolvesThroughReference(context)) return null
         return declaredConstantKind(name, context)
@@ -233,6 +235,8 @@ object CrystalUnresolvedName {
             // also as DOT receivers and without a configured SDK — same
             // lens as rootFlagElement.
             if (isBaselineConstant(simpleName, access)) return null
+            // A method-local type parameter has no concrete method set before specialization.
+            if (CrystalForallBinding.findPathRootDeclaration(cleanRoot, access) != null) return null
             // FFI aliases have dedicated PSI, not ordinary alias-index entries.
             // Reuse exact library-member lookup, including conditional declarations.
             // Their method sets remain unjudgeable without unwrapping the alias.
@@ -299,6 +303,8 @@ object CrystalUnresolvedName {
      * root rule, mirroring namespace paths.
      */
     fun typePathFlagElement(path: CrystalTypePath): Pair<PsiElement, UnresolvedKind>? {
+        // UInt{{n}} names a generated type, not a reference to a type named UInt.
+        if (path.children.any { it is CrystalMacroInterpolation }) return null
         if (path.parent is CrystalAnnotationUsage) {
             val lookup = CrystalAnnotationResolver.lookup(path) ?: return null
             if (lookup.known) return null
@@ -325,6 +331,8 @@ object CrystalUnresolvedName {
         if (segments.isEmpty()) return null
         val (rootName, rootLeaf) = segments.first()
         if (rootName.isBlank()) return null
+        val path = CrystalReceiverExpression.extractExactConstantTypeRoot(context)
+        if (path != null && CrystalForallBinding.findPathRootDeclaration(path, context) != null) return null
         // The reference resolves the whole path, never the root alone, so a
         // resolvable root with an unresolvable member (e.g. `Color::Red`)
         // needs the declared-constant rule instead of the full chain.
@@ -539,7 +547,7 @@ object CrystalUnresolvedName {
         while (sibling is PsiWhiteSpace || sibling?.node?.elementType == CrystalTypes.NEWLINE) {
             sibling = sibling.nextSibling
         }
-        return sibling?.node?.elementType == CrystalTypes.DOUBLE_COLON
+        return sibling is CrystalNamespaceAccess || sibling?.node?.elementType == CrystalTypes.DOUBLE_COLON
     }
 
     private fun collectNamespaceSegments(access: CrystalNamespaceAccess): List<Pair<String, PsiElement>> {

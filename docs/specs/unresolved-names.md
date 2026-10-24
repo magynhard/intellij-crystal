@@ -19,6 +19,13 @@ the constant rule per segment, with the root rule for qualified paths.
    binding, grouped `(x = …)` or multi `x, y = …` target, enclosing `def` /
    `macro` parameter, block or proc-literal parameter. Forward references do
    not bind (locals), except hoisted top-level methods.
+   Explicit method type parameters declared by `forall T, U` bind throughout
+   that method's parameter restrictions, return type, and body. They do not
+   leak into sibling methods or nested declarations. DOT calls on such a type
+   parameter remain unjudgeable before specialization and do not fall back to
+   a same-named global type's methods. This also applies to dependent constant
+   paths such as `T::MAX` and DOT calls on `T::MIN`; an absolute `::T` is not a
+   method-local parameter.
 2. A prelude baseline entry: prelude types (`String`, `Int32`, … — the same
    core list as type completion), prelude top-level methods (`puts`,
    `print`, `p`, `pp`, `gets`, `loop`, `spawn`, `sleep`, `raise`, `exit`,
@@ -109,6 +116,13 @@ call-argument inspections:
 - Incomplete or suppressed DOT receivers, macro-uncertain enclosing types
   (named-method collection incomplete for an implicit-self bare call),
   macro-interpolated callees or receivers: silent.
+- Interpolated type paths such as `UInt{{n}}` are generated names, not missing
+  references to their static prefixes. They remain silent without suppressing
+  ordinary non-interpolated type paths in the same compile-time loop.
+  The same rule applies in expression arguments (`consume(UInt{{n}})`), where
+  the parser represents the tight interpolation as a macro argument to the
+  static prefix. Whitespace-separated macro arguments do not concatenate with
+  their callee and never suppress an otherwise unknown callee.
 - Non-code positions: definition names, DOT/DOUBLE_COLON-adjacent segments
   (except the flagged last namespace segment), symbol keys (`sym:`), string
   literals, `require` paths, annotation arguments, `case ... in` patterns (owned by
