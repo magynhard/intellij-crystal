@@ -254,6 +254,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **FFI navigation with multiple declaration sources** — Go to Declaration
+  keeps all exact library and library-member targets available to JetBrains' chooser rather
+  than reporting no declaration when both a Crystal checkout and its installed
+  SDK contribute `LibGMP` and `LibGMP::MPF`. Single-target resolution remains unambiguous;
+  unrelated libraries and unavailable sources are still excluded.
 - **Go to Declaration for FFI type paths** — Ctrl+B / Ctrl+Click on each
   segment of paths such as `LibGMP::MPF` navigates to the library or its
   struct, union, enum, alias, or opaque-type declaration. Library and member

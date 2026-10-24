@@ -1,11 +1,18 @@
 package de.magynhard.crystal
 
 import com.intellij.codeInsight.TargetElementUtil
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationOrUsageHandler2
+import com.intellij.openapi.actionSystem.IdeActions
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.impl.source.PsiFileImpl
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
+import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 class CrystalFfiTypeNavigationTest : BasePlatformTestCase() {
     private fun addLibrary(path: String = "lib_gmp.cr") = myFixture.addFileToProject(path, """
@@ -109,6 +116,9 @@ class CrystalFfiTypeNavigationTest : BasePlatformTestCase() {
         addLibrary("b.cr")
         myFixture.configureByText("main.cr", "require \"./a\"\nrequire \"./b\"\nvalue : LibGMP::M<caret>PF")
         assertNull(targetAtCaret())
+        val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+        assertEquals("Both exact declarations must remain available to the native target chooser",
+            2, reference.multiResolve(false).size)
     }
 
     fun testOrdinaryQualifiedTypePathKeepsMemberNavigation() {
@@ -175,5 +185,84 @@ class CrystalFfiTypeNavigationTest : BasePlatformTestCase() {
         val nested = CrystalIndexService.findNestedTypes("Native", project, GlobalSearchScope.allScope(project))
         assertTrue("Library-owned enums must be indexed under the library, not the global namespace",
             nested.any { CrystalPsiUtils.buildQualifiedName(it) == "Native::Kind" })
+    }
+
+    fun testLibraryMemberNavigatesFromColdStub() {
+        myFixture.tempDirFixture.createFile("cold.cr", "lib LibGMP\nstruct MPF\nvalue : Int32\nend\nend")
+        myFixture.configureByText("main.cr", "require \"./cold\"\nvalue : LibGMP::M<caret>PF")
+        val library = CrystalIndexService.findLibs("LibGMP", project, GlobalSearchScope.allScope(project)).single()
+        assertFalse("The regression must begin without a loaded library AST", (library.containingFile as PsiFileImpl).isContentsLoaded)
+        assertTrue(targetAtCaret() is CrystalLibStructDefinition)
+    }
+
+    fun testActualGotoDeclarationActionOpensMpfDeclaration() {
+        val library = addLibrary()
+        myFixture.configureByText("big_float.cr", """
+            require "./lib_gmp"
+            struct BigFloat
+              def initialize(@mpf : LibGMP::M<caret>PF)
+              end
+            end
+        """.trimIndent())
+        myFixture.performEditorAction(IdeActions.ACTION_GOTO_DECLARATION)
+        assertTrue("The actual Go to Declaration action must open the library source",
+            library.virtualFile in FileEditorManager.getInstance(project).selectedFiles)
+    }
+
+    fun testCheckoutAndSdkLibraryAndMemberDeclarationsRemainAvailableToGotoChooser() {
+        val prelude = myFixture.addFileToProject("sdk/prelude.cr", "")
+        val installed = addLibrary("sdk/big/lib_gmp.cr")
+        myFixture.addFileToProject("sdk/big.cr", "require \"./big/lib_gmp\"")
+        val checkout = addLibrary("src/big/lib_gmp.cr")
+        myFixture.addFileToProject("src/big.cr", "require \"./big/lib_gmp\"\nrequire \"./big/big_float\"")
+        val source = myFixture.addFileToProject("src/big/big_float.cr", """
+            require "big"
+            struct BigFloat
+              def initialize(@mpf : LibGMP::MPF)
+              end
+            end
+        """.trimIndent())
+        val root = requireNotNull(prelude.virtualFile.parent)
+        CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { root }
+        CrystalStdlibResolver.clearCachedStdlibPath(project)
+        assertSame(root, CrystalStdlibResolver.resolveStdlibPath(project))
+        myFixture.configureFromExistingVirtualFile(source.virtualFile)
+        myFixture.editor.caretModel.moveToOffset(source.text.indexOf("::MPF") + 3)
+        val leaf = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val sources = CrystalRequireGraphService.getInstance(project).effectiveSources(leaf)
+        assertTrue("The checkout declaration must be in the selected ancestor entry", sources.contains(checkout))
+        assertTrue("The bare big require must also load the installed declaration", sources.contains(installed))
+        for (libraryRoot in listOf(true, false)) {
+            val offset = if (libraryRoot) source.text.indexOf("LibGMP::") else source.text.indexOf("::MPF") + 3
+            myFixture.editor.caretModel.moveToOffset(offset)
+            val reference = myFixture.file.findReferenceAt(offset)
+            assertNotNull(reference)
+            assertNull("Do not arbitrarily select one of the two declarations", reference!!.resolve())
+            assertTrue("Go to Declaration needs polyvariant candidates instead of no declaration",
+                reference is PsiPolyVariantReference)
+            val targets = (reference as PsiPolyVariantReference).multiResolve(false).mapNotNull { it.element }
+            assertEquals(setOf(checkout.virtualFile, installed.virtualFile), targets.map { it.containingFile.virtualFile }.toSet())
+            assertTrue(targets.all { if (libraryRoot) it is CrystalLibDefinition else it is CrystalLibStructDefinition })
+            assertEquals(targets.toSet(), TargetElementUtil.getInstance().getTargetCandidates(reference).toSet())
+            assertEquals("The active JetBrains Ctrl+B action must find a declaration, not report nowhere to go",
+                GotoDeclarationOrUsageHandler2.GTDUOutcome.GTD,
+                GotoDeclarationOrUsageHandler2.testGTDUOutcome(myFixture.editor, myFixture.file, offset))
+        }
+    }
+
+    fun testValidLibraryReopeningsOfferBothRootsAndOnlyTheMatchingMember() {
+        val first = addLibrary("first.cr")
+        val second = myFixture.addFileToProject("second.cr", "lib LibGMP\nfun extra\nend")
+        addLibrary("unrequired.cr")
+        myFixture.configureByText("main.cr", "require \"./first\"\nrequire \"./second\"\nvalue : LibG<caret>MP::MPF")
+        val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+        assertNull(reference.resolve())
+        val targets = reference.multiResolve(false).mapNotNull { it.element }
+        assertEquals(setOf(first.virtualFile, second.virtualFile), targets.map { it.containingFile.virtualFile }.toSet())
+        assertTrue(targets.all { it is CrystalLibDefinition })
+        myFixture.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("::MPF") + 3)
+        val member = targetAtCaret()
+        assertTrue(member is CrystalLibStructDefinition)
+        assertEquals(first.virtualFile, member!!.containingFile.virtualFile)
     }
 }

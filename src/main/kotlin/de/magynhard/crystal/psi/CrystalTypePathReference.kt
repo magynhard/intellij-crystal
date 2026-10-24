@@ -4,7 +4,9 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReference
-import com.intellij.psi.PsiReferenceBase
+import com.intellij.psi.PsiElementResolveResult
+import com.intellij.psi.PsiPolyVariantReferenceBase
+import com.intellij.psi.ResolveResult
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
@@ -19,17 +21,22 @@ class CrystalTypePathReference private constructor(
     private val parts: List<String>,
     private val absolute: Boolean,
     range: TextRange,
-) : PsiReferenceBase<CrystalTypePath>(path, range, true) {
-    override fun resolve(): PsiElement? {
-        if (DumbService.isDumb(path.project) || CrystalMacroContext.isInMacroContext(path)) return null
+) : PsiPolyVariantReferenceBase<CrystalTypePath>(path, range, true) {
+    override fun resolve(): PsiElement? = multiResolve(false).singleOrNull()?.element
+
+    override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> =
+        resolveTargets().map { PsiElementResolveResult(it) as ResolveResult }.toTypedArray()
+
+    private fun resolveTargets(): List<PsiElement> {
+        if (DumbService.isDumb(path.project) || CrystalMacroContext.isInMacroContext(path)) return emptyList()
         val sources = CrystalRequireGraphService.getInstance(path.project).effectiveSources(path)
-        if (sources.files.isEmpty()) return null
+        if (sources.files.isEmpty()) return emptyList()
         val scope = GlobalSearchScope.allScope(path.project)
         if (!absolute && parts.size == 1) {
             val enclosing = PsiTreeUtil.getParentOfType(path, CrystalLibDefinition::class.java)
             if (enclosing != null && sources.contains(enclosing)) {
                 val localMembers = libraryMembers(listOf(enclosing), parts.single(), sources)
-                if (localMembers.isNotEmpty()) return localMembers.singleOrNull()
+                if (localMembers.isNotEmpty()) return localMembers
             }
         }
 
@@ -42,11 +49,11 @@ class CrystalTypePathReference private constructor(
             for (identity in identities(prefix)) {
                 val matches = libraries.filter { CrystalPsiUtils.libQualifiedName(it) == identity }
                 if (matches.isEmpty()) continue
-                if (length == parts.size) return stableTarget(matches)
+                if (length == parts.size) return matches
                 // FFI struct/union/alias nodes are not ordinary type stubs.
                 // Inspect only the bodies of these exact indexed libraries.
-                if (length + 1 != parts.size) return null
-                return libraryMembers(matches, parts.last(), sources, qualifiedAccess = true).singleOrNull()
+                if (length + 1 != parts.size) return emptyList()
+                return libraryMembers(matches, parts.last(), sources, qualifiedAccess = true)
             }
         }
 
@@ -55,9 +62,9 @@ class CrystalTypePathReference private constructor(
         val session = CrystalTypeSetResolver.session(path)
         session.resolveType(if (absolute) "::$prefix" else prefix, path)?.let { identity ->
             val declarations = session.findExactTypeDeclarations(identity)
-            if (declarations.isNotEmpty()) return stableTarget(declarations)
+            if (declarations.isNotEmpty()) return listOfNotNull(stableTarget(declarations))
         }
-        aliasTarget(prefix, sources)?.let { return it }
+        aliasTarget(prefix, sources)?.let { return listOf(it) }
         // Static-array sizes and other value type arguments also use type_path.
         val constants = CrystalIndexService.findConstants(parts.last(), path.project, scope)
             .filter { CrystalRequireVisibility.isConstantCandidateVisible(it, sources, path,
@@ -67,9 +74,9 @@ class CrystalTypePathReference private constructor(
                 val owner = declaration.stub?.ownerQualifiedName ?: CrystalPsiUtils.constantOwnerQualifiedName(declaration)
                 (owner?.let { "$it::${declaration.name}" } ?: declaration.name) == identity
             }
-            if (matches.isNotEmpty()) return matches.singleOrNull()
+            if (matches.isNotEmpty()) return matches
         }
-        return null
+        return emptyList()
     }
 
     private fun libraryMembers(

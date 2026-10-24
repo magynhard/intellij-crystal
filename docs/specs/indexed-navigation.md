@@ -99,8 +99,17 @@ project-wide file scan. Bare member types within a library resolve against
 that library as well.
 
 Unknown, unrequired, macro-interpolated, or incomplete identities produce no
-target. Ambiguous member declarations produce no arbitrary target. A missing
-member never navigates to a same-named declaration from another library.
+target. Type-path references are polyvariant: multiple exact library or member declarations
+remain available through `multiResolve()` and JetBrains' normal target chooser,
+while `resolve()` returns no arbitrary single declaration. This includes a
+Crystal checkout and installed SDK both contributing the same library to the
+effective source set. A missing member never navigates to a same-named declaration
+from another library.
+Merely indexing an SDK or checkout does not make it a candidate: the declaration
+must occur in the effective require/prelude source set. Offering navigation
+targets does not certify a compilable program; valid library reopenings and
+conflicting duplicate FFI type definitions both retain their actual declaration
+locations without selecting one arbitrarily.
 Ordinary non-FFI paths retain the shared type session's lexical/exact lookup,
 and constant-valued type arguments retain constant navigation.
 
