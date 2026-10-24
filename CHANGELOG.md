@@ -254,6 +254,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Go to Declaration for FFI type paths** — Ctrl+B / Ctrl+Click on each
+  segment of paths such as `LibGMP::MPF` navigates to the library or its
+  struct, union, enum, alias, or opaque-type declaration. Library and member
+  lookup respects exact namespaces and require/prelude visibility; missing or
+  ambiguous members never fall back to unrelated declarations. Library-owned
+  index identities are corrected, triggering an index rebuild.
+- **FFI library namespaces in type annotations** — recognize require-visible
+  `lib` declarations in paths such as `@mpf : LibGMP::MPF`, fixing the false
+  `Cannot find 'LibGMP'` warning in BigFloat. Lexical namespace lookup stays
+  exact; unrequired, unrelated, and missing library roots still warn, and
+  absolute paths never fall back to a lexical library.
 - **Index Crystal runtime support and preserve argument navigation** — the
   `crystal/` stdlib directory is runtime code, not CLI tooling, and is no longer
   excluded from synthetic or legacy library roots. Prelude constants such as

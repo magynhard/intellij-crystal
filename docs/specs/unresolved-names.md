@@ -49,6 +49,13 @@ the constant rule per segment, with the root rule for qualified paths.
     and exact superclass/include ancestry, but not from unrelated owners or
     through explicit `Owner::CONSTANT` access.
     Reopenings do not bypass require/prelude visibility.
+    FFI `lib` declarations also count as namespace roots in type paths, such as
+    `@mpf : LibGMP::MPF`. Simple roots use the enclosing lexical namespaces and
+    then the global identity; absolute roots never fall back to lexical names.
+    Only require-visible declarations count. Indexed-but-unavailable libraries
+    warn weakly; unknown library roots warn normally. An unrelated same-named
+    library never makes the root known. This recognizes the library root, not
+    arbitrary missing members inside it.
 6. DOT calls whose receiver resolves exactly and whose method set resolves
    (`Methods`, `ImplicitConstructor`, `RecordFallback`, `Accessor`).
    Unqualified type receivers use the shared ordered lexical identity lookup,

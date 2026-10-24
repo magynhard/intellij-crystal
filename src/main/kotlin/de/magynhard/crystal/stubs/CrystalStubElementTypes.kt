@@ -37,7 +37,7 @@ class CrystalClassDefinitionElementType(debugName: String) :
     override fun indexStub(stub: CrystalClassDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
 
-        // Index by enclosing class/module/struct/enum name for hierarchical completion.
+        // Index by enclosing type/library name for hierarchical completion.
         // Two sources: (1) parent stub tree (nested classes), (2) qualified type_name prefix (Foo::Bar).
         val enclosingName = findEnclosingParentName(stub) ?: stub.enclosingNamespace
         enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
@@ -445,7 +445,7 @@ class CrystalConstantAssignmentElementType(debugName: String) :
  * class/module/struct/enum. Returns `null` if no enclosing type is found.
  *
  * Used for indexing: methods and nested types are indexed by their enclosing
- * class name for hierarchical lookups.
+ * type or library name for hierarchical lookups.
  */
 private fun findEnclosingParentName(stub: StubElement<*>): String? {
     var parent = stub.parentStub
@@ -456,6 +456,7 @@ private fun findEnclosingParentName(stub: StubElement<*>): String? {
         if (name != null && parent is CrystalModuleDefinitionStub) return name
         if (name != null && parent is CrystalStructDefinitionStub) return name
         if (name != null && parent is CrystalEnumDefinitionStub) return name
+        if (name != null && parent is CrystalLibDefinitionStub) return name
         parent = parent.parentStub
     }
     return null

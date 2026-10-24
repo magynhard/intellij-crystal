@@ -443,6 +443,97 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testRequiredLibNamespaceInBigFloatParameterStaysClean() {
+        myFixture.addFileToProject("big/lib_gmp.cr", "lib LibGMP\n  struct MPF\n  end\nend")
+        myFixture.addFileToProject("big.cr", "require \"./big/lib_gmp\"")
+        myFixture.configureByText("big_float.cr", """
+            require "./big"
+            struct BigFloat < Float
+              def initialize(@mpf : LibGMP::MPF)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrequiredLibNamespaceInParameterIsWarning() {
+        myFixture.addFileToProject("lib_gmp.cr", "lib LibGMP\n  struct MPF\n  end\nend")
+        myFixture.configureByText("big_float.cr", """
+            struct BigFloat < Float
+              def initialize(@mpf : <weak_warning descr="Cannot find 'LibGMP'">LibGMP</weak_warning>::MPF)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnknownLibNamespaceInParameterIsWarning() {
+        myFixture.configureByText("big_float.cr", """
+            struct BigFloat < Float
+              def initialize(@mpf : <warning descr="Cannot find 'LibMissing'">LibMissing</warning>::MPF)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testUnrelatedLibNamespaceDoesNotHealParameterRoot() {
+        myFixture.addFileToProject("other.cr", """
+            module Other
+              lib LibGMP
+                struct MPF
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("big_float.cr", """
+            require "./other"
+            struct BigFloat < Float
+              def initialize(@mpf : <weak_warning descr="Cannot find 'LibGMP'">LibGMP</weak_warning>::MPF)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testLexicallyNestedLibNamespaceInParameterStaysClean() {
+        myFixture.addFileToProject("lib_gmp.cr", """
+            module Big
+              lib LibGMP
+                struct MPF
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("big_float.cr", """
+            require "./lib_gmp"
+            struct Big::BigFloat
+              def initialize(@mpf : LibGMP::MPF)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testAbsoluteLibNamespaceDoesNotFallBackToLexicalLib() {
+        myFixture.addFileToProject("lib_gmp.cr", """
+            module Big
+              lib LibGMP
+                struct MPF
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("big_float.cr", """
+            require "./lib_gmp"
+            struct Big::BigFloat
+              def initialize(@mpf : ::<weak_warning descr="Cannot find 'LibGMP'">LibGMP</weak_warning>::MPF)
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testPrivateTypeConstantInQualifiedReopeningStaysClean() {
         myFixture.addFileToProject("hasher.cr", """
             struct Crystal::Hasher

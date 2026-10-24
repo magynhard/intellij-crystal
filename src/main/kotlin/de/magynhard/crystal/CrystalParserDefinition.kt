@@ -39,7 +39,9 @@ class CrystalParserDefinition : ParserDefinition {
             // v21: `fun` declarations in lib bodies carry stubs (declaration
             // name + qualified owner library) and populate the new lib-fun
             // index; persisted indexes must rebuild.
-            override fun getStubVersion(): Int = 21
+            // v22: library namespaces participate in qualified member identities
+            // and nested-type/constant-owner index keys.
+            override fun getStubVersion(): Int = 22
         }
     }
 

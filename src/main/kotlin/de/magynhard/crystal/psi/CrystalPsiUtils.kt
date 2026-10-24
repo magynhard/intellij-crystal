@@ -12,6 +12,7 @@ import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.stubs.CrystalAliasDefinitionStub
 import de.magynhard.crystal.stubs.CrystalClassDefinitionStub
 import de.magynhard.crystal.stubs.CrystalEnumDefinitionStub
+import de.magynhard.crystal.stubs.CrystalLibDefinitionStub
 import de.magynhard.crystal.stubs.CrystalModuleDefinitionStub
 import de.magynhard.crystal.stubs.CrystalNamedStub
 import de.magynhard.crystal.stubs.CrystalStructDefinitionStub
@@ -161,7 +162,9 @@ object CrystalPsiUtils {
 
     fun buildLexicalQualifiedNameCandidates(simpleName: String, context: PsiElement): Set<String> {
         val candidates = linkedSetOf<String>()
-        val enclosingParts = getEnclosingType(context)
+        val enclosingParts = PsiTreeUtil.findFirstParent(context) {
+            isTypeDefinition(it) || it is CrystalLibDefinition
+        }
             ?.let(::buildQualifiedName)
             ?.split("::")
             .orEmpty()
@@ -370,7 +373,7 @@ object CrystalPsiUtils {
     }
 
     /**
-     * Builds the fully-qualified name of a class/module/struct/enum definition
+     * Builds the fully-qualified name of a type, alias, or library declaration
      * by walking up the PSI tree and collecting enclosing type names.
      *
      * Examples:
@@ -378,6 +381,7 @@ object CrystalPsiUtils {
      * - `class Foo::Sub` (namespace-defined) → `"Foo::Sub"` (from stub.name)
      * - `class C` in `class B` in `class A` → `"A::B::C"`
      * - `module Foo; class Bar; end; end` → `"Foo::Bar"`
+     * - `lib LibGMP; struct MPF; end; end` → `"LibGMP::MPF"`
      */
     fun buildQualifiedName(element: PsiElement): String? {
         val parts = mutableListOf<String>()
@@ -389,6 +393,11 @@ object CrystalPsiUtils {
                 is CrystalStructDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalEnumDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalAliasDefinition -> current.name
+                is CrystalLibDefinition -> current.name
+                is CrystalLibStructDefinition,
+                is CrystalLibUnionDefinition,
+                is CrystalTypeAliasLib,
+                is CrystalLibTypeAlias -> current.node.findChildByType(CrystalTypes.CONSTANT)?.text
                 is CrystalAnnotationDefinition -> extractQualifiedTypeName(current) ?: current.name
                 is CrystalMethodCallExpression -> recordDeclaredName(current)
                 else -> null
@@ -411,7 +420,7 @@ object CrystalPsiUtils {
      * callers fall back to the PSI walk (which stays authoritative):
      * a qualified header (`struct Foo::Bar`) stores only its first segment,
      * so anything deeper (`A::B::C`, whose middle segments stubs never
-     * store) is unprovable. Other named scopes (macros, methods, libs) are
+     * store) is unprovable. Other named scopes (macros and methods) are
      * skipped exactly like [buildQualifiedName] skips them.
      */
     fun buildQualifiedNameFromStub(stub: com.intellij.psi.stubs.StubElement<*>): String? {
@@ -425,6 +434,7 @@ object CrystalPsiUtils {
                 is CrystalStructDefinitionStub,
                 is CrystalEnumDefinitionStub,
                 is CrystalAliasDefinitionStub,
+                is CrystalLibDefinitionStub,
                 -> {
                     val name = (current as CrystalNamedStub).name ?: return null
                     parts.add(0, name)

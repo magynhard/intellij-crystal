@@ -80,6 +80,36 @@ resolver: only exact qualified library identities inside the effective require
 closure navigate, and absent or ambiguous targets resolve to nothing. `multiResolve()`
 returns every same-shape declaration on the exact library identity.
 
+## FFI Type-Path Navigation
+
+Ordinary `CrystalTypePath` nodes expose one PSI reference per constant segment.
+JetBrains' standard Go to Declaration action (Ctrl+B / Ctrl+Click) therefore
+resolves `LibGMP` and `MPF` in `@mpf : LibGMP::MPF` independently. Annotation
+paths retain their dedicated annotation reference.
+
+Library prefixes are resolved through `CrystalLibIndex` in the effective
+require/prelude source set. Simple library names use ordered lexical namespace
+candidates; qualified and absolute library prefixes keep their exact identity.
+Once a prefix identifies a library, only its indexed reopenings contribute
+member declarations. The corresponding library bodies provide their direct
+FFI structs, unions, enums, aliases, opaque types, and accessible constants;
+the dedicated FFI struct/union/alias PSI forms are not ordinary type-index
+entries. This is bounded inspection of the exact indexed libraries, not a
+project-wide file scan. Bare member types within a library resolve against
+that library as well.
+
+Unknown, unrequired, macro-interpolated, or incomplete identities produce no
+target. Ambiguous member declarations produce no arbitrary target. A missing
+member never navigates to a same-named declaration from another library.
+Ordinary non-FFI paths retain the shared type session's lexical/exact lookup,
+and constant-valued type arguments retain constant navigation.
+
+Qualified PSI and stub identities include enclosing library namespaces.
+Library-owned enum stubs are indexed under their library in the nested-type
+index, and serialized owner identities include that namespace where applicable.
+Stub version 22 invalidates persisted keys from the older library-skipping
+identity rules. The platform `DefaultStubBuilder` remains authoritative.
+
 ## Completion Type Lookup
 
 Type lookup searches project scope before all scope. When multiple indexed classes, modules, structs, or enums have the same name and a current file is supplied, the definition in that file takes precedence.

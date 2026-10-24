@@ -145,11 +145,14 @@ object CrystalUnresolvedName {
         val sources = requireSources(context) ?: return null
         if (isRequireVisibleConstant(name, context, sources) ||
             isVisibleTypeName(name, context, sources) ||
-            isAliasVisibleInSources(name, context, sources)
+            isAliasVisibleInSources(name, context, sources) ||
+            isLibVisible(name, context)
         ) {
             return null
         }
-        if (hasIndexedType(name, context) || hasIndexedAlias(name, context) || hasIndexedConstant(name, context)) {
+        if (hasIndexedType(name, context) || hasIndexedAlias(name, context) ||
+            hasIndexedConstant(name, context) || hasIndexedLib(name, context)
+        ) {
             return UnresolvedKind.UNREQUIRED
         }
         return UnresolvedKind.UNKNOWN
@@ -483,8 +486,8 @@ object CrystalUnresolvedName {
 
     /**
      * True when [cleanRoot] names a library declaration visible from
-     * [context]'s require closure (DOT-receiver roots that are libraries,
-     * e.g. `LibC` in `LibC.exit`). Same conservative silence as constants:
+     * [context]'s require closure (DOT receivers or type-path namespace roots,
+     * e.g. `LibC` in `LibC.exit` and `LibC::SizeT`). Same conservative silence as constants:
      * unjudgeable contexts count as visible.
      */
     private fun isLibVisible(cleanRoot: String, context: PsiElement): Boolean {
@@ -492,11 +495,15 @@ object CrystalUnresolvedName {
             val normalized = cleanRoot.removePrefix("::")
             val simpleName = normalized.substringAfterLast("::")
             if (simpleName.isEmpty()) return false
+            val absolute = cleanRoot.startsWith("::") ||
+                (context is CrystalTypePath && context.text.trimStart().startsWith("::"))
+            val identities = if (absolute || normalized.contains("::")) setOf(normalized)
+                else CrystalPsiUtils.buildLexicalQualifiedNameCandidates(normalized, context)
             val service = CrystalRequireGraphService.getInstance(context.project)
             if (service.isProgramLessInjection(context)) return true
             val sources = service.effectiveSources(context).takeIf { it.files.isNotEmpty() } ?: return true
             CrystalIndexService.findLibs(simpleName, context.project, allScope(context)).any { lib ->
-                CrystalPsiUtils.libQualifiedName(lib) == normalized && sources.contains(lib)
+                CrystalPsiUtils.libQualifiedName(lib) in identities && sources.contains(lib)
             }
         } catch (_: Throwable) {
             true

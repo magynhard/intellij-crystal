@@ -2847,14 +2847,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         element: PsiElement
     ): List<String> {
         if (absolute || normalized.contains("::")) return listOf(normalized)
-        val enclosing = CrystalPsiUtils.getEnclosingType(element)?.let(CrystalPsiUtils::buildQualifiedName)
-            ?.split("::").orEmpty()
-        return buildList {
-            for (size in enclosing.size downTo 1) {
-                add(enclosing.take(size).joinToString("::") + "::$normalized")
-            }
-            add(normalized)
-        }
+        return CrystalPsiUtils.buildLexicalQualifiedNameCandidates(normalized, element).toList()
     }
 
     private fun resolveArray(array: CrystalArrayLiteral): CrystalTypeResolution {
