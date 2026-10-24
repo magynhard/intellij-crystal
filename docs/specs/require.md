@@ -163,6 +163,10 @@ its safe canonical target identity. Structural create, copy, delete, rename, and
 so changes made through a symlink alias or directly through an allowed external target invalidate the same owner.
 Unsafe canonical identities that equal or contain the project root are never recorded. For unresolved exact and
 wildcard targets, the longest existing VFS prefix is canonicalized and the unresolved segments are appended.
+Native canonical-path lookup is restricted to the `file` VFS protocol. Synthetic
+or non-local VFS paths retain their own filesystem identity and are never looked
+up in `LocalFileSystem`; a `temp://` path must not become an unrelated Windows
+drive-relative path. Watch paths use IntelliJ's system-independent `/` separators.
 Wildcard targets retain both their lexical nearest-existing-parent watch and this canonical intended target, while
 exact candidates retain both lexical and canonical intended paths. Resolution and structural-event matching use
 both identities, so creation, deletion, rename, or move through an external symlink target takes effect immediately

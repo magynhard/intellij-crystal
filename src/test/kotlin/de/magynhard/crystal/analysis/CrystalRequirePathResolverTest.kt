@@ -4,6 +4,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.util.ProgressIndicatorBase
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -448,7 +449,7 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
             val resolution = resolver().resolve(source, "cached_shard")
 
             assertTrue(resolution.files.isEmpty())
-            assertTrue(resolution.exactCandidatePaths.contains("${shard.toRealPath()}/src/cached_shard.cr"))
+            assertTrue(resolution.exactCandidatePaths.contains(vfsPath(shard.toRealPath().resolve("src/cached_shard.cr"))))
             assertTrue(
                 resolution.exactCandidatePaths.contains(
                     "${requireNotNull(project.basePath)}/lib/cached_shard/src/cached_shard.cr",
@@ -478,7 +479,7 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
                 val watch = resolver().resolve(source, "./alias/generated/$suffix").wildcardWatches.single()
                 assertEquals(requireNotNull(sourceDirectory.findChild("alias")), watch.watchedDirectory)
                 assertEquals("${sourceDirectory.path}/alias/generated", watch.targetPath)
-                assertEquals("${cache.toRealPath()}/generated", watch.canonicalTargetPath)
+                assertEquals(vfsPath(cache.toRealPath().resolve("generated")), watch.canonicalTargetPath)
             }
         } finally {
             ApplicationManager.getApplication().runWriteAction {
@@ -491,6 +492,8 @@ class CrystalRequirePathResolverTest : BasePlatformTestCase() {
 
     private fun resolver(stdlibRoot: VirtualFile? = null): CrystalRequirePathResolver =
         CrystalRequirePathResolver(project) { stdlibRoot }
+
+    private fun vfsPath(path: Path): String = FileUtil.toSystemIndependentName(path.toString())
 
     private fun file(path: String): VirtualFile =
         myFixture.addFileToProject(path, "").virtualFile

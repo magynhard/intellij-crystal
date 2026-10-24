@@ -242,6 +242,18 @@ cd intellij-crystal
 
 Generated lexer, parser, and PSI sources are committed for reproducible builds.
 
+The parser suite also checks your git-ignored `playground.cr`. If it is missing,
+the test creates an empty file; existing contents are never overwritten. Tests
+that specifically require POSIX executable permissions or a POSIX shell are
+reported as skipped on Windows; platform-independent discovery and indexing
+tests still run there.
+
+On Windows, Java's argument-file handling can fail to load test classes when the
+Gradle cache path contains non-ASCII characters. If test startup reports a missing
+`com.intellij.util.lang.PathClassLoader`, use an ASCII-only `GRADLE_USER_HOME`
+(for example, `C:\GradleCache`) before running the wrapper. A new cache location
+downloads the build dependencies again.
+
 ## Contributing
 
 Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or starting a larger change.

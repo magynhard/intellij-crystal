@@ -254,6 +254,13 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Portable Windows test fixtures** — parser tests create a missing local
+  `playground.cr` without overwriting developer content; rename tests no longer
+  write a hardcoded `/tmp` dump. Stdlib fixtures use injected discovery and VFS
+  URLs instead of Unix executables and Java URI spellings. POSIX-only permission
+  and shell tests are explicitly skipped on Windows. Require resolution keeps
+  synthetic VFS paths out of native Windows canonical-path lookup. Program-context
+  fixtures explicitly schedule and await indexing before checking context switches.
 - **Bang-property readers resolve correctly** — `getter!` and `property!`
   expose their actual plain and query readers (`name` and `name?`) to bare
   and DOT references, missing-name checks, and coupled rename. Benchmark IPS

@@ -3,11 +3,12 @@ package de.magynhard.crystal
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import java.io.File
+import java.nio.file.Files
 
 class ParsePlaygroundTest : BasePlatformTestCase() {
     fun testPlaygroundHasNoParseErrors() {
-        val file = java.io.File("playground.cr")
-        val content = file.readText()
+        val content = readPlayground(File("playground.cr"))
         myFixture.configureByText("playground.cr", content)
         val errors = PsiTreeUtil.collectElementsOfType(myFixture.file, PsiErrorElement::class.java)
         if (errors.isNotEmpty()) {
@@ -26,6 +27,36 @@ class ParsePlaygroundTest : BasePlatformTestCase() {
             sb.appendLine("Total errors: ${errors.size}")
             fail(sb.toString())
         }
+    }
+
+    fun testMissingPlaygroundIsCreatedEmpty() {
+        val directory = Files.createTempDirectory("crystal-playground-test").toFile()
+        try {
+            val file = File(directory, "playground.cr")
+            assertEquals("", readPlayground(file))
+            assertTrue(file.isFile)
+            assertEquals(0L, file.length())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    fun testExistingPlaygroundIsNotOverwritten() {
+        val directory = Files.createTempDirectory("crystal-playground-test").toFile()
+        try {
+            val file = File(directory, "playground.cr")
+            val content = "puts \"keep my playground\"\n"
+            file.writeText(content)
+            assertEquals(content, readPlayground(file))
+            assertEquals(content, file.readText())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    private fun readPlayground(file: File): String {
+        file.createNewFile() // Atomic create-if-absent; never truncate the developer's playground.
+        return file.readText()
     }
 
     fun testPlaygroundSection9() {

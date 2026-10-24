@@ -420,7 +420,6 @@ class CrystalRenamePsiNameIdentifierOwnerTest : BasePlatformTestCase() {
             end
         """.trimIndent())
         myFixture.renameElementAtCaret("renamed")
-        java.io.File("/tmp/opencode/rnDUMP.txt").writeText(myFixture.editor.document.text)
         myFixture.checkResult("""
             class Senf
               def initialize(label @renamed : Int32)

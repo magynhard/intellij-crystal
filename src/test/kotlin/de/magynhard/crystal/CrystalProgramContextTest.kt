@@ -2,7 +2,12 @@ package de.magynhard.crystal
 
 import com.intellij.execution.RunManager
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.IndexingTestUtil
+import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.util.indexing.FileBasedIndex
 import de.magynhard.crystal.inspections.CrystalUnresolvedNameInspection
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.psi.CrystalDotCallAccess
@@ -10,6 +15,7 @@ import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.run.CrystalRunConfiguration
 import de.magynhard.crystal.run.CrystalRunConfigurationType
 import de.magynhard.crystal.run.CrystalRunFactory
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 class CrystalProgramContextTest : BasePlatformTestCase() {
     fun testBenchmarkMemoryResolvesThroughLibraryEntry() {
@@ -69,6 +75,20 @@ class CrystalProgramContextTest : BasePlatformTestCase() {
             myFixture.configureFromExistingVirtualFile(shared.virtualFile)
             myFixture.editor.caretModel.moveToOffset(shared.text.indexOf("memory"))
             myFixture.enableInspections(CrystalUnresolvedNameInspection::class.java)
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+            // Deliver pending file events before waiting: a "ready" index can
+            // otherwise precede the background indexing request for right.cr.
+            val index = FileBasedIndex.getInstance()
+            index.requestReindex(left.virtualFile)
+            index.requestReindex(right.virtualFile)
+            PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+            IndexingTestUtil.waitUntilIndexesAreReady(project)
+            assertEquals(
+                "Both program declarations must be indexed before testing context switches",
+                setOf(left.virtualFile, right.virtualFile),
+                CrystalIndexService.findTypes("Benchmark", project, GlobalSearchScope.projectScope(project))
+                    .map { it.containingFile.virtualFile }.toSet()
+            )
             manager.selectedConfiguration = leftSettings
             myFixture.checkHighlighting()
             assertEquals(left.virtualFile, dotTarget().containingFile.virtualFile)

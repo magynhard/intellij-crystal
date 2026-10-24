@@ -2,6 +2,8 @@ package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -32,7 +34,7 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
                 .excludeUrlsForProject
                 .toSet()
 
-            assertEquals(fixture.excludedDirectories.map { it.toUri().toString().removeSuffix("/") }.toSet(), excludedUrls)
+            assertEquals(excludedUrls(fixture), excludedUrls)
         } finally {
             restoreCrystalPath()
             File(fixture.root.toString()).deleteRecursively()
@@ -164,7 +166,7 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
             module,
             name,
             emptyList(),
-            sourceRoots.map { it.toUri().toString().removeSuffix("/") }
+            sourceRoots.map(::vfsUrl)
         )
 
     private fun moduleLibraryNames(): List<String> {
@@ -212,7 +214,10 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
     }
 
     private fun excludedUrls(fixture: StdlibFixture): Set<String> =
-        fixture.excludedDirectories.map { it.toUri().toString().removeSuffix("/") }.toSet()
+        fixture.excludedDirectories.map(::vfsUrl).toSet()
+
+    private fun vfsUrl(path: Path): String =
+        VfsUtilCore.pathToUrl(FileUtil.toSystemIndependentName(path.toAbsolutePath().toString()))
 
     private data class StdlibFixture(
         val root: Path,

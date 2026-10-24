@@ -2,59 +2,65 @@ package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.util.io.FileUtil
-import junit.framework.TestCase
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.Assert.*
 import java.io.File
+import org.junit.Assume
 
-class AmebaDetectorTest : TestCase() {
+class AmebaDetectorTest {
 
     private lateinit var tempDir: File
 
-    override fun setUp() {
-        super.setUp()
+    @Before
+    fun setUp() {
         tempDir = FileUtil.createTempDirectory("ameba-detector", null)
     }
 
-    override fun tearDown() {
-        try {
-            FileUtil.delete(tempDir)
-        } finally {
-            super.tearDown()
-        }
+    @After
+    fun tearDown() {
+        FileUtil.delete(tempDir)
     }
 
+    @Test
     fun testValidateAcceptsAmebaVersionOutput() {
-        if (SystemInfo.isWindows) return
+        Assume.assumeFalse("Fixture executes a POSIX shell script", SystemInfo.isWindows)
         val fake = writeFake("ameba", "ameba 1.7.0", 0)
         assertEquals("ameba 1.7.0", AmebaDetector.validate(fake.absolutePath))
     }
 
+    @Test
     fun testValidateRejectsBlankAndMissingPaths() {
         assertNull(AmebaDetector.validate(""))
         assertNull(AmebaDetector.validate("   "))
         assertNull(AmebaDetector.validate(File(tempDir, "nope").absolutePath))
     }
 
+    @Test
     fun testValidateRejectsNonZeroExit() {
-        if (SystemInfo.isWindows) return
+        Assume.assumeFalse("Fixture executes a POSIX shell script", SystemInfo.isWindows)
         val fake = writeFake("ameba", "ameba 1.7.0", 1)
         assertNull(AmebaDetector.validate(fake.absolutePath))
     }
 
+    @Test
     fun testValidateRejectsForeignBinary() {
-        if (SystemInfo.isWindows) return
+        Assume.assumeFalse("Fixture executes a POSIX shell script", SystemInfo.isWindows)
         val fake = writeFake("other", "crystal 1.17.0", 0)
         assertNull(AmebaDetector.validate(fake.absolutePath))
     }
 
+    @Test
     fun testValidateAcceptsBareVersionOutput() {
         // Shards-built Ameba prints just "1.7.0" (verified against 1.7.0).
-        if (SystemInfo.isWindows) return
+        Assume.assumeFalse("Fixture executes a POSIX shell script", SystemInfo.isWindows)
         val fake = writeFake("ameba", "1.7.0", 0)
         assertEquals("1.7.0", AmebaDetector.validate(fake.absolutePath))
     }
 
+    @Test
     fun testDetectUsesInjectedLookupBeforeKnownLocations() {
-        if (SystemInfo.isWindows) return
         val fake = writeFake("ameba", "ameba 1.7.0", 0)
         val detected = AmebaDetector.detect { name ->
             if (name == "ameba") fake else null
@@ -62,7 +68,9 @@ class AmebaDetectorTest : TestCase() {
         assertEquals(fake.absolutePath, detected)
     }
 
+    @Test
     fun testDetectSkipsNonExecutableLookupHits() {
+        Assume.assumeFalse("Requires POSIX executable permission bits", SystemInfo.isWindows)
         val plain = File(tempDir, "ameba").apply { writeText("#!/bin/sh\necho ameba\n") }
         val detected = AmebaDetector.detect { name ->
             if (name == "ameba") plain else null
@@ -72,6 +80,7 @@ class AmebaDetectorTest : TestCase() {
         assertTrue(detected == null || detected != plain.absolutePath)
     }
 
+    @Test
     fun testDetectReturnsNullWhenNothingFound() {
         // Skip known locations by pointing HOME at the empty temp dir and
         // refusing every PATH lookup. /usr/bin/ameba etc. may still exist on
@@ -81,6 +90,7 @@ class AmebaDetectorTest : TestCase() {
         assertTrue(detected == null || File(detected).canExecute())
     }
 
+    @Test
     fun testKnownLocationsAreNonEmpty() {
         assertTrue(AmebaDetector.knownLocations().isNotEmpty())
         assertTrue(AmebaDetector.executableNames().isNotEmpty())

@@ -4,6 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFile
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
@@ -52,6 +53,7 @@ internal class CrystalRequirePathResolver private constructor(
         val directory: VirtualFile?,
         val path: String,
         val allowShardSrc: Boolean,
+        val usesLocalFileSystem: Boolean = directory?.fileSystem?.protocol == StandardFileSystems.FILE_PROTOCOL,
     )
 
     private data class ExactCandidate(
@@ -103,7 +105,10 @@ internal class CrystalRequirePathResolver private constructor(
             } else {
                 val projectRoot = projectRoot()
                 listOfNotNull(
-                    projectRoot?.let { ExactRoot(it.findChild("lib"), path(it.path, "lib"), true) },
+                    projectRoot?.let {
+                        ExactRoot(it.findChild("lib"), path(it.path, "lib"), true,
+                            it.fileSystem.protocol == StandardFileSystems.FILE_PROTOCOL)
+                    },
                     stdlib?.let { ExactRoot(it, it.path, true) },
                 )
             }
@@ -113,7 +118,7 @@ internal class CrystalRequirePathResolver private constructor(
         for (root in roots) {
             for (candidate in candidates(root, requirePath)) {
                 exactCandidatePaths += candidate.path
-                canonicalIntendedPath(candidate.path)?.let(exactCandidatePaths::add)
+                canonicalIntendedPath(candidate.path, root.usesLocalFileSystem)?.let(exactCandidatePaths::add)
                 if (isCrystalFile(candidate.file)) {
                     return CrystalRequireResolution(
                         listOf(requireNotNull(candidate.file)),
@@ -159,7 +164,8 @@ internal class CrystalRequirePathResolver private constructor(
         for ((root, relativePath) in locations) {
             val intendedPath = path(root.path, relativePath)
             val (lexicalTarget, nearestDirectory) = findDirectoryOrNearest(root, relativePath)
-            val canonicalTargetPath = (lexicalTarget?.canonicalPath ?: canonicalIntendedPath(intendedPath))
+            val canonicalTargetPath = (lexicalTarget?.canonicalPath ?:
+                canonicalIntendedPath(intendedPath, root.fileSystem.protocol == StandardFileSystems.FILE_PROTOCOL))
                 ?.takeUnless(::containsCanonicalProjectRoot)
             val target = lexicalTarget ?: canonicalTargetPath?.let { canonicalPath ->
                 LocalFileSystem.getInstance().findFileByPath(canonicalPath)
@@ -269,7 +275,7 @@ internal class CrystalRequirePathResolver private constructor(
     private fun candidate(root: ExactRoot, relativePath: String): ExactCandidate {
         val intendedPath = path(root.path, relativePath)
         val file = root.directory?.findFileByRelativePath(relativePath)
-            ?: canonicalIntendedPath(intendedPath)?.let(LocalFileSystem.getInstance()::findFileByPath)
+            ?: canonicalIntendedPath(intendedPath, root.usesLocalFileSystem)?.let(LocalFileSystem.getInstance()::findFileByPath)
         return ExactCandidate(intendedPath, file)
     }
 
@@ -279,13 +285,17 @@ internal class CrystalRequirePathResolver private constructor(
     private fun canonicalDirectory(directory: VirtualFile): Pair<VirtualFile, String>? {
         if (!directory.isValid || !directory.isDirectory) return null
         val identity = directory.canonicalPath ?: FileUtil.toCanonicalPath(directory.path)
+        if (directory.fileSystem.protocol != StandardFileSystems.FILE_PROTOCOL) return directory to identity
         val canonical = LocalFileSystem.getInstance().findFileByPath(identity)
             ?.takeIf { it.isValid && it.isDirectory }
             ?: directory
         return canonical to identity
     }
 
-    private fun canonicalIntendedPath(intendedPath: String): String? {
+    private fun canonicalIntendedPath(intendedPath: String, usesLocalFileSystem: Boolean): String? {
+        // Synthetic VFS paths (e.g. temp:///src) are not native OS paths.
+        // Looking them up in LocalFileSystem can manufacture unrelated Windows candidates.
+        if (!usesLocalFileSystem) return null
         val normalized = FileUtil.toCanonicalPath(intendedPath)
         var existingPath = normalized
         val unresolved = ArrayDeque<String>()
