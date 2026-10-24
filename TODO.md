@@ -48,13 +48,6 @@
 
 ## Parser Follow-up
 
-- [ ] **Investigate intermittent program-context switch highlighting** —
-  `CrystalProgramContextTest.testSelectedEntryControlsExactMethodWithoutMergingOtherProgram`
-  reported `Cannot find 'Benchmark'` after selecting the second entry in one full-suite
-  run. The isolated class and the 230-test affected subsystem pass, including repeated
-  switches with highlighting performed before source-set checks (no graph prewarming).
-  Determine whether source selection, index readiness, or daemon result reuse causes
-  the intermittent warning; do not hide it by weakening the inspection assertions.
 - [ ] **Investigate flaky `CrystalIndexServiceTest` scope tests** — recurring full-suite
   failures (`testProcessesTypeNameCandidatesOutsideProvidedScope`) with StubIndex results
   missing just-added fixture types (`expected:<[ExcludedType]> but was:<[]>`), while the

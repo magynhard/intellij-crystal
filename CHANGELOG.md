@@ -254,6 +254,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Stable program-context test fixtures** — create both program entries from
+  the same immutable source instead of copying a transient empty PSI snapshot
+  into the second file. The fixture now verifies the stored file contents
+  before testing index membership and context switches; unnecessary explicit
+  reindex requests are removed without weakening highlighting assertions.
 - **FFI navigation with multiple declaration sources** — Go to Declaration
   keeps all exact library and library-member targets available to JetBrains' chooser rather
   than reporting no declaration when both a Crystal checkout and its installed

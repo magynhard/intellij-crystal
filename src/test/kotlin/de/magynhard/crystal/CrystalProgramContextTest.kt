@@ -4,10 +4,9 @@ import com.intellij.execution.RunManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.IndexingTestUtil
-import com.intellij.testFramework.PlatformTestUtil
-import com.intellij.util.indexing.FileBasedIndex
 import de.magynhard.crystal.inspections.CrystalUnresolvedNameInspection
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.psi.CrystalDotCallAccess
@@ -52,7 +51,7 @@ class CrystalProgramContextTest : BasePlatformTestCase() {
 
     fun testSelectedEntryControlsExactMethodWithoutMergingOtherProgram() {
         val shared = myFixture.addFileToProject("src/shared.cr", "Benchmark.memory { 1 }")
-        val left = myFixture.addFileToProject("src/left.cr", """
+        val entrySource = """
             require "./shared"
             module Benchmark
               extend self
@@ -60,8 +59,15 @@ class CrystalProgramContextTest : BasePlatformTestCase() {
                 yield
               end
             end
-        """.trimIndent())
-        val right = myFixture.addFileToProject("src/right.cr", left.text)
+        """.trimIndent()
+        // Fixture PSI can still expose the initial empty-file snapshot here;
+        // never use that snapshot as the source text for a second fixture.
+        val left = myFixture.addFileToProject("src/left.cr", entrySource)
+        val right = myFixture.addFileToProject("src/right.cr", entrySource)
+        for (entry in listOf(left, right)) {
+            assertEquals("${entry.name} must contain the complete program fixture",
+                entrySource, VfsUtilCore.loadText(entry.virtualFile))
+        }
         val manager = RunManager.getInstance(project)
         val previous = manager.selectedConfiguration
         val factory = CrystalRunFactory(CrystalRunConfigurationType())
@@ -76,12 +82,6 @@ class CrystalProgramContextTest : BasePlatformTestCase() {
             myFixture.editor.caretModel.moveToOffset(shared.text.indexOf("memory"))
             myFixture.enableInspections(CrystalUnresolvedNameInspection::class.java)
             PsiDocumentManager.getInstance(project).commitAllDocuments()
-            // Deliver pending file events before waiting: a "ready" index can
-            // otherwise precede the background indexing request for right.cr.
-            val index = FileBasedIndex.getInstance()
-            index.requestReindex(left.virtualFile)
-            index.requestReindex(right.virtualFile)
-            PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
             IndexingTestUtil.waitUntilIndexesAreReady(project)
             assertEquals(
                 "Both program declarations must be indexed before testing context switches",
