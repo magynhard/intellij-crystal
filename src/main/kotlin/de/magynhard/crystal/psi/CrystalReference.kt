@@ -80,8 +80,8 @@ class CrystalReference(
 
         // Bare CONSTANT reads resolve to constant declarations visible
         // through the require closure (file top level, type and lib bodies).
-        // Private constants match only their own file, exactly like the
-        // compiler; same-file declarations win for determinism.
+        // Private globals are file-local; private members follow their owner
+        // across reopenings. Same-file declarations win for determinism.
         if (name.firstOrNull()?.isUpperCase() == true) {
             val constants = CrystalIndexService.findConstants(name, element.project, scope())
                 .filter { isConstantVisible(it, sources, element) }
@@ -144,15 +144,14 @@ class CrystalReference(
 
     /**
      * True when a constant declaration is visible from [context]: its file is
-     * in [sources], and private constants additionally require the same file.
+     * in [sources], and the use site has access to private declarations.
      */
     private fun isConstantVisible(
         candidate: CrystalConstantAssignment,
         sources: CrystalEffectiveSourceSet,
         context: PsiElement,
     ): Boolean {
-        val contextFile = context.containingFile?.originalFile?.virtualFile
-        return CrystalRequireVisibility.isConstantCandidateVisible(candidate, sources, contextFile)
+        return CrystalRequireVisibility.isConstantCandidateVisible(candidate, sources, context)
     }
 
     /** Stable pick: same-file declarations first, then file name. */

@@ -29,6 +29,11 @@ instance/class variables are collected from live PSI because no declaration inde
 exist for them. Local candidates share one deduplication set across all candidate sources. The split
 preserves the contributor's established dispatch order, ranking, deduplication, and results.
 
+Private file-level constants are file-local. Bare-name constant completion inside
+a type's namespace includes its private constants from require-visible reopenings,
+but excludes private constants from unrelated owners. Explicit `Owner::` completion
+does not expose private type constants.
+
 ## General Behaviours
 
 ### Triggering

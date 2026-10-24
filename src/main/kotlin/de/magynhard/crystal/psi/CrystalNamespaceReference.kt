@@ -5,6 +5,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
@@ -70,8 +71,8 @@ class CrystalNamespaceReference(
 
     /**
      * True when a constant declaration is visible from this reference: its
-     * file is in the reference's effective source set, and private constants
-     * additionally require the same file. Unjudgeable contexts stay silent
+     * file is in the reference's effective source set, and private type constants
+     * cannot be accessed through an explicit qualified path. Unjudgeable contexts stay silent
      * by resolving to nothing (callers treat null as unknown).
      */
     private fun isConstantVisible(candidate: CrystalConstantAssignment): Boolean {
@@ -79,10 +80,7 @@ class CrystalNamespaceReference(
             val service = CrystalRequireGraphService.getInstance(element.project)
             if (service.isProgramLessInjection(element)) return false
             val sources = service.effectiveSources(element).takeIf { it.files.isNotEmpty() } ?: return false
-            if (!sources.contains(candidate)) return false
-            val isPrivate = candidate.stub?.isPrivate ?: CrystalPsiUtils.isPrivateConstant(candidate)
-            if (isPrivate && candidate.containingFile != element.containingFile) return false
-            true
+            CrystalRequireVisibility.isConstantCandidateVisible(candidate, sources, element, qualifiedAccess = true)
         } catch (_: Throwable) {
             false
         }

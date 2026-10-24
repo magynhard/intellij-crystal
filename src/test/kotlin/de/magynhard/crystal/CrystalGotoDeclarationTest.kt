@@ -493,4 +493,59 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
         val resolved = (element.reference ?: element.parent?.reference)?.resolve()
         assertNull("Private constants must not resolve across files", resolved)
     }
+
+    fun testPrivateTypeConstantAcrossRequireResolvesInReopening() {
+        myFixture.addFileToProject("hasher.cr", """
+            struct Crystal::Hasher
+              private HASH_MODULUS = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("decimal.cr", """
+            require "./hasher"
+            struct Crystal::Hasher
+              def self.reduce_num
+                HASH_MODUL<caret>US
+              end
+            end
+        """.trimIndent())
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val resolved = (element.reference ?: element.parent?.reference)?.resolve()
+        assertTrue("Reopened owner must resolve its private constant", resolved is CrystalConstantAssignment)
+        assertEquals("hasher.cr", resolved!!.containingFile.name)
+    }
+
+    fun testQualifiedPrivateTypeConstantDoesNotResolveEvenInsideOwner() {
+        myFixture.configureByText("hasher.cr", """
+            struct Hasher
+              private HASH_MODULUS = 7
+              def self.reduce_num
+                Hasher::HASH_MODUL<caret>US
+              end
+            end
+        """.trimIndent())
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val resolved = (element.reference ?: element.parent?.reference)?.resolve()
+        assertNull("Explicit qualification must not expose a private type constant", resolved)
+    }
+
+    fun testDotCallArgumentDoesNotNavigateToEnclosingMethod() {
+        myFixture.configureByText("decimal.cr", """
+            class Object
+            end
+            class Arithmetic < Object
+              def self.mulmod(x, y, z)
+                x
+              end
+            end
+            Arithmetic.mulmod(1, 2, MISSING_MODUL<caret>US)
+        """.trimIndent())
+        val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val call = PsiTreeUtil.getParentOfType(element, CrystalDotCallAccess::class.java)!!
+        val method = (call.reference as com.intellij.psi.PsiPolyVariantReference).multiResolve(false)
+        assertTrue("Enclosing mulmod must resolve to exercise the navigation regression", method.isNotEmpty())
+        val targets = CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+            element, myFixture.caretOffset, myFixture.editor
+        )
+        assertNull("An argument must not navigate to its enclosing DOT-call method", targets)
+    }
 }

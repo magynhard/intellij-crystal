@@ -8,12 +8,24 @@ import java.nio.file.Files
 /**
  * Root registration for the compiler source tree: shards such as ameba
  * require the compiler syntax tree via wildcard requires and reopen
- * `Crystal::Location`, so the tree must be a registered root — the CLI/C
+ * `Crystal::Location`, so the tree must be a registered root — the C
  * ABI/LLVM bindings subtrees stay excluded.
  *
  * Uses a temp-dir layout that mimics the Crystal 1.20+ distribution.
  */
 class CrystalStdlibRootsEnumerationTest : BasePlatformTestCase() {
+
+    fun testEnumerationIncludesHasherAndOtherCrystalRuntimeSources() {
+        val prelude = myFixture.addFileToProject("runtime/prelude.cr", "require \"crystal/hasher\"")
+        val hasher = myFixture.addFileToProject("runtime/crystal/hasher.cr", "struct Crystal::Hasher; end")
+        myFixture.addFileToProject("runtime/crystal/system/thread.cr", "class Thread; end")
+        val root = requireNotNull(prelude.virtualFile.parent)
+        val runtime = requireNotNull(hasher.virtualFile.parent)
+        assertTrue("crystal/ contains required runtime sources, not CLI tooling",
+            runtime in CrystalStdlibRoots.enumerate(root))
+        assertFalse("Runtime sources must not be excluded from legacy roots",
+            runtime in CrystalStdlibRoots.legacyExclusions(root))
+    }
 
     fun testEnumerationIncludesCompilerTree() {
         val tempRoot = Files.createTempDirectory("crystal-stdlib-enumeration").toFile()

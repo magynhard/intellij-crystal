@@ -9,7 +9,7 @@ import com.intellij.openapi.vfs.VirtualFile
  *
  * Background — Crystal 1.20+ ships stdlib files directly under
  * `/usr/lib/crystal` (no `src/` subdirectory). The distribution tree also
- * contains the CLI tools (`crystal/`), C ABI bindings (`lib_c/`, `lib_z/`),
+ * contains C ABI bindings (`lib_c/`, `lib_z/`),
  * LLVM bindings (`llvm/`, `ll/`), the Boehm GC interface (`gc/`), and
  * samples — together ~960 files that are NOT part of the stdlib but would
  * be indexed by IntelliJ if the bare `/usr/lib/crystal` root was handed to
@@ -26,6 +26,9 @@ import com.intellij.openapi.vfs.VirtualFile
  * took minutes on the EDT) predates the current parser, whose compiler
  * tree is mostly clean; the build runs on the platform's background
  * indexing threads.
+ *
+ * The `crystal/` tree contains runtime support, not CLI tooling. The prelude
+ * loads files from it (including `hasher.cr` via `hash.cr`), so it is indexed.
  *
  * This helper returns the indexed roots:
  *
@@ -47,7 +50,6 @@ object CrystalStdlibRoots {
      * must be excluded from indexing.
      */
     private val EXCLUDED_DIRS = setOf(
-        "crystal",    // `crystal` CLI tooling — ~176 files
         "lib_c",      // C ABI bindings — ~721 files, mostly per-arch duplicates
         "lib_z",      // zlib bindings
         "ll",         // low-level LLVM bindings

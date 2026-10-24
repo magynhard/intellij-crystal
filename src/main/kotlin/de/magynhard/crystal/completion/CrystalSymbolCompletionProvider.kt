@@ -49,10 +49,11 @@ internal object CrystalSymbolCompletionProvider {
         }
     }
 
-    internal fun addFileLevelConstants(file: PsiFile, result: CompletionResultSet): Set<String> {
+    internal fun addFileLevelConstants(file: PsiFile, result: CompletionResultSet, context: PsiElement): Set<String> {
         val seen = mutableSetOf<String>()
         val constants = PsiTreeUtil.findChildrenOfType(file, CrystalConstantAssignment::class.java)
         for (constant in constants) {
+            if (!CrystalRequireVisibility.isConstantAccessible(constant, context)) continue
             val name = constant.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: continue
             if (!seen.add(name)) continue
             result.addElement(buildConstantLookup(name, "constant"))
@@ -65,7 +66,8 @@ internal object CrystalSymbolCompletionProvider {
      * closure: top-level constants by simple name, member constants through
      * their owner. Same-file declarations are already offered by
      * [addFileLevelConstants] and skipped here for deduplication; private
-     * constants never leave their own file. The result's own prefix matcher
+     * globals remain file-local, while private members follow their owner.
+     * The result's own prefix matcher
      * pre-filters names before any stub is loaded. Injected fragments without
      * their own require closure (ECR) keep the legacy unfiltered behavior.
      */
@@ -75,7 +77,7 @@ internal object CrystalSymbolCompletionProvider {
         result: CompletionResultSet,
         context: PsiElement,
     ) {
-        val seen = addFileLevelConstants(file, result).toMutableSet()
+        val seen = addFileLevelConstants(file, result, context).toMutableSet()
 
         if (DumbService.isDumb(project)) return
         val service = CrystalRequireGraphService.getInstance(project)
@@ -97,7 +99,7 @@ internal object CrystalSymbolCompletionProvider {
                         (sources == null || CrystalRequireVisibility.isConstantCandidateVisible(
                             candidate,
                             sources,
-                            contextFile,
+                            context,
                         ))
                 }
                 val candidate = visible.firstOrNull() ?: continue
@@ -121,15 +123,11 @@ internal object CrystalSymbolCompletionProvider {
             is CrystalModuleDefinition -> element.classBody
             else -> null
         } ?: return
-        val contextFile = context.containingFile?.originalFile?.virtualFile
         val constants = PsiTreeUtil.findChildrenOfType(classBody, CrystalConstantAssignment::class.java)
         for (constant in constants) {
             val constantToken = constant.node.findChildByType(CrystalTypes.CONSTANT)
             if (constantToken != null) {
-                // Private members never leave their own file, exactly like
-                // the compiler: `private BAR` in another file is not a member.
-                val isPrivate = constant.stub?.isPrivate ?: CrystalPsiUtils.isPrivateConstant(constant)
-                if (isPrivate && constant.containingFile?.originalFile?.virtualFile != contextFile) continue
+                if (!CrystalRequireVisibility.isConstantAccessible(constant, context, qualifiedAccess = true)) continue
                 result.addElement(buildConstantLookup(constantToken.text, "constant in $className"))
             }
         }

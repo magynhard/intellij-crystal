@@ -135,6 +135,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     fun findExactTypeDeclarations(identity: CrystalTypeIdentity): List<CrystalNamedElement> =
         hierarchy.findExactTypeDeclarations(identity)
 
+    fun reachesConstantOwner(identity: CrystalTypeIdentity, owner: String): Boolean =
+        hierarchy.reachesConstantOwner(identity, owner)
+
     fun isConstructible(typeName: String, element: PsiElement): Boolean =
         resolveConstructor(typeName, element).let {
             it is CrystalConstructorResolution.Methods || it is CrystalConstructorResolution.Implicit ||

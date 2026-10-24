@@ -254,6 +254,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Index Crystal runtime support and preserve argument navigation** — the
+  `crystal/` stdlib directory is runtime code, not CLI tooling, and is no longer
+  excluded from synthetic or legacy library roots. Prelude constants such as
+  `Crystal::Hasher::HASH_MODULUS` can therefore be indexed. Go to Definition on
+  DOT-call arguments no longer incorrectly jumps to the enclosing method.
+- **Private constants in type reopenings** — bare references to private type
+  constants resolve across require-visible reopenings of the same qualified
+  owner, fixing false `Cannot find 'HASH_MODULUS'` warnings in BigDecimal's
+  `Crystal::Hasher` extension. Navigation, completion, and constant inference
+  share the visibility rule; private file-level constants remain file-local.
 - **Portable Windows test fixtures** — parser tests create a missing local
   `playground.cr` without overwriting developer content; rename tests no longer
   write a hardcoded `/tmp` dump. Stdlib fixtures use injected discovery and VFS

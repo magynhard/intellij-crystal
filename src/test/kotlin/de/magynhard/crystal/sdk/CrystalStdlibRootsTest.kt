@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
  * Tests for [CrystalStdlibRoots] — the helper that enumerates the
  * indexed stdlib source roots: the compiler tree IS indexed (shards such
  * as ameba require the compiler syntax tree via wildcard requires), while
- * the CLI/C ABI/LLVM bindings subtrees stay excluded.
+ * the C ABI/LLVM bindings subtrees stay excluded.
  */
 class CrystalStdlibRootsTest : BasePlatformTestCase() {
 
@@ -18,7 +18,7 @@ class CrystalStdlibRootsTest : BasePlatformTestCase() {
         childList.add(file("array.cr"))
         childList.add(file("string.cr"))
         childList.add(dir("compiler", file("compile.cr")))
-        childList.add(dir("crystal", file("tool.cr")))
+        childList.add(dir("crystal", file("hasher.cr")))
         childList.add(dir("lib_c", file("errno.cr")))
         childList.add(dir("lib_z", file("zlib.cr")))
         childList.add(dir("llvm", file("llvm_bindings.cr")))
@@ -47,7 +47,7 @@ class CrystalStdlibRootsTest : BasePlatformTestCase() {
         assertTrue("`crypto` included: $roots", roots.contains("crypto"))
 
         assertTrue("compiler/ indexed (ameba requires compiler sources): $roots", roots.contains("compiler"))
-        assertFalse("crystal/ excluded: $roots", roots.contains("crystal"))
+        assertTrue("crystal/ runtime sources indexed: $roots", roots.contains("crystal"))
         assertFalse("lib_c/ excluded: $roots", roots.contains("lib_c"))
         assertFalse("lib_z/ excluded: $roots", roots.contains("lib_z"))
         assertFalse("llvm/ excluded: $roots", roots.contains("llvm"))

@@ -35,6 +35,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Context-aware completion for local variables, parameters, methods, constants, types, namespaces, and `require` paths
 - Receiver-aware DOT completion for literals, variables, method results, collections, constructors, and supported unions
 - Program-aware visibility based on one containing entry's transitive dependencies and the configured Crystal prelude; independent executables never share declarations merely because both load a helper
+- Private type constants resolve across require-visible reopenings of their owning namespace; private file-level constants remain file-local
 - Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View
 - Namespace- and require-aware annotation navigation and documentation, with missing-annotation diagnostics
 - Embedded language highlighting in heredocs and strings — `<<-SQL`, `<<-JAVASCRIPT`, `<<-CSS`, `<<-HTML`, `<<-JSON`, `<<-YAML`, `<<-CRYSTAL` and other language markers inject the target language's syntax highlighting when its plugin is installed; `# language=<id>` comments above heredocs, double-quoted strings, `%q`/`%Q` percent literals, and `:"symbol"` strings do the same (with optional `prefix=`/`suffix=`)
@@ -73,7 +74,7 @@ ECR code intelligence currently uses the configured Crystal prelude but does not
 - New Project Wizard for Crystal applications and libraries
 - Automatic Crystal compiler detection with a configurable project-level compiler path
 - Crystal version and standard-library status in the project settings
-- Targeted standard-library indexing with a manual re-index action
+- Targeted standard-library indexing, including the `crystal/` runtime support tree, with a manual re-index action
 
 ## Requirements
 

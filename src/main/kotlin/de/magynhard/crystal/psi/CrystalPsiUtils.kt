@@ -329,9 +329,8 @@ object CrystalPsiUtils {
 
     /**
      * True when a constant declaration is wrapped in a `private` (or
-     * `protected`, treated file-scoped like the compiler treats non-public
-     * constants) visibility modifier. Such constants are visible only in
-     * their own file.
+     * `protected`) visibility modifier. Accessibility depends on whether the
+     * constant belongs to a file or a type namespace.
      */
     fun isPrivateConstant(assignment: CrystalConstantAssignment): Boolean {
         assignment.stub?.let { return it.isPrivate }

@@ -1,10 +1,11 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.CrystalConstantAssignment
+import de.magynhard.crystal.psi.CrystalLibDefinition
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -175,7 +176,7 @@ internal object CrystalRequireVisibility {
     /**
      * True when the stub index holds at least one constant declaration [name]
      * visible from [context]: the defining file is part of the effective
-     * source set, and private constants additionally require the same file.
+     * source set, with private constants restricted to their file or owner.
      * Stops at the first visible declaration instead of loading every
      * same-named PSI element. Returns false for an empty snapshot.
      */
@@ -186,11 +187,10 @@ internal object CrystalRequireVisibility {
         sources: CrystalEffectiveSourceSet,
     ): Boolean {
         if (sources.files.isEmpty()) return false
-        val contextFile = context.containingFile?.originalFile?.virtualFile
         var visible = false
         try {
             CrystalIndexService.processConstants(name, context.project, scope) { element ->
-                if (isConstantCandidateVisible(element, sources, contextFile)) {
+                if (isConstantCandidateVisible(element, sources, context)) {
                     visible = true
                     false
                 } else {
@@ -223,19 +223,41 @@ internal object CrystalRequireVisibility {
 
     /**
      * Shared constant-candidate gate: the defining file must be in [sources],
-     * and private constants match only [contextFile] (their own file).
+     * with accessibility checked at the actual use site, not just its file.
      */
     fun isConstantCandidateVisible(
         element: CrystalConstantAssignment,
         sources: CrystalEffectiveSourceSet,
-        contextFile: VirtualFile?,
+        context: PsiElement,
+        qualifiedAccess: Boolean = false,
     ): Boolean {
         if (!sources.contains(element)) return false
-        val isPrivate = element.stub?.isPrivate ?: CrystalPsiUtils.isPrivateConstant(element)
-        if (isPrivate) {
+        return isConstantAccessible(element, context, qualifiedAccess)
+    }
+
+    /** File-private globals and namespace-private members have different scopes. */
+    fun isConstantAccessible(
+        element: CrystalConstantAssignment,
+        context: PsiElement,
+        qualifiedAccess: Boolean = false,
+    ): Boolean {
+        if (!CrystalPsiUtils.isPrivateConstant(element)) return true
+        val owner = element.stub?.ownerQualifiedName ?: CrystalPsiUtils.constantOwnerQualifiedName(element)
+        if (owner == null) {
             val candidateFile = element.containingFile?.originalFile?.virtualFile ?: return false
-            if (candidateFile != contextFile) return false
+            return candidateFile == context.containingFile?.originalFile?.virtualFile
         }
-        return true
+        // Even inside the owner, Crystal rejects explicit Owner::PRIVATE access.
+        if (qualifiedAccess) return false
+        val lib = PsiTreeUtil.getParentOfType(context, CrystalLibDefinition::class.java)
+        val contextOwner = lib?.let(CrystalPsiUtils::libQualifiedName)
+            ?: CrystalPsiUtils.callSiteOwnerQualifiedName(context)
+            ?: return false
+        if (contextOwner == owner || contextOwner.startsWith("$owner::")) return true
+        val session = CrystalTypeSetResolver.session(context)
+        return generateSequence(contextOwner) { it.substringBeforeLast("::", "").takeIf(String::isNotEmpty) }
+            .any { namespace ->
+                session.reachesConstantOwner(CrystalTypeIdentity(namespace.substringAfterLast("::"), namespace), owner)
+            }
     }
 }

@@ -236,8 +236,10 @@ WERT
   `NAME = value` shape of `crystal docs` Constant Summary pages.
 - Doc comments above the declaration render as Markdown (same
   `collectDocComment` pipeline as methods and types).
-- `private`/`protected` constants hover normally in their own file; from other
-  files they resolve to nothing and keep the `Cannot find` rendering.
+- Private file-level constants hover normally only in their own file. Private
+  type constants also resolve across require-visible reopenings, nested namespaces,
+  and exact superclass/include ancestry. Unrelated owners and explicitly qualified
+  accesses cannot expose private type constants.
 
 **Hover targets:** Hovering over the name at the definition (`KODORRA` in
 `KODORRA = 123`), at a bare read (`puts KODORRA`, same-file or cross-file

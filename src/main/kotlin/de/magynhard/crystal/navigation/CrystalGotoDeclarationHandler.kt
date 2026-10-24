@@ -69,7 +69,11 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
 
         val dotCall = PsiTreeUtil.getParentOfType(sourceElement, CrystalDotCallAccess::class.java, false)
         val polyvariant = dotCall?.reference as? PsiPolyVariantReference
-        if (polyvariant != null) {
+        // Arguments have their own references; an enclosing DOT call must not
+        // hijack navigation from a constant/local argument to the called method.
+        if (dotCall != null && polyvariant != null &&
+            polyvariant.rangeInElement.shiftRight(dotCall.textOffset).contains(sourceElement.textRange)
+        ) {
             val targets = polyvariant.multiResolve(false).mapNotNull { it.element }
             return targets.toTypedArray()
         }

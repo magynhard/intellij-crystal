@@ -43,8 +43,12 @@ the constant rule per segment, with the root rule for qualified paths.
 5. Same-file or require-visible constant declaration: a bare `CBA` with a
    `CBA = …` assignment in the current file (live PSI), or a constant
    declaration in the constant index whose file belongs to the current
-   file's require closure. `private`/`protected` constants count only in
-   their own file, exactly like the compiler.
+    file's require closure. Private file-level constants count only in their
+    own file. Private type constants are accessible by bare name inside their
+    owning namespace, including nested namespaces and cross-file reopenings,
+    and exact superclass/include ancestry, but not from unrelated owners or
+    through explicit `Owner::CONSTANT` access.
+    Reopenings do not bypass require/prelude visibility.
 6. DOT calls whose receiver resolves exactly and whose method set resolves
    (`Methods`, `ImplicitConstructor`, `RecordFallback`, `Accessor`).
    Unqualified type receivers use the shared ordered lexical identity lookup,

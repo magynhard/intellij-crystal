@@ -156,6 +156,12 @@ internal class CrystalMethodHierarchy(
         return exposures.exposures.any { it.type.simpleName == targetSimpleName }
     }
 
+    /** Constant lookup follows exact superclass and included-module identities. */
+    internal fun reachesConstantOwner(type: CrystalTypeIdentity, owner: String): Boolean {
+        val collection = collectHierarchy(type, CrystalReceiverMode.INSTANCE, includeModuleEdges = true)
+        return collection.exposures.any { it.type.qualifiedName == owner }
+    }
+
     fun findExactTypeDeclarations(type: CrystalTypeIdentity): List<CrystalNamedElement> =
         declarations.getOrPut(type) {
             findTypesByName(type.simpleName).filter { CrystalPsiUtils.buildQualifiedName(it) == type.qualifiedName }

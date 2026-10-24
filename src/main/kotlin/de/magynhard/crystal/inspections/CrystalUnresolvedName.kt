@@ -187,7 +187,7 @@ object CrystalUnresolvedName {
 
     /**
      * True when the constant index holds a declaration [name] visible from
-     * [context]'s effective sources (private constants only same-file).
+     * [context]'s effective sources and accessible from its file or namespace.
      * Same-file assignments are covered separately above so unindexed
      * contexts keep their fallback.
      */
@@ -425,7 +425,8 @@ object CrystalUnresolvedName {
         val file = context.containingFile ?: return false
         return try {
             PsiTreeUtil.findChildrenOfType(file, CrystalConstantAssignment::class.java).any { assignment ->
-                assignment.node.findChildByType(CrystalTypes.CONSTANT)?.text == name
+                assignment.node.findChildByType(CrystalTypes.CONSTANT)?.text == name &&
+                    CrystalRequireVisibility.isConstantAccessible(assignment, context)
             }
         } catch (_: Throwable) {
             false

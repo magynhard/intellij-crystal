@@ -103,7 +103,7 @@ object CrystalConstantTypeInference {
         val declarations = mutableListOf<CrystalConstantAssignment>()
         val seen = mutableSetOf<String>()
         PsiTreeUtil.findChildrenOfType(file, CrystalConstantAssignment::class.java)
-            .filter { (it.stub?.name ?: it.name) == name }
+            .filter { (it.stub?.name ?: it.name) == name && CrystalRequireVisibility.isConstantAccessible(it, context) }
             .sortedBy { it.textRange.startOffset }
             .forEach {
                 declarationKey(it)?.let(seen::add)
@@ -114,10 +114,9 @@ object CrystalConstantTypeInference {
             val service = CrystalRequireGraphService.getInstance(project)
             if (service.isProgramLessInjection(context)) return declarations
             val sources = service.effectiveSources(context).takeIf { it.files.isNotEmpty() } ?: return declarations
-            val contextFile = file.originalFile.virtualFile
             val scope = GlobalSearchScope.allScope(project)
             CrystalIndexService.findConstants(name, project, scope)
-                .filter { CrystalRequireVisibility.isConstantCandidateVisible(it, sources, contextFile) }
+                .filter { CrystalRequireVisibility.isConstantCandidateVisible(it, sources, context) }
                 .sortedBy { it.containingFile?.name ?: "" }
                 .forEach {
                     if (declarationKey(it)?.let(seen::add) != false) declarations.add(it)

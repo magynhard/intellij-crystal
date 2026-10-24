@@ -443,6 +443,113 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testPrivateTypeConstantInQualifiedReopeningStaysClean() {
+        myFixture.addFileToProject("hasher.cr", """
+            struct Crystal::Hasher
+              private HASH_MODULUS = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("decimal.cr", """
+            require "./hasher"
+            struct Crystal::Hasher
+              def self.reduce_num
+                value = HASH_MODULUS
+                value + HASH_MODULUS
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPrivateTypeConstantDoesNotLeakToUnrelatedOwner() {
+        myFixture.addFileToProject("hasher.cr", """
+            struct Crystal::Hasher
+              private HASH_MODULUS = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("other.cr", """
+            require "./hasher"
+            struct Other::Hasher
+              def self.reduce_num
+                <weak_warning descr="Cannot find 'HASH_MODULUS'">HASH_MODULUS</weak_warning>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPrivateTypeConstantInUnrequiredReopeningIsWarning() {
+        myFixture.addFileToProject("hasher.cr", """
+            struct Crystal::Hasher
+              private HASH_MODULUS = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("other.cr", """
+            struct Crystal::Hasher
+              def self.reduce_num
+                <weak_warning descr="Cannot find 'HASH_MODULUS'">HASH_MODULUS</weak_warning>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPrivateTypeConstantInNestedQualifiedReopeningStaysClean() {
+        myFixture.addFileToProject("owner.cr", """
+            module Owner
+              private SECRET = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("nested.cr", """
+            require "./owner"
+            struct Owner::Nested
+              def self.value
+                SECRET
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPrivateTypeConstantInSubclassStaysClean() {
+        myFixture.addFileToProject("parent.cr", """
+            class Object
+            end
+            class Parent
+              private SECRET = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("child.cr", """
+            require "./parent"
+            class Child < Parent
+              def self.value
+                SECRET
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPrivateTypeConstantInIncludedModuleStaysClean() {
+        myFixture.addFileToProject("owner.cr", """
+            class Object
+            end
+            module Owner
+              private SECRET = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("including.cr", """
+            require "./owner"
+            class Including
+              include Owner
+              def self.value
+                SECRET
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testRequiredMemberConstantStaysClean() {
         myFixture.addFileToProject("a.cr", """
             class Owner

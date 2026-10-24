@@ -187,6 +187,57 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertFalse("Should NOT contain foreign private 'HIDDEN': $names", names.contains("HIDDEN"))
     }
 
+    fun testPrivateTypeConstantCompletedInsideReopening() {
+        myFixture.addFileToProject("hasher.cr", """
+            struct Crystal::Hasher
+              private HASH_MODULUS = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("decimal.cr", """
+            require "./hasher"
+            struct Crystal::Hasher
+              def self.reduce_num
+                HASH_MODUL<caret>
+              end
+            end
+        """.trimIndent())
+        val names = myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty()
+        assertTrue("Private constant must be offered or inserted", "HASH_MODULUS" in names ||
+            myFixture.editor.document.text.contains("HASH_MODULUS"))
+    }
+
+    fun testPrivateTypeConstantNotCompletedInsideUnrelatedOwner() {
+        myFixture.addFileToProject("hasher.cr", """
+            struct Crystal::Hasher
+              private HASH_MODULUS = 7
+            end
+        """.trimIndent())
+        myFixture.configureByText("other.cr", """
+            require "./hasher"
+            struct Other::Hasher
+              def self.reduce_num
+                HASH_MODUL<caret>
+              end
+            end
+        """.trimIndent())
+        val names = myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty()
+        assertFalse("Private constant must not leak to an unrelated owner", "HASH_MODULUS" in names)
+        assertFalse(myFixture.editor.document.text.contains("HASH_MODULUS"))
+    }
+
+    fun testQualifiedPrivateTypeConstantNotCompletedInsideOwner() {
+        myFixture.configureByText("hasher.cr", """
+            struct Hasher
+              private HASH_MODULUS = 7
+              def self.reduce_num
+                Hasher::<caret>
+              end
+            end
+        """.trimIndent())
+        val names = myFixture.complete(CompletionType.BASIC)?.map { it.lookupString }.orEmpty()
+        assertFalse("Explicit qualification must not expose private constants", "HASH_MODULUS" in names)
+    }
+
     fun testCompletesLocalVariables() {
         myFixture.configureByText("main.cr", """
             def foo

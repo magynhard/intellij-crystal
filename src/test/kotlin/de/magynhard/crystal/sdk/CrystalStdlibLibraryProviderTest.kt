@@ -29,9 +29,10 @@ class CrystalStdlibLibraryProviderTest : BasePlatformTestCase() {
             Files.writeString(stdlib.resolve("array.cr"), "class Array; end")
             Files.createDirectories(stdlib.resolve("json"))
             Files.writeString(stdlib.resolve("json/parser.cr"), "module JSON; end")
-            // The compiler tree is indexed now; only the CLI/C ABI/LLVM
+            // Compiler and runtime trees are indexed; only the C ABI/LLVM
             // bindings subtrees stay excluded.
-            for (excluded in listOf("crystal", "lib_c", "lib_z", "ll", "llvm", "gc", "samples")) {
+            Files.createDirectories(stdlib.resolve("crystal"))
+            for (excluded in listOf("lib_c", "lib_z", "ll", "llvm", "gc", "samples")) {
                 Files.createDirectories(stdlib.resolve(excluded))
                 Files.writeString(stdlib.resolve("$excluded/excluded.cr"), "class Excluded; end")
             }
@@ -43,7 +44,7 @@ class CrystalStdlibLibraryProviderTest : BasePlatformTestCase() {
             val library = CrystalStdlibLibraryProvider().getAdditionalProjectLibraries(project).single()
             val rootNames = library.sourceRoots.map { it.name }.toSet()
 
-            assertEquals(setOf("prelude.cr", "array.cr", "json"), rootNames)
+            assertEquals(setOf("prelude.cr", "array.cr", "json", "crystal"), rootNames)
         } finally {
             CrystalStdlibResolver.clearCachedStdlibPath(project)
             File(tempDir.toString()).deleteRecursively()

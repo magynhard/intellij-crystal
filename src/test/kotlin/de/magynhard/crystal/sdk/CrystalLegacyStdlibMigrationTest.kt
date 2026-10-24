@@ -230,7 +230,7 @@ class CrystalLegacyStdlibMigrationTest : BasePlatformTestCase() {
         const val LEGACY_LIBRARY_NAME = "Crystal StdLib"
         // The compiler tree is indexed now (shards require compiler sources),
         // so the legacy exclusion policy no longer lists it.
-        val EXCLUDED_DIRECTORIES = listOf("crystal", "lib_c", "lib_z", "ll", "llvm", "gc", "samples")
+        val EXCLUDED_DIRECTORIES = listOf("lib_c", "lib_z", "ll", "llvm", "gc", "samples")
         val TEST_LIBRARY_NAMES = setOf(LEGACY_LIBRARY_NAME, "Before", "After")
     }
 }
