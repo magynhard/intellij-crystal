@@ -1,5 +1,7 @@
 package de.magynhard.crystal.analysis
 
+import com.intellij.execution.RunManager
+import com.intellij.execution.RunnerAndConfigurationSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.Disposable
@@ -32,6 +34,9 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.CrystalRequireStatement
 import de.magynhard.crystal.sdk.CrystalStdlibResolver
+import de.magynhard.crystal.run.CrystalRunConfiguration
+import de.magynhard.crystal.run.CrystalRunConfigurationType
+import de.magynhard.crystal.run.CrystalRunFactory
 import org.junit.Assume
 import java.nio.file.AccessDeniedException
 import java.nio.file.FileSystemException
@@ -49,11 +54,24 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
     private val listenerDisposables = mutableListOf<Disposable>()
     private val fixtureFiles = mutableMapOf<String, VirtualFile>()
+    private val programConfigurations = mutableListOf<RunnerAndConfigurationSettings>()
+    private var previousConfiguration: RunnerAndConfigurationSettings? = null
+
+    override fun setUp() {
+        super.setUp()
+        previousConfiguration = RunManager.getInstance(project).selectedConfiguration
+    }
 
     override fun runInDispatchThread(): Boolean = false
 
     override fun tearDown() {
         try {
+            ApplicationManager.getApplication().invokeAndWait {
+                val manager = RunManager.getInstance(project)
+                manager.selectedConfiguration = previousConfiguration
+                programConfigurations.forEach(manager::removeConfiguration)
+                programConfigurations.clear()
+            }
             listenerDisposables.forEach(Disposer::dispose)
             listenerDisposables.clear()
             fixtureFiles.clear()
@@ -617,12 +635,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         assertTrue(sources.files.contains(vf("src/chain_4999.cr")))
     }
 
-    fun testEffectiveSourcesIncludeRequirerPrograms() {
-        // Crystal gives every file of one program the same global namespace: the
-        // sibling `Reference` class is visible from `variable.cr` even though
-        // this file never requires it — the shared hub (and its glob) loads
-        // both, and the conflicting top-level `Reference` must NOT shadow the
-        // sibling inside the module scope.
+    fun testSelectedEntryIncludesProgramSiblingsOnColdQuery() {
         files(
             "src/variable.cr" to "module Ameba::AST\nclass Variable\nend\nend",
             "src/reference.cr" to "require \"./variable\"\nmodule Ameba::AST\nclass Reference\nend\nend",
@@ -630,13 +643,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             "src/conflict.cr" to "class Reference\nend",
         )
         val service = service(stdlib = null)
-
-        assertEquals(setOf(vf("src/variable.cr")), service.effectiveSources(elementIn("src/variable.cr")).files)
-
-        // Warm the graph from the entry file like a loaded IDE session: the
-        // forward traversal builds every node, populating the reverse requirer
-        // edges the program closure reads.
-        service.effectiveSources(elementIn("src/hub.cr"))
+        selectEntry("src/hub.cr")
 
         assertEquals(
             setOf(
@@ -649,10 +656,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
         )
     }
 
-    fun testRequirerProgramClosureRefreshesAfterRequireChange() {
-        // The program of a file is the union over every containing program:
-        // old_sibling stays a direct requirer of variable.cr regardless of what
-        // hub loads, while hub's switch pulls new_sibling into the union.
+    fun testSelectedEntryRequireEditReplacesProgramSiblings() {
         files(
             "src/variable.cr" to "class Variable\nend",
             "src/old_sibling.cr" to "require \"./variable\"\nclass OldSibling\nend",
@@ -660,7 +664,7 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
             "src/hub.cr" to "require \"./old_sibling\"",
         )
         val service = service(stdlib = null)
-        service.effectiveSources(elementIn("src/hub.cr"))
+        selectEntry("src/hub.cr")
         val before = service.effectiveSources(elementIn("src/variable.cr"))
         assertTrue(before.files.containsAll(setOf(vf("src/old_sibling.cr"), vf("src/hub.cr"))))
         assertFalse(before.files.contains(vf("src/new_sibling.cr")))
@@ -670,28 +674,145 @@ class CrystalRequireGraphServiceTest : BasePlatformTestCase() {
 
         assertTrue(after.files.contains(vf("src/new_sibling.cr")))
         assertTrue(after.files.contains(vf("src/hub.cr")))
+        assertFalse(after.files.contains(vf("src/old_sibling.cr")))
+        assertTrue("Existing sessions keep their immutable snapshot", before.files.contains(vf("src/old_sibling.cr")))
     }
 
-    fun testNewRequirerExtendsProgramWithoutStaleSnapshot() {
-        // A requirer node built AFTER the target's snapshot must extend the
-        // target's program: the union's dependency versions cannot detect a
-        // contributor that simply appeared, so the publish step invalidates the
-        // dependency's forward-closure snapshots. The late file is traversed
-        // once (as a loaded IDE session would) so its node and reverse edge
-        // exist before the target is re-read.
+    fun testVisitingAnotherProgramDoesNotExtendSelectedProgram() {
         files(
             "src/variable.cr" to "class Variable\nend",
             "src/hub.cr" to "require \"./variable\"",
         )
         val service = service(stdlib = null)
+        selectEntry("src/hub.cr")
         assertTrue(service.effectiveSources(elementIn("src/variable.cr")).files.contains(vf("src/variable.cr")))
 
         files("src/late.cr" to "require \"./hub\"\nclass Late\nend")
         service.effectiveSources(elementIn("src/late.cr"))
         val after = service.effectiveSources(elementIn("src/variable.cr"))
 
-        assertTrue(after.files.contains(vf("src/late.cr")))
+        assertFalse(after.files.contains(vf("src/late.cr")))
         assertTrue(after.files.contains(vf("src/hub.cr")))
+    }
+
+    fun testSelectedProgramsSharingFileNeverMergeAndSwitchImmediately() {
+        files(
+            "src/shared.cr" to "",
+            "src/left.cr" to "require \"./shared\"\nclass Left\nend",
+            "src/right.cr" to "require \"./shared\"\nclass Right\nend",
+        )
+        val service = service(stdlib = null, validationMode = CrystalRequireGraphService.ValidationMode.EVENT_DRIVEN)
+        selectEntry("src/left.cr")
+        val left = service.effectiveSources(elementIn("src/shared.cr"))
+        assertEquals(setOf(vf("src/shared.cr"), vf("src/left.cr")), left.files)
+        selectEntry("src/right.cr")
+        val right = service.effectiveSources(elementIn("src/shared.cr"))
+        assertEquals(setOf(vf("src/shared.cr"), vf("src/right.cr")), right.files)
+        selectEntry("src/left.cr")
+        assertSame(left, service.effectiveSources(elementIn("src/shared.cr")))
+    }
+
+    fun testUnselectedCallersDoNotChangeStandaloneView() {
+        files("src/shared.cr" to "", "src/main.cr" to "require \"./shared\"")
+        val service = service(stdlib = null)
+        val before = service.effectiveSources(elementIn("src/shared.cr"))
+        service.effectiveSources(elementIn("src/main.cr"))
+        assertSame(before, service.effectiveSources(elementIn("src/shared.cr")))
+    }
+
+    fun testUnrelatedSelectedEntryDoesNotLeakIntoFile() {
+        files("src/shared.cr" to "", "src/other.cr" to "class Other\nend")
+        selectEntry("src/other.cr")
+        assertEquals(setOf(vf("src/shared.cr")), service(stdlib = null).effectiveSources(elementIn("src/shared.cr")).files)
+    }
+
+    fun testRelativeSelectedEntryAndWorkingDirectoryChangesAreObserved() {
+        files(
+            "src/shared.cr" to "",
+            "left/main.cr" to "require \"../src/shared\"",
+            "right/main.cr" to "require \"../src/shared\"",
+        )
+        selectEntry("left/main.cr")
+        val configuration = RunManager.getInstance(project).selectedConfiguration!!.configuration as CrystalRunConfiguration
+        configuration.filePath = "main.cr"
+        configuration.workingDirectory = directory("left").path
+        val service = service(stdlib = null)
+        assertEquals(
+            setOf(vf("left/main.cr"), vf("src/shared.cr")),
+            service.effectiveSources(elementIn("src/shared.cr")).files,
+        )
+        configuration.workingDirectory = directory("right").path
+        assertEquals(
+            setOf(vf("right/main.cr"), vf("src/shared.cr")),
+            service.effectiveSources(elementIn("src/shared.cr")).files,
+        )
+    }
+
+    fun testInvalidSelectedFileFallsBackWithoutGuessingAnotherProgram() {
+        files("src/shared.cr" to "", "src/main.cr" to "require \"./shared\"")
+        selectEntry("src/main.cr")
+        val configuration = RunManager.getInstance(project).selectedConfiguration!!.configuration as CrystalRunConfiguration
+        val service = service(stdlib = null)
+        assertTrue(service.effectiveSources(elementIn("src/shared.cr")).files.contains(vf("src/main.cr")))
+        configuration.filePath = "\u0000"
+        assertEquals(setOf(vf("src/shared.cr")), service.effectiveSources(elementIn("src/shared.cr")).files)
+    }
+
+    fun testLibraryEntryIsProvenFromColdQueryWithoutReverseTraversal() {
+        files(
+            "src/benchmark.cr" to "require \"./benchmark/**\"\nmodule Benchmark\nextend self\ndef memory(&)\nyield\nend\nend",
+            "src/benchmark/ips.cr" to "module Benchmark::IPS\nend",
+            "src/benchmark/bm.cr" to "module Benchmark::BM\nend",
+            "src/other.cr" to "require \"./benchmark\"\nclass Other\nend",
+        )
+        val service = service(stdlib = null)
+        val expected = setOf(vf("src/benchmark.cr"), vf("src/benchmark/ips.cr"), vf("src/benchmark/bm.cr"))
+        assertEquals(expected, service.effectiveSources(elementIn("src/benchmark/ips.cr")).files)
+        service.effectiveSources(elementIn("src/other.cr"))
+        assertEquals(expected, service.effectiveSources(elementIn("src/benchmark/ips.cr")).files)
+    }
+
+    fun testLibraryEntryMustActuallyLoadFile() {
+        files("src/library.cr" to "class Other\nend", "src/library/child.cr" to "")
+        assertEquals(
+            setOf(vf("src/library/child.cr")),
+            service(stdlib = null).effectiveSources(elementIn("src/library/child.cr")).files,
+        )
+    }
+
+    fun testLibraryEntryCreationAndRequireRemovalChangeContext() {
+        files("src/library/child.cr" to "", "src/library/other.cr" to "")
+        val service = service(stdlib = null)
+        val own = service.effectiveSources(elementIn("src/library/child.cr"))
+        files("src/library.cr" to "require \"./library/*\"")
+        assertTrue(service.effectiveSources(elementIn("src/library/child.cr")).files.contains(vf("src/library/other.cr")))
+        replaceText("src/library.cr", "require \"./library/other\"")
+        assertSame(own, service.effectiveSources(elementIn("src/library/child.cr")))
+    }
+
+    fun testExplicitEntryTakesPrecedenceOverLibraryInference() {
+        files(
+            "src/library/child.cr" to "",
+            "src/library/extra.cr" to "",
+            "src/library.cr" to "require \"./library/*\"",
+            "src/main.cr" to "require \"./library/child\"",
+        )
+        selectEntry("src/main.cr")
+        assertEquals(
+            setOf(vf("src/main.cr"), vf("src/library/child.cr")),
+            service(stdlib = null).effectiveSources(elementIn("src/library/child.cr")).files,
+        )
+    }
+
+    private fun selectEntry(path: String) {
+        ApplicationManager.getApplication().invokeAndWait {
+            val manager = RunManager.getInstance(project)
+            val settings = manager.createConfiguration("Program $path", CrystalRunFactory(CrystalRunConfigurationType()))
+            (settings.configuration as CrystalRunConfiguration).filePath = vf(path).path
+            manager.addConfiguration(settings)
+            programConfigurations.add(settings)
+            manager.selectedConfiguration = settings
+        }
     }
 
     fun testReusesNodesClosuresAndImmutableEffectiveSnapshotAfterMethodBodyEdit() {

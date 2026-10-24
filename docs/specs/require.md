@@ -146,8 +146,9 @@ foundation.
 
 Top-level requires surrounded by macro-control directives are static graph edges regardless of the
 active flags. Runtime, type-body, method, macro interpolation, and other dynamic requires are not.
-The effective set is forward-only: requiring a file never gives that file the caller's dependencies,
-and sibling branches do not leak into one another.
+Each entry's dependency closure is forward-only. Effective-source queries first select one
+containing program entry as specified below; all files loaded by that entry share its declarations.
+Independent programs are never merged through shared dependencies or previously visited files.
 
 Terminal `/*` expands direct `.cr` children in stable path order. Terminal `/**` additionally walks
 descendant directories in Crystal's sorted depth-first order: sorted direct files, then each sorted
@@ -319,8 +320,10 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
 - The production require graph reuses every materialized node not marked dirty by
   a VFS content-change event without collecting its require fingerprint again.
   Cached closures maintain reverse ownership from each dependency node to exactly
-  the closure roots that contain it. A clean effective snapshot is returned in
-  constant time without traversing the root or prelude closure. A content event
+   the closure roots that contain it. Cached forward closures and immutable entry
+   snapshots are reused without recollecting requires. Entry membership uses those
+   closures plus bounded ancestor companion lookups, not a project scan. Snapshot
+   freshness is checked against contributing dependency versions. A content event
   marks only owning closures, plus the shared prelude foundation when applicable,
   as requiring validation; unrelated dirty nodes do not affect another root's
   fast path.
@@ -331,7 +334,7 @@ require "json/pa<caret>" # selecting parser -> require "json/parser<caret>"
   listener. Listenerless tests can explicitly select full validation instead of
   imposing unconditional PSI walks on production queries.
 
-## Program Closure (requirer visibility)
+## Program Context (single-entry visibility)
 
 Crystal gives every file of one compiled program the same global namespace:
 `Reference.new(node, scope)` inside `Ameba::AST::Variable` sees the sibling
@@ -340,30 +343,47 @@ shared entry (or a glob require from an ancestor file) loads both. The
 forward-only effective-source set under-included such program siblings and
 starved type resolution of declarations living behind a shared entry.
 
-The effective source set of a file is therefore the **program closure**:
+Each query selects exactly one entry, deterministically and without using the
+reverse-edge index to infer visibility:
 
-1. its own forward require closure, and
-2. the forward closures of every already-known requirer, discovered by
-   walking the lazily built reverse edge index outward from the file.
+1. Prefer the selected Crystal Run/Build/Spec configuration's existing `.cr`
+   file if its forward closure contains the queried file. Files in the configured
+   prelude foundation also belong to that program. Relative entry paths resolve
+   against the configuration's working directory, just as execution does.
+2. Otherwise infer a library entry from direct ancestor-directory companions,
+   nearest first: `src/benchmark/ips.cr` tries `src/benchmark.cr`. A companion
+   is accepted only if its actual forward require closure contains the queried
+   file. Merely sharing a directory or namespace is insufficient. Lookup stops
+   at the containing project content root or configured stdlib root; it never
+   enumerates project files or scans possible callers.
+3. If neither proves a containing program, use the queried file itself. Unselected
+   run configurations, other shard targets, previously visited callers, and
+   arbitrary sibling files are not added speculatively. Spec-directory runs and
+   multi-entry builds are not inferred as one file-entry program.
 
-Properties and trade-offs:
+The effective set is the selected entry's forward closure plus the configured
+prelude closure. All consumers (inference, completion, navigation, documentation,
+and inspections) use this shared immutable snapshot. Thus `Benchmark.memory`
+inside `benchmark/ips.cr` sees the definition in its proven library entry even
+on the first query; two executables sharing a helper never exchange declarations.
+The library fallback is an inferred standalone library program, not a claim to
+know which executable the user will compile. Select a matching Run configuration
+to supply an explicit program context.
 
-- No whole-project scan is ever performed. The reverse index only contains
-  nodes built so far, so a file opened in isolation keeps the conservative
-  forward-only view; the program view grows as the session loads more of the
-  graph (the offline audit traverses every file, so its view is complete).
-- The union's merged dependency-version map is the authoritative freshness
-  test on the fast path; any contributing change an event pass missed makes
-  the snapshot rebuild (and force-dirties drifted closures to guarantee
-  progress instead of spinning).
-- A requirer whose closure is already covered by the union is skipped via its
-  node's outgoing list — a 5 000-file require cycle stays linear and bounded.
-- Publishing a node that GAINS a requirer edge drops the dependency's
-  forward-closure snapshots: dependency versions cannot detect a contributor
-  that simply appeared.
-- The model is a union over every containing program, so a sibling that
-  still directly requires the file stays visible even when an intermediate
-  hub switches requires — an intentional superset of any single-entry build.
+Entry selection and membership are rechecked on each query against cached forward
+closures, independently of editor visitation order. Changing the selected
+configuration or its file/working directory affects the next query and restarts
+editor analysis. Require edits and relevant VFS changes use existing dependency
+invalidation; removing a require also removes that branch from subsequent snapshots.
+Old sessions retain their immutable snapshot. Reverse edges remain only for cache
+invalidation. Cycles are traversed iteratively and remain bounded.
+
+This does not evaluate compiler flags or macro expansion: the existing static
+collector still includes file-scope requires under macro controls regardless of
+the active branch. Custom preludes and custom compiler search paths are not
+inferred from arbitrary command-line arguments or environment variables. Exact
+single-entry membership is guaranteed within that documented static graph model,
+not for every possible build configuration.
 
 Two latent inspection gaps surfaced once kemal's program merged with its
 dev-dependency shard (top-level `def public_folder(path)` / `def
@@ -405,8 +425,9 @@ Automated coverage protects:
   path suppression, project-`lib/` shard resolution, and stdlib navigation (gated on an installed
   Crystal compiler).
 - Suite-wide stdlib VFS root allowance surviving Application recreation between test classes.
-- Program closure: requirer programs extend effective sources, require changes refresh them,
-  late requirers extend them without stale snapshots, and the 5 000-file cycle stays bounded.
+- Program context: cold selected-entry and proven-library membership, exclusion of unrelated
+  callers and independent programs, immediate context switches, require-branch removal,
+  library-entry creation, immutable snapshots, and bounded 5 000-file cycles.
 - Macro-call arguments are not measured as runtime calls; proc-literal parameters resolve
   as local declarations.
 - Bare calls' parenthesis-free arguments count: `extractArguments` handles BOTH forms of

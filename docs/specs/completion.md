@@ -91,9 +91,9 @@ Free-text completion offers scope-aware suggestions based on the current cursor 
 #### Dependency-Aware Name Completion
 
 Indexed type and top-level-method candidates are offered only when their defining file is
-visible through the current file's require closure (the configured `prelude.cr` closure plus
-the current file's forward transitive require closure — the same `effectiveSources` snapshot
-DOT completion uses). Each completion computes the snapshot once and filters stub-index
+visible through the current program context (the configured `prelude.cr` closure plus
+one containing entry's forward transitive require closure, selected as specified in `require.md` —
+the same `effectiveSources` snapshot DOT completion uses). Each completion computes the snapshot once and filters stub-index
 candidates by exact file membership before emitting lookup elements:
 
 - **Types/classes** (`CrystalSymbolCompletionProvider.addAllClasses`): an indexed name is
@@ -426,8 +426,8 @@ likewise inherit from indexed `UInt` and `Float` declarations.
 
 DOT candidates come from StubIndex but are filtered to one effective source snapshot before exact
 identity, hierarchy, overload, union, and macro rules run. For a physical `.cr` file this snapshot is
-the configured `prelude.cr` closure plus the current file's forward transitive require closure. It
-does not include reverse dependents, unrequired siblings, or every indexed stdlib/project reopening.
+the configured `prelude.cr` closure plus the selected containing entry's forward transitive require closure. It
+does not include callers outside that entry's program, unrequired siblings, or every indexed stdlib/project reopening.
 This produces the following core behavior with a normal split standard library:
 
 ```crystal

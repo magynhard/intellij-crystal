@@ -20,6 +20,34 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
  */
 class CrystalAccessorRenameTest : BasePlatformTestCase() {
 
+    fun testBangPropertyRenameKeepsPlainAndQueryReadersCoupled() {
+        myFixture.configureByText("entry.cr", """
+            class Entry
+              property! cy<caret>cles : Int32
+              def use(other : Entry)
+                @cycles = 1
+                puts cycles
+                puts cycles?
+                puts other.cycles
+                puts other.cycles?
+              end
+            end
+        """.trimIndent())
+        myFixture.renameElement(elementAtCaret(), "iterations")
+        myFixture.checkResult("""
+            class Entry
+              property! iterations : Int32
+              def use(other : Entry)
+                @iterations = 1
+                puts iterations
+                puts iterations?
+                puts other.iterations
+                puts other.iterations?
+              end
+            end
+        """.trimIndent())
+    }
+
     fun testForwardRenamePropertyPullsVariableAndCallSites() {
         myFixture.configureByText("session.cr", """
             class Session

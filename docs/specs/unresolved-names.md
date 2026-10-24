@@ -66,6 +66,12 @@ the constant rule per segment, with the root rule for qualified paths.
    Indexing mode, unavailable source context, and incomplete annotation syntax
    remain silent. Annotation arguments are metadata and are not checked by this
    unresolved-name inspection; the annotation name itself is checked.
+8. Accessor-generated readers are known through the shared accessor-macro
+   mapping. `getter! name` and `property! name` generate both `name` and
+   `name?`, not `name!`; bare reads in the declaring type and exact DOT
+   readers resolve to the macro argument. Setter-only macros and `getter?`
+   do not make a missing plain reader known. Local bindings retain precedence,
+   and an unrelated type's property cannot heal an unknown name.
 
 ## Silence Rules
 
@@ -73,14 +79,14 @@ No diagnostic when the name cannot be judged or the shape is not a plain
 unresolved name — mirroring the suppression-first conventions of the
 call-argument inspections:
 
-- Require-closure consistency (same lens as dependency-aware completion): a
-  name indexed only in files outside the current file's require closure is
-  reported as a weak warning — from this file's program view it cannot be
-  found. This is deliberately stricter than the Crystal compiler, whose
-  top-level namespace is program-global: a file that relies on another entry
-  point's transitive requires (without requiring the file itself) will warn
-  weakly. Each file must require what it uses, exactly as completion already
-  assumes. Truly unknown names (nothing indexed anywhere) warn strongly.
+- Program-context consistency (same lens as dependency-aware completion):
+  declarations loaded by the selected containing entry are visible throughout
+  that program; a helper need not repeat its entry's requires. `require.md`
+  specifies entry selection and the conservative standalone-library fallback.
+  Names indexed only outside that program remain unavailable; the existing
+  known-but-unrequired classification warns weakly. Truly unknown names
+  (nothing indexed anywhere) warn strongly. Visiting another executable never
+  changes visibility or heals a missing-name warning in the selected program.
 - Require-gated stdlib names unknown to the index (no SDK: `JSON` with no
   indexed declaration): silent. The index cannot prove absence.
 - Incomplete or suppressed DOT receivers, macro-uncertain enclosing types
@@ -88,7 +94,7 @@ call-argument inspections:
   macro-interpolated callees or receivers: silent.
 - Non-code positions: definition names, DOT/DOUBLE_COLON-adjacent segments
   (except the flagged last namespace segment), symbol keys (`sym:`), string
-   literals, `require` paths, annotation arguments, `case ... in` patterns (owned by
+  literals, `require` paths, annotation arguments, `case ... in` patterns (owned by
   `CrystalInvalidInPattern`), macro contexts, macro-call blocks, and arguments
   of macro invocations (`record Config`, `property name` declare API surface
   through expansion), `lib/` and other non-project sources, ECR-lenient

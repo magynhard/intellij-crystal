@@ -3610,7 +3610,7 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.checkHighlighting()
     }
 
-    fun testReopenedOverloadsVisibleOnlyThroughRequirerUnion() {
+    fun testStandaloneReopenedTypeWithUnavailableOverloadsStaysSuppressed() {
         myFixture.addFileToProject("base.cr", """
             struct Widget
               private def run(vars, owner, name, info, freeze_type = true)

@@ -254,6 +254,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Bang-property readers resolve correctly** — `getter!` and `property!`
+  expose their actual plain and query readers (`name` and `name?`) to bare
+  and DOT references, missing-name checks, and coupled rename. Benchmark IPS
+  statistics such as `cycles`, `mean`, `variance`, `stddev`, and `slower`
+  no longer produce false `Cannot find` warnings merely because they are
+  declared with `property!`.
+- **Single-entry program visibility** — resolution, completion, and inspections
+  use the selected containing Crystal Run/Build/Spec file's require closure,
+  with a require-proven ancestor library entry as the standalone fallback.
+  `Benchmark.memory` is visible from `benchmark/ips.cr` immediately, without
+  merging independent programs through shared helpers or editor visitation order.
 - **Annotation-aware name resolution** — annotation names use their dedicated
   index with lexical namespace and require visibility for navigation,
   documentation, and missing-name diagnostics. Compiler annotations such as

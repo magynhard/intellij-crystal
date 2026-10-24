@@ -12,8 +12,8 @@ import de.magynhard.crystal.stubs.CrystalIndexService
 /**
  * Require-graph visibility for name-based lookups that bypass the shared
  * resolution session (argument-count / type-check inspections, reference
- * fallbacks). Crystal resolves unqualified names only against the current
- * file plus its forward require closure and the prelude — a project-wide or
+ * fallbacks). Crystal resolves unqualified names against one containing
+ * entry's forward require closure and the prelude — a project-wide or
  * all-scope index search must be filtered through the same lens, otherwise
  * definitions from unrelated files leak into diagnostics and hovers.
  */

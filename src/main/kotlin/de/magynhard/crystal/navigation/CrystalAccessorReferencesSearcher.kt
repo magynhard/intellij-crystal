@@ -197,9 +197,8 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
         // Bare implicit-self reader call (`in_loop`, `in_loop?`): the lexer
         // folds the `?` reader suffix into the IDENTIFIER token, so these
         // calls carry no receiver composite. Gates: the method name implied
-        // by the accessor macro must match exactly (only `getter`/`property`
-        // without a suffix and the `?`-variants declare an instance reader —
-        // setter-only and `!` variants never bind), the hit must live in the
+        // by the accessor macro must match exactly (`!` macros generate both
+        // the plain and query readers), the hit must live in the
         // declaring type's own body (implicit self — dependent types without
         // a receiver are follow-up work), and no local binding may shadow
         // the name — Crystal resolves bare names to locals first.
@@ -215,16 +214,16 @@ class CrystalAccessorReferencesSearcher : QueryExecutorBase<PsiReference, Refere
             de.magynhard.crystal.psi.CrystalBareMethodCallExpression::class.java,
         ) ?: return
         val macroName = CrystalAccessorCoupling.accessorMacroName(call) ?: return
-        if (macroName.endsWith("!") || CrystalAccessorCoupling.isClassVarMacro(macroName)) return
+        if (CrystalAccessorCoupling.isClassVarMacro(macroName)) return
         val argName = CrystalAccessorCoupling.accessorArgName(accessorArg) ?: return
-        val readerCallName = argName + if (macroName.endsWith("?")) "?" else ""
         val sameNameFamily = hit.text == argName
-        if (hit.text.endsWith("!") || (!sameNameFamily && hit.text != readerCallName)) return
+        if (hit.text.endsWith("!") || (!sameNameFamily &&
+                macroName !in CrystalAccessorCoupling.allowedAccessorMacros(hit.text).orEmpty())) return
         if (hit === CrystalAccessorCoupling.accessorNameIdentifier(accessorArg)) return
         // The DEF-name position is a family member for the plain name; the
         // reader shape can never sit behind `def`.
         if (!sameNameFamily && previousSignificantNode(hit.node)?.elementType == CrystalTypes.DEF) return
-        if (bareNameShadowedLocally(hit, if (sameNameFamily) argName else readerCallName)) return
+        if (bareNameShadowedLocally(hit, if (sameNameFamily) argName else hit.text)) return
         val declaringType = PsiTreeUtil.getParentOfType(
             accessorArg,
             CrystalClassDefinition::class.java,

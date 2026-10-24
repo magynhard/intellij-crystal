@@ -34,7 +34,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 
 - Context-aware completion for local variables, parameters, methods, constants, types, namespaces, and `require` paths
 - Receiver-aware DOT completion for literals, variables, method results, collections, constructors, and supported unions
-- Require-aware method visibility based on the current file, its transitive dependencies, and the configured Crystal prelude
+- Program-aware visibility based on one containing entry's transitive dependencies and the configured Crystal prelude; independent executables never share declarations merely because both load a helper
 - Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View
 - Namespace- and require-aware annotation navigation and documentation, with missing-annotation diagnostics
 - Embedded language highlighting in heredocs and strings — `<<-SQL`, `<<-JAVASCRIPT`, `<<-CSS`, `<<-HTML`, `<<-JSON`, `<<-YAML`, `<<-CRYSTAL` and other language markers inject the target language's syntax highlighting when its plugin is installed; `# language=<id>` comments above heredocs, double-quoted strings, `%q`/`%Q` percent literals, and `:"symbol"` strings do the same (with optional `prefix=`/`suffix=`)
@@ -177,6 +177,15 @@ Only the Crystal command is required when you do not need debugging. If Crystal 
 Direct link: [Crystal Language on the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32180-crystal-language)
 
 The plugin is incompatible with the older `net.kenro.ji.jin.intellij.crystal-2` plugin. Disable or remove that plugin before installing this one.
+
+For code intelligence across a multi-file program, select its Crystal Run, Build,
+or single-file Spec configuration in the IDE toolbar. Files loaded by that entry
+share its declarations. Without a matching configuration, the plugin uses the
+nearest ancestor library entry (for example, `benchmark.cr` for `benchmark/ips.cr`)
+only when its requires actually load the file; otherwise it analyzes the file's
+own dependencies. Selecting a configuration distinguishes executables that share
+library files. Conditional requires are still collected statically, without
+evaluating compiler flags or macro expansion.
 
 ## Known Limitations
 

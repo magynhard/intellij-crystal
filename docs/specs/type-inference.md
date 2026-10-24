@@ -14,9 +14,11 @@ and never scans project files.
 Each session also captures exactly one immutable effective-source snapshot from its PSI context.
 Neutral StubIndex candidate lists for types, named methods, and methods by enclosing type are
 filtered against that snapshot before exact identity, hierarchy metadata, ambiguity, duplicate
-signature, or completeness logic runs. The visible program consists of the current file, its
-forward transitive require closure, and the configured prelude closure. Reverse dependents,
-unrequired sibling files, and optional reopenings outside that set cannot affect resolution.
+signature, or completeness logic runs. The visible program consists of one selected containing
+entry's forward transitive require closure and the configured prelude closure. Entry selection
+prefers a matching selected Crystal Run/Build/Spec file, then a proven ancestor library entry,
+then the current file itself (see `require.md`). Previously visited reverse dependents,
+independent programs, and reopenings outside that context cannot affect resolution.
 
 Consumers must construct sessions from the actual PSI location being analyzed. Completion passes
 its completion position for both value and type-object receivers; a `Project` or project directory

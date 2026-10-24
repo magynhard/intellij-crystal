@@ -11,6 +11,87 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== Bare identifiers ====================
 
+    fun testBangPropertiesExposePlainReadersInBenchmarkStatistics() {
+        myFixture.configureByText("test.cr", """
+            module Benchmark
+              module IPS
+                class Entry
+                  property! cycles : Int32
+                  property! mean : Float64
+                  property! variance : Float64
+                  property! stddev : Float64
+                  property! slower : Float64
+
+                  def calculate
+                    @cycles = 1 if cycles <= 0
+                    @variance = mean ** 2
+                    @stddev = variance
+                    @relative_stddev = 100.0 * (stddev / mean)
+                    iteration_time = 1.0 / mean
+                    if slower == 1.0
+                      "fastest"
+                    else
+                      sprintf "%5.2f× slower", slower
+                    end
+                  end
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBangGetterAndPropertyExposePlainAndQueryReaders() {
+        myFixture.configureByText("test.cr", """
+            class Entry
+              getter! cycles : Int32
+              property! mean : Float64
+              def use
+                puts cycles
+                puts cycles?
+                puts mean
+                puts mean?
+              end
+              def use_other(other : Entry)
+                puts other.cycles
+                puts other.cycles?
+                puts other.mean
+                puts other.mean?
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testSetterAndQueryOnlyMacrosDoNotDeclarePlainReader() {
+        myFixture.configureByText("test.cr", """
+            class Entry
+              setter cycles : Int32
+              getter? ready : Bool
+              def use
+                puts <warning descr="Cannot find 'cycles'">cycles</warning>
+                puts <warning descr="Cannot find 'ready'">ready</warning>
+                puts ready?
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testBangPropertyInUnrelatedTypeDoesNotHealMissingName() {
+        myFixture.configureByText("test.cr", """
+            class Other
+              property! cycles : Int32
+            end
+            class Entry
+              def use
+                puts <warning descr="Cannot find 'cycles'">cycles</warning>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testCompilerAnnotationsStayKnownWithoutSdk() {
         myFixture.configureByText("test.cr", """
             @[Deprecated("Use another method")]

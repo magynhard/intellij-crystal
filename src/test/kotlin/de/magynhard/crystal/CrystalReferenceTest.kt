@@ -62,6 +62,40 @@ class CrystalReferenceTest : BasePlatformTestCase() {
 
     // ==================== Reference Resolution ====================
 
+    fun testBangPropertyPlainAndQueryReadersResolveToDeclaration() {
+        val file = myFixture.configureByText("test.cr", """
+            class Entry
+              property! cycles : Int32
+              def use
+                cycles
+                cycles?
+              end
+            end
+        """.trimIndent())
+        val usages = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .filter { it.text == "cycles" || it.text == "cycles?" }
+            .filter { PsiTreeUtil.getParentOfType(it, CrystalMethodDefinition::class.java) != null }
+        assertEquals(2, usages.size)
+        val targets = usages.map { findReference(it)?.resolve() }
+        assertNotNull(targets.first())
+        assertEquals(targets.first(), targets.last())
+        assertTrue(targets.first()!!.text.startsWith("cycles"))
+    }
+
+    fun testLocalParameterStillShadowsBangPropertyReader() {
+        val file = myFixture.configureByText("test.cr", """
+            class Entry
+              property! cycles : Int32
+              def use(cycles : Int32)
+                cycles
+              end
+            end
+        """.trimIndent())
+        val usage = PsiTreeUtil.findChildrenOfType(file, CrystalVariableReference::class.java)
+            .single { it.text == "cycles" && PsiTreeUtil.getParentOfType(it, CrystalMethodDefinition::class.java) != null }
+        assertTrue(findReference(usage)?.resolve() is CrystalParameter)
+    }
+
     fun testNestedTypeReferencePrefersLexicalNamespace() {
         myFixture.configureByText("test.cr", """
             class Hash

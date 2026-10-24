@@ -21,24 +21,26 @@ is broken code in both directions, so the coupling is deterministic and silent
 macro variant            generated methods                coupled variable
 getter foo               def foo                          @foo
 getter? foo              def foo?                         @foo (Bool)
-getter! foo              def foo!                         @foo (nilable)
+getter! foo              def foo, def foo?                @foo (nilable)
 setter foo               def foo=(val)                    @foo
 property foo             def foo, def foo=(val)           @foo
 property? foo            def foo?, def foo=(val)          @foo
-property! foo            def foo!, def foo=(val)          @foo (nilable)
+property! foo            def foo, def foo?, def foo=(val) @foo (nilable)
 class_getter foo         def self.foo                     @@foo
 class_setter foo         def self.foo=(val)               @@foo
 class_property foo       def self.foo, def self.foo=(val) @@foo
 class_getter?/…          def self.foo?                    @@foo
-class_property! foo      def self.foo!, def self.foo=(val) @@foo (nilable)
+class_property! foo      def self.foo, def self.foo?, def self.foo=(val) @@foo (nilable)
 ```
 
-The generated method names keep their variant suffix: `property? active`
-declares `active?` and `active=` — the plain reader `active` is NOT the
-property macro's declaration. `allowedAccessorMacros` maps the called method
-name to the declaring macro family (plain readers from suffix-free macros
-only, `?`/`!` for their suffixed shapes, setters include the `setter!` and
-`property!` variants since those still declare `foo=`).
+`property? active` declares `active?` and `active=` — not the plain reader
+`active`. In contrast, `getter! active` and `property! active` declare both
+`active` (raise-on-nil reader) and `active?` (nilable query); they do not
+declare `active!`. This follows `object/properties.cr` in the Crystal stdlib.
+`allowedAccessorMacros` is the shared mapping for bare references, DOT
+references, missing-name inspections, and rename usage matching. Bang macros
+participate in both plain-reader and query-reader lookup. Class variants
+produce the same shapes in static receiver mode.
 
 ## Rename plumbing
 
@@ -207,8 +209,8 @@ accessor word-hit walker now covers the implicit-self call:
 - The bare hit must textually equal the reader name implied by the macro:
   `getter`/`property` without a suffix declare the plain name reader, the
   `?`-variants (`getter?`, `property?`, …) declare the `?`-suffixed
-  reader. `!`-variants and setter-only macros never declare an instance
-  reader, and class-var accessors skip the implicit-self surface (the
+  reader, and `!`-variants declare both plain and query readers. Setter-only
+  macros do not generate readers. Class-var accessors skip the implicit-self surface (the
   class method needs a class-level self — follow-up).
 - The hit must live in the declaring type's own body (implicit self).
 - CONSISTENCY GATE: a bare name resolves to a LOCAL first, and
@@ -289,9 +291,8 @@ suffix from the identifier token). `CrystalReference.resolve()` now
 falls back to the coupled accessor argument as the LAST resolution step
 (after locals, macro context, indexed types and methods — real
 definitions keep their precedence). Gates mirror the searcher's rules:
-declaring-type body, exact full-text name (the macro-implied reader
-name for `?`-variants, the plain name for suffix-free readers and
-same-name family members), no `!` variants, no class-var macros;
+declaring-type body, exact generated-reader name (query-only for `?`
+macros, plain-only for suffix-free macros, both for `!` macros), no class-var macros;
 local shadowing stays handled by the local-first resolution. With the
 occurrence resolving to the `PsiNameIdentifierOwner` argument, the
 rename processor takes over and the whole family follows regardless of

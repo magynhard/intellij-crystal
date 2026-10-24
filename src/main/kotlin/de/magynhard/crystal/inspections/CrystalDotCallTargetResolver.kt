@@ -303,7 +303,7 @@ object CrystalDotCallTargetResolver {
 
     /**
      * Accessor-macro name arguments of the receiver type matching the called
-     * method shape: `foo` (plain reader), `foo?`/`foo!` (suffix variants), or
+     * method shape: `foo` (plain reader), `foo?` (query reader), or
      * `foo=` (setter, from `obj.foo = v`). Instance mode binds the plain
      * family, static mode (`Session.timeout`, `session.foo=` — an instance
      * receiver never binds `self.timeout`) the `class_*` family.

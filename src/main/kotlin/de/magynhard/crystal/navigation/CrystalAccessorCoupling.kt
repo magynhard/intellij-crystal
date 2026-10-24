@@ -17,7 +17,7 @@ import de.magynhard.crystal.psi.CrystalVariableReference
 /**
  * Coupling utilities for the accessor-macro family. A rename of the accessor
  * name (`foo` in `property foo`) carries the whole implicit chain: the
- * generated reader/setter methods (`foo`, `foo=`, `foo?`, `foo!`), the coupled
+ * generated reader/setter methods (`foo`, `foo=`, `foo?`), the coupled
  * instance/class variables (`@foo` / `@@foo` for the `class_*` variants), the
  * initializer storage shortcut (`initialize(@foo : String)`), and the reader
  * and setter call sites (`obj.foo`, `obj.foo = v`). Macro-generated code has no
@@ -98,21 +98,22 @@ object CrystalAccessorCoupling {
 
     /**
      * Which macro names may generate the called method shape. Plain readers
-     * (`foo`) come only from suffix-free macros; `getter? foo` declares `foo?`
-     * (no plain `foo`), `getter! foo` declares `foo!`; setters (`foo=`) come
+     * (`foo`) come from suffix-free and bang macros; `getter? foo` declares `foo?`
+     * (no plain `foo`), `getter! foo` declares both `foo` and `foo?`; setters (`foo=`) come
      * from setter declarations including the `!` variants (`setter! foo`
      * still declares `foo=`).
      */
     fun allowedAccessorMacros(methodName: String): Set<String>? = when {
         methodName.endsWith("?") ->
-            setOf("getter?", "property?", "class_getter?", "class_property?")
-        methodName.endsWith("!") ->
-            setOf("getter!", "property!", "class_getter!", "class_property!")
+            setOf("getter?", "property?", "getter!", "property!",
+                "class_getter?", "class_property?", "class_getter!", "class_property!")
+        methodName.endsWith("!") -> emptySet()
         methodName.endsWith("=") ->
             setOf("setter", "setter!", "property", "property!",
                 "class_setter", "class_setter!", "class_property", "class_property!")
         else ->
-            setOf("getter", "property", "class_getter", "class_property")
+            setOf("getter", "property", "getter!", "property!",
+                "class_getter", "class_property", "class_getter!", "class_property!")
     }
 
     /**

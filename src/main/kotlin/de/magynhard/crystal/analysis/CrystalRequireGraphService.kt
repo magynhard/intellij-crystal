@@ -1,5 +1,8 @@
 package de.magynhard.crystal.analysis
 
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.execution.RunManagerListener
+import com.intellij.execution.RunnerAndConfigurationSettings
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.injected.editor.VirtualFileWindow
 import com.intellij.openapi.Disposable
@@ -274,10 +277,12 @@ internal class CrystalRequireGraphService private constructor(
             ProgressManager.checkCanceled()
             val stdlibRoot = pathResolver.currentStdlibRoot()
             val capturedGeneration = captureGeneration(stdlibRoot)
-            cleanEffectiveSnapshot(root, capturedGeneration)?.let { return it }
             try {
                 val foundation = preludeFoundation(capturedGeneration, stdlibRoot)
-                val program = programClosure(root, capturedGeneration, stdlibRoot) ?: return EMPTY_SOURCES
+                val entry = programRoot(root, capturedGeneration, stdlibRoot, foundation.files)
+                cleanEffectiveSnapshot(entry, capturedGeneration)?.let { return it }
+                val program = closure(entry, TraversalProvenance.PROJECT, capturedGeneration, stdlibRoot)
+                    ?: return EMPTY_SOURCES
                 synchronized(lock) {
                     if (
                         generation != capturedGeneration ||
@@ -299,13 +304,13 @@ internal class CrystalRequireGraphService private constructor(
                         }
                         return@synchronized
                     }
-                    val cached = effectiveSnapshots[root]
+                    val cached = effectiveSnapshots[entry]
                     if (cached != null && cached.foundation === foundation && cached.closure === program) {
                         return cached.sources
                     }
                     val files = immutableSet(foundation.files + program.files)
                     return CrystalEffectiveSourceSet(files).also { sources ->
-                        effectiveSnapshots[root] = EffectiveSnapshot(foundation, program, sources)
+                        effectiveSnapshots[entry] = EffectiveSnapshot(foundation, program, sources)
                     }
                 }
             } catch (_: StaleGeneration) {
@@ -314,67 +319,24 @@ internal class CrystalRequireGraphService private constructor(
         }
     }
 
-    /**
-     * The program closure of a file: its own forward require closure extended
-     * with the forward closures of every already-known requirer.
-     *
-     * Crystal compiles one entry file and gives every file of that program the
-     * same global namespace — `Reference.new` inside `Ameba::AST::Variable` sees
-     * the sibling `Ameba::AST::Reference` declared in a file this file never
-     * requires itself. The forward-only closure under-included such program
-     * siblings and starved type resolution of declarations that live behind a
-     * shared entry (or a glob require from an ancestor file). The union over
-     * requirers' closures reconstructs the containing program without any
-     * whole-project scan: the reverse edges are the lazily built requirer
-     * index, so a file opened in isolation still keeps the conservative
-     * forward-only view and the program view grows as the session loads more
-     * of the graph.
-     */
-    private fun programClosure(
+    /** Select one containing program, never a union of previously visited callers. */
+    private fun programRoot(
         root: VirtualFile,
         capturedGeneration: Long,
         stdlibRoot: VirtualFile?,
-    ): Closure? {
-        val own = closure(root, TraversalProvenance.PROJECT, capturedGeneration, stdlibRoot)
-        synchronized(lock) {
-            if (generation != capturedGeneration) throw StaleGeneration
+        foundationFiles: Set<VirtualFile>,
+    ): VirtualFile {
+        val selected = CrystalProgramContext.selectedEntry(project)
+        if (selected != null) {
+            val program = closure(selected, TraversalProvenance.PROJECT, capturedGeneration, stdlibRoot)
+            if (program != null && (root in program.files || root in foundationFiles)) return selected
         }
-        if (own == null) return null
-        val requirers = linkedSetOf<NodeKey>()
-        val pending = ArrayDeque<NodeKey>()
-        pending.add(NodeKey(root, TraversalProvenance.PROJECT))
-        while (pending.isNotEmpty()) {
+        for (candidate in CrystalProgramContext.libraryEntries(project, root, stdlibRoot)) {
             ProgressManager.checkCanceled()
-            val current = pending.removeFirst()
-            val edges = synchronized(lock) {
-                if (generation != capturedGeneration) throw StaleGeneration
-                reverseEdges[current].orEmpty().toList()
-            }
-            for (requirer in edges) {
-                if (requirers.add(requirer)) pending.add(requirer)
-            }
+            val program = closure(candidate, TraversalProvenance.PROJECT, capturedGeneration, stdlibRoot)
+            if (program != null && root in program.files) return candidate
         }
-        if (requirers.isEmpty()) return own
-        val files = LinkedHashSet(own.files)
-        val dependencyVersions = LinkedHashMap(own.dependencyVersions)
-        for (requirer in requirers) {
-            // A requirer whose closure is already covered by the accumulation
-            // contributes nothing: its own file and every transitive target of
-            // its outgoing edges are already in the union. Checking the node's
-            // outgoing list avoids building a fresh closure per requirer — a
-            // large require cycle would otherwise build |cycle| closures of
-            // |cycle| files each and blow the heap.
-            val node = synchronized(lock) {
-                if (generation != capturedGeneration) throw StaleGeneration
-                nodes[requirer]
-            }
-            if (node != null && requirer.file in files && node.outgoing.all { it.file in files }) continue
-            val requirerClosure = closure(requirer.file, requirer.provenance, capturedGeneration, stdlibRoot)
-                ?: continue
-            files.addAll(requirerClosure.files)
-            dependencyVersions.putAll(requirerClosure.dependencyVersions)
-        }
-        return Closure(immutableSet(files), immutableMap(dependencyVersions))
+        return root
     }
 
     fun invalidateAll() {
@@ -451,10 +413,7 @@ internal class CrystalRequireGraphService private constructor(
             if (ClosureKey(root, TraversalProvenance.PROJECT) in dirtyClosureReasons || preludeClosureDirty) {
                 return@synchronized null
             }
-            // The snapshot's program closure spans this file's own requires AND
-            // every requirer's closure, so a version check against the union's
-            // dependency map is the authoritative freshness test — it also
-            // self-heals any dependency change an event pass missed.
+            // Only the chosen entry's forward closure contributes to this snapshot.
             effectiveSnapshots[root]
                 ?.takeIf { it.foundation.generation == capturedGeneration }
                 ?.takeIf { closureIsCurrent(it.closure) }
@@ -475,6 +434,15 @@ internal class CrystalRequireGraphService private constructor(
         })
         project.messageBus.connect(parentDisposable).subscribe(ModuleRootListener.TOPIC, object : ModuleRootListener {
             override fun rootsChanged(event: ModuleRootEvent) = invalidateAll()
+        })
+        project.messageBus.connect(parentDisposable).subscribe(RunManagerListener.TOPIC, object : RunManagerListener {
+            override fun runConfigurationSelected(settings: RunnerAndConfigurationSettings?) {
+                DaemonCodeAnalyzer.getInstance(project).restart("Crystal program entry selected")
+            }
+
+            override fun runConfigurationChanged(settings: RunnerAndConfigurationSettings) {
+                DaemonCodeAnalyzer.getInstance(project).restart("Crystal program configuration changed")
+            }
         })
     }
 
@@ -828,7 +796,6 @@ internal class CrystalRequireGraphService private constructor(
         exactCandidatePaths: Set<String>,
         wildcardWatches: Set<NodeWildcardWatch>,
     ): Node {
-        val previous = nodes[key]?.outgoing
         nodes[key]?.outgoing?.forEach { dependency -> reverseEdges[dependency]?.remove(key) }
         val node = Node(
             fingerprint,
@@ -838,25 +805,8 @@ internal class CrystalRequireGraphService private constructor(
             ++nextNodeVersion,
         )
         nodes[key] = node
-        val addedDependencies = outgoing.filter { dependency ->
+        outgoing.forEach { dependency ->
             reverseEdges.getOrPut(dependency, ::linkedSetOf).add(key)
-        }
-        // A freshly gained requirer extends the programs of everything in the
-        // dependency's forward closure: their effective source sets may now
-        // include the requirer's closure. Drop those snapshots so the next
-        // read rebuilds them — the unions' dependency versions cannot detect
-        // a contributor that simply appeared.
-        for (dependency in addedDependencies) {
-            val pending = ArrayDeque<NodeKey>()
-            pending.add(dependency)
-            val seen = linkedSetOf(dependency)
-            while (pending.isNotEmpty()) {
-                val current = pending.removeFirst()
-                effectiveSnapshots.remove(current.file)
-                nodes[current]?.outgoing?.forEach { next ->
-                    if (seen.add(next)) pending.add(next)
-                }
-            }
         }
         invalidateDependentClosures(key)
         nodeBuilds++
