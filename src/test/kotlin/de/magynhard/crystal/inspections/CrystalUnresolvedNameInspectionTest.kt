@@ -11,6 +11,20 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== Bare identifiers ====================
 
+    fun testIfConditionAssignmentBindsInsideNestedBlock() {
+        myFixture.configureByText("channels.cr", """
+            def get_batch_channels(finished_channel, channels)
+              final = [] of String
+              channels.size.times do
+                if ucid = finished_channel.receive
+                  final << ucid
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testGeneratedTypeNamesAsCallArgumentsStayClean() {
         myFixture.configureByText("big_int.cr", """
             def to_primitive_u(type)

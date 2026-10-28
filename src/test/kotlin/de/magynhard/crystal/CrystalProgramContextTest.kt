@@ -17,6 +17,27 @@ import de.magynhard.crystal.run.CrystalRunFactory
 import de.magynhard.crystal.stubs.CrystalIndexService
 
 class CrystalProgramContextTest : BasePlatformTestCase() {
+    fun testDatabaseModuleIncludedFromContainingEntryIsVisibleInChannelsFile() {
+        val database = myFixture.addFileToProject("lib/db/src/db.cr", "module DB\nmodule Serializable\nend\nend")
+        myFixture.addFileToProject("lib/sqlite3/src/sqlite3.cr", "require \"../../db/src/db\"")
+        val entry = myFixture.addFileToProject("src/invidious.cr", "require \"sqlite3\"\nrequire \"./invidious/channels/*\"")
+        val source = myFixture.addFileToProject("src/invidious/channels/channels.cr", """
+            struct InvidiousChannel
+              include DB::Serializable
+            end
+            struct ChannelVideo
+              include DB::Serializable
+            end
+        """.trimIndent())
+        val root = entry.virtualFile.parent.parent
+        CrystalRequireGraphService.installForTests(project,
+            de.magynhard.crystal.analysis.CrystalRequirePathResolver(project, { null }, { root }), testRootDisposable)
+        myFixture.configureFromExistingVirtualFile(source.virtualFile)
+        assertTrue(CrystalRequireGraphService.getInstance(project).effectiveSources(myFixture.file).contains(database))
+        myFixture.enableInspections(CrystalUnresolvedNameInspection::class.java)
+        myFixture.checkHighlighting()
+    }
+
     fun testBenchmarkMemoryResolvesThroughLibraryEntry() {
         val entry = myFixture.addFileToProject("src/benchmark.cr", """
             require "./benchmark/**"

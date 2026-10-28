@@ -333,6 +333,11 @@ class CrystalReference(
         // that even if the walk escaped, we cannot trigger lazy parsing of every
         // file in the project (which caused 40+ second EDT freezes).
         if (element is PsiFile || element is PsiDirectory) return null
+        // `if name = value` stores the target directly in CONDITION, not ASSIGNMENT.
+        if (element is CrystalCondition && element.node.findChildByType(CrystalTypes.ASSIGN) != null) {
+            val target = element.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
+            if (target?.text == targetName) return target
+        }
         if (element is CrystalAssignment && element is PsiNameIdentifierOwner &&
             (element as PsiNameIdentifierOwner).name == targetName) {
             return element

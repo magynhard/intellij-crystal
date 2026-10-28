@@ -62,6 +62,32 @@ class CrystalReferenceTest : BasePlatformTestCase() {
 
     // ==================== Reference Resolution ====================
 
+    fun testConditionalAssignmentUseResolvesToConditionTarget() {
+        myFixture.configureByText("test.cr", "def collect(channel)\nif ucid = channel.receive\nuci<caret>d\nend\nend")
+        val target = myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve()
+        assertNotNull(target)
+        assertEquals(myFixture.file.text.indexOf("ucid ="), target!!.textOffset)
+    }
+
+    fun testConditionalAssignmentsResolveAcrossConditionKinds() {
+        for (keyword in listOf("if", "unless", "while", "until")) {
+            myFixture.configureByText("test.cr", "def collect(channel)\n$keyword ucid = channel.receive\nuci<caret>d\nend\nend")
+            val target = myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve()
+            assertNotNull("$keyword must bind its condition target", target)
+            assertEquals(myFixture.file.text.indexOf("ucid ="), target!!.textOffset)
+        }
+    }
+
+    fun testConditionalAssignmentDoesNotBindItsOwnRightHandSide() {
+        myFixture.configureByText("test.cr", "def collect\nif ucid = uci<caret>d\nend\nend")
+        assertNull(myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve())
+    }
+
+    fun testConditionalAssignmentDoesNotLeakIntoAnotherMethod() {
+        myFixture.configureByText("test.cr", "def collect(channel)\nif ucid = channel.receive\nend\nend\ndef other\nuci<caret>d\nend")
+        assertNull(myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve())
+    }
+
     fun testBangPropertyPlainAndQueryReadersResolveToDeclaration() {
         val file = myFixture.configureByText("test.cr", """
             class Entry

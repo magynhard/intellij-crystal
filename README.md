@@ -47,6 +47,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 
 ### Inspections
 
+- Local-name diagnostics and Go to Declaration recognize condition assignments such as `if ucid = channel.receive`
 - Missing-name diagnostics recognize require-visible FFI library namespaces in type annotations and library aliases in constructor receivers, including conditional aliases such as `LibGMP::MpLimb`
 - Method-local `forall` type parameters are recognized in signatures and bodies, including dependent paths such as `T::MAX`, and support Go to Declaration; macro-generated type names such as `UInt{{n}}` do not produce false missing-name warnings in type annotations or expression arguments
 - Argument count and argument type validation, including named arguments, defaults, overloads, splats, double splats, named-only parameters, and `lib fun` FFI calls

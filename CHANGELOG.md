@@ -254,6 +254,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Condition-assignment local references** — recognize locals introduced by
+  conditions such as `if ucid = channel.receive` in the following body, including
+  nested blocks. Missing-name diagnostics and Go to Declaration use the actual
+  condition target without exposing it in its own right-hand side or another
+  method. Regression coverage also verifies that a database module loaded by a
+  containing entry is visible in included channel model files.
 - **Generated type names and method type parameters** — do not report the
   static prefix of interpolated types such as `UInt{{n}}` as missing, including
   their use as expression arguments. Explicit

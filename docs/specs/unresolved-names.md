@@ -19,6 +19,11 @@ the constant rule per segment, with the root rule for qualified paths.
    binding, grouped `(x = …)` or multi `x, y = …` target, enclosing `def` /
    `macro` parameter, block or proc-literal parameter. Forward references do
    not bind (locals), except hoisted top-level methods.
+   Assignments in conditions (`if ucid = channel.receive`, and the corresponding
+   `unless`/loop forms) bind their local target in the body. The target does not
+   bind its own right-hand side or leak across method boundaries. References
+   navigate to the target in the condition even though the parser stores it in
+   a `condition` node rather than an ordinary assignment node.
    Explicit method type parameters declared by `forall T, U` bind throughout
    that method's parameter restrictions, return type, and body. They do not
    leak into sibling methods or nested declarations. DOT calls on such a type
