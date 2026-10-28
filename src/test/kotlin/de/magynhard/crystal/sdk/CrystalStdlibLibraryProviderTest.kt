@@ -38,13 +38,18 @@ class CrystalStdlibLibraryProviderTest : BasePlatformTestCase() {
             }
             val root = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByNioFile(stdlib))
             CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { root }
-            CrystalStdlibResolver.installVersionForTests(project, testRootDisposable) { "Crystal 1.20.0" }
+            var versionQueries = 0
+            CrystalStdlibResolver.installVersionForTests(project, testRootDisposable) {
+                versionQueries++
+                "Crystal 1.20.0"
+            }
             CrystalStdlibResolver.clearCachedStdlibPath(project)
 
             val library = CrystalStdlibLibraryProvider().getAdditionalProjectLibraries(project).single()
             val rootNames = library.sourceRoots.map { it.name }.toSet()
 
             assertEquals(setOf("prelude.cr", "array.cr", "json", "crystal"), rootNames)
+            assertEquals("Library publication must not launch a version subprocess", 0, versionQueries)
         } finally {
             CrystalStdlibResolver.clearCachedStdlibPath(project)
             File(tempDir.toString()).deleteRecursively()

@@ -682,6 +682,10 @@
         <additionalLibraryRootsProvider
                 implementation="de.magynhard.crystal.sdk.CrystalStdlibLibraryProvider"/>
 
+        <!-- Re-attach the stdlib library when the startup-time provider query came back empty -->
+        <postStartupActivity
+                implementation="de.magynhard.crystal.sdk.CrystalStdlibLibraryRegistrationActivity"/>
+
         <!-- Shield first-open indexing from obsolete broad persisted stdlib roots -->
         <directoryIndexExcludePolicy
                 implementation="de.magynhard.crystal.sdk.CrystalLegacyStdlibExcludePolicy"/>

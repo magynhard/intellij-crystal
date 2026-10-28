@@ -26,7 +26,7 @@ Methods declared in a `record Name, ... do ... end` body carry the enclosing rec
 
 ## Index Gateway
 
-Production code accesses stub indexes through the stateless `CrystalIndexService`, the typed production gateway for StubIndex access. The service exposes typed element lookup, streaming element processing, and key-processing methods; callers must always choose an explicit `GlobalSearchScope`. Completion, references, documentation, Parameter Info, and SDK-aware paths use all scope where library definitions are required. Inspections use project scope when diagnostics must be limited to project declarations. Navigation contributors use the scope supplied by IntelliJ.
+Production code accesses stub indexes through the stateless `CrystalIndexService`, the typed production gateway for StubIndex access. The service exposes typed element lookup, streaming element processing, and key-processing methods; callers must always choose an explicit `GlobalSearchScope`. Completion, references, documentation, Parameter Info, and SDK-aware paths use all scope where library definitions are required. Argument-count and type-check inspections also collect candidates in all scope: synthetic stdlib libraries are outside project scope. Require visibility determines the callable pool; limiting diagnostics to project files must not exclude library declarations from that pool. Navigation contributors use the scope supplied by IntelliJ.
 
 Type, method, macro, alias, annotation, and library name processing passes the requested scope and `IdFilter` directly to `StubIndex.processAllKeys()`. IntelliJ may still enumerate project-wide keys for a narrow scope; these keys are cheap name candidates and do not materialize PSI elements. Name and element processing remain streaming and stop as soon as the supplied processor returns `false`.
 
@@ -45,6 +45,22 @@ from nearest to outermost, then global; qualified and absolute names require
 their exact identity. Ordinary types never substitute for annotations. The same
 reference supplies documentation targets. Compiler-created annotations are known
 even without source declarations, but cannot navigate without an indexed target.
+
+## Bare-Call Navigation
+
+The Goto handler offers all require-visible, callable method overloads for a direct
+receiver-less callee identifier. A single target jumps directly; multiple targets
+use the platform chooser. Local assignments and parameters retain precedence.
+Indexed overloads outside the effective source set may also be offered when their
+qualified owner exactly matches the call-site owner or an already visible method's
+owner. Unrequired top-level methods and unrelated owners are never added this way.
+Visible targets precede those additional reopenings; within each group the current
+file comes first, followed by stable path/offset order. This navigation-only fallback
+does not merge independent programs or change inspection visibility.
+
+Declaration names, constant/FFI paths, macro-runtime calls and DOT-call argument
+references keep their existing reference behavior. `CrystalReference` resolution
+and its FFI/`forall` handling remain authoritative for those paths.
 
 ## DOT-Call Navigation
 
@@ -157,3 +173,9 @@ The plugin must never persist or create a `Crystal StdLib` module library. Legac
 `CrystalLegacyStdlibCleanupActivity` removes exact-name `Crystal StdLib` module libraries after startup without creating replacements. Cleanup is idempotent and preserves all unrelated module libraries and order entries. Once cleanup completes, `CrystalStdlibLibraryProvider` remains the sole stdlib root source.
 
 SDK changes and manual reindex requests notify the platform through `AdditionalLibraryRootsListener.fireAdditionalLibraryChanged()` under a write action. Both paths use the same Crystal-project detection and filtered root resolution as the synthetic provider; Force Re-index is a no-op outside Crystal projects. Manual refresh requests reindexing only for `.cr` files reachable from the already filtered synthetic-library roots. It checks the task's `ProgressIndicator` while recursively collecting files and immediately before every reindex request, so cancellation stops further files from being scheduled. Normal platform indexing populates StubIndex data; no pooled smart-mode waiter or eager top-level index warm-up is used.
+
+`CrystalStdlibLibraryRegistrationActivity` re-resolves the root after startup and
+notifies synthetic-library roots when they are missing from library scope. Its
+file-index probe takes its own read action because startup has no ambient read
+access. The provider publishes roots without launching a version subprocess;
+library equality is based on its roots. Publication and recovery failures are logged.

@@ -4,9 +4,12 @@ import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiPolyVariantReference
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
+import de.magynhard.crystal.stubs.CrystalIndexService
 import de.magynhard.crystal.psi.*
 
 /**
@@ -112,7 +115,41 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
             return null
         }
 
+        // Only a direct lowercase callee is a bare call. Constant/FFI paths,
+        // declaration names and arguments retain their existing references.
+        if (elementType == CrystalTypes.IDENTIFIER &&
+            PsiTreeUtil.getParentOfType(sourceElement, CrystalRequireStatement::class.java) == null &&
+            sourceElement.parent?.reference is CrystalReference &&
+            sourceElement.parent.firstChild === sourceElement
+        ) {
+            return findBareCallTargets(sourceElement.parent, name).takeIf { it.isNotEmpty() }?.toTypedArray()
+        }
+
         return null
+    }
+
+    private fun findBareCallTargets(call: PsiElement, name: String): List<PsiElement> {
+        val reference = call.reference as? CrystalReference ?: return emptyList()
+        reference.resolveLocalDeclaration()?.let { return listOf(it) }
+        if (CrystalMacroContext.isInMacroContext(call)) return emptyList()
+        val candidates = CrystalIndexService.findMethods(name, call.project, GlobalSearchScope.allScope(call.project))
+        val visible = CrystalRequireVisibility.callableUnqualified(
+            CrystalRequireVisibility.visibleMethods(candidates, call), call,
+        )
+        // Opening a reopening without a containing entry can leave its source set
+        // partial. Offer indexed reopenings of the exact owner, never name-only
+        // top-level or unrelated-owner matches.
+        val owners = visible.mapNotNull(CrystalPsiUtils::methodOwnerQualifiedName).toMutableSet()
+        CrystalPsiUtils.callSiteOwnerQualifiedName(call)?.let(owners::add)
+        val additional = candidates.filter {
+            it !in visible && CrystalPsiUtils.methodOwnerQualifiedName(it)?.let(owners::contains) == true
+        }
+        fun ordered(targets: List<CrystalMethodDefinition>) = targets.sortedWith(
+            compareBy<CrystalMethodDefinition> { it.containingFile != call.containingFile }
+                .thenBy { it.containingFile?.virtualFile?.path.orEmpty() }
+                .thenBy { it.textOffset }
+        )
+        return ordered(visible) + ordered(additional)
     }
 
     /**

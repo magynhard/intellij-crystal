@@ -9,6 +9,57 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.enableInspections(CrystalArgumentCountInspection::class.java)
     }
 
+    fun testForwardingCallWithRequiredCompilerOverloadIsSilent() {
+        checkCompilerForwarding(required = true)
+    }
+
+    fun testForwardingCallWithUnrequiredCompilerOverloadIsSilent() {
+        checkCompilerForwarding(required = false)
+    }
+
+    private fun checkCompilerForwarding(required: Boolean) {
+        myFixture.addFileToProject("compiler/semantic.cr", """
+            struct Crystal::TypeDeclarationProcessor
+              private def declare_meta_type_var(vars, owner, name, type : Type, location : Location? = nil, instance_var = false, freeze_type = true, annotations = nil)
+              end
+            end
+        """.trimIndent())
+        val require = if (required) "require \"./compiler/semantic\"" else ""
+        myFixture.configureByText("ext.cr", """
+            $require
+            module Crystal
+              struct TypeDeclarationProcessor
+                private def declare_meta_type_var(vars, owner, name, info : TypeInfo, freeze_type = true)
+                  declare_meta_type_var(vars, owner, name, info.type, freeze_type: freeze_type, location: info.location)
+                end
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testPublishedButUnattachedStdlibMakesPoolUnprovable() {
+        val root = myFixture.addFileToProject("sdk/prelude.cr", "").virtualFile.parent!!
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.installDiscoveryForTests(project, testRootDisposable) { root }
+        de.magynhard.crystal.sdk.CrystalStdlibResolver.resolveStdlibPath(project)
+        myFixture.configureByText("ext.cr", """
+            struct Processor
+              def run(value)
+                run(value, location: 1)
+              end
+            end
+        """.trimIndent())
+        val call = com.intellij.psi.util.PsiTreeUtil.findChildOfType(
+            myFixture.file, de.magynhard.crystal.psi.CrystalMethodCallExpression::class.java,
+        )!!
+        assertTrue(sameTypePoolMayBePartial(call) { p ->
+            de.magynhard.crystal.analysis.CrystalRequireVisibility.stdlibMissingFromLibraryScope(p) { false }
+        })
+        assertFalse(sameTypePoolMayBePartial(call) { p ->
+            de.magynhard.crystal.analysis.CrystalRequireVisibility.stdlibMissingFromLibraryScope(p) { true }
+        })
+    }
+
     fun testFourHeredocArgumentsCounted() {
         myFixture.configureByText("test.cr", """
             def assert_findings(a : String, b : String, c : String, d : String)

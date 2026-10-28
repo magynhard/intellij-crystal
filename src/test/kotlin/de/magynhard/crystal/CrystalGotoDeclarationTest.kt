@@ -114,17 +114,80 @@ class CrystalGotoDeclarationTest : BasePlatformTestCase() {
             end
             hell<caret>o
         """.trimIndent())
-        // No DOT before "hello" — GotoDeclarationHandler returns null for DOT-only logic.
-        // The variable_reference PsiReference also resolves to the method definition,
-        // so the GotoDeclarationHandler is not invoked. But we still expect the test to
-        // NOT go through the handler (it goes through the reference instead). The
-        // handler's targets array should be empty here.
-        // This test confirms the handler itself returns null for bare identifiers
-        // (not preceded by DOT) — the resolution is purely via the reference.
         val handler = CrystalGotoDeclarationHandler()
         val element = myFixture.file.findElementAt(myFixture.caretOffset)!!
         val handlerTargets = handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
-        assertNull("Handler should return null when no DOT precedes identifier", handlerTargets)
+        assertEquals("A single bare-call target keeps the direct jump", targets!!.toList(), handlerTargets!!.toList())
+    }
+
+    private fun bareTargets(code: String): List<PsiElement> {
+        myFixture.configureByText("ext.cr", code.trimIndent())
+        return CrystalGotoDeclarationHandler().getGotoDeclarationTargets(
+            myFixture.file.findElementAt(myFixture.caretOffset), myFixture.caretOffset, myFixture.editor,
+        ).orEmpty().toList()
+    }
+
+    fun testBareCallOffersRequiredSameOwnerOverloads() {
+        myFixture.addFileToProject("base.cr", "struct Crystal::Processor\n def run(value, location = nil)\n end\nend")
+        val targets = bareTargets("""
+            require "./base"
+            module Crystal
+              struct Processor
+                def run(value)
+                  r<caret>un(value, location: 1)
+                end
+              end
+            end
+        """)
+        assertEquals(listOf("ext.cr", "base.cr"), targets.map { it.containingFile.name })
+        assertTrue(targets.all { it is CrystalMethodDefinition })
+    }
+
+    fun testBareCallOffersExactOwnerOutsideEffectiveSources() {
+        myFixture.addFileToProject("base.cr", "struct Crystal::Processor\n def run(value, location = nil)\n end\nend")
+        myFixture.addFileToProject("other.cr", "struct Other::Processor\n def run(value)\n end\nend\ndef run(value)\nend")
+        val targets = bareTargets("""
+            module Crystal
+              struct Processor
+                def run(value)
+                  r<caret>un(value, location: 1)
+                end
+              end
+            end
+        """)
+        assertEquals(listOf("ext.cr", "base.cr"), targets.map { it.containingFile.name })
+    }
+
+    fun testBareCallParameterShadowsIndexedMethods() {
+        myFixture.addFileToProject("base.cr", "def run(value)\nend")
+        val targets = bareTargets("""
+            require "./base"
+            def wrapper(run)
+              r<caret>un
+            end
+        """)
+        assertEquals(1, targets.size)
+        assertTrue(targets.single() is de.magynhard.crystal.psi.CrystalParameter)
+    }
+
+    fun testBareCallLocalAssignmentShadowsIndexedMethods() {
+        val targets = bareTargets("""
+            def run(value)
+            end
+            run = 1
+            r<caret>un
+        """)
+        assertEquals(1, targets.size)
+        assertFalse(targets.single() is CrystalMethodDefinition)
+    }
+
+    fun testMethodDeclarationNameDoesNotOfferOverloads() {
+        assertEmpty(bareTargets("""
+            def run(value)
+            end
+            def r<caret>un(value, other)
+            end
+        """))
     }
 
     fun testNestedClassMethodViaDotCall() {

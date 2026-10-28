@@ -1,8 +1,11 @@
 package de.magynhard.crystal.inspections
 
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
+import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.psi.CrystalCallArgs
 import de.magynhard.crystal.psi.CrystalMacroDefinition
 import de.magynhard.crystal.psi.CrystalParameter
@@ -239,15 +242,19 @@ internal fun rejectsAll(signatures: List<AritySignature>, counts: CallArgCounts)
  * True when [callExpr] sits lexically inside a type whose exact identity has
  * indexed declarations outside the effective sources. Same-type overloads
  * from those declarations may be missing from the pool (file opened in
- * isolation, lazily grown requirer union), so only acceptance verdicts are
- * trustworthy; rejections stay silent. Diagnostics resume automatically once
- * the union grows.
+ * isolation without a containing program entry), so only acceptance verdicts
+ * are trustworthy; rejections stay silent. A containing program can supply
+ * the complete pool; independent programs are never merged.
  */
-internal fun sameTypePoolMayBePartial(callExpr: PsiElement): Boolean {
+internal fun sameTypePoolMayBePartial(
+    callExpr: PsiElement,
+    stdlibMissing: (Project) -> Boolean = { CrystalRequireVisibility.stdlibMissingFromLibraryScope(it) },
+): Boolean {
     val callSiteType = CrystalPsiUtils.callSiteOwnerQualifiedName(callExpr) ?: return false
     val simpleName = callSiteType.substringAfterLast("::")
     if (simpleName.isEmpty()) return false
     val project = callExpr.project
+    if (stdlibMissing(project)) return true
     val sources = CrystalRequireGraphService
         .getInstance(project).effectiveSources(callExpr)
     if (sources.files.isEmpty()) return false
@@ -266,8 +273,11 @@ internal fun sameTypePoolMayBePartial(callExpr: PsiElement): Boolean {
                 true
             }
         }
+    } catch (error: ProcessCanceledException) {
+        throw error
     } catch (_: Throwable) {
-        return false
+        // An aborted scan cannot establish that the overload pool is complete.
+        return true
     }
     return partial
 }

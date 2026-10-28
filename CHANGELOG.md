@@ -337,6 +337,70 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   unrelated same-named type. Nested constructor receivers such as `Entry.new`
   inside `Benchmark::IPS::Job` no longer report `Cannot find 'Entry'` when
   `Benchmark::IPS::Entry` is visible.
+- **Projects that lost the stdlib library at startup recover it** — the stdlib
+  synthetic library is attached by the platform's library-roots query while the
+  project model is still being built, and that same query is what publishes the
+  discovered stdlib path. A single empty result was cached for the whole session:
+  the project then had no stdlib library *and*, because the require path
+  resolver reads the published path, no stdlib in its require closure either.
+  Symptoms were stdlib completion and navigation silently missing plus false
+  argument-count diagnostics wherever a stdlib overload completes a call — e.g.
+  crystalline's `ext/compiler.cr` reporting "Unknown named argument 'location'"
+  against the compiler's `declare_meta_type_var`. The missing library also makes
+  the partial-pool gate blind, because the competing declaration it has to
+  observe is then not indexed at all, which is what made the false positive
+  deterministic in the IDE. Startup now re-resolves the stdlib and re-attaches
+  the library when its roots are missing from library scope; the recovery probes
+  library scope under its own blocking read action, because
+  `ProjectFileIndex.isInLibrary` asserts read access while the startup activity
+  runs on a background dispatcher without one, and any other failure is logged
+  instead of aborting the recovery. The provider no longer spawns a second
+  `crystal --version` subprocess inside that query and logs the stdlib path and
+  root count it published. Covered by new registration, provider and
+  require-chain regressions.
+- **No false "Unknown named argument" while the stdlib library is still being
+  attached** — the platform publishes the stdlib synthetic library while the
+  project model loads but commits it to library scope only once the real project
+  state is synced, seconds later. An editor that highlights in that window built
+  its overload pool from a stdlib-less index scope, so a shard forwarding to a
+  compiler overload was measured against its own local override alone and
+  reported the extra named argument as unknown — reproducible in the editor while
+  `Inspect Code...` on the same session stayed clean, because the model had
+  settled by then. Argument-count and type-check diagnostics now stay silent
+  while a published stdlib is outside library scope, because no index evidence
+  can then prove a same-type overload absent; acceptance verdicts are unaffected
+  and diagnostics resume once the library is attached. Covered by a
+  stdlib-invisible forwarding fixture and its attached-library control.
+- **Go to Definition on a bare call offers the whole overload pool** — Ctrl+B
+  on a receiver-less call resolved to a single deterministic target, so a shard
+  forwarding to a stdlib overload jumped only to the local override and never
+  offered the accepting stdlib definition (crystalline's `ext/compiler.cr`
+  forwarding to the compiler's `declare_meta_type_var`). The Goto handler now
+  returns the same overload pool the argument-count inspection measures the
+  call against, including same-owner overloads outside the effective sources;
+  several targets open the platform popup, one target keeps the direct jump,
+  and shadowing locals and parameters keep precedence. Covered by
+  complete-closure, isolated-file, and unrelated-owner regressions.
+- **Overload pools span the whole index scope, not just the project scope** —
+  argument-count and type-check inspections built their overload pools from the
+  project scope, which does not contain synthetic-library files. A shard
+  forwarding to a compiler overload was therefore measured against its own
+  local override alone even with the library attached and the require closure
+  grown: crystalline's `ext/compiler.cr` kept reporting "Unknown named
+  argument 'location'" while Go to Definition (whole-scope lookup) already
+  found the accepting stdlib overload. Pools are now built from the whole index
+  scope; the require closure stays the precision filter, so no unrelated
+  declaration can enter. Measured live in the IDE (`rawProjectScope=1` against
+  an indexed stdlib overload); light fixtures cannot reproduce the divergence
+  because their project scope spans everything.
+- **Broken version-manager shims no longer shadow the Crystal SDK** — auto-detection
+  accepted the first `PATH` hit without checking it runs, so a version-manager shim
+  without an installed version (asdf: "No version is set", exit 126) won over a working
+  installation behind it. Every later `crystal env` then failed silently, leaving no
+  stdlib root registered while most features degraded quietly (prelude baseline kept
+  names resolving). Candidates are now validated (`crystal --version` must succeed)
+  before acceptance, in PATH order then known locations. Covered by detector
+  regressions.
 - **Locked shard dependencies trust shards instead of the version field** —
   a lock entry now means Ok without consulting the installed `version:` field:
   a successful install guarantees the checked-out code matches the locked
@@ -358,12 +422,16 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   forwarding to a wider overload of a reopened type (crystalline's
   `declare_meta_type_var(…, location: info.location)` against the compiler's
   overload) reported "Unknown named argument 'location'", because only the
-  same-file override was visible while the compiler overloads hid behind the
-  lazily grown requirer union. When the enclosing type has indexed declarations
+  same-file override was visible without its containing program entry.
+  When the enclosing type has indexed declarations
   outside the effective sources and no visible overload accepts by arity, both
   argument-count and type diagnostics stay silent instead of blaming the partial
-  pool; acceptance verdicts are unaffected and diagnostics resume once the union
-  grows. Covered by count and type regressions; specified in
+  pool; acceptance verdicts are unaffected and diagnostics resume once the pool
+  becomes complete through a containing program entry. An aborted pool scan
+  (dumb mode, corrupt index entry, concurrent
+  invalidation) also suppresses instead of reporting, since pool completeness
+  is then unprovable; cancellation still propagates. Covered by count and type
+  regressions; specified in
   docs/specs/call-argument-inspections.md.
 - **Macro-hook-generated constructors no longer report false zero-arity errors** —
   `Request.new(id: 0)` on a class including a module with `macro included` (stdlib

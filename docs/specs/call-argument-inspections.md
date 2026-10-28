@@ -4,6 +4,11 @@ Behavioral specification for validating Crystal method call arguments against `d
 
 ## Scope
 
+Unqualified overload lookups use `GlobalSearchScope.allScope(project)` so that
+indexed synthetic-library definitions participate. Require visibility and callable
+ownership then filter this candidate universe; project scope alone would omit
+stdlib overloads even when the selected program requires them.
+
 `CrystalArgumentCountInspection` validates calls to methods declared with `def`. It reports missing required arguments, excess arguments, and unknown named arguments when the call can be resolved to one or more exact method definitions.
 
 The same resolution, overload, and diagnostic rules apply to every supported call syntax:
@@ -297,6 +302,12 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - A macro-interpolated receiver, method name, or constructor target.
 - A chained call whose preceding call cannot serve as exact evidence: unannotated predecessors (annotations are never inferred from bodies), union or nilable returns, several applicable overloads with distinct returns, constructor/accessor-macro/lib-fun predecessors, splat or double-splat predecessor arguments, macro-spliced predecessor arguments, or nesting deeper than four preceding calls.
 - An unqualified call inside a type whose exact identity has indexed declarations outside the effective sources, when no visible overload accepts the call by arity: without an explicit containing entry, a standalone-library context may omit required same-type overloads, so a rejecting verdict would blame a partial pool. Acceptance verdicts stay; selecting a containing program entry can provide the complete pool (crystalline `ext/compiler.cr` forwarding to a compiler overload with a `location:` named argument). Other programs are never unioned to grow that pool.
+- A published stdlib whose `prelude.cr` is not yet in library scope also makes
+  same-type pool completeness unprovable. Rejecting arity and type verdicts stay
+  suppressed until attachment; the probe reads only the cached SDK root and
+  takes read access for the platform file index, without subprocess discovery.
+  An aborted same-type index scan likewise suppresses rejection instead of
+  claiming completeness. Platform cancellation propagates.
 - A DOT call inside `{{ … }}` or a macro body: its receiver is a macro-runtime object (TypeNode, StringLiteral, …) dispatching to the `Crystal::Macros` compiler API, never to a runtime `def`.
 
 Macro interpolation contained only inside an argument does not suppress an otherwise exact target. The argument cannot be validated before expansion, so a call whose argument list starts an argument with `{{ … }}` is exempt from arity diagnostics (see Macro context).

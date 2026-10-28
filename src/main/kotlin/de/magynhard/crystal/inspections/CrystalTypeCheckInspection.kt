@@ -92,7 +92,8 @@ class CrystalTypeCheckInspection : LocalInspectionTool() {
 
         // Find all overloads of this method
         val project = callExpr.project
-        val scope = GlobalSearchScope.projectScope(project)
+        // Include synthetic-library candidates before applying require visibility.
+        val scope = GlobalSearchScope.allScope(project)
         // Require-graph visibility: methods from files this call cannot see must
         // not participate in the overload set.
         var methods = CrystalRequireVisibility.callableUnqualified(

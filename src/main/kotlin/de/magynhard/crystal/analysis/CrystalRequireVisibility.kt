@@ -1,6 +1,9 @@
 package de.magynhard.crystal.analysis
 
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
@@ -9,6 +12,7 @@ import de.magynhard.crystal.psi.CrystalLibDefinition
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
 import de.magynhard.crystal.stubs.CrystalIndexService
+import de.magynhard.crystal.sdk.CrystalStdlibResolver
 
 /**
  * Require-graph visibility for name-based lookups that bypass the shared
@@ -91,6 +95,20 @@ internal object CrystalRequireVisibility {
                 else -> callSiteType != null && (owner == callSiteType || callSiteType.startsWith("$owner::"))
             }
         }
+    }
+
+    /** A published SDK root is not evidence of an indexed, attached library yet. */
+    internal fun stdlibMissingFromLibraryScope(
+        project: Project,
+        inLibrary: (VirtualFile) -> Boolean = { file ->
+            ReadAction.computeBlocking<Boolean, RuntimeException> {
+                ProjectFileIndex.getInstance(project).isInLibrary(file)
+            }
+        },
+    ): Boolean {
+        val root = CrystalStdlibResolver.cachedStdlibPath(project) ?: return false
+        val prelude = root.findChild("prelude.cr") ?: return false
+        return !inLibrary(prelude)
     }
 
     /**

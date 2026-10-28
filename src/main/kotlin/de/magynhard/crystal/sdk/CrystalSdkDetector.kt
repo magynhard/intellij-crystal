@@ -2,8 +2,6 @@ package de.magynhard.crystal.sdk
 
 import com.intellij.openapi.util.SystemInfo
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.Paths
 
 object CrystalSdkDetector {
 
@@ -12,10 +10,6 @@ object CrystalSdkDetector {
      * Checks PATH first, then known installation locations.
      */
     fun detect(): String? {
-        // Try PATH via 'which' / 'where'
-        val fromPath = findInPath()
-        if (fromPath != null) return fromPath
-
         // Try known locations
         val knownPaths = buildList {
             add("/usr/bin/crystal")
@@ -32,8 +26,15 @@ object CrystalSdkDetector {
             }
         }
 
-        return knownPaths.firstOrNull { File(it).canExecute() }
+        val executable = if (SystemInfo.isWindows) "crystal.exe" else "crystal"
+        val pathCandidates = System.getenv("PATH").orEmpty().split(File.pathSeparatorChar)
+            .filter(String::isNotBlank)
+            .map { File(it, executable).path }
+        return selectFirstWorking(pathCandidates + knownPaths)
     }
+
+    internal fun selectFirstWorking(candidates: List<String>): String? =
+        candidates.distinct().firstOrNull { File(it).canExecute() && validate(it) != null }
 
     /**
      * Validates that the given path is a working Crystal executable.
@@ -52,20 +53,4 @@ object CrystalSdkDetector {
         }
     }
 
-    private fun findInPath(): String? {
-        return try {
-            val cmd = if (SystemInfo.isWindows) arrayOf("where", "crystal") else arrayOf("which", "crystal")
-            val process = ProcessBuilder(*cmd)
-                .redirectErrorStream(true)
-                .start()
-            val output = process.inputStream.bufferedReader().readText().trim()
-            val exitCode = process.waitFor()
-            if (exitCode == 0 && output.isNotBlank()) {
-                val path = output.lines().first().trim()
-                if (File(path).canExecute()) path else null
-            } else null
-        } catch (_: Exception) {
-            null
-        }
-    }
 }

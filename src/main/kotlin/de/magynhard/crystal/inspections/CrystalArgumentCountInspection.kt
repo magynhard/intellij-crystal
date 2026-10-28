@@ -119,7 +119,9 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         if (next is CrystalDotCallAccess || next is CrystalNamespaceAccess) return
 
         val project = reference.project
-        val scope = GlobalSearchScope.projectScope(project)
+        // Library overloads belong to the candidate universe; require visibility
+        // below determines which declarations can participate in this call.
+        val scope = GlobalSearchScope.allScope(project)
         val methodName = methodNameElement.text
         // Require-graph visibility: a top-level method in an unrelated file is NOT
         // callable here — crystal would report `undefined local variable or method`.
@@ -166,7 +168,7 @@ class CrystalArgumentCountInspection : LocalInspectionTool() {
         val methodNameElement = CrystalCallExtractor.findMethodNameElement(callExpr) ?: return
 
         val project = callExpr.project
-        val scope = GlobalSearchScope.projectScope(project)
+        val scope = GlobalSearchScope.allScope(project)
         // Require-graph visibility: methods from files this call cannot see must
         // not participate in the overload set.
         val methods = CrystalRequireVisibility.callableUnqualified(
