@@ -163,6 +163,11 @@ internal class CrystalMethodHierarchy(
         return collection.exposures.any { it.type.qualifiedName == owner }
     }
 
+    internal fun provesInstanceAncestor(type: CrystalTypeIdentity, ancestor: CrystalTypeIdentity): Boolean {
+        val collection = collectHierarchy(type, CrystalReceiverMode.INSTANCE, includeModuleEdges = true)
+        return collection.complete && collection.exposures.any { it.type == ancestor }
+    }
+
     fun findExactTypeDeclarations(type: CrystalTypeIdentity): List<CrystalNamedElement> =
         declarations.getOrPut(type) {
             findTypesByName(type.simpleName).filter { CrystalPsiUtils.buildQualifiedName(it) == type.qualifiedName }
@@ -324,7 +329,8 @@ internal class CrystalMethodHierarchy(
     private fun resolveEdge(reference: CrystalTypeReference?, edgeContext: PsiElement): CrystalTypeIdentity? {
         val root = reference?.text?.let(::normalizeExactTypeRoot) ?: return null
         val simpleName = root.substringAfterLast("::")
-        val candidates = if (root.contains("::")) {
+        val absolute = reference.text.filterNot(Char::isWhitespace).startsWith("::")
+        val candidates = if (absolute || root.contains("::")) {
             listOf(root)
         } else {
             lexicalTypeCandidates(simpleName, edgeContext)

@@ -1,6 +1,7 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.psi.PsiElement
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.PsiWhiteSpace
@@ -9,6 +10,7 @@ import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
+import de.magynhard.crystal.stubs.CrystalDeclaredAncestors
 import java.util.IdentityHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -56,6 +58,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
         /** Guard against alias definition cycles (`alias A = B` both ways). */
         private const val ALIAS_UNWRAP_LIMIT = 5
+        private val METHOD_SYMBOL = Regex(":([A-Za-z_][A-Za-z0-9_]*[!?=]?)")
+        private val TYPE_SEGMENT = Regex("[\\p{Lu}][\\p{L}\\p{N}_]*")
+        private const val MAX_GUARDED_NAVIGATION_TYPES = 256
 
         internal fun constructionCount(): Long = CONSTRUCTION_COUNT.get()
 
@@ -83,6 +88,86 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     fun resolveVariableWithProvenance(name: String, position: PsiElement): CrystalVariableResolution =
         resolveVariableValue(name, position).toPublic()
+
+    /** A responds_to? guard proves availability, not a concrete implementation. */
+    fun isMethodGuaranteed(receiver: PsiElement, methodName: String): Boolean {
+        val local = CrystalReceiverExpression.normalize(receiver) as? CrystalVariableReference ?: return false
+        val name = local.node.findChildByType(CrystalTypes.IDENTIFIER)?.text ?: return false
+        val scope = guardBindingScope(local, name) ?: return false
+        return methodName in resolveVariableValue(name, local).guaranteedMethods[scope].orEmpty()
+    }
+
+    /** Known compatible declarations for navigation only, never a dispatch/arity pool. */
+    fun guardedMemberTargets(receiver: PsiElement, methodName: String): List<PsiElement> {
+        if (CrystalMacroContext.isInMacroContext(receiver)) return emptyList()
+        if (!isMethodGuaranteed(receiver, methodName)) return emptyList()
+        val local = CrystalReceiverExpression.normalize(receiver) as? CrystalVariableReference ?: return emptyList()
+        val known = resolveVariableValue(local.text, local).result as? CrystalTypeResolution.Known ?: return emptyList()
+        val typeName = known.types.singleOrNull()?.name ?: return emptyList()
+        val root = resolveType(typeName, local) ?: return emptyList()
+        val pending = ArrayDeque<CrystalTypeIdentity>()
+        pending.add(root)
+        val seen = mutableSetOf(root)
+        val targets = linkedSetOf<PsiElement>()
+        while (pending.isNotEmpty()) {
+            ProgressManager.checkCanceled()
+            val parent = pending.removeFirst()
+            val indexed = CrystalIndexService.findTypeInheritors(
+                parent.simpleName, context.project, GlobalSearchScope.allScope(context.project),
+            ).filter(effectiveSources::contains)
+            val projected = finishedTypes.filter { parent.simpleName in CrystalDeclaredAncestors.names(it) }
+            for (declaration in indexed + projected) {
+                ProgressManager.checkCanceled()
+                val qualified = CrystalPsiUtils.stubAwareQualifiedName(declaration) ?: continue
+                if (qualified.split("::").any { !TYPE_SEGMENT.matches(it) }) continue
+                val candidate = CrystalTypeIdentity(qualified.substringAfterLast("::"), qualified)
+                if (!seen.add(candidate)) continue
+                // Discard partial results instead of turning a broad root into
+                // an unbounded PSI walk or an arbitrary first-target jump.
+                if (seen.size > MAX_GUARDED_NAVIGATION_TYPES) return emptyList()
+                if (!hierarchy.provesInstanceAncestor(candidate, root)) continue
+                pending.add(candidate)
+                val methods = collectNamedMethods(candidate, CrystalReceiverMode.INSTANCE, methodName)
+                if (!methods.complete) continue
+                if (methods.methods.isNotEmpty()) {
+                    targets.addAll(methods.methods.map { CrystalStaticDeclarations.accessorOrigin(it) ?: it })
+                } else {
+                    targets.addAll(accessorArguments(candidate, CrystalReceiverMode.INSTANCE, methodName))
+                }
+            }
+        }
+        return targets.sortedWith(compareBy<PsiElement>(
+            { CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.path.orEmpty() },
+            { CrystalStaticDeclarations.sourceOffset(it) },
+        ))
+    }
+
+    /** Captured reads share a binding; same-named shadow declarations do not. */
+    private fun guardBindingScope(position: PsiElement, name: String): PsiElement? {
+        for (parent in generateSequence(position.parent) { it.parent }) {
+            val parameters = when (parent) {
+                is CrystalBlock -> parent.parameterList?.parameterList.orEmpty()
+                is CrystalProcLiteral -> parent.parameterList?.parameterList.orEmpty()
+                else -> emptyList()
+            }
+            if (parameters.any { name in it.localBindingNames() }) return parent
+            if (parent is CrystalRescueClause &&
+                parent.node.findChildByType(CrystalTypes.IDENTIFIER)?.text == name &&
+                PsiTreeUtil.isAncestor(parent.statementList, position, false)) return parent
+            if (parent is CrystalForStatement &&
+                parent.node.findChildByType(CrystalTypes.IDENTIFIER)?.text == name &&
+                PsiTreeUtil.isAncestor(parent.statementList, position, false)) return parent
+            if (parent is CrystalMethodDefinition || parent is CrystalMacroDefinition ||
+                parent is PsiFile || isTypeBoundary(parent)) return parent
+        }
+        return null
+    }
+
+    private fun guaranteesAfterWrite(state: VariableState, position: PsiElement, name: String): Map<PsiElement, Set<String>> {
+        if (state.guaranteedMethods.isEmpty()) return emptyMap()
+        val scope = guardBindingScope(position, name) ?: return emptyMap()
+        return state.guaranteedMethods - scope
+    }
 
     fun resolveCall(
         receiverTypeNames: List<String>,
@@ -1026,7 +1111,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun resolveVariableValueUncached(name: String, position: PsiElement): VariableState {
         val containingAssignment = PsiTreeUtil.getParentOfType(position, CrystalAssignment::class.java, false)
-        if (containingAssignment != null && assignmentName(containingAssignment) == name) {
+        val assignmentTarget = (containingAssignment as? PsiNameIdentifierOwner)?.nameIdentifier
+        if (containingAssignment != null && assignmentName(containingAssignment) == name &&
+            (position === containingAssignment || assignmentTarget?.textRange?.contains(position.textRange) == true)
+        ) {
+            // The write target can show its assigned value. Reads on the RHS
+            // still see the preceding binding, including any guard guarantees.
             return VariableState.Bound(
                 resolve(containingAssignment.assignment ?: containingAssignment.expression
                     ?: return VariableState.Unknown),
@@ -1219,6 +1309,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return VariableState.Bound(
             CrystalTypeResolution.Known(matched.map { CrystalResolvedType(it, false) }),
             incoming.provenance,
+            incoming.guaranteedMethods,
         ).takeIfChanged(incoming)
     }
 
@@ -1268,6 +1359,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return VariableState.Bound(
             CrystalTypeResolution.Known(remainder),
             incoming.provenance,
+            incoming.guaranteedMethods,
         )
     }
 
@@ -1277,7 +1369,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * condition is not a directly provable guard for [name]. Guards stay
      * syntactically direct on purpose: a false positive here would create
      * incorrect navigation or diagnostics. Supported: bare-variable
-     * truthiness, conditional assignment, `.nil?`, and `.is_a?(Type)` —
+     * truthiness, conditional assignment, `.nil?`, `.is_a?(Type)`, and
+     * `.responds_to?(:name)` member availability —
      * everything else (binary conditions, negations, method calls, `== nil`)
      * keeps the incoming state.
      */
@@ -1300,6 +1393,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val bound = VariableState.Bound(
                 resolve(rhs),
                 CrystalVariableProvenance.ASSIGNMENT,
+                guaranteesAfterWrite(incoming, target, name),
             )
             return narrowTruthiness(bound, conditionHolds)
         }
@@ -1313,7 +1407,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val resolved = resolve(rhs)
             if (resolved !is CrystalTypeResolution.Known) return null
             return narrowTruthiness(
-                VariableState.Bound(resolved, CrystalVariableProvenance.ASSIGNMENT),
+                VariableState.Bound(resolved, CrystalVariableProvenance.ASSIGNMENT, guaranteesAfterWrite(incoming, target, name)),
                 conditionHolds,
             )
         }
@@ -1322,7 +1416,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         inlineIsAType(target, name)?.let { typeText ->
             return narrowIsAByName(typeText, target, incoming, conditionHolds)
         }
-        // `x.nil?` / chained `.is_a?` dot-call shapes.
+        // `x.nil?`, `.is_a?`, and `.responds_to?` dot-call shapes.
         val guard = dotGuardCall(target, name) ?: return null
         if (guard.methodName == "nil?") {
             return narrowNilCheck(incoming, conditionHolds)
@@ -1330,6 +1424,13 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (guard.methodName == "is_a?") {
             val typeText = guard.firstArgumentText?.trim().orEmpty()
             return narrowIsAByName(typeText, target, incoming, conditionHolds)
+        }
+        if (guard.methodName == "responds_to?" && guard.argumentCount == 1 && conditionHolds && incoming is VariableState.Bound) {
+            val method = METHOD_SYMBOL.matchEntire(guard.firstArgumentText.orEmpty())?.groupValues?.get(1)
+                ?: return null
+            val scope = guardBindingScope(target, name) ?: return null
+            val methods = incoming.guaranteedMethods[scope].orEmpty() + method
+            return VariableState.Bound(incoming.result, incoming.provenance, incoming.guaranteedMethods + (scope to methods))
         }
         return null
     }
@@ -1379,6 +1480,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return VariableState.Bound(
             CrystalTypeResolution.Known(remaining),
             base.provenance,
+            base.guaranteedMethods,
         )
     }
 
@@ -1390,6 +1492,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             return VariableState.Bound(
                 CrystalTypeResolution.Known(listOf(CrystalResolvedType("Nil", false))),
                 incoming.provenance,
+                incoming.guaranteedMethods,
             )
         }
         val known = (incoming as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
@@ -1399,6 +1502,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return VariableState.Bound(
             CrystalTypeResolution.Known(remaining),
             incoming.provenance,
+            incoming.guaranteedMethods,
         )
     }
 
@@ -1463,6 +1567,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                     listOf(CrystalResolvedType(identity.qualifiedName, false))
                 ),
                 incoming.provenance,
+                incoming.guaranteedMethods,
             )
         }
         val known = (incoming as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
@@ -1472,6 +1577,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return VariableState.Bound(
             CrystalTypeResolution.Known(remaining),
             incoming.provenance,
+            incoming.guaranteedMethods,
         )
     }
 
@@ -1479,6 +1585,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val access: CrystalDotCallAccess,
         val methodName: String,
         val firstArgumentText: String?,
+        val argumentCount: Int,
     )
 
     /**
@@ -1506,17 +1613,15 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val nameLeaf = accessKids.getOrNull(dotIndex + 1) ?: return null
         if (nameLeaf.firstChild != null) return null
         val methodName = nameLeaf.text
-        if (methodName != "nil?" && methodName != "is_a?") return null
+        if (methodName != "nil?" && methodName != "is_a?" && methodName != "responds_to?") return null
         val rest = accessKids.drop(dotIndex + 2)
         if (methodName == "nil?" && rest.isNotEmpty()) return null
         val holder = rest.singleOrNull()
         if (holder != null && holder !is CrystalCallArgs && holder !is CrystalBareArgumentList) {
             return null
         }
-        val firstArgumentText = holder
-            ?.let { CrystalPsiCallArguments.argumentElements(it).firstOrNull() }
-            ?.text?.trim()
-        return DotGuardCall(access, methodName, firstArgumentText)
+        val arguments = holder?.let(CrystalPsiCallArguments::argumentElements).orEmpty()
+        return DotGuardCall(access, methodName, arguments.firstOrNull()?.text?.trim(), arguments.size)
     }
 
     private fun previousSignificantSibling(element: PsiElement): PsiElement? {
@@ -1584,7 +1689,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (assigned != null) {
             val rhs = assigned.assignment ?: assigned.expression
             val bound = rhs?.let {
-                VariableState.Bound(resolve(it), CrystalVariableProvenance.ASSIGNMENT)
+                VariableState.Bound(resolve(it), CrystalVariableProvenance.ASSIGNMENT, guaranteesAfterWrite(incoming, assigned, name))
             } ?: incoming
             val flows = caseStatement.whenClauseList.map { flowStatementList(it.statementList, name, bound) } +
                 caseStatement.inClauseList.map { flowStatementList(it.statementList, name, bound) }
@@ -1605,6 +1710,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 VariableState.Bound(
                     CrystalTypeResolution.Known(matched.map { CrystalResolvedType(it, false) }),
                     incoming.provenance,
+                    incoming.guaranteedMethods,
                 )
             }
             flows.add(flowStatementList(whenClause.statementList, name, armState))
@@ -1766,7 +1872,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                         val rhs = currentAssignment.assignment ?: currentAssignment.expression
                             ?: return VariableFlow.falling(VariableState.Unknown)
                         val rhsFlow = flowElement(rhs, name, base)
-                        val assigned = VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT)
+                        val assigned = VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT,
+                            guaranteesAfterWrite(rhsFlow.state, currentAssignment, name))
                         val exceptional = rhsFlow.exceptionalStates +
                             if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
                         if (!rhsFlow.fallsThrough) return rhsFlow
@@ -2006,7 +2113,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             val mayRaiseUnknown =
                 if (values.any(::mayRaise)) listOf(VariableState.Unknown) else emptyList()
             return VariableFlow(
-                VariableState.Bound(assigned, CrystalVariableProvenance.ASSIGNMENT),
+                VariableState.Bound(assigned, CrystalVariableProvenance.ASSIGNMENT, guaranteesAfterWrite(base, multi, name)),
                 fallsThrough = true,
                 exceptionalStates = valuesFlow.flatMap { it.exceptionalStates } + mayRaiseUnknown,
                 abruptExits = valuesFlow.flatMap { it.abruptExits },
@@ -2295,7 +2402,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 val exceptional = rhsFlow.exceptionalStates +
                     if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
                 return VariableFlow(
-                    VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT),
+                    VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT, guaranteesAfterWrite(rhsFlow.state, element, name)),
                     true,
                     exceptional,
                     rhsFlow.abruptExits,
@@ -2311,7 +2418,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 val exceptional = rhsFlow.exceptionalStates +
                     if (mayRaise(rhs)) listOf(VariableState.Unknown) else emptyList()
                 return VariableFlow(
-                    VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT),
+                    VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT, guaranteesAfterWrite(rhsFlow.state, element, name)),
                     true,
                     exceptional,
                     rhsFlow.abruptExits,
@@ -2565,7 +2672,17 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         if (states.any { it is VariableState.Unbound || it is VariableState.Unknown }) return VariableState.Unknown
         val bound = states.filterIsInstance<VariableState.Bound>()
         val provenance = bound.map { it.provenance }.distinct().singleOrNull() ?: CrystalVariableProvenance.MIXED
-        return VariableState.Bound(mergeKnown(bound.map { it.value }), provenance)
+        var methods = bound.first().guaranteedMethods
+        if (methods.isNotEmpty()) {
+            for (state in bound.drop(1)) {
+                if (methods.isEmpty()) break
+                methods = methods.mapNotNull { (scope, names) ->
+                    val common = names.intersect(state.guaranteedMethods[scope].orEmpty())
+                    if (common.isEmpty()) null else scope to common
+                }.toMap()
+            }
+        }
+        return VariableState.Bound(mergeKnown(bound.map { it.value }), provenance, methods)
     }
 
     private fun mergeFlows(flows: List<VariableFlow>): VariableFlow {
@@ -3097,6 +3214,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private sealed interface VariableState {
         val result: CrystalTypeResolution
         val provenance: CrystalVariableProvenance
+        // Facts for this variable, keyed by the receiver binding's lexical scope.
+        val guaranteedMethods: Map<PsiElement, Set<String>> get() = emptyMap()
 
         data object Unbound : VariableState {
             override val result: CrystalTypeResolution = CrystalTypeResolution.Unknown
@@ -3110,7 +3229,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
         data class Bound(
             val value: CrystalTypeResolution,
-            override val provenance: CrystalVariableProvenance
+            override val provenance: CrystalVariableProvenance,
+            override val guaranteedMethods: Map<PsiElement, Set<String>> = emptyMap(),
         ) : VariableState {
             override val result: CrystalTypeResolution = value
         }

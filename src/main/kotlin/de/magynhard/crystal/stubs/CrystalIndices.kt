@@ -13,6 +13,16 @@ class CrystalClassIndex : StringStubIndexExtension<CrystalNamedElement>() {
     }
 }
 
+/** Candidate reverse edges only; queries must prove the full qualified hierarchy. */
+class CrystalTypeInheritorIndex : StringStubIndexExtension<CrystalNamedElement>() {
+    override fun getKey(): StubIndexKey<String, CrystalNamedElement> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalNamedElement> =
+            StubIndexKey.createIndexKey("crystal.type.inheritor.index")
+    }
+}
+
 class CrystalMethodIndex : StringStubIndexExtension<CrystalMethodDefinition>() {
     override fun getKey(): StubIndexKey<String, CrystalMethodDefinition> = KEY
 

@@ -211,3 +211,54 @@ newly parsed nonphysical PSI by object identity. Declaration views now compare b
 source revision and have a parallel-computation regression. The final audit has no
 such error. The bundled IDE still logs unrelated RegExp initialization and missing
 non-Crystal inspection-description errors.
+
+## Responds-to guard re-audit (2026-10-29)
+
+Re-audited the same crystalline revision
+`a5f6f1bb9d55decf507138da7b2c47628ee15328`, with the same locked runtime and
+development dependencies and RubyMine `RM-262.9437.192`, after adding binding-scoped
+`responds_to?` member guarantees on top of plugin source revision `0840e980`.
+The disposable checkout, isolated IDE, and temporary dependency-symlink handling
+followed the procedure above; target source remained unchanged.
+
+The preflight baseline is unchanged: six parse errors in six of 151 files.
+The target-content fingerprint also matches the preceding run.
+The offline audit reports **563** Crystal findings in `.cr` files and two filtered
+non-Crystal findings. Comparing inspection/file/line/description records with the
+preceding 564-finding run, independent of output ordering, shows exactly one removal:
+
+```text
+CrystalUnresolvedName: src/crystalline/diagnostics.cr:28: Cannot find 'inner'
+```
+
+There are no added findings. Both `diagnostics.cr` and `controller.cr` have zero
+findings. This validates the guarded exception-unwrapping case, not a clean-project
+claim; the other findings and bundled-IDE log issues remain outside this change.
+
+## Guarded-navigation index audit (2026-10-29)
+
+The same target revision, locked dependencies, RubyMine build, and target-content
+fingerprint were re-audited with stub version 23 and `CrystalTypeInheritorIndex`.
+The parse preflight remains at six errors in six of 151 files. The inspection
+record multiset is identical to the responds-to re-audit: 563 `.cr` findings,
+two filtered non-Crystal findings, no additions and no removals. Both
+`diagnostics.cr` and `controller.cr` remain free of findings.
+
+The audit log contains no stub/PSI mirror mismatch, hierarchy-index failure, or
+non-idempotent cache computation. The known RegExp text-attribute fallback-key
+collision remains; depending on initialization order it can blame Crystal or the
+bundled RegExp initializer. Missing bundled non-Crystal inspection descriptions
+are also still logged. These pre-existing issues are not a clean-log claim.
+
+Focused tests separately verify possible-target reference flags, exact-resolution
+and rename/usage isolation, source/namespace constraints, and platform stub
+serialization. A read-only reproduction using crystalline's actual call site and
+the real compiler error-class hierarchy finds `TypeException`'s
+`property inner : CodeError?`. The offline inspection audit does not exercise that
+interactive navigation action.
+
+The ordinary package build initially encountered an occupied development-sandbox
+lock (`Only one instance of IDEA can be run at a time`). Packaging, including
+`buildSearchableOptions`, succeeded using a temporary isolated `sandboxContainer`
+set by an external Gradle init script; no build task was excluded and the running
+development IDE was not stopped.

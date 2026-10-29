@@ -301,6 +301,11 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - A class-variable receiver.
 - A record instance method until record values use exact generated-signature resolution.
 - A macro-interpolated receiver, method name, or constructor target.
+- A method whose availability is proven only by a direct `responds_to?` guard,
+  while exact declaration lookup on the nominal receiver finds no target. A
+  member-presence proof does not establish arity or parameter types; unrelated
+  same-named methods must not supply those signatures. Even ancestor-verified
+  navigation candidates are not a dispatch or signature-validation pool.
 - A chained call whose preceding call cannot serve as exact evidence: unannotated predecessors (annotations are never inferred from bodies), union or nilable returns, several applicable overloads with distinct returns, constructor/lib-fun predecessors, unsupported or argument-bearing accessors, splat or double-splat predecessor arguments, macro-spliced predecessor arguments, or nesting deeper than four preceding calls.
 - An unqualified call inside a type whose exact identity has indexed declarations outside the effective sources, when no visible overload accepts the call by arity: without an explicit containing entry, a standalone-library context may omit required same-type overloads, so a rejecting verdict would blame a partial pool. Acceptance verdicts stay; selecting a containing program entry can provide the complete pool (crystalline `ext/compiler.cr` forwarding to a compiler overload with a `location:` named argument). Other programs are never unioned to grow that pool.
 - A published stdlib whose `prelude.cr` is not yet in library scope also makes

@@ -41,7 +41,9 @@ class CrystalParserDefinition : ParserDefinition {
             // index; persisted indexes must rebuild.
             // v22: library namespaces participate in qualified member identities
             // and nested-type/constant-owner index keys.
-            override fun getStubVersion(): Int = 22
+            // v23: type stubs persist declared superclass/include candidate names
+            // for the reverse-hierarchy index used by guarded-member navigation.
+            override fun getStubVersion(): Int = 23
         }
     }
 

@@ -82,10 +82,10 @@ Branch conditions refine a local's or parameter's union for the branches they pr
 of `if x.nil?` drop `Nil`, `if x.is_a?(T)` replaces the state with `T` (the `else`
 subtracts it from a known union), `case x when T` replaces it per arm (the `else`
 keeps the remainder), conditional assignment (`if x = expr`) binds first, and abrupt
-guards (`return "" if x.nil?`) narrow the fall-through. Guards stay syntactically
+guards (`return "" if x.nil?`) narrow the fall-through. Type-set guards stay syntactically
 direct — bare variables, `.nil?`, and `.is_a?(Type)` only; binary conditions, negations,
-method calls, `== nil`, loops, `&&` right-hand sides, `responds_to?`, `in` patterns,
-and macros keep the incoming state. Reassignment inside a branch overwrites the refined
+method calls, `== nil`, loops, `&&` right-hand sides, `in` patterns,
+and macros keep the incoming type set. Reassignment inside a branch overwrites the refined
 state like any other binding. Unrecognized or empty remainders keep the incoming state,
 never an empty union. Exact receiver resolution consumes a single known non-nil
 use-site type for locals and parameters before consulting declaration evidence.
@@ -110,6 +110,38 @@ through the same captured session. Typed plain accessors supply shared method
 signatures and lexically resolved result types, including across DOT chains.
 Eligibility, source mapping, cache invalidation, and conservative exclusions are
 specified in [Static Finished Declarations](static-finished-declarations.md).
+
+### Responds-To Member Guarantees
+
+A direct guard on a bound local or parameter, `value.responds_to?(:inner)` or
+`value.responds_to? :inner`, proves availability of that named member in the
+positive branch. `unless` else arms and surviving early-exit paths use the same
+condition polarity. The accepted argument is exactly one plain literal method
+symbol (`:name`, optionally with a `?`, `!`, or `=` suffix); strings, dynamic
+arguments, malformed argument lists, repeated method-call receivers, and direct
+instance/class-variable guards do not supply this proof.
+
+These facts accompany the existing variable flow without selecting a concrete
+subclass or changing its nominal type set. They are keyed by the tracked variable's
+lexical binding scope, so block/proc parameters, rescue bindings, and loop variables
+cannot borrow another binding's guarantee just because their names match.
+Refinements and captured reads of the same binding retain its facts. Joins keep
+only methods guaranteed on every reachable path for the same binding. A write
+invalidates that binding's facts after evaluating the RHS, preserving facts about
+other, shadowed bindings. Assignment-target hovers still describe the assigned
+value; RHS reads use the preceding binding instead of recursively reading the
+assignment's own result.
+
+When exact member lookup finds no declaration but this flow fact proves the method
+exists, the DOT resolver returns `Suppressed`, not an invented target. Missing-name,
+arity, and type diagnostics cannot blame the nominal base or borrow an unrelated
+implementation's signature. Concrete navigation and result typing still require
+ordinary exact declaration evidence; the guard alone supplies neither a return
+type nor a completion method signature. A separate
+[Guarded Member Navigation](guarded-member-navigation.md) path can expose known
+ancestor-verified declarations as non-exact navigation results without changing
+that type-inference contract. `CrystalRespondsToGuardTest` covers the
+crystalline exception-unwrapping shape and fact lifetime/identity boundaries.
 
 ## Expression Values
 

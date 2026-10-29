@@ -115,6 +115,16 @@ the constant rule per segment, with the root rule for qualified paths.
    readers resolve to the macro argument. Setter-only macros and `getter?`
    do not make a missing plain reader known. Local bindings retain precedence,
    and an unrelated type's property cannot heal an unknown name.
+9. A direct positive `responds_to?` guard with one plain literal method symbol
+   proves that member available on the same local binding. For example,
+   `if error.responds_to? :inner` makes `error.inner` known even when the
+   declared `Crystal::ErrorFormat` module does not itself declare `inner`.
+   Scope identity, assignment invalidation, branch polarity and joins follow
+   the neutral flow model in [Type Inference](type-inference.md#responds-to-member-guarantees).
+   This suppresses a false missing-member verdict without inventing an exact
+   implementation, signature, or return type. Known compatible declarations can
+   be offered separately as [non-exact navigation targets](guarded-member-navigation.md),
+   and hover labels the call as a guarded member rather than an `Any` variable.
 
 ## Silence Rules
 

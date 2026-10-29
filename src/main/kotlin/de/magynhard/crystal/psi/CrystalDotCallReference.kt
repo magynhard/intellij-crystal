@@ -1,12 +1,15 @@
 package de.magynhard.crystal.psi
 
 import com.intellij.openapi.util.TextRange
+import com.intellij.openapi.project.DumbService
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementResolveResult
 import com.intellij.psi.PsiPolyVariantReferenceBase
 import com.intellij.psi.ResolveResult
 import de.magynhard.crystal.inspections.CrystalDotCallTargetResolver
 import de.magynhard.crystal.inspections.DotCallResolution
+import de.magynhard.crystal.inspections.CrystalCallExtractor
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 
 /** Resolves a DOT-call method name through neutral scoped receiver and hierarchy analysis. */
 class CrystalDotCallReference(
@@ -15,22 +18,38 @@ class CrystalDotCallReference(
     rangeLength: Int
 ) : PsiPolyVariantReferenceBase<PsiElement>(element, TextRange(rangeStart, rangeStart + rangeLength), true) {
 
-    override fun resolve(): PsiElement? = multiResolve(false).singleOrNull()?.element
+    override fun resolve(): PsiElement? = exactTargets().singleOrNull()
+
+    override fun isReferenceTo(target: PsiElement): Boolean = exactTargets().any {
+        element.manager.areElementsEquivalent(it, target)
+    }
+
+    private fun exactTargets(): List<PsiElement> {
+        val access = element as? CrystalDotCallAccess ?: return emptyList()
+        if (DumbService.isDumb(element.project)) return emptyList()
+        return exactTargets(CrystalDotCallTargetResolver.resolve(access))
+    }
+
+    private fun exactTargets(resolution: DotCallResolution): List<PsiElement> = when (resolution) {
+        is DotCallResolution.Methods -> resolution.methods
+        is DotCallResolution.RecordFallback -> listOf(resolution.recordDefinition)
+        is DotCallResolution.Accessor -> resolution.accessorArgs
+        is DotCallResolution.LibFunctions -> resolution.funs
+        else -> emptyList()
+    }
 
     override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> {
         val access = element as? CrystalDotCallAccess ?: return ResolveResult.EMPTY_ARRAY
-        val targets: List<PsiElement> = when (val resolution = CrystalDotCallTargetResolver.resolve(access)) {
-            is DotCallResolution.Methods -> resolution.methods
-            is DotCallResolution.RecordFallback -> listOf(resolution.recordDefinition)
-            // Accessor macros: the interface between the methodology is the
-            // ARGUMENT (property foo declaration).
-            is DotCallResolution.Accessor -> resolution.accessorArgs
-            is DotCallResolution.LibFunctions -> resolution.funs
-            is DotCallResolution.ImplicitConstructor,
-            DotCallResolution.Unresolved,
-            DotCallResolution.Suppressed -> emptyList()
+        if (DumbService.isDumb(element.project)) return ResolveResult.EMPTY_ARRAY
+        val resolution = CrystalDotCallTargetResolver.resolve(access)
+        if (resolution is DotCallResolution.Suppressed) {
+            val call = CrystalCallExtractor.extractDotCall(access) ?: return ResolveResult.EMPTY_ARRAY
+            // Possible implementations are useful navigation targets, but
+            // never exact dispatch or automatic rename/usage evidence.
+            return CrystalTypeSetResolver.session(access).guardedMemberTargets(call.receiver, call.methodName)
+                .map { PsiElementResolveResult(it, false) }.toTypedArray()
         }
-        return targets.map(::PsiElementResolveResult).toTypedArray()
+        return exactTargets(resolution).map(::PsiElementResolveResult).toTypedArray()
     }
 
     override fun handleElementRename(newElementName: String): PsiElement {

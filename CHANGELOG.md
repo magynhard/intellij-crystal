@@ -348,6 +348,23 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   Single exact use-site types now take precedence;
   missing-member warnings, reassignment, block shadowing, and branch boundaries
   remain covered by regression tests.
+- **Responds-to guards establish member availability** — crystalline's
+  `diagnostics.cr` reported `Cannot find 'inner'` while unwrapping an exception
+  under `if error.responds_to? :inner`, because the declared `ErrorFormat`
+  module does not declare that member. Direct literal-symbol guards now carry
+  binding-scoped method guarantees through the shared variable flow. Writes
+  invalidate facts after RHS evaluation, shadowed bindings remain separate,
+  and branch joins retain only common guarantees. Presence alone never selects
+  a subclass, implementation, return type, or unrelated arity/type signature.
+- **Guarded members link to compatible declarations** — Go to Definition on
+  `error.inner` under a valid `responds_to?` guard can now reach the compiler's
+  `TypeException` property, or offer a chooser for several known compatible
+  declarations. A new declared-ancestor reverse index finds candidates; full
+  qualified hierarchy and require-scope checks reject unrelated, incomplete,
+  and unrequired types. Absolute ancestor paths also retain their global root.
+  Hover identifies a guarded member and lists possible declarations without
+  borrowing their signatures for type/arity checks or automatic rename/usage
+  binding. Stub version 23 rebuilds existing type-index caches.
 - **Static finished-hook classes expose typed members** — fixed class
   declarations inside supported module `macro finished` hooks now participate
   in the shared type and member model. Crystalline's `message.params` can

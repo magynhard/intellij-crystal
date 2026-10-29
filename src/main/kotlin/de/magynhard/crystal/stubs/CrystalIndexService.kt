@@ -24,6 +24,14 @@ object CrystalIndexService {
     ): Collection<CrystalNamedElement> =
         StubIndex.getElements(CrystalClassIndex.KEY, name, project, scope, CrystalNamedElement::class.java)
 
+    fun findTypeInheritors(
+        ancestorSimpleName: String,
+        project: Project,
+        scope: GlobalSearchScope,
+    ): Collection<CrystalNamedElement> = StubIndex.getElements(
+        CrystalTypeInheritorIndex.KEY, ancestorSimpleName, project, scope, CrystalNamedElement::class.java,
+    )
+
     fun processTypes(
         name: String,
         project: Project,

@@ -154,6 +154,7 @@ object CrystalDotCallTargetResolver {
             // accessor binding of the receiver type.
             val accessorArgs = collectAccessorArguments(call, receiverType, mode, session)
             if (accessorArgs.isNotEmpty()) return DotCallResolution.Accessor(call, receiverType, accessorArgs)
+            if (session.isMethodGuaranteed(call.receiver, call.methodName)) return DotCallResolution.Suppressed
             return DotCallResolution.Unresolved
         }
         val accessorArguments = collection.methods.mapNotNull(CrystalStaticDeclarations::accessorOrigin)

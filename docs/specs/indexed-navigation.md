@@ -4,9 +4,10 @@ The plugin uses Crystal stub indexes for navigation and type lookup without scan
 
 ## Active Indexes
 
-The active index set consists of exactly eleven indexes:
+The active index set consists of exactly thirteen indexes:
 
 - `CrystalClassIndex` indexes class, module, struct, and enum names.
+- `CrystalTypeInheritorIndex` maps declared superclass/include candidate names to nominal type declarations; queries must verify full qualified ancestry.
 - `CrystalMethodIndex` indexes method names.
 - `CrystalMethodByClassIndex` maps enclosing type names to methods.
 - `CrystalMacroIndex` indexes macro names.
@@ -15,10 +16,16 @@ The active index set consists of exactly eleven indexes:
 - `CrystalAliasIndex` indexes alias definitions.
 - `CrystalAnnotationIndex` indexes annotation definitions.
 - `CrystalLibIndex` indexes lib definitions.
+- `CrystalLibFunIndex` indexes FFI function declaration names.
 - `CrystalConstantIndex` indexes constant names.
 - `CrystalConstantByOwnerIndex` maps qualified owner names to member constants.
 
 Instance-variable and class-variable declaration indexes are intentionally absent. Variable indexing remains deferred unless a valid stubbed declaration model is designed.
+
+Nominal type stubs persist declared ancestor candidate names since stub version 23.
+The reverse index supports [Guarded Member Navigation](guarded-member-navigation.md):
+possible definitions remain distinct from exact dispatch and never become an
+unrelated name-only fallback or an arity/type-check overload pool.
 
 Constant declarations (`KODORRA = 123` at file top level, `BAR = 1` in type and lib bodies, `private`/`protected` visibility modifiers) carry stubs with the simple name, the qualified owner (null at top level), and a privacy flag. Statement-context assignments (method and macro bodies, blocks, control flow, case subjects, macro regions) never create stubs: the element type's `shouldCreateStub` only admits file, class-body, lib-body, and visibility-modifier parents past the transparent statement wrapper. The by-owner index is keyed by the full qualified owner (`Foo`, `Foo::Bar`, `LibC`) so reopenings merge and nested owners never collide. Private file-level constants remain file-local; private type constants resolve and complete by bare name inside their owning namespace, including nested namespaces, cross-file reopenings, and exact superclass/include ancestry, only when the declaration belongs to the effective source set. Unrelated owners and explicit qualified accesses cannot expose private type constants. Qualified public `Foo::BAR` paths resolve through the owner index with the member-name filter; enum members stay out of scope (no member index for them).
 

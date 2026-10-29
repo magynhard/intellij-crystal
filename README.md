@@ -41,6 +41,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Ctrl+B on receiver-less calls offers the overload chooser, including exact-owner reopenings when the file is opened without its containing program; local bindings retain precedence
 - Statically written classes in supported module `macro finished` hooks expose typed accessors for completion, hover, source navigation, and chained member lookup; dynamic macro bodies remain opaque
 - Ctrl+B / Ctrl+Click on type references inside those static macro bodies resolves their namespace- and require-visible definitions, including following definitions in the same file
+- Guarded `responds_to?` member calls can navigate to known require-visible compatible declarations; hover distinguishes these candidates from exact dispatch
 - Ctrl+B / Ctrl+Click navigation on individual FFI path segments in type annotations and expressions, such as `LibGMP::MPF` and `LibGMP::MpLimb.new!(num)`, with the standard target chooser for multiple matching declarations
 - Namespace- and require-aware annotation navigation and documentation, with missing-annotation diagnostics
 - Embedded language highlighting in heredocs and strings — `<<-SQL`, `<<-JAVASCRIPT`, `<<-CSS`, `<<-HTML`, `<<-JSON`, `<<-YAML`, `<<-CRYSTAL` and other language markers inject the target language's syntax highlighting when its plugin is installed; `# language=<id>` comments above heredocs, double-quoted strings, `%q`/`%Q` percent literals, and `:"symbol"` strings do the same (with optional `prefix=`/`suffix=`)
@@ -51,6 +52,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 
 ### Inspections
 
+- Direct `responds_to?` guards on locals and parameters prevent false missing-member warnings while preserving binding, branch, and reassignment boundaries
 - Local-name diagnostics and Go to Declaration recognize condition assignments such as `if ucid = channel.receive`
 - Missing-name diagnostics recognize require-visible FFI library namespaces in type annotations and library aliases in constructor receivers, including conditional aliases such as `LibGMP::MpLimb`
 - Method-local `forall` type parameters are recognized in signatures and bodies, including dependent paths such as `T::MAX`, and support Go to Declaration; macro-generated type names such as `UInt{{n}}` do not produce false missing-name warnings in type annotations or expression arguments

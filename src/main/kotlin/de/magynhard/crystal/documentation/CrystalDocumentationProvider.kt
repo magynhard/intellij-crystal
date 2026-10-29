@@ -5,6 +5,7 @@ import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.richcopy.HtmlSyntaxInfoUtil
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.DumbService
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
@@ -14,8 +15,13 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.analysis.CrystalConstantTypeInference
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.inspections.CrystalUnresolvedName
+import de.magynhard.crystal.inspections.CrystalCallExtractor
+import de.magynhard.crystal.inspections.CrystalDotCallTargetResolver
+import de.magynhard.crystal.inspections.DotCallResolution
 import de.magynhard.crystal.navigation.CrystalGotoDeclarationHandler
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -37,6 +43,8 @@ import org.intellij.markdown.parser.MarkdownParser
 class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? {
+        val guarded = guardedMemberCall(originalElement) ?: guardedMemberCall(element)
+        if (guarded != null) return buildGuardedMemberDocumentation(guarded)
         if (element != null) {
             unresolvedHoverDoc(element)?.let { return it }
         }
@@ -96,6 +104,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
         // 1. Unwrap argument wrappers to find the actual expression inside
         val unwrapped = unwrapArgument(contextElement)
+        guardedMemberCall(unwrapped)?.let { return it }
 
         // 2. Try PsiReference on the context element (and its parent, for leaf tokens
         //    whose reference lives on the wrapping composite, e.g. IDENTIFIER inside
@@ -273,6 +282,44 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         sb.append(escapeHtml(CrystalUnresolvedName.messageFor(name)))
         sb.append("</pre></div>")
         return sb.toString()
+    }
+
+    private fun guardedMemberCall(element: PsiElement?): CrystalDotCallAccess? {
+        element ?: return null
+        val access = PsiTreeUtil.getParentOfType(element, CrystalDotCallAccess::class.java, false) ?: return null
+        if (DumbService.isDumb(access.project) || CrystalMacroContext.isInMacroContext(access)) return null
+        val call = CrystalCallExtractor.extractDotCall(access) ?: return null
+        if (element !== access && !call.methodNameElement.textRange.contains(element.textRange)) return null
+        val session = CrystalTypeSetResolver.session(access)
+        if (!session.isMethodGuaranteed(call.receiver, call.methodName)) return null
+        return access.takeIf { CrystalDotCallTargetResolver.resolve(it, session) is DotCallResolution.Suppressed }
+    }
+
+    private fun buildGuardedMemberDocumentation(access: CrystalDotCallAccess): String? {
+        val call = CrystalCallExtractor.extractDotCall(access) ?: return null
+        val targets = CrystalTypeSetResolver.session(access).guardedMemberTargets(call.receiver, call.methodName)
+        return buildString {
+            append("<div class='definition'><pre>")
+            append(escapeHtml(call.methodName))
+            append(" (guarded member)</pre></div><div class='content'>")
+            append("Availability guaranteed by <code>responds_to?(:")
+            append(escapeHtml(call.methodName))
+            append(")</code>. The concrete receiver and return type are not established by this guard.")
+            if (targets.isNotEmpty()) {
+                append("<p>Known compatible declarations:</p><ul>")
+                for (target in targets) {
+                    val owner = CrystalPsiUtils.getEnclosingType(target)?.let(CrystalPsiUtils::buildQualifiedName).orEmpty()
+                    val signature = CrystalStaticDeclarations.accessorReader(target) ?: target
+                    append("<li><code>")
+                    append(escapeHtml(owner))
+                    append("</code><pre>")
+                    append(escapeHtml(signature.text.substringBefore('\n')))
+                    append("</pre></li>")
+                }
+                append("</ul>")
+            }
+            append("</div>")
+        }
     }
 
     private fun resolveTarget(element: PsiElement?): PsiElement? {

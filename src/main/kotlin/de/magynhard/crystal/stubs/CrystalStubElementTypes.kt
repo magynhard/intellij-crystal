@@ -18,16 +18,17 @@ class CrystalClassDefinitionElementType(debugName: String) :
     override fun serialize(stub: CrystalClassDefinitionStub, dataStream: StubOutputStream) {
         dataStream.writeName(stub.name)
         dataStream.writeName(stub.enclosingNamespace)
+        writeAncestors(stub, dataStream)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalClassDefinitionStub {
         val name = dataStream.readNameString()
         val enclosingNamespace = if (dataStream.available() > 0) dataStream.readNameString() else null
-        return CrystalClassDefinitionStub(parentStub, this, name, enclosingNamespace)
+        return CrystalClassDefinitionStub(parentStub, this, name, enclosingNamespace, readAncestors(dataStream))
     }
 
     override fun createStub(psi: CrystalClassDefinition, parentStub: StubElement<out PsiElement>?): CrystalClassDefinitionStub {
-        return CrystalClassDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi))
+        return CrystalClassDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi), CrystalDeclaredAncestors.names(psi))
     }
 
     override fun createPsi(stub: CrystalClassDefinitionStub): CrystalClassDefinition {
@@ -36,6 +37,7 @@ class CrystalClassDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalClassDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+        indexAncestors(stub, sink)
 
         // Index by enclosing type/library name for hierarchical completion.
         // Two sources: (1) parent stub tree (nested classes), (2) qualified type_name prefix (Foo::Bar).
@@ -54,16 +56,17 @@ class CrystalModuleDefinitionElementType(debugName: String) :
     override fun serialize(stub: CrystalModuleDefinitionStub, dataStream: StubOutputStream) {
         dataStream.writeName(stub.name)
         dataStream.writeName(stub.enclosingNamespace)
+        writeAncestors(stub, dataStream)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalModuleDefinitionStub {
         val name = dataStream.readNameString()
         val enclosingNamespace = if (dataStream.available() > 0) dataStream.readNameString() else null
-        return CrystalModuleDefinitionStub(parentStub, this, name, enclosingNamespace)
+        return CrystalModuleDefinitionStub(parentStub, this, name, enclosingNamespace, readAncestors(dataStream))
     }
 
     override fun createStub(psi: CrystalModuleDefinition, parentStub: StubElement<out PsiElement>?): CrystalModuleDefinitionStub {
-        return CrystalModuleDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi))
+        return CrystalModuleDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi), CrystalDeclaredAncestors.names(psi))
     }
 
     override fun createPsi(stub: CrystalModuleDefinitionStub): CrystalModuleDefinition {
@@ -72,6 +75,7 @@ class CrystalModuleDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalModuleDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+        indexAncestors(stub, sink)
 
         val enclosingName = findEnclosingParentName(stub) ?: stub.enclosingNamespace
         enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
@@ -88,16 +92,17 @@ class CrystalStructDefinitionElementType(debugName: String) :
     override fun serialize(stub: CrystalStructDefinitionStub, dataStream: StubOutputStream) {
         dataStream.writeName(stub.name)
         dataStream.writeName(stub.enclosingNamespace)
+        writeAncestors(stub, dataStream)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalStructDefinitionStub {
         val name = dataStream.readNameString()
         val enclosingNamespace = if (dataStream.available() > 0) dataStream.readNameString() else null
-        return CrystalStructDefinitionStub(parentStub, this, name, enclosingNamespace)
+        return CrystalStructDefinitionStub(parentStub, this, name, enclosingNamespace, readAncestors(dataStream))
     }
 
     override fun createStub(psi: CrystalStructDefinition, parentStub: StubElement<out PsiElement>?): CrystalStructDefinitionStub {
-        return CrystalStructDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi))
+        return CrystalStructDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi), CrystalDeclaredAncestors.names(psi))
     }
 
     override fun createPsi(stub: CrystalStructDefinitionStub): CrystalStructDefinition {
@@ -106,6 +111,7 @@ class CrystalStructDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalStructDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+        indexAncestors(stub, sink)
 
         val enclosingName = findEnclosingParentName(stub) ?: stub.enclosingNamespace
         enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
@@ -122,16 +128,17 @@ class CrystalEnumDefinitionElementType(debugName: String) :
     override fun serialize(stub: CrystalEnumDefinitionStub, dataStream: StubOutputStream) {
         dataStream.writeName(stub.name)
         dataStream.writeName(stub.enclosingNamespace)
+        writeAncestors(stub, dataStream)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalEnumDefinitionStub {
         val name = dataStream.readNameString()
         val enclosingNamespace = if (dataStream.available() > 0) dataStream.readNameString() else null
-        return CrystalEnumDefinitionStub(parentStub, this, name, enclosingNamespace)
+        return CrystalEnumDefinitionStub(parentStub, this, name, enclosingNamespace, readAncestors(dataStream))
     }
 
     override fun createStub(psi: CrystalEnumDefinition, parentStub: StubElement<out PsiElement>?): CrystalEnumDefinitionStub {
-        return CrystalEnumDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi))
+        return CrystalEnumDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi), CrystalDeclaredAncestors.names(psi))
     }
 
     override fun createPsi(stub: CrystalEnumDefinitionStub): CrystalEnumDefinition {
@@ -140,6 +147,7 @@ class CrystalEnumDefinitionElementType(debugName: String) :
 
     override fun indexStub(stub: CrystalEnumDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
+        indexAncestors(stub, sink)
 
         val enclosingName = findEnclosingParentName(stub) ?: stub.enclosingNamespace
         enclosingName?.let { sink.occurrence(CrystalClassByEnclosingIndex.KEY, it) }
@@ -438,6 +446,18 @@ class CrystalConstantAssignmentElementType(debugName: String) :
             parentType == CrystalTypes.LIB_BODY ||
             parentType == CrystalTypes.VISIBILITY_MODIFIER
     }
+}
+
+private fun writeAncestors(stub: CrystalTypeStub, stream: StubOutputStream) {
+    stream.writeInt(stub.ancestorNames.size)
+    stub.ancestorNames.forEach(stream::writeName)
+}
+
+private fun readAncestors(stream: StubInputStream): List<String> =
+    List(stream.readInt()) { stream.readNameString() }.filterNotNull()
+
+private fun indexAncestors(stub: CrystalTypeStub, sink: IndexSink) {
+    stub.ancestorNames.forEach { sink.occurrence(CrystalTypeInheritorIndex.KEY, it) }
 }
 
 /**

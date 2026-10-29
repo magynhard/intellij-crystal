@@ -11,6 +11,10 @@ interface CrystalNamedStub {
     val name: String?
 }
 
+interface CrystalTypeStub : CrystalNamedStub {
+    val ancestorNames: List<String>
+}
+
 // ==================== Class Stub ====================
 
 class CrystalClassDefinitionStub(
@@ -18,8 +22,9 @@ class CrystalClassDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?,
     /** For qualified names like `class Foo::Bar`, stores the namespace prefix ("Foo"). */
-    val enclosingNamespace: String? = null
-) : StubBase<CrystalClassDefinition>(parent, elementType), CrystalNamedStub
+    val enclosingNamespace: String? = null,
+    override val ancestorNames: List<String> = emptyList(),
+) : StubBase<CrystalClassDefinition>(parent, elementType), CrystalTypeStub
 
 // ==================== Module Stub ====================
 
@@ -28,8 +33,9 @@ class CrystalModuleDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?,
     /** For qualified names like `module Foo::Bar`, stores the namespace prefix ("Foo"). */
-    val enclosingNamespace: String? = null
-) : StubBase<CrystalModuleDefinition>(parent, elementType), CrystalNamedStub
+    val enclosingNamespace: String? = null,
+    override val ancestorNames: List<String> = emptyList(),
+) : StubBase<CrystalModuleDefinition>(parent, elementType), CrystalTypeStub
 
 // ==================== Struct Stub ====================
 
@@ -38,8 +44,9 @@ class CrystalStructDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?,
     /** For qualified names like `struct Foo::Bar`, stores the namespace prefix ("Foo"). */
-    val enclosingNamespace: String? = null
-) : StubBase<CrystalStructDefinition>(parent, elementType), CrystalNamedStub
+    val enclosingNamespace: String? = null,
+    override val ancestorNames: List<String> = emptyList(),
+) : StubBase<CrystalStructDefinition>(parent, elementType), CrystalTypeStub
 
 // ==================== Enum Stub ====================
 
@@ -48,8 +55,9 @@ class CrystalEnumDefinitionStub(
     elementType: IStubElementType<*, *>,
     override val name: String?,
     /** For qualified names like `enum Foo::Bar`, stores the namespace prefix ("Foo"). */
-    val enclosingNamespace: String? = null
-) : StubBase<CrystalEnumDefinition>(parent, elementType), CrystalNamedStub
+    val enclosingNamespace: String? = null,
+    override val ancestorNames: List<String> = emptyList(),
+) : StubBase<CrystalEnumDefinition>(parent, elementType), CrystalTypeStub
 
 // ==================== Method Stub ====================
 
