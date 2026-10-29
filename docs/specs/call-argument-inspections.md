@@ -199,8 +199,9 @@ navigation, and `Cannot find` paths.
 
 The preceding call must be applicable and unambiguous:
 
-- It resolves to exact methods (never name-only); constructor, accessor-macro,
-  lib-fun, and unresolved predecessors stay suppressed.
+- It resolves to exact methods (never name-only), or to a zero-argument typed
+  plain accessor with one exact non-nil return type. Other accessor shapes,
+  constructors, lib-fun, and unresolved predecessors stay suppressed.
 - Its arguments satisfy at least one overload by arity (the shared
   `evaluateOverload` shapes; splat, double-splat, and macro-spliced arguments
   make the shape unknowable). When no overload applies, the outer call stays
@@ -300,7 +301,7 @@ Argument diagnostics require exact resolution. The inspection emits no argument-
 - A class-variable receiver.
 - A record instance method until record values use exact generated-signature resolution.
 - A macro-interpolated receiver, method name, or constructor target.
-- A chained call whose preceding call cannot serve as exact evidence: unannotated predecessors (annotations are never inferred from bodies), union or nilable returns, several applicable overloads with distinct returns, constructor/accessor-macro/lib-fun predecessors, splat or double-splat predecessor arguments, macro-spliced predecessor arguments, or nesting deeper than four preceding calls.
+- A chained call whose preceding call cannot serve as exact evidence: unannotated predecessors (annotations are never inferred from bodies), union or nilable returns, several applicable overloads with distinct returns, constructor/lib-fun predecessors, unsupported or argument-bearing accessors, splat or double-splat predecessor arguments, macro-spliced predecessor arguments, or nesting deeper than four preceding calls.
 - An unqualified call inside a type whose exact identity has indexed declarations outside the effective sources, when no visible overload accepts the call by arity: without an explicit containing entry, a standalone-library context may omit required same-type overloads, so a rejecting verdict would blame a partial pool. Acceptance verdicts stay; selecting a containing program entry can provide the complete pool (crystalline `ext/compiler.cr` forwarding to a compiler overload with a `location:` named argument). Other programs are never unioned to grow that pool.
 - A published stdlib whose `prelude.cr` is not yet in library scope also makes
   same-type pool completeness unprovable. Rejecting arity and type verdicts stay

@@ -48,6 +48,16 @@ even without source declarations, but cannot navigate without an indexed target.
 
 ## Bare-Call Navigation
 
+Exact type and DOT-call navigation also consume the read-only views described in
+[Static Finished Declarations](static-finished-declarations.md). Static generated
+classes and their accessor targets navigate to the original macro-body offsets;
+the views do not add physical stub/index entries or editable generated declarations.
+Clicks originating inside supported static macro bodies are mapped onto the
+view's ordinary PSI references. Their effective sources come from the original
+physical file and their namespace context comes from the view, so same-file
+following declarations and require-visible types resolve without name-only
+guessing. Qualified path segments and generic arguments retain individual targets.
+
 The Goto handler offers all require-visible, callable method overloads for a direct
 receiver-less callee identifier. A single target jumps directly; multiple targets
 use the platform chooser. Local assignments and parameters retain precedence.

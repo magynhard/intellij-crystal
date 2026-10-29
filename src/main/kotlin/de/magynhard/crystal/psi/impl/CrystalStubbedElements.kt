@@ -7,6 +7,7 @@ import com.intellij.psi.stubs.IStubElementType
 import de.magynhard.crystal.psi.CrystalNamedElement
 import de.magynhard.crystal.psi.CrystalTypes
 import de.magynhard.crystal.stubs.*
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 
 // ==================== Helper ====================
 
@@ -158,7 +159,13 @@ abstract class CrystalStubbedClassDefinitionImpl : StubBasedPsiElementBase<Cryst
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInTypeName(this)
     override fun getName(): String? = stub?.name ?: getNameFromTypeName(this)
     override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
-    override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
+    override fun setName(name: String): PsiElement {
+        if (CrystalStaticDeclarations.isView(this)) throw com.intellij.util.IncorrectOperationException("Static macro declarations are read-only")
+        setNameOnIdentifier(nameIdentifier, name)
+        return this
+    }
+    override fun isWritable(): Boolean = !CrystalStaticDeclarations.isView(this) && super.isWritable()
+    override fun getNavigationElement(): PsiElement = CrystalStaticDeclarations.navigation(this) ?: super.getNavigationElement()
 }
 
 abstract class CrystalStubbedModuleDefinitionImpl : StubBasedPsiElementBase<CrystalModuleDefinitionStub>, CrystalNamedElement {
@@ -200,7 +207,13 @@ abstract class CrystalStubbedMethodDefinitionImpl : StubBasedPsiElementBase<Crys
     override fun getNameIdentifier(): PsiElement? = findNameIdentifierInMethodName(this)
     override fun getName(): String? = stub?.name ?: getNameFromMethodName(this)
     override fun getTextOffset(): Int = nameIdentifier?.textOffset ?: node.startOffset
-    override fun setName(name: String): PsiElement { setNameOnIdentifier(nameIdentifier, name); return this }
+    override fun setName(name: String): PsiElement {
+        if (CrystalStaticDeclarations.isView(this)) throw com.intellij.util.IncorrectOperationException("Static macro declarations are read-only")
+        setNameOnIdentifier(nameIdentifier, name)
+        return this
+    }
+    override fun isWritable(): Boolean = !CrystalStaticDeclarations.isView(this) && super.isWritable()
+    override fun getNavigationElement(): PsiElement = CrystalStaticDeclarations.navigation(this) ?: super.getNavigationElement()
 }
 
 abstract class CrystalStubbedMacroDefinitionImpl : StubBasedPsiElementBase<CrystalMacroDefinitionStub>, CrystalNamedElement {

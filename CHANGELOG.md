@@ -337,6 +337,41 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   unrelated same-named type. Nested constructor receivers such as `Entry.new`
   inside `Benchmark::IPS::Job` no longer report `Cannot find 'Entry'` when
   `Benchmark::IPS::Entry` is visible.
+- **Subtype guards expose members of narrowed receivers** — exact receiver
+  resolution preferred a parameter's declared base class or an earlier
+  constructor assignment over its flow-refined type. Calls such as
+  `message.params` in crystalline's controller therefore reported
+  `Cannot find 'params'` inside `case ... when LSP::DocumentFormattingRequest`,
+  including nested blocks. Request classes emitted inside `macro finished`
+  retain their guarded type name even without an indexed declaration; member
+  lookup then stays unjudgeable rather than falling back to the base class.
+  Single exact use-site types now take precedence;
+  missing-member warnings, reassignment, block shadowing, and branch boundaries
+  remain covered by regression tests.
+- **Static finished-hook classes expose typed members** — fixed class
+  declarations inside supported module `macro finished` hooks now participate
+  in the shared type and member model. Crystalline's `message.params` can
+  complete, show its declared parameter type, navigate into the original LSP
+  macro body, and supply the receiver for chained completion. Typed plain
+  accessor signatures also participate for ordinary source types. Candidates
+  stay require-scoped, cached views invalidate on edits, and dynamic or
+  conditional hooks remain opaque. Generated views are read-only and do not
+  change the physical PSI/stub tree or add standalone type-index entries.
+- **Static finished bodies use normal Crystal highlighting and syntax checks** —
+  the editor now maps the cached parser view back onto supported module
+  `macro finished` bodies instead of coloring the whole emitted declaration as
+  opaque text. Class keywords, types, fields, strings, and real comments keep
+  their normal colors; parser errors point into the original body and disappear
+  after correction. Malformed declarations stay out of resolution, and ordinary
+  macros or bodies with dynamic macro constructs retain their opaque treatment.
+- **References inside static finished bodies navigate to their definitions** —
+  Go to Declaration maps the clicked macro-text position onto the parsed
+  syntax view and uses the ordinary exact resolver with the original file's
+  require context. Property types such as crystalline's
+  `DocumentRangeFormattingParams` now reach their following same-file struct;
+  superclass names, generic arguments, and qualified path segments navigate
+  individually. Comments, strings, dynamic bodies, unrequired declarations,
+  and unrelated namespaces never fall back to same-name matches.
 - **Projects that lost the stdlib library at startup recover it** — the stdlib
   synthetic library is attached by the platform's library-roots query while the
   project model is still being built, and that same query is what publishes the

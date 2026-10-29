@@ -595,6 +595,107 @@ class CrystalExactReceiverTypeResolverTest : BasePlatformTestCase() {
 
     // ==================== Narrowed receivers ====================
 
+    fun testCaseSubclassNarrowingOverridesExactBaseParameter() {
+        assertResolved("""
+            class Message
+            end
+            class Request < Message
+            end
+            def execute(message : Message)
+              case message
+              when Request
+                message.run
+              end
+            end
+        """.trimIndent(), ExactReceiverType("Request", "Request"))
+    }
+
+    fun testCaseSubclassNarrowingReachesCapturedParameterInBlock() {
+        assertResolved("""
+            class Message
+            end
+            class Request < Message
+            end
+            def synchronize
+              yield
+            end
+            def execute(message : Message)
+              case message
+              when Request
+                synchronize { message.run }
+              end
+            end
+        """.trimIndent(), ExactReceiverType("Request", "Request"))
+    }
+
+    fun testMacroGeneratedCaseTypeDoesNotFallBackToBaseOrUnrelatedType() {
+        assertUnresolved("""
+            class Request
+            end
+            module LSP
+              class Message
+              end
+              macro finished
+                {{ nil }}
+                class Request < Message
+                end
+              end
+            end
+            def execute(message : LSP::Message)
+              case message
+              when LSP::Request
+                message.run
+              end
+            end
+        """.trimIndent())
+    }
+
+    fun testIsASubclassNarrowingOverridesConstructorEvidence() {
+        assertResolved("""
+            class Message
+            end
+            class Request < Message
+            end
+            message = Message.new
+            if message.is_a?(Request)
+              message.run
+            end
+        """.trimIndent(), ExactReceiverType("Request", "Request"))
+    }
+
+    fun testSubclassNarrowingDoesNotOverrideReassignment() {
+        assertResolved("""
+            class Message
+            end
+            class Request < Message
+            end
+            def execute(message : Message)
+              case message
+              when Request
+                message = Message.new
+                message.run
+              end
+            end
+        """.trimIndent(), ExactReceiverType("Message", "Message"))
+    }
+
+    fun testSubclassNarrowingDoesNotLeakIntoShadowingBlockParameter() {
+        assertUnresolved("""
+            class Message
+            end
+            class Request < Message
+            end
+            def execute(message : Message)
+              case message
+              when Request
+                items.each do |message|
+                  message.run
+                end
+              end
+            end
+        """.trimIndent())
+    }
+
     fun testIfTruthinessNarrowsNilableReceiver() {
         assertResolved(
             """

@@ -234,7 +234,9 @@ internal class CrystalRequireGraphService private constructor(
     fun effectiveSources(context: PsiElement): CrystalEffectiveSourceSet {
         return ReadAction.computeBlocking<CrystalEffectiveSourceSet, RuntimeException> {
             if (!context.isValid) return@computeBlocking EMPTY_SOURCES
-            val containingFile = context.containingFile ?: return@computeBlocking EMPTY_SOURCES
+            // Source-backed static views keep their own lexical PSI context but
+            // inherit the load context of the physical macro declaration.
+            val containingFile = CrystalStaticDeclarations.sourceFile(context) ?: return@computeBlocking EMPTY_SOURCES
             if (isValidEcrInjection(containingFile)) return@computeBlocking preludeSources()
             val file = containingFile.originalFile
             if (!file.isPhysical) {

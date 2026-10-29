@@ -175,3 +175,39 @@ Note on running the audit at all: the `lib/<shard>/lib -> ..` symlinks that
 `shards install` leaves behind trip the target snapshotter's directory-cycle
 guard; they were moved aside for the run (nothing requires through them) and
 restored afterwards with a clean worktree.
+
+## Finished-hook declaration audit (2026-10-29)
+
+Target: `elbywan/crystalline @ a5f6f1bb9d55decf507138da7b2c47628ee15328`,
+with locked runtime and development dependencies (`lsp 0.1.3`, `sentry 0.5.0`).
+RubyMine `RM-262.9437.192`, plugin dev version `0.3.1`. Inspection used an isolated
+disposable checkout and IDE state; only the dependency installer's redundant
+`lib/lsp/lib -> ..` and `lib/sentry/lib -> ..` links were temporarily moved aside
+for the documented snapshot-cycle guard, then restored. No target source changed.
+
+The parse preflight retained the previously established baseline: 151 files,
+six files with one parse error each. The offline audit completed with:
+
+| Inspection | `.cr` findings |
+|---|---:|
+| CrystalArgumentCount | 1 |
+| CrystalParseError | 91 |
+| CrystalTypeMismatch | 1 |
+| CrystalUnresolvedName | 429 |
+| CrystalUnusedVariable | 42 |
+| Total | 564 |
+
+Two findings in non-Crystal files were filtered. Offline parse findings include
+injected Crystal samples in specs and are not comparable to the whole-file parse
+preflight count. This is not a clean-project claim or a full triage of those findings.
+
+`src/crystalline/controller.cr` has **zero findings**, including the formerly
+reported `params` readers and the inherited `id` accessors. Separate focused tests
+verify typed completion, hover, original-source navigation, and chained accessors;
+the inspection audit does not exercise those UI actions.
+
+An intermediate audit exposed non-idempotent cached-value results from comparing
+newly parsed nonphysical PSI by object identity. Declaration views now compare by
+source revision and have a parallel-computation regression. The final audit has no
+such error. The bundled IDE still logs unrelated RegExp initialization and missing
+non-Crystal inspection-description errors.

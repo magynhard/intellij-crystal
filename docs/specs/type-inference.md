@@ -24,6 +24,9 @@ Consumers must construct sessions from the actual PSI location being analyzed. C
 its completion position for both value and type-object receivers; a `Project` or project directory
 is not a valid substitute because it has no file load context. Missing or incomplete effective
 sources remain authoritative and do not trigger an all-project fallback.
+Registered static finished-body views retain their lexical PSI location but
+inherit the physical macro file's load context. Arbitrary nonphysical fragments
+without source attribution still have no effective sources.
 
 ## Sequential Variable Flow
 
@@ -84,9 +87,29 @@ direct — bare variables, `.nil?`, and `.is_a?(Type)` only; binary conditions, 
 method calls, `== nil`, loops, `&&` right-hand sides, `responds_to?`, `in` patterns,
 and macros keep the incoming state. Reassignment inside a branch overwrites the refined
 state like any other binding. Unrecognized or empty remainders keep the incoming state,
-never an empty union. The exact-receiver fallback consumes narrowed states only for
-locals and parameters; anything else (unions, unknown, nil-only) stays suppressed
-exactly as before.
+never an empty union. Exact receiver resolution consumes a single known non-nil
+use-site type for locals and parameters before consulting declaration evidence.
+An exact base-class parameter or constructor assignment must not hide a subtype
+proven by `case ... when Subtype` or `is_a?(Subtype)`, including captured reads
+inside a branch's block. Reassignment replaces that refinement, block parameters
+shadow it, and sibling branches and code after the guard retain their own flow
+states. This does not extend guard inference to other receiver shapes or permit
+name-only fallback for unknown or ambiguous types.
+
+A constant-path `when` pattern retains its written type name when it has no
+indexed declaration, as with classes emitted by `macro finished`. This is guard
+evidence, not a resolved declaration or macro expansion. Exact member consumers
+must validate that name in the active source context and suppress lookup when it
+is unavailable or ambiguous. A known flow type (including an unresolved guarded
+name or a union) is authoritative: failure to obtain one exact identity must not
+restore the original base-class parameter or an older constructor assignment.
+Value, range, regex, and other non-type-shaped patterns do not supply such evidence.
+
+Statically readable module `finished` hooks may supply actual declaration views
+through the same captured session. Typed plain accessors supply shared method
+signatures and lexically resolved result types, including across DOT chains.
+Eligibility, source mapping, cache invalidation, and conservative exclusions are
+specified in [Static Finished Declarations](static-finished-declarations.md).
 
 ## Expression Values
 

@@ -859,6 +859,98 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== DOT calls ====================
 
+    fun testCaseNarrowedRequestParamsInsideBlocksStayKnown() {
+        myFixture.configureByText("controller.cr", """
+            class Object
+            end
+            module LSP
+              class RequestMessage(Result) < Object
+              end
+              class DocumentFormattingRequest < RequestMessage(Nil)
+                property params : Int32
+              end
+              class HoverRequest < RequestMessage(Nil)
+                property params : String
+              end
+            end
+            def synchronize
+              yield
+            end
+            def on_request(message : LSP::RequestMessage)
+              message.<warning descr="Cannot find 'params'">params</warning>
+              case message
+              when LSP::DocumentFormattingRequest
+                synchronize { puts message.params }
+                message.<warning descr="Cannot find 'missing'">missing</warning>
+              when LSP::HoverRequest
+                synchronize do
+                  puts message.params
+                end
+              else
+                message.<warning descr="Cannot find 'params'">params</warning>
+              end
+              message.params
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCaseRequestDeclaredByFinishedMacroDoesNotUseBaseMembers() {
+        myFixture.configureByText("controller.cr", """
+            class Object
+            end
+            module LSP
+              class RequestMessage(Result) < Object
+              end
+              macro finished
+                class DocumentFormattingRequest < RequestMessage(Nil)
+                  property params : Int32
+                end
+              end
+            end
+            def synchronize
+              yield
+            end
+            def on_request(message : LSP::RequestMessage)
+              case message
+              when LSP::DocumentFormattingRequest
+                synchronize { puts message.params }
+              else
+                message.<warning descr="Cannot find 'params'">params</warning>
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
+    fun testCaseNotificationParamsInsideRescuedMethodStayKnown() {
+        myFixture.configureByText("controller.cr", """
+            class Object
+            end
+            module LSP
+              class NotificationMessage < Object
+              end
+              class DidOpenNotification < NotificationMessage
+                property params : Int32
+              end
+            end
+            def synchronize
+              yield
+            end
+            def on_notification(message : LSP::NotificationMessage)
+              case message
+              when LSP::DidOpenNotification
+                synchronize { puts message.params }
+              end
+            rescue
+              nil
+            ensure
+              nil
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testUnknownDotMethodWithExactReceiverIsWarning() {
         myFixture.configureByText("test.cr", """
             class Apfel

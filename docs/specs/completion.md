@@ -433,6 +433,12 @@ DOT candidates come from StubIndex but are filtered to one effective source snap
 identity, hierarchy, overload, union, and macro rules run. For a physical `.cr` file this snapshot is
 the configured `prelude.cr` closure plus the selected containing entry's forward transitive require closure. It
 does not include callers outside that entry's program, unrequired siblings, or every indexed stdlib/project reopening.
+Eligible module `finished` hooks also contribute statically parsed declaration
+views, discovered through the macro index and filtered by that same snapshot.
+Typed plain accessor signatures participate in method completion and result
+inference, so `message.` offers `params` and `message.params.` can offer the
+parameter object's members. This is bounded source interpretation, not macro
+execution; see [Static Finished Declarations](static-finished-declarations.md).
 This produces the following core behavior with a normal split standard library:
 
 ```crystal

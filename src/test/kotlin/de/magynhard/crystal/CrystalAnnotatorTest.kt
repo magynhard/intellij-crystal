@@ -5,12 +5,92 @@ import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.util.TextRange
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.highlighting.CrystalSyntaxHighlighter
+import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.psi.CrystalMacroBody
+import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 
 /**
  * Tests for CrystalAnnotator — semantic highlighting of type declarations,
  * method declarations, and parameter highlighting (definition + usage).
  */
 class CrystalAnnotatorTest : BasePlatformTestCase() {
+
+    fun testStaticFinishedBodyUsesNormalCrystalColors() {
+        myFixture.configureByText("formatting.cr", """
+            module LSP
+              macro finished
+                class DocumentFormattingRequest < RequestMessage(Array(TextEdit)?)
+                  @method = "textDocument/formatting"
+                  property params : DocumentFormattingParams
+                  # Keep actual comments in comment colors.
+                end
+              end
+            end
+        """.trimIndent())
+        val body = PsiTreeUtil.findChildOfType(myFixture.file, CrystalMacroBody::class.java)!!
+        val highlights = myFixture.doHighlighting()
+        for ((text, key) in listOf(
+            "class" to CrystalSyntaxHighlighter.KEYWORD,
+            "DocumentFormattingRequest" to CrystalSyntaxHighlighter.CONSTANT,
+            "@method" to CrystalSyntaxHighlighter.INSTANCE_VAR,
+            "property" to CrystalSyntaxHighlighter.KEYWORD,
+            "params" to CrystalSyntaxHighlighter.IDENTIFIER,
+            "DocumentFormattingParams" to CrystalSyntaxHighlighter.CONSTANT,
+        )) {
+            assertTrue("Expected $key on '$text' in the macro body", highlights.any {
+                it.text == text && it.forcedTextAttributesKey == key &&
+                    body.textRange.containsRange(it.startOffset, it.endOffset)
+            })
+        }
+        val stringOffset = myFixture.file.text.indexOf("textDocument/formatting")
+        assertTrue("String contents must retain the ordinary string color", highlights.any {
+            it.startOffset <= stringOffset && it.endOffset > stringOffset &&
+                it.forcedTextAttributesKey == CrystalSyntaxHighlighter.STRING
+        })
+        assertTrue("The opaque string base color must be erased", highlights.any {
+            it.startOffset == body.textRange.startOffset && it.endOffset == body.textRange.endOffset &&
+                it.forcedTextAttributes == TextAttributes.ERASE_MARKER
+        })
+        assertTrue(highlights.any {
+            it.text.startsWith("# Keep actual") && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.COMMENT
+        })
+        assertFalse(highlights.any { it.severity == HighlightSeverity.ERROR })
+    }
+
+    fun testStaticFinishedSyntaxErrorsAreMappedAndRecoverAfterEdit() {
+        val invalid = "module LSP\nmacro finished\nclass Generated\nproperty params :\nend\nend\nend"
+        myFixture.configureByText("formatting.cr", invalid)
+        val body = PsiTreeUtil.findChildOfType(myFixture.file, CrystalMacroBody::class.java)!!
+        val highlights = myFixture.doHighlighting()
+        val errors = highlights.filter { it.severity == HighlightSeverity.ERROR }
+        assertTrue("A missing property type must produce a syntax error inside the macro", errors.isNotEmpty())
+        assertTrue("Syntax recovery must retain keyword highlighting", highlights.any {
+            it.text == "class" && it.forcedTextAttributesKey == CrystalSyntaxHighlighter.KEYWORD
+        })
+        assertTrue(errors.all { body.textRange.containsRange(it.startOffset, it.endOffset) })
+        assertNull("Malformed generated declarations must not become resolution targets",
+            CrystalTypeSetResolver.session(myFixture.file).resolveType("LSP::Generated", myFixture.file))
+
+        myFixture.configureByText("formatting.cr", invalid.replace("params :", "params : Int32"))
+        assertFalse("Fixing the source must clear the projected error", myFixture.doHighlighting().any {
+            it.severity == HighlightSeverity.ERROR
+        })
+        assertNotNull(CrystalTypeSetResolver.session(myFixture.file).resolveType("LSP::Generated", myFixture.file))
+    }
+
+    fun testDynamicAndOrdinaryMacroBodiesKeepOpaqueHighlighting() {
+        for ((name, dynamic) in listOf("build_request" to "", "self.finished" to "", "finished" to "{{ 1 }}")) {
+            myFixture.configureByText("macro.cr", "module LSP\nmacro $name\n$dynamic\nclass Generated\nend\nend\nend")
+            val body = PsiTreeUtil.findChildOfType(myFixture.file, CrystalMacroBody::class.java)!!
+            assertFalse("Unsupported macro '$name' must not be parsed as ordinary runtime code", myFixture.doHighlighting().any {
+                body.textRange.containsRange(it.startOffset, it.endOffset) &&
+                    (it.forcedTextAttributes == TextAttributes.ERASE_MARKER ||
+                        it.forcedTextAttributesKey == CrystalSyntaxHighlighter.KEYWORD)
+            })
+        }
+    }
 
     // ==================== Type declaration highlighting ====================
 

@@ -12,6 +12,7 @@ import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
 import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 import de.magynhard.crystal.stubs.CrystalIndexService
 
 /** Each constant token owns its navigation range, including FFI namespace members. */
@@ -77,9 +78,9 @@ class CrystalTypePathReference private constructor(
     }
 
     private fun stableTarget(candidates: List<PsiElement>): PsiElement? = candidates.minWithOrNull(
-        compareBy<PsiElement> { it.containingFile != path.containingFile }
-            .thenBy { it.containingFile?.virtualFile?.url.orEmpty() }
-            .thenBy { it.textOffset }
+        compareBy<PsiElement> { CrystalStaticDeclarations.sourceFile(it) != CrystalStaticDeclarations.sourceFile(path) }
+            .thenBy { CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.url.orEmpty() }
+            .thenBy { CrystalStaticDeclarations.sourceOffset(it) }
     )
 
     override fun handleElementRename(newElementName: String): PsiElement {

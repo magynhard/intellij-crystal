@@ -30,6 +30,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private val effectiveSources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
+    private val finishedTypes by lazy { CrystalStaticDeclarations.finishedTypes(context, effectiveSources) }
     private val memo = IdentityHashMap<PsiElement, CrystalTypeResolution>()
     private val activeHeredocBodies = IdentityHashMap<PsiElement, CrystalHeredocLiteral>()
     private val resolving = java.util.Collections.newSetFromMap(IdentityHashMap<PsiElement, Boolean>())
@@ -118,6 +119,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     fun resolveType(typeName: String, element: PsiElement): CrystalTypeIdentity? =
         resolveTypeIdentity(typeName, element)?.toShared()
             ?: resolveAliasType(typeName, element)?.toShared()
+
+    fun accessorArguments(type: CrystalTypeIdentity, mode: CrystalReceiverMode, methodName: String): List<PsiElement> =
+        hierarchy.collectAccessorArguments(type, mode, methodName)
 
     /**
      * Resolves the element type of an indexed read on an already-resolved
@@ -1564,8 +1568,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * state with its matched types, and the `else`/falling state keeps the
      * incoming members minus every matched type. Assignment subjects
      * (`case x = expr`) bind the right-hand side in every arm without pattern
-     * refinement. Anything else (missing or complex subject, `in` patterns,
-     * unresolvable pattern types) keeps today's unrefined behavior.
+     * refinement. Missing or complex subjects, `in` patterns and non-type-shaped
+     * patterns keep the incoming state. Unindexed constant type paths retain
+     * their spelling so downstream member lookup cannot reuse the base type.
      */
     private fun flowCaseBranches(
         caseStatement: CrystalCaseStatement,
@@ -1654,17 +1659,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     /**
-     * The qualified type names of a `when` clause's patterns, or null when any
-     * pattern is not a resolvable type (values, ranges, regexes, unions the
-     * resolver cannot name, macro interpolations).
+     * The type names of constant-path `when` patterns, qualified when indexed
+     * and otherwise retaining their spelling. Other patterns (values, ranges,
+     * regexes, unions and macro interpolations) do not provide type evidence.
      */
     private fun matchWhenTypes(whenClause: CrystalWhenClause): List<String>? {
         val result = mutableListOf<String>()
         for (pattern in whenClause.expressionList) {
-            val text = pattern.text.trim()
-            if (text.removePrefix("::").firstOrNull()?.isUpperCase() != true) return null
-            val identity = resolveType(text, whenClause) ?: return null
-            result.add(identity.qualifiedName)
+            val text = CrystalReceiverExpression.extractExactConstantTypeRoot(pattern) ?: return null
+            // Keep the guarded spelling when a macro-generated declaration has
+            // no indexed identity. Member lookup must then remain unresolved,
+            // rather than judging the branch against the original base type.
+            val identity = resolveType(text, whenClause)
+            result.add(identity?.qualifiedName ?: text)
         }
         return result
     }
@@ -2650,6 +2657,17 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     fun resolveMethodReturn(method: CrystalMethodDefinition): CrystalTypeResolution {
+        CrystalStaticDeclarations.accessorOrigin(method)?.let { origin ->
+            val declared = method.typeReference?.text?.let(::parseTypeSet) as? CrystalTypeResolution.Known
+                ?: return CrystalTypeResolution.Unknown
+            val qualified = declared.types.map { type ->
+                if (type.name == "Nil") type else {
+                    val identity = resolveType(type.name, origin) ?: return CrystalTypeResolution.Unknown
+                    type.copy(name = identity.qualifiedName)
+                }
+            }
+            return CrystalTypeResolution.Known(qualified)
+        }
         method.typeReference?.text?.let { return parseTypeSet(it) }
         methodReturnMemo[method]?.let { return it }
         if (!resolvingMethods.add(method)) return CrystalTypeResolution.Unknown
@@ -3051,7 +3069,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun types(name: String): List<CrystalNamedElement> = typeCache.getOrPut(name) {
         CrystalIndexService.findTypes(name, context.project, GlobalSearchScope.allScope(context.project))
             .filter(effectiveSources::contains)
-            .toList()
+            .toList() + finishedTypes.filter { it.name == name }
     }
 
     private fun methods(name: String): List<CrystalMethodDefinition> = methodCache.getOrPut(name) {
@@ -3063,7 +3081,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun classMethods(name: String): List<CrystalMethodDefinition> = methodsByTypeCache.getOrPut(name) {
         CrystalIndexService.findMethodsByClass(name, context.project, GlobalSearchScope.allScope(context.project))
             .filter(effectiveSources::contains)
-            .toList()
+            .toList() + types(name).flatMap { declaration ->
+                val written = if (declaration in finishedTypes) {
+                    PsiTreeUtil.findChildrenOfType(declaration, CrystalMethodDefinition::class.java).toList()
+                } else emptyList()
+                written + CrystalStaticDeclarations.accessorMethods(declaration)
+            }
     }
 
     private sealed interface ReceiverState {

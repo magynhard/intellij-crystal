@@ -103,6 +103,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         val ref = unwrapped.reference ?: unwrapped.parent?.reference
         val resolved = ref?.resolve()
         if (resolved != null) {
+            de.magynhard.crystal.analysis.CrystalStaticDeclarations.accessorReader(resolved)?.let { return it }
             // If resolved element is a definition/parameter, return it directly
             if (resolved is CrystalMethodDefinition || resolved is CrystalClassDefinition
                 || resolved is CrystalModuleDefinition || resolved is CrystalStructDefinition
@@ -276,6 +277,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     private fun resolveTarget(element: PsiElement?): PsiElement? {
         if (element == null) return null
+        de.magynhard.crystal.analysis.CrystalStaticDeclarations.accessorReader(element)?.let { return it }
         if (element is CrystalAnnotationDefinition) return element
         annotationNamePath(element)?.let { return it.reference?.resolve() }
         // Assignment left-hand side: a variable hover, never a method signature

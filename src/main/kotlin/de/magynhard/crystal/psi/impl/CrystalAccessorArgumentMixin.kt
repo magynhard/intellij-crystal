@@ -11,6 +11,7 @@ import de.magynhard.crystal.psi.CrystalBareMethodCallExpression
 import de.magynhard.crystal.psi.createLeafFromText
 import de.magynhard.crystal.psi.CrystalTypes
 import com.intellij.psi.util.PsiTreeUtil
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 
 /**
  * Accessor-macro name arguments are rename declarations. `property foo, bar` in
@@ -46,6 +47,7 @@ abstract class CrystalAccessorArgumentMixin(node: ASTNode) : ASTWrapperPsiElemen
     override fun getName(): String? = getNameIdentifier()?.text
 
     override fun setName(newName: String): PsiElement {
+        if (CrystalStaticDeclarations.isView(this)) throw com.intellij.util.IncorrectOperationException("Static macro declarations are read-only")
         // Plain bare arguments bind the name inside a variable_reference
         // composite (`property foo, bar, baz`), typed arguments carry the
         // identifier directly — the coupling helper resolves the leaf for both
@@ -59,4 +61,6 @@ abstract class CrystalAccessorArgumentMixin(node: ASTNode) : ASTWrapperPsiElemen
     }
 
     override fun getTextOffset(): Int = getNameIdentifier()?.textOffset ?: node.startOffset
+    override fun getNavigationElement(): PsiElement = CrystalStaticDeclarations.navigation(this) ?: super.getNavigationElement()
+    override fun isWritable(): Boolean = !CrystalStaticDeclarations.isView(this) && super.isWritable()
 }

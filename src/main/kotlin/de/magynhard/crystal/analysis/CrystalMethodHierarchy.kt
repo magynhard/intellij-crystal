@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.navigation.CrystalAccessorCoupling
 
 internal data class CrystalTypeIdentity(val simpleName: String, val qualifiedName: String)
 
@@ -73,7 +74,7 @@ internal class CrystalMethodHierarchy(
                 .filter { it.macroInterpolation == null && it.name !in typeMetadata.uncertainMethodNames }
             val signatures = exposedMethods.groupBy(::canonicalSignature)
             if (hierarchy.complete && signatures.values.any { group ->
-                    group.map { it.containingFile?.virtualFile?.path }.distinct().size > 1
+                    group.map { CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.path }.distinct().size > 1
                 }) {
                 // Strict mode (used by resolution-backed consumers): cross-file
                 // reopenings with identical signatures cannot be precedence-proven.
@@ -134,7 +135,7 @@ internal class CrystalMethodHierarchy(
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             if (candidates.groupBy(::canonicalSignature).values.any { group ->
-                    group.map { it.containingFile?.virtualFile?.path }.distinct().size > 1
+                    group.map { CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.path }.distinct().size > 1
                 }) {
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
@@ -166,6 +167,23 @@ internal class CrystalMethodHierarchy(
         declarations.getOrPut(type) {
             findTypesByName(type.simpleName).filter { CrystalPsiUtils.buildQualifiedName(it) == type.qualifiedName }
         }
+
+    fun collectAccessorArguments(type: CrystalTypeIdentity, mode: CrystalReceiverMode, methodName: String): List<PsiElement> {
+        val allowed = CrystalAccessorCoupling.allowedAccessorMacros(methodName) ?: return emptyList()
+        val property = methodName.removeSuffix("=").removeSuffix("?").removeSuffix("!")
+        val hierarchy = collectHierarchy(type, mode, includeModuleEdges = true)
+        if (!hierarchy.complete) return emptyList()
+        for (exposure in hierarchy.exposures) {
+            val arguments = findExactTypeDeclarations(exposure.type).flatMap { declaration ->
+                CrystalAccessorCoupling.accessorArgsMatching(
+                    declaration, property, allowed,
+                    classMacrosOnly = exposure.declarationMode == CrystalReceiverMode.STATIC,
+                )
+            }
+            if (arguments.isNotEmpty()) return arguments
+        }
+        return emptyList()
+    }
 
     private fun collectHierarchy(
         root: CrystalTypeIdentity,
@@ -253,7 +271,7 @@ internal class CrystalMethodHierarchy(
                             is CrystalIncludeStatement -> if (includeModuleEdges && mode == CrystalReceiverMode.INSTANCE) {
                                 resolveEdge(member.typeReference, member)?.let {
                                     includes.add(it)
-                                    edgeFiles.add(member.containingFile.virtualFile?.path.orEmpty())
+                                    edgeFiles.add(CrystalStaticDeclarations.sourceFile(member)?.virtualFile?.path.orEmpty())
                                 } ?: run { complete = false }
                             }
                             is CrystalExtendStatement -> if (includeModuleEdges && mode == CrystalReceiverMode.STATIC) {
@@ -264,7 +282,7 @@ internal class CrystalMethodHierarchy(
                                 } else {
                                     resolveEdge(member.typeReference, member)?.let {
                                         extends.add(it)
-                                        edgeFiles.add(member.containingFile.virtualFile?.path.orEmpty())
+                                        edgeFiles.add(CrystalStaticDeclarations.sourceFile(member)?.virtualFile?.path.orEmpty())
                                     } ?: run { complete = false }
                                 }
                             }
@@ -477,10 +495,11 @@ internal class CrystalMethodHierarchy(
     private fun encodeFields(fields: List<String>): String = fields.joinToString("|") { "${it.length}:$it" }
 
     private fun <T : PsiElement> sourceOrder(): Comparator<T> =
-        compareBy<T>({ it.containingFile?.virtualFile?.path.orEmpty() }, { it.textOffset })
+        compareBy<T>({ CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.path.orEmpty() }, { CrystalStaticDeclarations.sourceOffset(it) })
 
     private fun <T : PsiElement> sourcePrecedence(): Comparator<T> =
-        compareBy<T> { it.containingFile?.virtualFile?.path.orEmpty() }.thenByDescending { it.textOffset }
+        compareBy<T> { CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.path.orEmpty() }
+            .thenByDescending { CrystalStaticDeclarations.sourceOffset(it) }
 
     private data class CollectionKey(
         val type: CrystalTypeIdentity,

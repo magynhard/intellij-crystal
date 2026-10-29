@@ -6,13 +6,17 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiErrorElement
+import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.injection.CrystalHeredocInjection
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 
 /**
  * Semantic highlighter for Crystal.
@@ -25,6 +29,11 @@ class CrystalAnnotator : Annotator {
 
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
         val elementType = element.node.elementType
+
+        if (element is CrystalMacroBody) {
+            annotateStaticFinishedBody(element, holder)
+            return
+        }
 
         // Handle leaf tokens — CONSTANT and IDENTIFIER
         if (elementType == CrystalTypes.CONSTANT) {
@@ -122,40 +131,76 @@ class CrystalAnnotator : Annotator {
      * - Everything else → IDENTIFIER (default)
      */
     private fun annotateIdentifierToken(element: PsiElement, holder: AnnotationHolder) {
+        apply(holder, element, identifierKey(element))
+    }
+
+    private fun identifierKey(element: PsiElement): TextAttributesKey {
         val parent = element.parent
 
         // Method/macro name definition (method_name is now private, IDENTIFIER is direct child of method_definition)
         if (parent is CrystalMethodDefinition || parent is CrystalMacroDefinition) {
-            apply(holder, element, CrystalSyntaxHighlighter.CONSTANT)
-            return
+            return CrystalSyntaxHighlighter.CONSTANT
         }
 
         // Parameter definition
         if (parent is CrystalParameter) {
-            apply(holder, element, CrystalSyntaxHighlighter.PARAMETER)
-            return
+            return CrystalSyntaxHighlighter.PARAMETER
         }
 
         // Built-in macros (getter, setter, property, etc.) highlighted as keywords
         if (isBuiltinMacroCall(element)) {
-            apply(holder, element, CrystalSyntaxHighlighter.KEYWORD)
-            return
+            return CrystalSyntaxHighlighter.KEYWORD
         }
 
         // Hash key in shorthand syntax (name: value) or named argument (key: value) → Symbol color (like Ruby)
         if (isHashShorthandKey(element) || isNamedArgumentKey(element)) {
-            apply(holder, element, CrystalSyntaxHighlighter.SYMBOL)
-            return
+            return CrystalSyntaxHighlighter.SYMBOL
         }
 
         // Parameter usage inside method/macro body
         if (isParameterUsage(element)) {
-            apply(holder, element, CrystalSyntaxHighlighter.PARAMETER)
-            return
+            return CrystalSyntaxHighlighter.PARAMETER
         }
 
         // Default: normal identifier
-        apply(holder, element, CrystalSyntaxHighlighter.IDENTIFIER)
+        return CrystalSyntaxHighlighter.IDENTIFIER
+    }
+
+    /** Project the ordinary parser's tokens/errors without changing the host macro PSI. */
+    private fun annotateStaticFinishedBody(body: CrystalMacroBody, holder: AnnotationHolder) {
+        val macro = body.parent as? CrystalMacroDefinition ?: return
+        val syntax = CrystalStaticDeclarations.finishedSyntax(macro) ?: return
+        val bodyRange = body.textRange
+        if (bodyRange.isEmpty) return
+        // The lexer deliberately treats macro text as a string. Clear that base
+        // style before applying per-token colors, including default identifiers.
+        holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+            .range(bodyRange).enforcedTextAttributes(TextAttributes.ERASE_MARKER).create()
+        val highlighter = CrystalSyntaxHighlighter()
+        syntax.accept(object : PsiRecursiveElementWalkingVisitor() {
+            override fun visitElement(element: PsiElement) {
+                val start = CrystalStaticDeclarations.sourceOffset(element)
+                if (element is PsiErrorElement && start >= bodyRange.startOffset) {
+                    val errorStart = start.coerceAtMost(bodyRange.endOffset - 1)
+                    val errorEnd = (errorStart + element.textLength.coerceAtLeast(1)).coerceAtMost(bodyRange.endOffset)
+                    holder.newAnnotation(HighlightSeverity.ERROR, element.errorDescription)
+                        .range(TextRange(errorStart, errorEnd)).create()
+                }
+                if (element.firstChild == null && element.textLength > 0) {
+                    val range = TextRange(start, start + element.textLength)
+                    if (bodyRange.contains(range)) {
+                        val key = when (element.node.elementType) {
+                            CrystalTypes.CONSTANT -> CrystalSyntaxHighlighter.CONSTANT
+                            CrystalTypes.IDENTIFIER -> identifierKey(element)
+                            else -> highlighter.getTokenHighlights(element.node.elementType).firstOrNull()
+                        }
+                        if (key != null) holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                            .range(range).textAttributes(key).create()
+                    }
+                }
+                super.visitElement(element)
+            }
+        })
     }
 
     /**
@@ -205,6 +250,7 @@ class CrystalAnnotator : Annotator {
         val parent = element.parent
         // Bare method call expression or direct child of statement list
         return parent is CrystalBareMethodCallExpression ||
+               parent is CrystalMethodCallExpression ||
                (parent?.parent is CrystalStatementList) ||
                (parent?.parent is CrystalClassBody)
     }

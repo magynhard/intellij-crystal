@@ -99,24 +99,30 @@ internal object CrystalExactReceiverTypeResolver {
         session: CrystalTypeResolutionSession,
     ): ExactReceiverType? {
         val nameNode = receiver.node.findChildByType(CrystalTypes.IDENTIFIER) ?: return null
+        // The type at the use site can be narrower than an exact declaration:
+        // `case message; when Request` refines a Message parameter to Request,
+        // including reads captured by a block inside that branch.
+        val flowType = session.resolve(receiver)
+        if (flowType is CrystalTypeResolution.Known) {
+            // A named guard type may have no indexed declaration (macro finished).
+            // Such a result, or a union, must not fall back to stale base evidence.
+            return narrowedReceiverType(flowType, call, session)
+        }
         val evidence = findLocalEvidence(receiver, nameNode.text, call, session)
         if (evidence.found && evidence.type != null) return evidence.type
-        return narrowedReceiverType(receiver, call, session)
+        return null
     }
 
     /**
-     * Flow-narrowed fallback for locals and parameters the declaration
-     * evidence cannot type exactly (untyped parameters, guard-refined
+     * Use-site flow evidence for locals and parameters (including guard-refined
      * branches): a single known non-nil type with an exact identity resolves;
-     * anything else — unions, unknown, nil-only — stays suppressed exactly
-     * as before.
+     * known unions, nil-only results and unindexed identities stay suppressed.
      */
     private fun narrowedReceiverType(
-        receiver: CrystalVariableReference,
+        known: CrystalTypeResolution.Known,
         call: CrystalDotCallAccess,
         session: CrystalTypeResolutionSession,
     ): ExactReceiverType? {
-        val known = session.resolve(receiver) as? CrystalTypeResolution.Known ?: return null
         if (known.types.size != 1) return null
         val single = known.types.single()
         if (single.name == "Nil") return null

@@ -10,13 +10,13 @@ import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 import de.magynhard.crystal.psi.CrystalDotCallAccess
 import de.magynhard.crystal.psi.CrystalFunDefinition
 import de.magynhard.crystal.psi.CrystalMacroContext
 import de.magynhard.crystal.psi.CrystalMethodCallExpression
 import de.magynhard.crystal.psi.CrystalMethodDefinition
 import de.magynhard.crystal.psi.CrystalPsiUtils
-import de.magynhard.crystal.navigation.CrystalAccessorCoupling
 import de.magynhard.crystal.psi.CrystalReceiverExpression
 import de.magynhard.crystal.stubs.CrystalFunDefinitionStub
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -156,6 +156,10 @@ object CrystalDotCallTargetResolver {
             if (accessorArgs.isNotEmpty()) return DotCallResolution.Accessor(call, receiverType, accessorArgs)
             return DotCallResolution.Unresolved
         }
+        val accessorArguments = collection.methods.mapNotNull(CrystalStaticDeclarations::accessorOrigin)
+        if (accessorArguments.size == collection.methods.size) {
+            return DotCallResolution.Accessor(call, receiverType, accessorArguments)
+        }
         return DotCallResolution.Methods(call, receiverType, collection.methods)
     }
 
@@ -177,6 +181,18 @@ object CrystalDotCallTargetResolver {
         depth: Int
     ): ExactReceiverType? {
         val inner = resolve(innerAccess, session, depth + 1)
+        if (inner is DotCallResolution.Accessor) {
+            val counts = countCallArguments(inner.call.argumentHolder) ?: return null
+            if (counts.total != 0 || inner.call.methodName.endsWith("=")) return null
+            val result = session.resolveCall(
+                listOf(inner.receiverType.qualifiedName), inner.call.methodName,
+                CrystalReceiverExpression.extractExactConstantTypeRoot(inner.call.receiver) != null ||
+                    isConstantReceiver(inner.call.receiverText), inner.call.access,
+            ) as? de.magynhard.crystal.analysis.CrystalTypeResolution.Known ?: return null
+            val type = result.types.singleOrNull()?.name?.takeUnless { it == "Nil" } ?: return null
+            val identity = session.resolveType(type, context) ?: return null
+            return ExactReceiverType(identity.simpleName, identity.qualifiedName)
+        }
         val methods = (inner as? DotCallResolution.Methods) ?: return null
         val args = methods.call.argumentHolder
         if (containsMacroInterpolation(args)) return null
@@ -314,21 +330,11 @@ object CrystalDotCallTargetResolver {
         mode: ReceiverMode,
         session: CrystalTypeResolutionSession,
     ): List<PsiElement> {
-        val allowed = CrystalAccessorCoupling.allowedAccessorMacros(call.methodName) ?: return emptyList()
-        val propertyName = call.methodName
-            .removeSuffix("=").removeSuffix("?").removeSuffix("!")
-        if (propertyName.isEmpty()) return emptyList()
-        val declarations = session.findExactTypeDeclarations(
+        return session.accessorArguments(
             CrystalTypeIdentity(receiverType.simpleName, receiverType.qualifiedName),
+            if (mode == ReceiverMode.STATIC) CrystalReceiverMode.STATIC else CrystalReceiverMode.INSTANCE,
+            call.methodName,
         )
-        return declarations.flatMap { declaration ->
-            CrystalAccessorCoupling.accessorArgsMatching(
-                declaration,
-                propertyName,
-                allowed,
-                classMacrosOnly = mode == ReceiverMode.STATIC,
-            )
-        }
     }
 
     private fun containsMacroInterpolation(element: PsiElement): Boolean =

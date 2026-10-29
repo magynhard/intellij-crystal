@@ -79,6 +79,20 @@ the constant rule per segment, with the root rule for qualified paths.
    Unqualified type receivers use the shared ordered lexical identity lookup,
    so `Entry.new` inside `Benchmark::IPS::Job` recognizes the visible
    `Benchmark::IPS::Entry` rather than requiring a global `Entry` declaration.
+   Locals and parameters use their flow-refined type at the call site before
+   their declared base type. In `case message; when LSP::HoverRequest`, a
+   `message : LSP::RequestMessage` parameter therefore exposes the subtype's
+   `property params`, also in nested blocks. Missing members on that exact
+   subtype still warn; refinement does not leak into other branches or past
+   reassignment and shadowing.
+   Request classes generated inside `macro finished` may have no index entry.
+   Eligible static hooks supply shared declaration views (see
+   [Static Finished Declarations](static-finished-declarations.md)); their typed
+   accessors resolve normally and genuinely missing members still warn. For
+   opaque hooks, the guarded type spelling remains authoritative, so missing
+   member lookup stays unjudgeable instead of reverting to the base class and
+   falsely reporting `params`. Opaque hooks have no generated navigation targets
+   and do not suppress ordinary missing members outside that branch.
 7. Annotation names in `@[Name(...)]` resolve through `CrystalAnnotationIndex`,
    never through ordinary type, method, or constant declarations. Simple names
    search the nearest enclosing namespace, outer namespaces, then the global

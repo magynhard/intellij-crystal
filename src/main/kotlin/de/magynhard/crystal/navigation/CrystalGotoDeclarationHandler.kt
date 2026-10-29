@@ -2,6 +2,7 @@ package de.magynhard.crystal.navigation
 
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.DumbService
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.search.GlobalSearchScope
@@ -9,6 +10,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 import de.magynhard.crystal.stubs.CrystalIndexService
 import de.magynhard.crystal.psi.*
 
@@ -32,6 +34,11 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         if (sourceElement == null) return null
 
         val elementType = sourceElement.node.elementType
+
+        if (elementType == CrystalTypes.MACRO_BODY_CONTENT && !CrystalStaticDeclarations.isView(sourceElement)) {
+            val body = PsiTreeUtil.getParentOfType(sourceElement, CrystalMacroBody::class.java) ?: return null
+            return findStaticMacroTargets(body, offset, editor).toTypedArray()
+        }
 
         // Require statements: navigate to the required file(s). Multiple matches
         // (wildcard requires) are returned together — the platform shows a popup.
@@ -126,6 +133,19 @@ class CrystalGotoDeclarationHandler : GotoDeclarationHandler {
         }
 
         return null
+    }
+
+    private fun findStaticMacroTargets(body: CrystalMacroBody, offset: Int, editor: Editor?): List<PsiElement> {
+        if (DumbService.isDumb(body.project)) return emptyList()
+        val projected = CrystalStaticDeclarations.syntaxElementAt(body, offset) ?: return emptyList()
+        val reference = projected.containingFile.findReferenceAt(projected.textOffset)
+        val targets = when (reference) {
+            is PsiPolyVariantReference -> reference.multiResolve(false).mapNotNull { it.element }
+            null -> getGotoDeclarationTargets(projected, projected.textOffset, editor).orEmpty().toList()
+            else -> listOfNotNull(reference.resolve())
+        }
+        return targets.map { CrystalStaticDeclarations.navigation(it) ?: it.navigationElement }
+            .distinctBy { it.containingFile?.virtualFile to it.textOffset }
     }
 
     private fun findBareCallTargets(call: PsiElement, name: String): List<PsiElement> {

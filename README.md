@@ -23,6 +23,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 ### Editing
 
 - Syntax and semantic highlighting for Crystal code, including macros, annotations, heredocs, regex, percent literals, and interpolation
+- Normal Crystal highlighting and mapped syntax errors inside supported static module `macro finished` bodies
 - Declaration-macro syntax with whitespace-sensitive type arguments, including pointer, proc, nilable, static-array, and metaclass suffix combinations
 - Keyword block highlighting for structures such as `if`/`elsif`/`else`/`end`, methods, types, and exception handling
 - Code folding, brace matching, line comments, automatic indentation, and automatic `end` insertion
@@ -38,6 +39,8 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Private type constants resolve across require-visible reopenings of their owning namespace; private file-level constants remain file-local
 - Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View
 - Ctrl+B on receiver-less calls offers the overload chooser, including exact-owner reopenings when the file is opened without its containing program; local bindings retain precedence
+- Statically written classes in supported module `macro finished` hooks expose typed accessors for completion, hover, source navigation, and chained member lookup; dynamic macro bodies remain opaque
+- Ctrl+B / Ctrl+Click on type references inside those static macro bodies resolves their namespace- and require-visible definitions, including following definitions in the same file
 - Ctrl+B / Ctrl+Click navigation on individual FFI path segments in type annotations and expressions, such as `LibGMP::MPF` and `LibGMP::MpLimb.new!(num)`, with the standard target chooser for multiple matching declarations
 - Namespace- and require-aware annotation navigation and documentation, with missing-annotation diagnostics
 - Embedded language highlighting in heredocs and strings — `<<-SQL`, `<<-JAVASCRIPT`, `<<-CSS`, `<<-HTML`, `<<-JSON`, `<<-YAML`, `<<-CRYSTAL` and other language markers inject the target language's syntax highlighting when its plugin is installed; `# language=<id>` comments above heredocs, double-quoted strings, `%q`/`%Q` percent literals, and `:"symbol"` strings do the same (with optional `prefix=`/`suffix=`)
