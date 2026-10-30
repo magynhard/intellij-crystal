@@ -426,7 +426,21 @@ with the same simple name do not leak methods across namespaces. Primitive and g
 use the same indexed declaration path as project types. The existing single-type helper delegates
 to this multi-type API. Every union branch must resolve to one exact, complete indexed hierarchy;
 if any branch is missing, ambiguous, or incomplete, the helper returns no candidates for the whole
-union rather than narrowing it.
+union rather than narrowing it. `Nil` is the one exception: the compiler defines it without any
+Crystal source, and the nilable sugar `T?` expands to `T | Nil`, so a union branch that is exactly
+`Nil` without an indexed declaration is skipped instead of erasing the resolvable branches. Any
+indexed `Nil` declaration still contributes its methods like a regular branch, and a receiver that
+resolves only to an unindexed `Nil` still offers nothing. Completed chain links follow the same
+rule: a member that exists on the value branches contributes even when the unindexed `Nil` branch
+lacks it, while any other unresolvable branch keeps the link unknown, so the receiver stays exact.
+
+Dot completion works while a member access is still being written. A DOT with no method name yet
+(`token.` at end of line, or before the next statement) parses as a nameless `dot_call_access`
+carrying only the DOT child, so the enclosing statement — including a whole `loop do` body — is
+never lost to a parse error. The receiver stays the flattened sibling expression, so the typed
+members are still offered. Any other content after the bare DOT on the same line is not
+accepted: invalid pseudo-method suffixes such as `value.!(args)` keep their parse errors, and an
+undefined receiver still yields no candidates instead of unrelated name-only matches.
 
 All-method completion treats macro-heavy type bodies as best-effort metadata. A `{{ ... }}` inside a
 method body does not make the method name uncertain. Methods declared in `{% ... %}` regions and
@@ -449,6 +463,9 @@ Typed plain and query (`getter?` / `property?`) accessor signatures participate 
 inference, so `message.` offers `params` and `message.params.` can offer the
 parameter object's members. This is bounded source interpretation, not macro
 execution; see [Static Finished Declarations](static-finished-declarations.md).
+Written enum members also supply their generated instance predicates through
+this method model, so `token.delimiter_state.kind.` offers `heredoc?` and the
+other exact enum queries after a typed record reader.
 This produces the following core behavior with a normal split standard library:
 
 ```crystal

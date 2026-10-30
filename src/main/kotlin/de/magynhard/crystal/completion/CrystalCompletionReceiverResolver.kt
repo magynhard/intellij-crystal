@@ -8,6 +8,7 @@ import de.magynhard.crystal.analysis.CrystalPostfixChain
 import de.magynhard.crystal.analysis.CrystalTypeResolution
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.mergeKnown
 import de.magynhard.crystal.psi.*
 
 internal sealed interface CompletionReceiver {
@@ -184,10 +185,26 @@ internal object CrystalCompletionReceiverResolver {
             return CompletionReceiver.ValueTypes(listOf(receiver.qualifiedName))
         }
 
+        if (receiver is CompletionReceiver.ValueTypes) {
+            // Mirrors the member lookup rule: the compiler defines Nil without any
+            // Crystal source and the nilable sugar `T?` expands to `T | Nil`, so a
+            // chain link that exists only on the value branches still contributes
+            // them; every other unresolvable branch keeps the link Unknown.
+            val branchResults = mutableListOf<CrystalTypeResolution>()
+            for (typeName in receiver.typeNames) {
+                val branch = session.resolveCall(listOf(typeName), methodName, false, context)
+                when {
+                    branch is CrystalTypeResolution.Known -> branchResults.add(branch)
+                    typeName != "Nil" -> return CompletionReceiver.Unknown
+                }
+            }
+            if (branchResults.isEmpty()) return CompletionReceiver.Unknown
+            return mergeKnown(branchResults).toCompletionReceiver()
+        }
+
         val result = session.resolveCall(
             when (receiver) {
                 is CompletionReceiver.TypeObject -> listOf(receiver.qualifiedName)
-                is CompletionReceiver.ValueTypes -> receiver.typeNames
                 CompletionReceiver.Unknown -> return CompletionReceiver.Unknown
             },
             methodName,

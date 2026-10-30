@@ -254,6 +254,28 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Incomplete member access while typing** — a trailing dot with no method name
+  yet (`token.` at end of line, before the next statement, or inside a `loop do`
+  body) no longer breaks the enclosing statement's parse, so the editor stops
+  marking the surrounding block as erroneous mid-typing and member completion
+  resumes. Same-line content such as `value.!(args)` keeps its parse error.
+- **Nilable receiver completion** — values typed `T?` offer the value type's
+  members again, including completed chain links (`token.delimiter_state.` before
+  the guard narrows the local to non-nil in crystalline's `collect_spans`). The
+  compiler-defined builtin `Nil` expanded from nilable sugar no longer erases the
+  resolvable union branches; indexed `Nil` declarations still contribute their
+  own methods, and every other unresolved branch keeps suppressing the whole
+  union.
+- **Enum predicate completion and hover** — expose compiler-generated queries
+  such as `DelimiterKind#heredoc?` from written enum members, including after
+  record-reader call chains. Queries return `Bool`, navigate to their enum
+  member, and follow Crystal's underscore naming. Inherited generated names
+  with a provably unrelated literal prefix no longer hide a proven nearer method.
+- **Record field readers across reopenings** — resolve generated readers such as
+  `Crystal::Token::DelimiterState#kind` through required record declarations and
+  struct reopenings. Readers participate in member completion, typed hover,
+  source navigation, and chained calls; untyped fields keep an unknown return
+  type, and unavailable or ambiguous records never supply unrelated members.
 - **Keyword-named predicate accessors** — resolve declarations such as
   `property? struct : Bool`, including `Crystal::ClassDef#struct?`, without
   false missing-name diagnostics. Typed query accessors also supply completion,

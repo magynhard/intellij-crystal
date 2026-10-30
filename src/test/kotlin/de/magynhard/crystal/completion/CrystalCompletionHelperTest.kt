@@ -130,6 +130,30 @@ class CrystalCompletionHelperTest : BasePlatformTestCase() {
         )
     }
 
+    fun testUnindexedNilBranchDoesNotEraseResolvableBranches() {
+        val context = myFixture.configureByText("types.cr", "class Foo\n  def foo_method\n  end\nend")
+
+        assertEquals(
+            listOf("foo_method"),
+            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "Nil"), context)
+                .map { it.lookupString }
+        )
+    }
+
+    fun testIndexedNilBranchStillContributesItsMethods() {
+        val context = myFixture.configureByText(
+            "types.cr",
+            "class Foo\n  def foo_method\n  end\nend\n" +
+                "class Nil\n  def nil_method\n  end\nend"
+        )
+
+        assertEquals(
+            listOf("foo_method", "nil_method"),
+            CrystalCompletionHelper.getMethodsAsLookups(listOf("Foo", "Nil"), context)
+                .map { it.lookupString }
+        )
+    }
+
     fun testUnionLookupRetainsAllKnownBranches() {
         val context = myFixture.configureByText(
             "types.cr",

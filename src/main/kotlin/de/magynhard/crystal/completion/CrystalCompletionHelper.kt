@@ -165,7 +165,13 @@ object CrystalCompletionHelper {
     ): List<LookupElement> {
         val methods = mutableListOf<CrystalCollectedMethod>()
         for (typeName in typeNames.distinct()) {
-            val identity = session.resolveType(typeName, context) ?: return emptyList()
+            val identity = session.resolveType(typeName, context) ?: when (typeName) {
+                // The compiler defines Nil without any Crystal source; the nilable
+                // sugar `T?` expands to `T | Nil`, so an unindexed Nil branch must
+                // not erase the resolvable branches' suggestions.
+                "Nil" -> continue
+                else -> return emptyList()
+            }
             // Lenient by design: incomplete collections (macro-generated members
             // in stdlib types like Number) still carry every explicitly written
             // method — completion must not lose suggestions over them.

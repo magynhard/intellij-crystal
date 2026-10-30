@@ -2397,6 +2397,84 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testNilableReceiverCompletionOffersValueBranch() {
+        val declarations = """
+            class Token
+              def token_only
+              end
+            end
+        """.trimIndent()
+
+        val fromVariable = completionNames(
+            "$declarations\ndef provider : Token?\n  nil\nend\n\nvalue = provider\nvalue.<caret>\n"
+        )
+        assertTrue("Expected 'token_only' from nilable local, got $fromVariable", fromVariable.contains("token_only"))
+        assertFalse("Nil branch must not invent methods: $fromVariable", fromVariable.contains("new"))
+
+        val fromCall = completionNames("$declarations\ndef provider : Token?\n  nil\nend\n\nprovider.<caret>\n")
+        assertTrue("Expected 'token_only' from nilable call, got $fromCall", fromCall.contains("token_only"))
+        assertFalse("Nil branch must not invent methods: $fromCall", fromCall.contains("new"))
+    }
+
+    fun testNilableChainLinkCompletionOffersValueBranch() {
+        val declarations = """
+            class Token
+              def delimiter_state : DelimiterState
+                DelimiterState.new
+              end
+            end
+
+            class DelimiterState
+              def kind : Int32
+                0
+              end
+            end
+        """.trimIndent()
+
+        val fromVariable = completionNames(
+            "$declarations\ndef provider : Token?\n  nil\nend\n\nvalue = provider\nvalue.delimiter_state.<caret>\n"
+        )
+        assertTrue("Expected 'kind' past the nilable chain link, got $fromVariable", fromVariable.contains("kind"))
+
+        val insideLoop = completionNames(
+            "$declarations\ndef provider : Token?\n  nil\nend\n\ndef consume\n  loop do\n    token = provider\n    token.delimiter_state.<caret>\n    break unless token\n  end\nend\n"
+        )
+        assertTrue("Expected 'kind' inside the loop body, got $insideLoop", insideLoop.contains("kind"))
+    }
+
+    fun testNilableReceiverCompletionInsideLoopBlockAfterIncompleteAccess() {
+        val declarations = """
+            class Token
+              def token_only
+              end
+            end
+        """.trimIndent()
+
+        val names = completionNames(
+            "$declarations\ndef provider : Token?\n  nil\nend\n\n\ndef consume\n  loop do\n    token = provider\n    token.<caret>\n    break unless token\n  end\nend\n"
+        )
+        assertTrue("Expected 'token_only' inside the loop block, got $names", names.contains("token_only"))
+    }
+
+    fun testNilableReceiverCompletionKeepsIndexedNilBranch() {
+        val declarations = """
+            class Token
+              def token_only
+              end
+            end
+
+            class Nil
+              def nil_only
+              end
+            end
+        """.trimIndent()
+
+        val names = completionNames(
+            "$declarations\ndef provider : Token | Nil\n  nil\nend\n\nvalue = provider\nvalue.<caret>\n"
+        )
+        assertTrue("Expected both branch methods, got $names", names.containsAll(listOf("token_only", "nil_only")))
+    }
+
     fun testUnionCompletionMergesAllBranchesByCanonicalSignature() {
         val declarations = """
             class First
