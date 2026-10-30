@@ -1,6 +1,7 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiErrorElement
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNameIdentifierOwner
@@ -8,6 +9,8 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
 import de.magynhard.crystal.stubs.CrystalDeclaredAncestors
@@ -49,6 +52,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private val resolvingVariables =
         java.util.Collections.newSetFromMap(IdentityHashMap<Pair<String, PsiElement>, Boolean>())
     private val typeCache = mutableMapOf<String, List<CrystalNamedElement>>()
+    private val recordCache = mutableMapOf<String, List<CrystalPsiUtils.RecordDefinition>>()
     private val methodCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
     private val methodsByTypeCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
     private val hierarchy = CrystalMethodHierarchy(context, ::types, ::classMethods)
@@ -205,6 +209,15 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         resolveTypeIdentity(typeName, element)?.toShared()
             ?: resolveAliasType(typeName, element)?.toShared()
 
+    fun findExactRecordDeclarations(type: CrystalTypeIdentity): List<CrystalMethodCallExpression> =
+        records(type.simpleName).filter { it.qualifiedName == type.qualifiedName }.map { it.call }
+
+    private fun records(name: String): List<CrystalPsiUtils.RecordDefinition> = recordCache.getOrPut(name) {
+        CrystalIndexService.findRecords(name, context.project, GlobalSearchScope.allScope(context.project))
+            .filter(effectiveSources::contains)
+            .mapNotNull { call -> CrystalPsiUtils.stubAwareQualifiedName(call)?.let { CrystalPsiUtils.RecordDefinition(it, call) } }
+    }
+
     fun accessorArguments(type: CrystalTypeIdentity, mode: CrystalReceiverMode, methodName: String): List<PsiElement> =
         hierarchy.collectAccessorArguments(type, mode, methodName)
 
@@ -257,20 +270,24 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val simpleName = root.substringAfterLast("::")
         val fallbackIdentity = CrystalTypeIdentity(simpleName, root)
         // Nonphysical injected PSI has no load context and must not use the same-file record shortcut.
-        val records = if (effectiveSources.contains(element)) {
-            element.containingFile?.let { CrystalPsiUtils.findRecordDefinitions(simpleName, it) }
-                .orEmpty().groupBy { it.qualifiedName }
+        val recordCandidatesByName = if (effectiveSources.contains(element)) {
+            val currentFile = element.containingFile
+            // Completion's source copy replaces its indexed original, rather
+            // than adding a second declaration of every same-file record.
+            (records(simpleName).filter { it.call.containingFile.originalFile != currentFile?.originalFile } +
+                currentFile?.let { CrystalPsiUtils.findRecordDefinitions(simpleName, it) }
+                .orEmpty()).distinctBy { it.call }.groupBy { it.qualifiedName }
         } else {
             emptyMap()
         }
         for (candidate in typeIdentityCandidates(root, typeName.startsWith("::"), element)) {
-            val recordCandidates = records[candidate].orEmpty()
+            val recordCandidates = recordCandidatesByName[candidate].orEmpty()
             if (recordCandidates.any { CrystalPsiUtils.isInsideMacroControlRegion(it.call) } ||
                 recordCandidates.size > 1) {
                 return CrystalConstructorResolution.Incomplete(CrystalTypeIdentity(simpleName, candidate))
             }
             recordCandidates.singleOrNull()?.let {
-                return CrystalConstructorResolution.Record(
+                return recordConstructor(
                     CrystalTypeIdentity(simpleName, candidate),
                     it.call
                 )
@@ -283,6 +300,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     fun resolveConstructor(identity: CrystalTypeIdentity): CrystalConstructorResolution {
+        val records = findExactRecordDeclarations(identity)
+        if (records.isNotEmpty()) {
+            return records.singleOrNull()?.let { recordConstructor(identity, it) }
+                ?: CrystalConstructorResolution.Incomplete(identity)
+        }
         val declarations = hierarchy.findExactTypeDeclarations(identity)
         if (declarations.isEmpty() || declarations.any(CrystalPsiUtils::isInsideMacroControlRegion)) {
             return CrystalConstructorResolution.Incomplete(identity)
@@ -327,6 +349,20 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             }
         }
         return CrystalConstructorResolution.Methods(identity, methods)
+    }
+
+    private fun recordConstructor(
+        identity: CrystalTypeIdentity,
+        call: CrystalMethodCallExpression,
+    ): CrystalConstructorResolution {
+        val file = call.containingFile ?: return CrystalConstructorResolution.Incomplete(identity)
+        // A recovered prefix still declares its type name, but cannot prove
+        // that later record fields or defaults were parsed completely.
+        val parsedCleanly = CachedValuesManager.getCachedValue(file) {
+            CachedValueProvider.Result.create(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java) == null, file)
+        }
+        return if (parsedCleanly) CrystalConstructorResolution.Record(identity, call)
+            else CrystalConstructorResolution.Incomplete(identity)
     }
 
     /**
@@ -2971,7 +3007,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     private fun exactTypeIdentities(simpleName: String, qualifiedName: String): List<CrystalTypeIdentity> =
-        types(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName)
+        (types(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName) + records(simpleName).map { it.qualifiedName })
             .filter { it == qualifiedName }
             .map { CrystalTypeIdentity(simpleName, it) }
             .distinct()

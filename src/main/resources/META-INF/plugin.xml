@@ -636,6 +636,7 @@
                 implementationClass="de.magynhard.crystal.navigation.CrystalAsmParameterInfoHandler"/>
 
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalClassIndex"/>
+        <stubIndex implementation="de.magynhard.crystal.stubs.CrystalRecordIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalTypeInheritorIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMethodIndex"/>
         <stubIndex implementation="de.magynhard.crystal.stubs.CrystalMethodByClassIndex"/>

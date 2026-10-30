@@ -581,11 +581,11 @@ A record also wins when an indexed class shares its exact identity: with both to
 `new(record_value : String)` rather than the class constructor, matching the shared DOT-call
 constructor precedence.
 
-Record constructor completion is scoped to the containing file. Records are collected from live
-file PSI and are not stub-indexed, so a `record Config` declared only in another file is invisible
-to the shared constructor classifier: when no indexed type carries the name, `Config.` resolves to
-`Unknown` and offers no candidates rather than leaking a cross-file record constructor (tracked as
-a completion follow-up in `TODO.md`).
+Record constructor completion includes statically named declarations from required files through
+`CrystalRecordIndex`, with the shared constructor classifier's exact identity and lexical precedence.
+Unrequired or unrelated records offer no candidates. The live completion copy replaces records from
+its indexed original so one declaration is not misclassified as a duplicate. See
+[Record Type References](indexed-navigation.md#record-type-references).
 
 Synthetic `new` for lexically selected simple constants uses the exact resolved identity. With
 `Left::Service` and `Right::Service` defining different `initialize` signatures, `Service.` inside

@@ -13,9 +13,18 @@ import de.magynhard.crystal.psi.CrystalFunDefinition
 import de.magynhard.crystal.psi.CrystalLibDefinition
 import de.magynhard.crystal.psi.CrystalMacroDefinition
 import de.magynhard.crystal.psi.CrystalMethodDefinition
+import de.magynhard.crystal.psi.CrystalMethodCallExpression
 import de.magynhard.crystal.psi.CrystalNamedElement
 
 object CrystalIndexService {
+
+    fun findRecords(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope,
+    ): Collection<CrystalMethodCallExpression> = StubIndex.getElements(
+        CrystalRecordIndex.KEY, name, project, scope, CrystalMethodCallExpression::class.java,
+    )
 
     fun findTypes(
         name: String,

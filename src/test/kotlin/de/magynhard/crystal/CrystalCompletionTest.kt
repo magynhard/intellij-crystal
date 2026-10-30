@@ -2819,12 +2819,7 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertEquals(setOf("build"), names.toSet())
     }
 
-    fun testCrossFileRecordTypeObjectOffersNoCompletions() {
-        // Cross-file record completion is intentionally unsupported: the shared constructor
-        // classifier (CrystalTypeResolutionSession.resolveConstructor) scopes record
-        // definitions to the containing file, so the record below is invisible from main.cr
-        // and the receiver resolves to Unknown. Pinned behavior: no record `new` and no
-        // unrelated completion noise. Tracked in TODO.md (Completion Follow-up).
+    fun testUnrequiredRecordTypeObjectOffersNoCompletions() {
         myFixture.addFileToProject("config.cr", """
             record Config, host : String, port : Int32 = 80
         """.trimIndent())
@@ -2832,12 +2827,20 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         val lookups = myFixture.complete(CompletionType.BASIC)
         val names = lookups?.map { it.lookupString } ?: emptyList()
         assertFalse(
-            "Cross-file record must NOT offer 'new' (records are containing-file-scoped): $names",
+            "Unrequired record must not offer 'new': $names",
             names.contains("new")
         )
         assertEquals(
-            "Unknown cross-file record receiver must not emit unrelated noise: $names",
+            "Unavailable record receiver must not emit unrelated noise: $names",
             emptyList<String>(), names
+        )
+    }
+
+    fun testRequiredRecordTypeObjectUsesItsCrossFileConstructorSignature() {
+        myFixture.addFileToProject("config.cr", "record Config, host : String, port : Int32 = 80")
+        assertReceiverPresentationParity(
+            "require \"./config\"", "Config",
+            listOf("new|(host : String, port : Int32 = 80)|Config|Method"),
         )
     }
 

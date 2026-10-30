@@ -4,9 +4,10 @@ The plugin uses Crystal stub indexes for navigation and type lookup without scan
 
 ## Active Indexes
 
-The active index set consists of exactly thirteen indexes:
+The active index set consists of exactly fourteen indexes:
 
 - `CrystalClassIndex` indexes class, module, struct, and enum names.
+- `CrystalRecordIndex` indexes statically named `record` declaration calls by simple type name; their stubs retain the full qualified identity.
 - `CrystalTypeInheritorIndex` maps declared superclass/include candidate names to nominal type declarations; queries must verify full qualified ancestry.
 - `CrystalMethodIndex` indexes method names.
 - `CrystalMethodByClassIndex` maps enclosing type names to methods.
@@ -29,7 +30,38 @@ unrelated name-only fallback or an arity/type-check overload pool.
 
 Constant declarations (`KODORRA = 123` at file top level, `BAR = 1` in type and lib bodies, `private`/`protected` visibility modifiers) carry stubs with the simple name, the qualified owner (null at top level), and a privacy flag. Statement-context assignments (method and macro bodies, blocks, control flow, case subjects, macro regions) never create stubs: the element type's `shouldCreateStub` only admits file, class-body, lib-body, and visibility-modifier parents past the transparent statement wrapper. The by-owner index is keyed by the full qualified owner (`Foo`, `Foo::Bar`, `LibC`) so reopenings merge and nested owners never collide. Private file-level constants remain file-local; private type constants resolve and complete by bare name inside their owning namespace, including nested namespaces, cross-file reopenings, and exact superclass/include ancestry, only when the declaration belongs to the effective source set. Unrelated owners and explicit qualified accesses cannot expose private type constants. Qualified public `Foo::BAR` paths resolve through the owner index with the member-name filter; enum members stay out of scope (no member index for them).
 
-Methods declared in a `record Name, ... do ... end` body carry the enclosing record's qualified name in their method stub. They are emitted to `CrystalMethodByClassIndex` under the record's simple name and are excluded from `CrystalTopLevelMethodIndex`, even though the record declaration itself remains a macro-call PSI element rather than a named type stub. Exact-identity filtering prefers the serialized qualified owner over PSI ancestor walks, so record-body methods survive index persistence; qualified identities (`record Registry::Entry`) and records nested in classes or modules keep their full identity, while a class nested inside a record body owns its methods itself.
+Methods declared in a `record Name, ... do ... end` body carry the enclosing record's qualified name in their method stub. They are emitted to `CrystalMethodByClassIndex` under the record's simple name and are excluded from `CrystalTopLevelMethodIndex`. The record remains a macro-call PSI element, with its own selective stub since version 24. Exact-identity filtering prefers the serialized qualified owner over PSI ancestor walks, so record-body methods survive index persistence; qualified identities (`record Registry::Entry`) and records nested in classes or modules keep their full identity, while a class nested inside a record body owns its methods itself.
+
+## Record Type References
+
+`CrystalRecordIndex` supplies record candidates to the shared type-resolution session.
+Only receiver-less `record` calls with a literal constant path as their first argument,
+in file or type-member declaration positions, create stubs. Ordinary calls, runtime
+blocks/methods, dynamic names, and macro-controlled declarations stay outside this
+index. Stub eligibility uses AST nodes only, including macro-region checks: PSI
+traversal during the platform's stub-spine calculation can recursively reload the
+file and violate the stub/PSI mirror contract. The platform `DefaultStubBuilder`
+still builds the full tree; syntax and parser golden files remain unchanged.
+
+Record identities are serialized in full, including qualified and absolute headers.
+Bare references search nearest lexical namespaces before outer/global identities;
+qualified and absolute references never fall back to unrelated simple names. The
+captured require/prelude source set filters every indexed candidate. Type annotations,
+ordinary constant references, and constructors consume the same identities, so a
+required record in a sibling file is navigable without a same-file-only exception.
+Duplicate exact record declarations remain multiple type-path navigation targets;
+they do not become a unique binding or an arbitrary constructor signature.
+An identifiable record header in a recovered file may still supply type navigation.
+Constructor classification requires its source file to parse without errors, cached
+with file-based invalidation; a truncated field list must never produce argument
+diagnostics or a synthetic constructor signature.
+
+Constructor lookup retains its existing same-file syntax fallback for uncertain
+declarations. Completion's temporary source copy replaces candidates from its indexed
+original file, preventing false duplicate declarations. Record type availability does
+not imply expansion of arbitrary macro-generated members, inheritance, or field types.
+The new index is separate from ordinary nominal type indexes; Go to Class/Symbol and
+free-text type-name completion retain their existing indexed declaration kinds.
 
 ## Index Gateway
 

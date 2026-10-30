@@ -262,3 +262,44 @@ lock (`Only one instance of IDEA can be run at a time`). Packaging, including
 `buildSearchableOptions`, succeeded using a temporary isolated `sandboxContainer`
 set by an external Gradle init script; no build task was excluded and the running
 development IDE was not stopped.
+
+## Cross-file record index audit (2026-10-29)
+
+Re-audited crystalline revision `a5f6f1bb9d55decf507138da7b2c47628ee15328`
+with the same locked dependencies, RubyMine `RM-262.9437.192`, and target-content
+fingerprint `3d1852b6314ac1858aa63995b6ec79be85ba5a9c5193346f8eb1b4612048b390`,
+using stub version 24 and `CrystalRecordIndex`. The disposable target remained
+unchanged. The external parse preflight retains its known baseline: six errors
+in six of 151 files, including `lightweight/index.cr`'s recovered record field list.
+
+The final offline audit reports **506** Crystal findings in `.cr` files and two
+filtered non-Crystal findings. A multiset comparison by inspection/file/line/description
+against the preceding 563-finding guarded-navigation audit finds **57 removals, all
+`CrystalUnresolvedName`, and zero additions**. In particular, both reported cases
+are gone:
+
+```text
+src/crystalline/lightweight/contracts.cr:45: Cannot find 'MethodInfo'
+src/crystalline/lightweight/contracts.cr:178: Cannot find 'MethodInfo'
+```
+
+A separate read-only fixture reproduction used the actual `contracts.cr`, `index.cr`,
+and `type_utils.cr` contents and verified that both references resolve to the real
+record declaration at `index.cr:23`. The temporary machine-specific reproduction
+was removed after validation; portable regressions cover cross-file annotations,
+namespace boundaries, unavailable records, duplicate declarations, constructor
+completion, and platform stub serialization.
+
+Recovered record headers remain usable for type navigation, but a declaration file
+with parse errors cannot certify its complete constructor field list. The audit
+exposed truncated-signature false argument warnings during development; the final
+parse-completeness gate and its edit-invalidation regression eliminate those warnings
+without dropping the type-name binding. The 506 remaining findings and six preflight
+errors are not a clean-project claim.
+
+The final complete suite passes **2,979 tests**, with no failures, errors, or skipped
+tests. Parser goldens are unchanged. Packaging, including searchable options, passed
+in an isolated temporary development sandbox. The final IDE log has no stub/PSI
+mirror, record-index, or cached-value idempotence failure. The previously documented
+RegExp initialization/fallback-key and missing bundled inspection-description errors
+remain; this is not a clean-log claim.

@@ -43,7 +43,8 @@ class CrystalParserDefinition : ParserDefinition {
             // and nested-type/constant-owner index keys.
             // v23: type stubs persist declared superclass/include candidate names
             // for the reverse-hierarchy index used by guarded-member navigation.
-            override fun getStubVersion(): Int = 23
+            // v24: statically named record calls have their own persisted stubs and index.
+            override fun getStubVersion(): Int = 24
         }
     }
 

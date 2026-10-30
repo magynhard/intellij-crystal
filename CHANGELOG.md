@@ -348,6 +348,15 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   Single exact use-site types now take precedence;
   missing-member warnings, reassignment, block shadowing, and branch boundaries
   remain covered by regression tests.
+- **Cross-file record type resolution** — statically named `record` declarations
+  now participate in require-visible, namespace-exact type lookup through a dedicated
+  stub index. This fixes false `Cannot find 'MethodInfo'` warnings in crystalline's
+  `lightweight/contracts.cr` and analogous annotations, references, and constructor
+  targets. Unrequired, unrelated, dynamic, and macro-controlled declarations do not
+  gain bindings. Recovered headers remain navigable without using incomplete field
+  lists as constructor signatures. Stub version 24 rebuilds persisted indexes;
+  completion source copies replace their indexed originals instead of becoming
+  duplicate record declarations.
 - **Responds-to guards establish member availability** — crystalline's
   `diagnostics.cr` reported `Cannot find 'inner'` while unwrapping an exception
   under `if error.responds_to? :inner`, because the declared `ErrorFormat`

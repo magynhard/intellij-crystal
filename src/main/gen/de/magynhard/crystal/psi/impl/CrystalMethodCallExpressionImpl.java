@@ -9,11 +9,17 @@ import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static de.magynhard.crystal.psi.CrystalTypes.*;
 import de.magynhard.crystal.psi.*;
+import com.intellij.psi.stubs.IStubElementType;
+import de.magynhard.crystal.stubs.CrystalRecordStub;
 
 public class CrystalMethodCallExpressionImpl extends CrystalMethodCallExpressionMixin implements CrystalMethodCallExpression {
 
   public CrystalMethodCallExpressionImpl(ASTNode node) {
     super(node);
+  }
+
+  public CrystalMethodCallExpressionImpl(CrystalRecordStub stub, IStubElementType stubType) {
+    super(stub, stubType);
   }
 
   public void accept(@NotNull CrystalVisitor visitor) {

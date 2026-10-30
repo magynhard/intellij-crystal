@@ -5,6 +5,9 @@ import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.PsiReference
+import com.intellij.extapi.psi.StubBasedPsiElementBase
+import com.intellij.psi.stubs.IStubElementType
+import de.magynhard.crystal.stubs.CrystalRecordStub
 import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 
@@ -14,7 +17,7 @@ import de.magynhard.crystal.psi.*
  * that resolve identifiers to their definitions via StubIndex.
  */
 
-private fun createCrystalReference(element: ASTWrapperPsiElement): CrystalReference? {
+private fun createCrystalReference(element: PsiElement): CrystalReference? {
     if (CrystalMacroContext.isInterpolatedName(element)) return null
     // Skip if part of a definition name
     val parent = element.parent
@@ -79,7 +82,13 @@ abstract class CrystalVariableReferenceMixin(node: ASTNode) : ASTWrapperPsiEleme
     }
 }
 
-abstract class CrystalMethodCallExpressionMixin(node: ASTNode) : ASTWrapperPsiElement(node) {
+abstract class CrystalMethodCallExpressionMixin : StubBasedPsiElementBase<CrystalRecordStub> {
+    constructor(node: ASTNode) : super(node)
+    constructor(stub: CrystalRecordStub, nodeType: IStubElementType<*, *>) : super(stub, nodeType)
+
+    // Retain the AST-backed call's descriptive debug label for both representations.
+    override fun toString(): String = "${javaClass.simpleName}(CrystalElementType.METHOD_CALL_EXPRESSION)"
+
     override fun getReference(): PsiReference? = createCrystalReference(this)
     override fun getReferences(): Array<PsiReference> = reference?.let { arrayOf(it) } ?: PsiReference.EMPTY_ARRAY
 }

@@ -10,6 +10,46 @@ import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.psi.impl.*
 
+class CrystalRecordElementType(debugName: String) :
+    IStubElementType<CrystalRecordStub, CrystalMethodCallExpression>(debugName, CrystalLanguage) {
+    override fun getExternalId(): String = "crystal.METHOD_CALL_EXPRESSION"
+
+    override fun serialize(stub: CrystalRecordStub, dataStream: StubOutputStream) {
+        dataStream.writeName(stub.qualifiedName)
+    }
+
+    override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalRecordStub =
+        CrystalRecordStub(parentStub, this, requireNotNull(dataStream.readNameString()))
+
+    override fun createStub(psi: CrystalMethodCallExpression, parentStub: StubElement<out PsiElement>?): CrystalRecordStub =
+        CrystalRecordStub(parentStub, this, requireNotNull(CrystalPsiUtils.buildQualifiedName(psi)))
+
+    override fun createPsi(stub: CrystalRecordStub): CrystalMethodCallExpression = CrystalMethodCallExpressionImpl(stub, this)
+
+    override fun indexStub(stub: CrystalRecordStub, sink: IndexSink) {
+        sink.occurrence(CrystalRecordIndex.KEY, stub.name)
+    }
+
+    override fun shouldCreateStub(node: ASTNode?): Boolean {
+        node ?: return false
+        if (CrystalPsiUtils.recordDeclaredName(node) == null || CrystalPsiUtils.isInsideMacroControlRegion(node)) return false
+        var parent = node.treeParent
+        while (when (parent?.elementType) {
+                CrystalTypes.STATEMENT, CrystalTypes.EXPRESSION_STATEMENT,
+                CrystalTypes.EXPRESSION, CrystalTypes.VISIBILITY_MODIFIER -> true
+                else -> false
+            }) parent = parent?.treeParent
+        if (parent?.elementType !is IFileElementType && parent?.elementType != CrystalTypes.CLASS_BODY) return false
+        return generateSequence(node.treeParent) { it.treeParent }.none {
+            when (it.elementType) {
+                CrystalTypes.METHOD_DEFINITION, CrystalTypes.MACRO_DEFINITION,
+                CrystalTypes.BLOCK, CrystalTypes.PROC_LITERAL, CrystalTypes.MACRO_INTERPOLATION -> true
+                else -> false
+            }
+        }
+    }
+}
+
 class CrystalClassDefinitionElementType(debugName: String) :
     IStubElementType<CrystalClassDefinitionStub, CrystalClassDefinition>(debugName, CrystalLanguage) {
 

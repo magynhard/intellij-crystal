@@ -54,6 +54,12 @@ the constant rule per segment, with the root rule for qualified paths.
    declared between compile-time conditional tags count as known; the plugin
    does not choose a target platform branch or certify the alias's method set.
    An alias in another library or an unrequired file never heals the receiver.
+   Statically named `record` declarations use `CrystalRecordIndex` and the shared
+   session's ordered lexical/exact identity lookup. A required sibling file can
+   therefore provide `MethodInfo` in a nested module's parameter annotation.
+   Unrequired or unrelated records never supply a binding; indexed unavailable
+   records remain weak warnings. Dynamic and macro-controlled record declarations
+   are not published by this index. See [Record Type References](indexed-navigation.md#record-type-references).
 4. The compiler-builtin or magic-name baseline: `sizeof`, `typeof`,
    `pointerof`, `instance_sizeof`, `offsetof`, `alignof`, `uninitialized`,
    `__DIR__`, `__FILE__`, `__LINE__`, `__END_LINE__`, `__METHOD__`, and the

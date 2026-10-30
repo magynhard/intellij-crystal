@@ -141,7 +141,7 @@ object CrystalUnresolvedName {
      */
     private fun declaredConstantKind(name: String, context: PsiElement): UnresolvedKind? {
         if (hasSameFileConstantAssignment(context, name)) return null
-        if (hasSameFileRecord(name, context)) return null
+        if (hasVisibleRecord(name, context)) return null
         if (hasSameFileAlias(name, context)) return null
         if (name in PRELUDE_MACROS || hasMacro(name, context)) return null
         val sources = requireSources(context) ?: return null
@@ -152,7 +152,7 @@ object CrystalUnresolvedName {
         ) {
             return null
         }
-        if (hasIndexedType(name, context) || hasIndexedAlias(name, context) ||
+        if (hasIndexedType(name, context) || hasIndexedRecord(name, context) || hasIndexedAlias(name, context) ||
             hasIndexedConstant(name, context) || hasIndexedLib(name, context)
         ) {
             return UnresolvedKind.UNREQUIRED
@@ -254,9 +254,9 @@ object CrystalUnresolvedName {
             ) {
                 if (hasSameFileConstantAssignment(access, simpleName)) return null
                 if (hasSameFileAlias(simpleName, access)) return null
-                if (hasSameFileRecord(simpleName, access)) return null
+                if (hasVisibleRecord(cleanRoot, access)) return null
                 if (!visibilityKnown(access)) return null
-                val kind = if (hasIndexedType(simpleName, access) ||
+                val kind = if (hasIndexedType(simpleName, access) || hasIndexedRecord(simpleName, access) ||
                     hasIndexedAlias(simpleName, access) ||
                     hasIndexedConstant(simpleName, access) ||
                     hasIndexedLib(simpleName, access)
@@ -580,14 +580,20 @@ object CrystalUnresolvedName {
         return segments
     }
 
-    private fun hasSameFileRecord(name: String, context: PsiElement): Boolean {
-        val file = context.containingFile ?: return false
+    private fun hasVisibleRecord(name: String, context: PsiElement): Boolean {
         return try {
-            CrystalPsiUtils.findRecordDefinitions(name, file).isNotEmpty()
+            val session = CrystalTypeSetResolver.session(context)
+            val lookup = if (context is CrystalTypePath && context.text.trimStart().startsWith("::") && !name.startsWith("::"))
+                "::$name" else name
+            val identity = session.resolveType(lookup, context) ?: return false
+            session.findExactRecordDeclarations(identity).isNotEmpty()
         } catch (_: Throwable) {
             false
         }
     }
+
+    private fun hasIndexedRecord(name: String, context: PsiElement): Boolean =
+        CrystalIndexService.findRecords(name, context.project, allScope(context)).isNotEmpty()
 
     private fun allScope(context: PsiElement) = GlobalSearchScope.allScope(context.project)
 

@@ -6,6 +6,7 @@ object CrystalStubElementTypeFactory {
     @JvmStatic
     fun create(name: String): IElementType {
         return when (name) {
+            "METHOD_CALL_EXPRESSION" -> CrystalStubElementTypeHolder.METHOD_CALL_EXPRESSION
             "CLASS_DEFINITION" -> CrystalStubElementTypeHolder.CLASS_DEFINITION
             "MODULE_DEFINITION" -> CrystalStubElementTypeHolder.MODULE_DEFINITION
             "STRUCT_DEFINITION" -> CrystalStubElementTypeHolder.STRUCT_DEFINITION

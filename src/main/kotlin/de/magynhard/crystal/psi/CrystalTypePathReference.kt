@@ -44,6 +44,8 @@ class CrystalTypePathReference private constructor(
         val prefix = parts.joinToString("::")
         val session = CrystalTypeSetResolver.session(path)
         session.resolveType(if (absolute) "::$prefix" else prefix, path)?.let { identity ->
+            val records = session.findExactRecordDeclarations(identity)
+            if (records.isNotEmpty()) return records
             val declarations = session.findExactTypeDeclarations(identity)
             if (declarations.isNotEmpty()) return listOfNotNull(stableTarget(declarations))
         }

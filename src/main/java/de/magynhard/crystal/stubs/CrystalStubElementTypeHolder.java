@@ -12,6 +12,7 @@ import com.intellij.psi.tree.IElementType;
  * equals {@code "crystal." + fieldName}.
  */
 public interface CrystalStubElementTypeHolder {
+  IElementType METHOD_CALL_EXPRESSION = new CrystalRecordElementType("METHOD_CALL_EXPRESSION");
   IElementType CLASS_DEFINITION = new CrystalClassDefinitionElementType("CLASS_DEFINITION");
   IElementType MODULE_DEFINITION = new CrystalModuleDefinitionElementType("MODULE_DEFINITION");
   IElementType STRUCT_DEFINITION = new CrystalStructDefinitionElementType("STRUCT_DEFINITION");

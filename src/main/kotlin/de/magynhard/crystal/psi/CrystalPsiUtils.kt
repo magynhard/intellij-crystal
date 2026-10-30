@@ -1,5 +1,7 @@
 package de.magynhard.crystal.psi
 
+import de.magynhard.crystal.stubs.CrystalRecordStub
+
 import com.intellij.lang.ASTNode
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -58,6 +60,7 @@ object CrystalPsiUtils {
     }
 
     fun recordName(call: CrystalMethodCallExpression): String? {
+        call.stub?.let { return it.name }
         return recordDeclaredName(call)?.removePrefix("::")?.substringAfterLast("::")
     }
 
@@ -113,9 +116,17 @@ object CrystalPsiUtils {
         return RecordFieldInfo(name, typeText, defaultText, pastAssign)
     }
 
-    private fun recordDeclaredName(call: CrystalMethodCallExpression): String? {
-        if (call.firstChild?.text != "record") return null
-        val candidate = recordArguments(call).firstOrNull()?.text?.filterNot(Char::isWhitespace) ?: return null
+    private fun recordDeclaredName(call: CrystalMethodCallExpression): String? = recordDeclaredName(call.node)
+
+    /** AST-only: also used while the platform computes its stub/PSI mirror. */
+    internal fun recordDeclaredName(node: com.intellij.lang.ASTNode): String? {
+        if (node.firstChildNode?.text != "record") return null
+        val arguments = node.findChildByType(CrystalTypes.BARE_ARGUMENT_LIST)
+            ?: node.findChildByType(CrystalTypes.CALL_ARGS)?.findChildByType(CrystalTypes.ARGUMENT_LIST)
+            ?: return null
+        val argument = arguments.findChildByType(CrystalTypes.BARE_ARGUMENT)
+            ?: arguments.findChildByType(CrystalTypes.ARGUMENT) ?: return null
+        val candidate = argument.text.filterNot(Char::isWhitespace)
         return candidate.takeIf { RECORD_NAME.matches(it) }
     }
 
@@ -175,18 +186,20 @@ object CrystalPsiUtils {
         return candidates
     }
 
-    fun isInsideMacroControlRegion(element: PsiElement): Boolean {
-        var current = element
+    fun isInsideMacroControlRegion(element: PsiElement): Boolean = isInsideMacroControlRegion(element.node)
+
+    internal fun isInsideMacroControlRegion(node: com.intellij.lang.ASTNode): Boolean {
+        var current = node
         while (true) {
-            val parent = current.parent ?: return false
-            if (parent is PsiFile || parent is CrystalClassBody) {
+            val parent = current.treeParent ?: return false
+            if (parent.elementType is com.intellij.psi.tree.IFileElementType || parent.elementType == CrystalTypes.CLASS_BODY) {
                 var depth = 0
-                for (sibling in parent.children) {
+                for (sibling in parent.getChildren(null)) {
                     if (sibling === current) {
                         if (depth > 0) return true
                         break
                     }
-                    if (sibling is CrystalMacroControl) {
+                    if (sibling.elementType == CrystalTypes.MACRO_CONTROL) {
                         depth = updateMacroDepth(depth, sibling)
                     }
                 }
@@ -195,7 +208,7 @@ object CrystalPsiUtils {
         }
     }
 
-    private fun updateMacroDepth(depth: Int, control: CrystalMacroControl): Int {
+    private fun updateMacroDepth(depth: Int, control: com.intellij.lang.ASTNode): Int {
         val keyword = control.text.removePrefix("{%")
             .removeSuffix("%}")
             .trim()
@@ -384,6 +397,7 @@ object CrystalPsiUtils {
      * - `lib LibGMP; struct MPF; end; end` → `"LibGMP::MPF"`
      */
     fun buildQualifiedName(element: PsiElement): String? {
+        (element as? CrystalMethodCallExpression)?.stub?.let { return it.qualifiedName }
         val parts = mutableListOf<String>()
         var current: PsiElement? = element
         while (current != null) {
@@ -429,6 +443,10 @@ object CrystalPsiUtils {
         while (current != null) {
             if (current is PsiFileStub<*>) break
             when (current) {
+                is CrystalRecordStub -> {
+                    parts.add(0, current.qualifiedName)
+                    return parts.joinToString("::")
+                }
                 is CrystalClassDefinitionStub,
                 is CrystalModuleDefinitionStub,
                 is CrystalStructDefinitionStub,

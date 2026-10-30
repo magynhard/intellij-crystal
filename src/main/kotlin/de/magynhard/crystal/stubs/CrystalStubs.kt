@@ -15,6 +15,15 @@ interface CrystalTypeStub : CrystalNamedStub {
     val ancestorNames: List<String>
 }
 
+/** Only statically named record declarations create method-call stubs. */
+class CrystalRecordStub(
+    parent: StubElement<*>?,
+    elementType: IStubElementType<*, *>,
+    val qualifiedName: String,
+) : StubBase<CrystalMethodCallExpression>(parent, elementType), CrystalNamedStub {
+    override val name: String get() = qualifiedName.substringAfterLast("::")
+}
+
 // ==================== Class Stub ====================
 
 class CrystalClassDefinitionStub(

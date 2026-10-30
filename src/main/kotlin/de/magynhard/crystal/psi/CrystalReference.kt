@@ -82,6 +82,8 @@ class CrystalReference(
         val session = CrystalTypeSetResolver.session(element)
         val identity = session.resolveType(name, element)
         if (identity != null) {
+            val records = session.findExactRecordDeclarations(identity)
+            if (records.isNotEmpty()) return records.singleOrNull()
             val types = session.findExactTypeDeclarations(identity)
             if (types.isNotEmpty()) {
                 return types.minWithOrNull(

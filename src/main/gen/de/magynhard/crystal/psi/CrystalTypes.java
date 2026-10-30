@@ -77,7 +77,7 @@ public interface CrystalTypes {
   IElementType MACRO_INTERPOLATION = new CrystalElementType("MACRO_INTERPOLATION");
   IElementType MACRO_INTERPOLATION_ESCAPED = new CrystalElementType("MACRO_INTERPOLATION_ESCAPED");
   IElementType METHOD_BODY = new CrystalElementType("METHOD_BODY");
-  IElementType METHOD_CALL_EXPRESSION = new CrystalElementType("METHOD_CALL_EXPRESSION");
+  IElementType METHOD_CALL_EXPRESSION = CrystalStubElementTypeFactory.create("METHOD_CALL_EXPRESSION");
   IElementType METHOD_DEFINITION = CrystalStubElementTypeFactory.create("METHOD_DEFINITION");
   IElementType MODULE_DEFINITION = CrystalStubElementTypeFactory.create("MODULE_DEFINITION");
   IElementType MULTI_ASSIGNMENT = new CrystalElementType("MULTI_ASSIGNMENT");
