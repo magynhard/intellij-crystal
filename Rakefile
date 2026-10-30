@@ -118,7 +118,14 @@ task :release => [:stdlib_parse_audit, :test, :bump_version] do |t|
   # Extract changelog from plugin.xml <changeNotes> if present
   plugin_xml = File.read("src/main/resources/META-INF/plugin.xml")
   changelog_match = plugin_xml.match(/<change-?notes><!\[CDATA\[(.*?)\]\]><\/change-?notes>/m)
-  changelog = changelog_match ? changelog_match[1].strip : nil
+  changelog = if changelog_match
+    # The change notes keep one <h3><version></h3> block per release; only the
+    # block of the released version becomes the GitHub release notes.
+    block_match = changelog_match[1].match(
+      /<h3>#{Regexp.escape(version)}<\/h3>(.*?)(?=<h3>|\z)/m
+    )
+    block_match ? "<h3>#{version}</h3>\n#{block_match[1].strip}" : nil
+  end
 
   # Find built plugin ZIP
   zip = Dir["build/distributions/intellij-crystal-#{version}.zip"].first
