@@ -403,3 +403,43 @@ Portable tests separately exercise actual IntelliJ completion immediately
 after a `node.struct?` condition, predicate hover with `Bool` and nilable
 `String?` return types, absence of plain readers, and instance/static mode.
 The complete suite passes **3,034 tests**, with no failures or skips.
+
+## Record field reader audit (2026-10-30)
+
+Re-audited the same crystalline revision `a5f6f1bb9d55decf507138da7b2c47628ee15328`
+and locked dependencies in a clean disposable checkout; `shards check` passes.
+Record field-reader views now preserve the nested identity of
+`Crystal::Token::DelimiterState#kind` across its separately written struct
+reopening and through `token.delimiter_state.kind`.
+
+The offline inspection result drops from **452 to 450 Crystal findings**, with
+two filtered non-Crystal findings. A multiset comparison of inspection, file,
+line, and description confirms exactly two removals and no additions: the
+`Cannot find 'kind'` warnings at `signature_help.cr:296` and `:353` are gone.
+The raw parse preflight retains the two known LSP dependency errors in
+`completion_item.cr` and `ext/enum.cr` across 151 files; no parser sources changed.
+
+Portable regressions additionally cover completion, typed hover, original-field
+navigation, standalone and same-file records, require visibility, exact receiver
+identity, static/instance mode, duplicate and macro-controlled records, and
+unknown results for untyped readers. The complete suite passes **3,046 tests**
+without failures or skips. The first full run exposed a stale record PSI captured
+by a file-level cached-value provider; capturing the containing file instead
+fixes it, and both the affected test class and subsequent full run pass.
+
+The follow-up models `DelimiterKind` as an actual enum rather than a class with
+a hand-written `heredoc?` method. Written enum members now supply compiler-style
+predicate views. A separate integration test copies the installed real
+`syntax/token.cr`, `enum.cr`, and their relevant base declarations unchanged
+into a fixture. It verifies completion after `token.delimiter_state.kind.` in
+both the `if` condition and postfix-`unless` forms, plus `heredoc?` resolution
+and `Bool` hover. This test exposed inherited `Enum#to_{{name.id}}` methods
+incorrectly suppressing the proven nearer predicate; fixed nonmatching prefixes
+now preserve that target while matching and unrestricted names remain conservative.
+
+The complete suite passes **3,058 tests**, with no failures or skips, including
+the real-stdlib integration test on this machine. Repeating the external audit
+on the same target revision retains **exactly the same 450 findings** (multiset
+comparison: zero removals, zero additions) and two filtered non-Crystal findings.
+The two known raw dependency parse errors are unchanged. Interactive completion
+and hover are validated by the fixtures, not by offline inspection counts.

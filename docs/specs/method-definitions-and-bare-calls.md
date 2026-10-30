@@ -329,6 +329,13 @@ Rule since this fix: **explicit definitions win**.
 - Names collected inside macro-control regions with a known textual name (`macroDepth
   > 0`, non-interpolated) keep their existing `uncertainMethodNames` suppression.
 
+When a nearer declaration has already proven the requested method, an inherited
+macro-spliced name with a fixed, nonmatching literal prefix cannot add overloads
+for it. For example, `Enum#to_{{name.id}}` does not invalidate an exact
+`DelimiterKind#heredoc?` query. Matching prefixes and fully interpolated names
+remain incomplete, and a lookup with no proven nearer candidate retains the
+existing suppression rule. No interpolation is executed.
+
 ## DOT Member Assignments And Bare Regex Arguments
 
 DOT member compound assignments must be recognized before ordinary DOT-call

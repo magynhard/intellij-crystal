@@ -33,6 +33,8 @@ internal object CrystalStaticDeclarations {
     private val ACCESSOR = Key.create<SmartPsiElementPointer<PsiElement>>("crystal.static.accessor.origin")
     private val VIEW = Key.create<Boolean>("crystal.static.declaration.view")
     private val TYPE_PATH = Regex("(?:::)?[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*\\??")
+    private val ENUM_ACRONYM_BOUNDARY = Regex("([\\p{Lu}\\p{N}]+)([\\p{Lu}][\\p{Ll}])")
+    private val ENUM_WORD_BOUNDARY = Regex("([\\p{Ll}\\p{N}])([\\p{Lu}])")
 
     fun finishedTypes(context: PsiElement, sources: CrystalEffectiveSourceSet): List<CrystalNamedElement> =
         CrystalIndexService.findMacros("finished", context.project, GlobalSearchScope.allScope(context.project))
@@ -155,9 +157,84 @@ internal object CrystalStaticDeclarations {
 
     fun accessorOrigin(method: CrystalMethodDefinition): PsiElement? = method.getUserData(ACCESSOR)?.element
 
+    /** The compiler generates an instance query for every written enum member. */
+    fun enumPredicates(declaration: CrystalEnumDefinition): List<CrystalMethodDefinition> =
+        CachedValuesManager.getCachedValue(declaration) {
+            val predicates = buildEnumPredicates(declaration)
+            CachedValueProvider.Result.create(View(predicates, declaration.containingFile), declaration.containingFile)
+        }.elements
+
+    private fun buildEnumPredicates(declaration: CrystalEnumDefinition): List<CrystalMethodDefinition> {
+        if (CrystalPsiUtils.isInsideMacroControlRegion(declaration)) return emptyList()
+        val body = declaration.enumBody ?: return emptyList()
+        if (body.macroControlList.isNotEmpty() || body.macroInterpolationList.isNotEmpty()) return emptyList()
+        val owner = CrystalPsiUtils.stubAwareQualifiedName(declaration) ?: return emptyList()
+        return body.enumConstantList.mapNotNull { constant ->
+            val name = constant.node.findChildByType(CrystalTypes.CONSTANT)?.text ?: return@mapNotNull null
+            val predicate = name.replace(ENUM_ACRONYM_BOUNDARY, "$1_$2")
+                .replace(ENUM_WORD_BOUNDARY, "$1_$2").lowercase() + "?"
+            val file = parse(declaration, "enum $owner\ndef $predicate() : ::Bool\nend\nend")
+                ?: return@mapNotNull null
+            PsiTreeUtil.findChildOfType(file, CrystalMethodDefinition::class.java)?.also {
+                it.putUserData(ACCESSOR, SmartPointerManager.createPointer(constant as PsiElement))
+            }
+        }
+    }
+
+    fun recordIsComplete(call: CrystalMethodCallExpression): Boolean {
+        if (CrystalPsiUtils.isInsideMacroControlRegion(call)) return false
+        val file = call.containingFile
+        return CachedValuesManager.getCachedValue(file) {
+            CachedValueProvider.Result.create(
+                PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java) == null,
+                file,
+            )
+        }
+    }
+
+    /** Record fields generate readers, never setters; retain their physical field as origin. */
+    fun recordReaders(call: CrystalMethodCallExpression): List<CrystalMethodDefinition> =
+        CachedValuesManager.getCachedValue(call) {
+            val readers = buildRecordReaders(call)
+            CachedValueProvider.Result.create(View(readers, call.containingFile), call.containingFile)
+        }.elements
+
+    private fun buildRecordReaders(call: CrystalMethodCallExpression): List<CrystalMethodDefinition> {
+        if (!recordIsComplete(call)) return emptyList()
+        val owner = CrystalPsiUtils.stubAwareQualifiedName(call) ?: return emptyList()
+        val parameters = generateSequence(CrystalPsiUtils.getEnclosingType(call)) { CrystalPsiUtils.getEnclosingType(it) }
+            .flatMap { type ->
+                type.node.findChildByType(CrystalTypes.TYPE_PARAMETERS)?.getChildren(null).orEmpty()
+                    .filter { it.elementType == CrystalTypes.CONSTANT }.map { it.text }
+            }.toSet()
+        return CrystalPsiUtils.recordFieldArguments(call).mapNotNull { argument ->
+            val field = CrystalPsiUtils.recordFieldInfo(argument)
+            val name = field.name ?: CrystalAccessorCoupling.accessorArgName(argument)
+                ?.takeIf { argument.text.trim() == it } ?: return@mapNotNull null
+            val type = field.typeText?.filterNot(Char::isWhitespace)?.takeIf {
+                TYPE_PATH.matches(it) &&
+                    (it.startsWith("::") || it.substringBefore("::").removeSuffix("?") !in parameters)
+            }
+            val annotation = type?.let { " : $it" }.orEmpty()
+            val file = parse(call, "struct $owner\ndef $name()$annotation\nend\nend") ?: return@mapNotNull null
+            PsiTreeUtil.findChildOfType(file, CrystalMethodDefinition::class.java)?.also {
+                it.putUserData(ACCESSOR, SmartPointerManager.createPointer(argument))
+            }
+        }
+    }
+
     fun isView(element: PsiElement): Boolean = element.containingFile?.getUserData(VIEW) == true
 
     fun accessorReader(argument: PsiElement): CrystalMethodDefinition? {
+        if (argument is CrystalEnumConstant) {
+            val owner = PsiTreeUtil.getParentOfType(argument, CrystalEnumDefinition::class.java) ?: return null
+            return enumPredicates(owner).firstOrNull { accessorOrigin(it) === argument }
+        }
+        val record = PsiTreeUtil.getParentOfType(argument, CrystalMethodCallExpression::class.java)
+        if (record != null && CrystalPsiUtils.recordName(record) != null &&
+            argument in CrystalPsiUtils.recordFieldArguments(record)) {
+            return recordReaders(record).firstOrNull { accessorOrigin(it) === argument }
+        }
         val type = CrystalPsiUtils.getEnclosingType(argument) as? CrystalNamedElement ?: return null
         val name = CrystalAccessorCoupling.accessorArgName(argument) ?: return null
         return accessorMethods(type).firstOrNull {

@@ -314,6 +314,13 @@ Constructor expressions preserve the exact qualified receiver identity as their 
 Record macro fallback remains a separate declaration path before normal type construction where
 the call consumer supports records.
 
+Record field readers participate in the shared exact method hierarchy, including
+records with separate struct reopenings. A reader's simple declared type is
+resolved at its original field, preserving nested namespaces in call chains.
+Untyped fields and unsupported type shapes supply a reader with unknown result,
+not an inferred `Nil` from the empty synthetic body. See
+[Static Finished Declarations](static-finished-declarations.md#record-field-readers).
+
 ## Compatibility APIs
 
 `CrystalTypeInference.inferType(...)` preserves pre-analysis behavior by evidence source:

@@ -53,9 +53,17 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         java.util.Collections.newSetFromMap(IdentityHashMap<Pair<String, PsiElement>, Boolean>())
     private val typeCache = mutableMapOf<String, List<CrystalNamedElement>>()
     private val recordCache = mutableMapOf<String, List<CrystalPsiUtils.RecordDefinition>>()
+    private val currentFileRecords by lazy {
+        val file = context.containingFile?.takeIf { effectiveSources.contains(context) }
+        file?.let { PsiTreeUtil.findChildrenOfType(it, CrystalMethodCallExpression::class.java) }.orEmpty()
+            .mapNotNull { call ->
+                if (CrystalPsiUtils.recordName(call) == null) return@mapNotNull null
+                CrystalPsiUtils.stubAwareQualifiedName(call)?.let { CrystalPsiUtils.RecordDefinition(it, call) }
+            }.groupBy { it.qualifiedName.substringAfterLast("::") }
+    }
     private val methodCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
     private val methodsByTypeCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
-    private val hierarchy = CrystalMethodHierarchy(context, ::types, ::classMethods)
+    private val hierarchy = CrystalMethodHierarchy(context, ::types, ::classMethods, ::findExactRecordDeclarations)
 
     companion object {
         private val CONSTRUCTION_COUNT = AtomicLong()
@@ -244,9 +252,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         records(type.simpleName).filter { it.qualifiedName == type.qualifiedName }.map { it.call }
 
     private fun records(name: String): List<CrystalPsiUtils.RecordDefinition> = recordCache.getOrPut(name) {
+        val currentFile = context.containingFile?.takeIf { effectiveSources.contains(context) }
         CrystalIndexService.findRecords(name, context.project, GlobalSearchScope.allScope(context.project))
             .filter(effectiveSources::contains)
+            .filter { it.containingFile.originalFile != currentFile?.originalFile }
             .mapNotNull { call -> CrystalPsiUtils.stubAwareQualifiedName(call)?.let { CrystalPsiUtils.RecordDefinition(it, call) } }
+            .toList() + currentFileRecords[name].orEmpty()
     }
 
     fun accessorArguments(type: CrystalTypeIdentity, mode: CrystalReceiverMode, methodName: String): List<PsiElement> =
@@ -3345,8 +3356,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 val written = if (declaration in finishedTypes) {
                     PsiTreeUtil.findChildrenOfType(declaration, CrystalMethodDefinition::class.java).toList()
                 } else emptyList()
-                written + CrystalStaticDeclarations.accessorMethods(declaration)
-            }
+                written + CrystalStaticDeclarations.accessorMethods(declaration) +
+                    if (declaration is CrystalEnumDefinition) CrystalStaticDeclarations.enumPredicates(declaration) else emptyList()
+            } + records(name).flatMap { CrystalStaticDeclarations.recordReaders(it.call) }
     }
 
     private sealed interface ReceiverState {

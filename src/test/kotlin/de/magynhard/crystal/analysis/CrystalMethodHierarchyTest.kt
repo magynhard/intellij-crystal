@@ -442,10 +442,10 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
 
         assertTrue(result.complete)
         assertEquals(
-            listOf("enum_marker", "value_marker", "object_marker"),
+            listOf("active?", "enum_marker", "value_marker", "object_marker"),
             result.methods.map { it.method.name }
         )
-        assertEquals(listOf(1, 2, 3), result.methods.map { it.depth })
+        assertEquals(listOf(0, 1, 2, 3), result.methods.map { it.depth })
     }
 
     fun testEnumBodyMethodsAndBaseEnumMethodsAreCollected() {
@@ -464,7 +464,7 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
         assertTrue(instance.complete)
         assertTrue(static.complete)
         assertTrue(named.complete)
-        assertEquals(listOf("label", "enum_marker"), instance.methods.map { it.method.name })
+        assertEquals(listOf("label", "active?", "enum_marker"), instance.methods.map { it.method.name })
         assertEquals(listOf("label"), named.methods.map { it.name })
         assertEquals(listOf("default"), static.methods.map { it.method.name })
     }
@@ -490,7 +490,7 @@ class CrystalMethodHierarchyTest : BasePlatformTestCase() {
         // Enum → Value → Object, but NOT UInt8 (the `: UInt8` suffix is the
         // underlying storage type, invisible to method lookup).
         assertEquals(
-            listOf("enum_marker", "value_marker", "object_marker"),
+            listOf("red?", "enum_marker", "value_marker", "object_marker"),
             result.methods.map { it.method.name }
         )
     }

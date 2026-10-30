@@ -43,6 +43,8 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Ctrl+B on receiver-less calls offers the overload chooser, including exact-owner reopenings when the file is opened without its containing program; local bindings retain precedence
 - Statically written classes in supported module `macro finished` hooks expose typed accessors for completion, hover, source navigation, and chained member lookup; dynamic macro bodies remain opaque
 - Typed `getter?` and `property?` accessors support member completion and hover, including keyword names such as `struct? : Bool`
+- Record field readers support completion, hover, navigation, and typed call chains, including records with separate struct reopenings
+- Generated enum queries such as `heredoc?` support completion, typed hover, and navigation to their enum member, including after record field chains
 - Ctrl+B / Ctrl+Click on type references inside those static macro bodies resolves their namespace- and require-visible definitions, including following definitions in the same file
 - Guarded `responds_to?` member calls can navigate to known require-visible compatible declarations; hover distinguishes these candidates from exact dispatch
 - Flow-aware member checks honor `case variable = expression` type branches and direct `is_a?` guards in later operands of pure `&&` chains

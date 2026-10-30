@@ -135,6 +135,35 @@ A zero-argument typed accessor can be an exact predecessor in a DOT chain. Union
 nilable, unavailable, or ambiguous results, setter predecessors, and accessor calls
 with arguments cannot supply one exact chained receiver.
 
+### Enum Predicate Methods
+
+Written enum members supply read-only instance query signatures, matching the
+compiler's `member.name.underscore + "?"` rule (`HEREDOC` → `heredoc?`,
+`StringArray` → `string_array?`). They return global `::Bool` and use their
+original enum constant as the source/navigation target. The same shared views
+feed named resolution, completion, hover, and chained call inference. They do
+not become class methods or borrow members from unrelated or unrequired enums.
+Enum bodies with macro-controlled/interpolated members remain conservative;
+implicit flag members and other generated enum APIs are not synthesized here.
+
+### Record Field Readers
+
+Require-visible, statically named `record` headers supply read-only field-reader
+views using the same method and source-origin pipeline. The record index remains
+the lookup source; the current file's PSI replaces its indexed original during
+completion. No generated code is inserted into physical PSI or stub trees.
+Record headers contribute their Struct hierarchy and any written record body;
+exact struct reopenings contribute their own methods. Duplicate or macro-controlled
+records and declarations in parser-incomplete files cannot certify member lookup.
+
+Readers have no setter. Simple constant-path annotations, optionally nilable,
+resolve at the physical record field, so `Token::DelimiterState#kind` retains
+`Token::DelimiterKind` through `token.delimiter_state.kind`. Untyped fields and
+unsupported or generic-dependent types stay unknown, while their statically known
+reader names remain available. Unmodeled `record` macro methods (`initialize`,
+`copy_with`, `clone`) remain suppressed rather than producing missing-name errors.
+Completion, hover, and navigation use the same reader view and original field.
+
 Navigation maps source-view classes, methods, and accessor arguments back to their
 original file and offset inside the macro body. Views are read-only: rename and
 source editing are not implemented against generated PSI copies. Ordinary physical

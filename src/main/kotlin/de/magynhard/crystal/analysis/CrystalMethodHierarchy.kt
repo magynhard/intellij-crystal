@@ -51,7 +51,8 @@ internal sealed interface CrystalConstructorResolution {
 internal class CrystalMethodHierarchy(
     private val context: PsiElement,
     private val findTypesByName: (String) -> List<CrystalNamedElement>,
-    private val findMethodsByTypeName: (String) -> List<CrystalMethodDefinition>
+    private val findMethodsByTypeName: (String) -> List<CrystalMethodDefinition>,
+    private val findRecords: (CrystalTypeIdentity) -> List<CrystalMethodCallExpression> = { emptyList() },
 ) {
     private val declarations = mutableMapOf<CrystalTypeIdentity, List<CrystalNamedElement>>()
     private val methods = mutableMapOf<CrystalTypeIdentity, List<CrystalMethodDefinition>>()
@@ -134,7 +135,10 @@ internal class CrystalMethodHierarchy(
             // uncertain — but only for names that are NOT explicitly defined. A
             // textually written `def self.new` is real regardless of what the type's
             // {% for %} loops additionally generate (stdlib http/client.cr).
-            if (candidates.isEmpty() && typeMetadata.hasMacroGeneratedMethodNames) {
+            // A fixed inherited prefix (`to_{{name}}`) cannot add overloads
+            // to an already proven nearer method with a different name.
+            if (candidates.isEmpty() && typeMetadata.macroMethodPrefixes.isNotEmpty() &&
+                (result.isEmpty() || typeMetadata.macroMethodPrefixes.any(methodName::startsWith))) {
                 return@getOrPut CrystalMethodCollection(emptyList(), false)
             }
             if (candidates.groupBy(::canonicalSignature).values.any { group ->
@@ -305,24 +309,38 @@ internal class CrystalMethodHierarchy(
         includeModuleEdges: Boolean
     ): TypeMetadata {
         val exactDeclarations = findExactTypeDeclarations(type).sortedWith(sourceOrder())
+        val records = findRecords(type)
         val includes = mutableListOf<CrystalTypeIdentity>()
         val extends = mutableListOf<CrystalTypeIdentity>()
         val superclasses = mutableListOf<CrystalTypeIdentity>()
         val uncertainMethodNames = mutableSetOf<String>()
         val edgeFiles = mutableSetOf<String>()
-        var hasMacroGeneratedMethodNames = false
-        var complete = exactDeclarations.isNotEmpty()
+        if (records.isNotEmpty() && mode == CrystalReceiverMode.INSTANCE) {
+            // The record macro generates these in addition to its field readers.
+            // Their argument/result semantics are not represented by reader views.
+            uncertainMethodNames.addAll(listOf("initialize", "copy_with", "clone"))
+        }
+        // Reader views do not certify the record macro's entire generated API.
+        val macroMethodPrefixes = mutableSetOf<String>()
+        if (mode == CrystalReceiverMode.INSTANCE && records.isNotEmpty()) macroMethodPrefixes.add("")
+        var complete = (exactDeclarations.isNotEmpty() || records.isNotEmpty()) &&
+            records.size <= 1 && records.all(CrystalStaticDeclarations::recordIsComplete)
 
-        for (declaration in exactDeclarations) {
+        for (declaration in exactDeclarations + records) {
             if (CrystalPsiUtils.isInsideMacroControlRegion(declaration)) { complete = false }
             val body = when (declaration) {
                 is CrystalClassDefinition -> declaration.classBody
                 is CrystalModuleDefinition -> declaration.classBody
                 is CrystalStructDefinition -> declaration.classBody
                 is CrystalEnumDefinition -> declaration.enumBody
+                is CrystalMethodCallExpression -> declaration.classBody
                 else -> null
             }
             if (body != null) {
+                if (body is CrystalEnumBody && mode == CrystalReceiverMode.INSTANCE &&
+                    (body.macroControlList.isNotEmpty() || body.macroInterpolationList.isNotEmpty())) {
+                    macroMethodPrefixes.add("")
+                }
                 var macroDepth = 0
                 body.children.forEach { child ->
                     if (child is CrystalMacroControl) {
@@ -333,9 +351,9 @@ internal class CrystalMethodHierarchy(
                         if (member is CrystalMethodDefinition &&
                             CrystalPsiUtils.isSelfMethod(member) == (mode == CrystalReceiverMode.STATIC)) {
                             if (member.macroInterpolation != null) {
-                                hasMacroGeneratedMethodNames = true
+                                macroMethodPrefixes.add(macroMethodPrefix(member))
                             } else if (macroDepth > 0) {
-                                member.name?.let(uncertainMethodNames::add) ?: run { hasMacroGeneratedMethodNames = true }
+                                member.name?.let(uncertainMethodNames::add) ?: macroMethodPrefixes.add("")
                             }
                         }
                         if (macroDepth > 0 && isRelevantMacroControlledEdge(member, mode, includeModuleEdges)) {
@@ -381,7 +399,7 @@ internal class CrystalMethodHierarchy(
 
         if (superclasses.isEmpty()) {
             implicitPrimitiveSuperclass(type)?.let(superclasses::add)
-                ?: implicitDeclaredKindSuperclass(type, exactDeclarations)?.let(superclasses::add)
+                ?: implicitDeclaredKindSuperclass(type, exactDeclarations, records.isNotEmpty())?.let(superclasses::add)
         }
 
         val distinctSuperclasses = superclasses.distinct()
@@ -392,8 +410,15 @@ internal class CrystalMethodHierarchy(
             distinctSuperclasses.singleOrNull(),
             complete,
             uncertainMethodNames,
-            hasMacroGeneratedMethodNames
+            macroMethodPrefixes
         )
+    }
+
+    /** Empty means unrestricted; only prove simple written instance/self prefixes. */
+    private fun macroMethodPrefix(method: CrystalMethodDefinition): String {
+        val interpolation = method.macroInterpolation ?: return ""
+        val prefix = method.text.take(interpolation.textRange.startOffset - method.textRange.startOffset).trim()
+        return Regex("def\\s+(?:self\\.)?([a-z_][A-Za-z0-9_]*)").matchEntire(prefix)?.groupValues?.get(1).orEmpty()
     }
 
     private fun resolveEdge(reference: CrystalTypeReference?, edgeContext: PsiElement): CrystalTypeIdentity? {
@@ -440,12 +465,14 @@ internal class CrystalMethodHierarchy(
      */
     private fun implicitDeclaredKindSuperclass(
         type: CrystalTypeIdentity,
-        declarations: List<CrystalNamedElement>
+        declarations: List<CrystalNamedElement>,
+        hasRecord: Boolean = false,
     ): CrystalTypeIdentity? {
         // Object is the hierarchy root (Object.superclass == nil) and must not
         // fall through to the generic class → Reference edge.
         if (type.simpleName == "Object") return null
         val parentName = when {
+            hasRecord -> "Struct"
             declarations.any { it is CrystalEnumDefinition } -> "Enum"
             declarations.any { it is CrystalStructDefinition } -> "Struct"
             declarations.any { it is CrystalClassDefinition } -> "Reference"
@@ -605,7 +632,7 @@ internal class CrystalMethodHierarchy(
         val superclass: CrystalTypeIdentity?,
         val complete: Boolean,
         val uncertainMethodNames: Set<String>,
-        val hasMacroGeneratedMethodNames: Boolean
+        val macroMethodPrefixes: Set<String>
     )
     private data class HierarchyCollection(val exposures: List<TypeExposure>, val complete: Boolean)
 }
