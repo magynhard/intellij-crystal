@@ -2275,7 +2275,8 @@ class CrystalLexer implements FlexLexer {
           // fall through
           case 272: break;
           case 73:
-            { return CrystalTypes.SLASH_ASSIGN;
+            { if (isRegexAllowed()) { yypushback(1); pushState(REGEX); return CrystalTypes.REGEX_BEGIN; }
+                         return CrystalTypes.SLASH_ASSIGN;
             }
           // fall through
           case 273: break;

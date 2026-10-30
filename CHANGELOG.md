@@ -254,6 +254,10 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Equals-leading regex literals** — recognize `/=$/` as a regex in expression
+  position instead of division assignment. Nested calls retain their arguments,
+  avoiding false missing-argument errors and incorrect highlighting of the
+  remaining file; ordinary `/=` assignments remain operators.
 - **Unqualified call overload returns** — unqualified (dot-free) calls to
   same-name method overloads infer their type when every overload declares the
   same return type, mirroring the established DOT-call rule. Visit tables such

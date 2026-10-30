@@ -9,6 +9,34 @@ class CrystalArgumentCountInspectionTest : BasePlatformTestCase() {
         myFixture.enableInspections(CrystalArgumentCountInspection::class.java)
     }
 
+    fun testEqualsLeadingRegexPreservesNestedCallArgumentsAndFollowingCode() {
+        val file = myFixture.configureByText("semantic_tokens.cr", """
+            class Object
+            end
+            class String
+              def sub(pattern, replacement) : String
+                self
+              end
+            end
+            class Tokens
+              def add_text(location, text, type)
+              end
+            end
+            def visit(tokens : Tokens, name : String, depth : Int32)
+              tokens.add_text(1, name.sub(/=$/, ""), depth > 0 ? 1 : 2)
+              true
+            end
+            def following
+              42
+            end
+        """.trimIndent())
+        assertNull(com.intellij.psi.util.PsiTreeUtil.findChildOfType(file, com.intellij.psi.PsiErrorElement::class.java))
+        assertTrue(com.intellij.psi.util.PsiTreeUtil.findChildrenOfType(
+            file, de.magynhard.crystal.psi.CrystalMethodDefinition::class.java,
+        ).any { it.name == "following" })
+        myFixture.checkHighlighting()
+    }
+
     fun testForwardingCallWithRequiredCompilerOverloadIsSilent() {
         checkCompilerForwarding(required = true)
     }

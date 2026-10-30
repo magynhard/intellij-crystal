@@ -8,6 +8,22 @@ import org.junit.Test
 
 class CrystalLexerTest {
 
+    @Test
+    fun testEqualsLeadingRegexDoesNotConsumeTheRestOfTheCall() {
+        val tokens = nonWhitespaceTokens("add_text(node.location, node.name.sub(/=$/, \"\"), METHOD)\ntrue")
+        assertEquals(listOf("/", "=$", "/"), tokens.filter {
+            it.first in setOf(CrystalTypes.REGEX_BEGIN, CrystalTypes.REGEX_LITERAL, CrystalTypes.REGEX_END)
+        }.map { it.second })
+        assertEquals(CrystalTypes.TRUE to "true", tokens.last())
+        assertFalse(tokens.any { it.first == CrystalTypes.SLASH_ASSIGN })
+    }
+
+    @Test
+    fun testDivisionAssignmentRemainsAnOperator() {
+        assertEquals(listOf(CrystalTypes.IDENTIFIER, CrystalTypes.SLASH_ASSIGN, CrystalTypes.INTEGER_LITERAL),
+            nonWhitespaceTokens("value /= 2").map { it.first })
+    }
+
     private fun tokenize(text: String): List<Pair<IElementType, String>> {
         val lexer = CrystalLexer(null)
         lexer.reset(text, 0, text.length, CrystalLexer.YYINITIAL)

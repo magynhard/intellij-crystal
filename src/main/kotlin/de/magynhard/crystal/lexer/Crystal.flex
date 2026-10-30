@@ -834,7 +834,10 @@ SYMBOL = ":" ( {IDENTIFIER} | {CONSTANT} ) "="?
   "+="                 { return CrystalTypes.PLUS_ASSIGN; }
   "-="                 { return CrystalTypes.MINUS_ASSIGN; }
   "*="                 { return CrystalTypes.STAR_ASSIGN; }
-  "/="                 { return CrystalTypes.SLASH_ASSIGN; }
+  // Longest-match also selects this rule for regexes starting with '='.
+  // Leave '=' in the regex body when the slash opens an expression.
+  "/="                 { if (isRegexAllowed()) { yypushback(1); pushState(REGEX); return CrystalTypes.REGEX_BEGIN; }
+                         return CrystalTypes.SLASH_ASSIGN; }
   "%="                 { return CrystalTypes.PERCENT_ASSIGN; }
   "&="                 { return CrystalTypes.AMPERSAND_ASSIGN; }
   "|="                 { return CrystalTypes.PIPE_ASSIGN; }
