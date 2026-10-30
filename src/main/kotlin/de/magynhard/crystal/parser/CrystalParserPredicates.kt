@@ -211,6 +211,33 @@ object CrystalParserPredicates {
         }
     }
 
+    /**
+     * Gates the nameless trailing dot-call access typed while a member access is
+     * still being written (`token.` before the enclosing statement resumes).
+     * The remaining raw line after the DOT must hold only comments; anything
+     * else keeps the established error reporting so an invalid pseudo-method
+     * suffix such as `value.!(args)` can never silently pass as a call.
+     */
+    @JvmStatic
+    fun isDotAccessIncomplete(
+        builder: PsiBuilder,
+        @Suppress("UNUSED_PARAMETER") level: Int,
+    ): Boolean {
+        val source = builder.originalText
+        var index = builder.currentOffset
+        while (index < source.length) {
+            when (source[index]) {
+                ' ', '\t', '\r' -> index++
+                '\n' -> return true
+                '#' -> {
+                    while (index < source.length && source[index] != '\n') index++
+                }
+                else -> return false
+            }
+        }
+        return true
+    }
+
     @JvmStatic
     fun isDotBareArgsBinaryOp(
         builder: PsiBuilder,

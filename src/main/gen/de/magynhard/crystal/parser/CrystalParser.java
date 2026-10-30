@@ -3614,48 +3614,88 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                            // argument — kemal static_file_handler_spec:135) and
   //                            // must never swallow the enclosing call's next argument.
   //                            | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list]
+  //                           | DOT &<<isDotAccessIncomplete>>
   public static boolean dot_call_access(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "dot_call_access")) return false;
     if (!nextTokenIs(builder_, DOT)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = consumeToken(builder_, DOT);
-    result_ = result_ && dot_call_access_1(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_2(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3(builder_, level_ + 1);
+    result_ = dot_call_access_0(builder_, level_ + 1);
+    if (!result_) result_ = dot_call_access_1(builder_, level_ + 1);
     exit_section_(builder_, marker_, DOT_CALL_ACCESS, result_);
+    return result_;
+  }
+
+  // DOT ( (IDENTIFIER | CONSTANT | keyword_as_method) macro_fragment_suffix*
+  //                         | INSTANCE_VAR | CLASS_VAR | AT macro_interpolation | macro_interpolation
+  //                         ) [&<<isTokenTightAfterPreviousToken>> QUESTION]
+  //                             [!<<isTokenTightAfterPreviousToken>> loose_grouped_postfix_argument_list
+  //                             | !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
+  //                            | call_args
+  //                            // The lookahead mirrors method_call_expression's bare
+  //                            // alternative with Crystal's unary-operator whitespace rule:
+  //                            // `Time.monotonic - start` is the spaced binary minus, never a
+  //                            // bare argument of the dot-call, while the tight minus in
+  //                            // `file.seek -ZIP_TAIL_SIZE` stays the unary negation of the
+  //                            // first argument (stdlib time.cr `shift -span.to_i`).
+  //                            | !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list
+  //                            // Loose (whitespace-separated) bare array argument with
+  //                            // no comma: `CLI.parse_args [\n ... \n]` (ameba cmd_spec)
+  //                            // is a call with the array as its only argument, never an
+  //                            // index postfix. The looseness predicate replaces the
+  //                            // !LBRACKET veto: a tight `[` (`config.foo["key"]`) still
+  //                            // binds as the index postfix. !LBRACE keeps `obj.m { }` on
+  //                            // the block path; the binary/range ops (`obj.m ..5` — Crystal
+  //                            // rejects a leading `..` here) stay blocked.
+  //                            | !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list
+  //                            // Array-comma bare arguments (`obj.f [1], 2`) are a
+  //                            // whitespace-separated form: a tight `[` directly after
+  //                            // the method name is the receiver's INDEX postfix
+  //                            // (`identity.headers["Etag"], "gzip"` as another call's
+  //                            // argument — kemal static_file_handler_spec:135) and
+  //                            // must never swallow the enclosing call's next argument.
+  //                            | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list]
+  private static boolean dot_call_access_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, DOT);
+    result_ = result_ && dot_call_access_0_1(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_2(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // (IDENTIFIER | CONSTANT | keyword_as_method) macro_fragment_suffix*
   //                         | INSTANCE_VAR | CLASS_VAR | AT macro_interpolation | macro_interpolation
-  private static boolean dot_call_access_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_1")) return false;
+  private static boolean dot_call_access_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_1_0(builder_, level_ + 1);
+    result_ = dot_call_access_0_1_0(builder_, level_ + 1);
     if (!result_) result_ = consumeToken(builder_, INSTANCE_VAR);
     if (!result_) result_ = consumeToken(builder_, CLASS_VAR);
-    if (!result_) result_ = dot_call_access_1_3(builder_, level_ + 1);
+    if (!result_) result_ = dot_call_access_0_1_3(builder_, level_ + 1);
     if (!result_) result_ = macro_interpolation(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // (IDENTIFIER | CONSTANT | keyword_as_method) macro_fragment_suffix*
-  private static boolean dot_call_access_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_1_0")) return false;
+  private static boolean dot_call_access_0_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_1_0_0(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_1_0_1(builder_, level_ + 1);
+    result_ = dot_call_access_0_1_0_0(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_1_0_1(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // IDENTIFIER | CONSTANT | keyword_as_method
-  private static boolean dot_call_access_1_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_1_0_0")) return false;
+  private static boolean dot_call_access_0_1_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_1_0_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, CONSTANT);
@@ -3664,19 +3704,19 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // macro_fragment_suffix*
-  private static boolean dot_call_access_1_0_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_1_0_1")) return false;
+  private static boolean dot_call_access_0_1_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_1_0_1")) return false;
     while (true) {
       int pos_ = current_position_(builder_);
       if (!macro_fragment_suffix(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "dot_call_access_1_0_1", pos_)) break;
+      if (!empty_element_parsed_guard_(builder_, "dot_call_access_0_1_0_1", pos_)) break;
     }
     return true;
   }
 
   // AT macro_interpolation
-  private static boolean dot_call_access_1_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_1_3")) return false;
+  private static boolean dot_call_access_0_1_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_1_3")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
     result_ = consumeToken(builder_, AT);
@@ -3686,26 +3726,26 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // [&<<isTokenTightAfterPreviousToken>> QUESTION]
-  private static boolean dot_call_access_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_2")) return false;
-    dot_call_access_2_0(builder_, level_ + 1);
+  private static boolean dot_call_access_0_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_2")) return false;
+    dot_call_access_0_2_0(builder_, level_ + 1);
     return true;
   }
 
   // &<<isTokenTightAfterPreviousToken>> QUESTION
-  private static boolean dot_call_access_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_2_0")) return false;
+  private static boolean dot_call_access_0_2_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_2_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_2_0_0(builder_, level_ + 1);
+    result_ = dot_call_access_0_2_0_0(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, QUESTION);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // &<<isTokenTightAfterPreviousToken>>
-  private static boolean dot_call_access_2_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_2_0_0")) return false;
+  private static boolean dot_call_access_0_2_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_2_0_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _AND_);
     result_ = isTokenTightAfterPreviousToken(builder_, level_ + 1);
@@ -3739,9 +3779,9 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                            // argument — kemal static_file_handler_spec:135) and
   //                            // must never swallow the enclosing call's next argument.
   //                            | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list]
-  private static boolean dot_call_access_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3")) return false;
-    dot_call_access_3_0(builder_, level_ + 1);
+  private static boolean dot_call_access_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3")) return false;
+    dot_call_access_0_3_0(builder_, level_ + 1);
     return true;
   }
 
@@ -3771,34 +3811,34 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   //                            // argument — kemal static_file_handler_spec:135) and
   //                            // must never swallow the enclosing call's next argument.
   //                            | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list
-  private static boolean dot_call_access_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0")) return false;
+  private static boolean dot_call_access_0_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_3_0_0(builder_, level_ + 1);
-    if (!result_) result_ = dot_call_access_3_0_1(builder_, level_ + 1);
+    result_ = dot_call_access_0_3_0_0(builder_, level_ + 1);
+    if (!result_) result_ = dot_call_access_0_3_0_1(builder_, level_ + 1);
     if (!result_) result_ = call_args(builder_, level_ + 1);
-    if (!result_) result_ = dot_call_access_3_0_3(builder_, level_ + 1);
-    if (!result_) result_ = dot_call_access_3_0_4(builder_, level_ + 1);
-    if (!result_) result_ = dot_call_access_3_0_5(builder_, level_ + 1);
+    if (!result_) result_ = dot_call_access_0_3_0_3(builder_, level_ + 1);
+    if (!result_) result_ = dot_call_access_0_3_0_4(builder_, level_ + 1);
+    if (!result_) result_ = dot_call_access_0_3_0_5(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // !<<isTokenTightAfterPreviousToken>> loose_grouped_postfix_argument_list
-  private static boolean dot_call_access_3_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_0")) return false;
+  private static boolean dot_call_access_0_3_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_3_0_0_0(builder_, level_ + 1);
+    result_ = dot_call_access_0_3_0_0_0(builder_, level_ + 1);
     result_ = result_ && loose_grouped_postfix_argument_list(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // !<<isTokenTightAfterPreviousToken>>
-  private static boolean dot_call_access_3_0_0_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_0_0")) return false;
+  private static boolean dot_call_access_0_3_0_0_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_0_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isTokenTightAfterPreviousToken(builder_, level_ + 1);
@@ -3807,11 +3847,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isTokenTightAfterPreviousToken>> call_args COMMA bare_argument_list
-  private static boolean dot_call_access_3_0_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_1")) return false;
+  private static boolean dot_call_access_0_3_0_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_3_0_1_0(builder_, level_ + 1);
+    result_ = dot_call_access_0_3_0_1_0(builder_, level_ + 1);
     result_ = result_ && call_args(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
@@ -3820,8 +3860,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isTokenTightAfterPreviousToken>>
-  private static boolean dot_call_access_3_0_1_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_1_0")) return false;
+  private static boolean dot_call_access_0_3_0_1_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_1_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isTokenTightAfterPreviousToken(builder_, level_ + 1);
@@ -3830,23 +3870,23 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !DOT !LBRACKET !LBRACE !<<isDotBareArgsBinaryOp>> !<<isHeredocBodyOpener>> bare_argument_list
-  private static boolean dot_call_access_3_0_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_3")) return false;
+  private static boolean dot_call_access_0_3_0_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_3")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_3_0_3_0(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_3_1(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_3_2(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_3_3(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_3_4(builder_, level_ + 1);
+    result_ = dot_call_access_0_3_0_3_0(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_3_1(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_3_2(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_3_3(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_3_4(builder_, level_ + 1);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // !DOT
-  private static boolean dot_call_access_3_0_3_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_3_0")) return false;
+  private static boolean dot_call_access_0_3_0_3_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_3_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !consumeToken(builder_, DOT);
@@ -3855,8 +3895,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !LBRACKET
-  private static boolean dot_call_access_3_0_3_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_3_1")) return false;
+  private static boolean dot_call_access_0_3_0_3_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_3_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !consumeToken(builder_, LBRACKET);
@@ -3865,8 +3905,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !LBRACE
-  private static boolean dot_call_access_3_0_3_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_3_2")) return false;
+  private static boolean dot_call_access_0_3_0_3_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_3_2")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !consumeToken(builder_, LBRACE);
@@ -3875,8 +3915,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isDotBareArgsBinaryOp>>
-  private static boolean dot_call_access_3_0_3_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_3_3")) return false;
+  private static boolean dot_call_access_0_3_0_3_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_3_3")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isDotBareArgsBinaryOp(builder_, level_ + 1);
@@ -3885,8 +3925,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isHeredocBodyOpener>>
-  private static boolean dot_call_access_3_0_3_4(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_3_4")) return false;
+  private static boolean dot_call_access_0_3_0_3_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_3_4")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isHeredocBodyOpener(builder_, level_ + 1);
@@ -3895,23 +3935,23 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !DOT !LBRACE !<<isDotBareArgsBinaryOp>> !<<isTokenTightAfterPreviousToken>> !<<isHeredocBodyOpener>> bare_argument_list
-  private static boolean dot_call_access_3_0_4(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_4")) return false;
+  private static boolean dot_call_access_0_3_0_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_4")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_3_0_4_0(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_4_1(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_4_2(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_4_3(builder_, level_ + 1);
-    result_ = result_ && dot_call_access_3_0_4_4(builder_, level_ + 1);
+    result_ = dot_call_access_0_3_0_4_0(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_4_1(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_4_2(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_4_3(builder_, level_ + 1);
+    result_ = result_ && dot_call_access_0_3_0_4_4(builder_, level_ + 1);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
     exit_section_(builder_, marker_, null, result_);
     return result_;
   }
 
   // !DOT
-  private static boolean dot_call_access_3_0_4_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_4_0")) return false;
+  private static boolean dot_call_access_0_3_0_4_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_4_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !consumeToken(builder_, DOT);
@@ -3920,8 +3960,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !LBRACE
-  private static boolean dot_call_access_3_0_4_1(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_4_1")) return false;
+  private static boolean dot_call_access_0_3_0_4_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_4_1")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !consumeToken(builder_, LBRACE);
@@ -3930,8 +3970,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isDotBareArgsBinaryOp>>
-  private static boolean dot_call_access_3_0_4_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_4_2")) return false;
+  private static boolean dot_call_access_0_3_0_4_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_4_2")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isDotBareArgsBinaryOp(builder_, level_ + 1);
@@ -3940,8 +3980,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isTokenTightAfterPreviousToken>>
-  private static boolean dot_call_access_3_0_4_3(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_4_3")) return false;
+  private static boolean dot_call_access_0_3_0_4_3(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_4_3")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isTokenTightAfterPreviousToken(builder_, level_ + 1);
@@ -3950,8 +3990,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isHeredocBodyOpener>>
-  private static boolean dot_call_access_3_0_4_4(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_4_4")) return false;
+  private static boolean dot_call_access_0_3_0_4_4(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_4_4")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isHeredocBodyOpener(builder_, level_ + 1);
@@ -3960,11 +4000,11 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list
-  private static boolean dot_call_access_3_0_5(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_5")) return false;
+  private static boolean dot_call_access_0_3_0_5(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_5")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_);
-    result_ = dot_call_access_3_0_5_0(builder_, level_ + 1);
+    result_ = dot_call_access_0_3_0_5_0(builder_, level_ + 1);
     result_ = result_ && array_literal(builder_, level_ + 1);
     result_ = result_ && consumeToken(builder_, COMMA);
     result_ = result_ && bare_argument_list(builder_, level_ + 1);
@@ -3973,11 +4013,32 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   // !<<isTokenTightAfterPreviousToken>>
-  private static boolean dot_call_access_3_0_5_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "dot_call_access_3_0_5_0")) return false;
+  private static boolean dot_call_access_0_3_0_5_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_0_3_0_5_0")) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NOT_);
     result_ = !isTokenTightAfterPreviousToken(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  // DOT &<<isDotAccessIncomplete>>
+  private static boolean dot_call_access_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, DOT);
+    result_ = result_ && dot_call_access_1_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // &<<isDotAccessIncomplete>>
+  private static boolean dot_call_access_1_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "dot_call_access_1_1")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _AND_);
+    result_ = isDotAccessIncomplete(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }

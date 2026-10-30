@@ -11,6 +11,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
 
     override fun includeRanges(): Boolean = true
 
+    fun testIncompleteDotAccess() {
+        doTest(true)
+    }
+
     fun testRequireStatement() {
         doTest(true)
     }

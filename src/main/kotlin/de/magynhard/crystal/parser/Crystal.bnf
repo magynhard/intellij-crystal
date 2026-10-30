@@ -1294,6 +1294,14 @@ private postfix_op ::= NLS DOT (AS | AS_QUESTION | IS_A) LPAREN type_reference R
 // argument(s)". The fragment suffix is tight-gated, so `obj.method {{ x }}`
 // keeps its interpolation argument. `}}!`/`}}?` are lexer tokens of the
 // interpolation end (Crystal.flex), so `.to_u{{n}}!` stays covered.
+// An incomplete member access typed in the editor (`token.` at end of line or
+// before the next statement) must parse as a nameless dot_call_access instead
+// of failing the whole enclosing statement (`loop do` bodies in
+// signature_help.cr). The nameless shape needs an end-of-line tail: any other
+// follower (`value.!(args)`, a same-line argument) belongs to the historic
+// error reporting, so the invalid pseudo-method suffixes stay rejected.
+// The nameless node is a superset of the historical error only for sources
+// that previously failed, and no consumer may treat it as a resolved call.
 dot_call_access ::= DOT ( (IDENTIFIER | CONSTANT | keyword_as_method) macro_fragment_suffix*
                         | INSTANCE_VAR | CLASS_VAR | AT macro_interpolation | macro_interpolation
                         ) [&<<isTokenTightAfterPreviousToken>> QUESTION]
@@ -1322,7 +1330,8 @@ dot_call_access ::= DOT ( (IDENTIFIER | CONSTANT | keyword_as_method) macro_frag
                            // (`identity.headers["Etag"], "gzip"` as another call's
                            // argument — kemal static_file_handler_spec:135) and
                            // must never swallow the enclosing call's next argument.
-                           | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list] {
+                           | !<<isTokenTightAfterPreviousToken>> array_literal COMMA bare_argument_list]
+                          | DOT &<<isDotAccessIncomplete>> {
   mixin="de.magynhard.crystal.psi.impl.CrystalDotCallAccessMixin"
 }
 
