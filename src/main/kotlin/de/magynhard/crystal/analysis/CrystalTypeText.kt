@@ -7,6 +7,11 @@ package de.magynhard.crystal.analysis
  */
 internal object CrystalTypeText {
 
+    /** Substitute bare type parameters, never segments of qualified type paths. */
+    fun substituteParameters(text: String, bindings: Map<String, String>): String =
+        Regex("(?<![\\p{L}\\p{N}_:])[\\p{Lu}][\\p{L}\\p{N}_]*(?![\\p{L}\\p{N}_:])")
+            .replace(text) { match -> bindings[match.value] ?: match.value }
+
     /** Depth-aware split on top-level commas, respecting (), [], {} nesting. */
     fun splitTopLevelCommas(text: String): List<String> {
         val parts = mutableListOf<String>()

@@ -188,21 +188,52 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 methodName
             )
             if (!collection.complete || collection.methods.isEmpty()) return CrystalTypeResolution.Unknown
+            val candidates = withoutRequiredBlockOverloads(collection.methods, callContext)
+            if (candidates.isEmpty()) return CrystalTypeResolution.Unknown
             // Multiple overloads may still agree on their return type: every
             // String#gsub overload declares `: String`, so the chain's type is
             // determinable even though the argument shapes differ. Diverging
             // or missing annotations stay Unknown (honest).
-            if (collection.methods.size > 1) {
-                val returns = collection.methods.map { method ->
-                    method.typeReference?.text?.filterNot(Char::isWhitespace)
-                }
-                if (returns.any { it == null } || returns.distinct().size != 1) {
-                    return CrystalTypeResolution.Unknown
-                }
+            if (candidates.size > 1 && candidates.any { it.typeReference == null }) {
+                return CrystalTypeResolution.Unknown
             }
-            results.add(resolveMethodReturn(collection.methods.first()))
+            val returns = candidates.map { method ->
+                val declared = method.typeReference?.text
+                val owner = method.stub?.ownerQualifiedName ?: CrystalPsiUtils.methodOwnerQualifiedName(method)
+                val generic = CrystalTypeText.genericBaseAndArguments(typeName)
+                if (!isStatic && declared != null && generic?.second?.isNotEmpty() == true && owner != null) {
+                    if (method.node.findChildByType(CrystalTypes.FORALL) != null) return CrystalTypeResolution.Unknown
+                    val bindings = hierarchy.ownerTypeBindings(identity.toShared(), generic.second, owner)
+                        ?: return CrystalTypeResolution.Unknown
+                    parseTypeSet(CrystalTypeText.substituteParameters(declared, bindings))
+                } else resolveMethodReturn(method)
+            }
+            if (returns.distinct().size != 1) return CrystalTypeResolution.Unknown
+            results.add(returns.first())
         }
         return mergeKnown(results)
+    }
+
+    /** Only exclude definitely required block signatures from definitely block-free DOT calls. */
+    private fun withoutRequiredBlockOverloads(
+        methods: List<CrystalMethodDefinition>,
+        callContext: PsiElement,
+    ): List<CrystalMethodDefinition> {
+        val access = callContext as? CrystalDotCallAccess ?: return methods
+        val expression = PsiTreeUtil.getParentOfType(access, CrystalExpression::class.java) ?: return methods
+        if (PsiTreeUtil.findChildOfType(expression, CrystalBlock::class.java) != null) return methods
+        val holder = access.callArgs ?: access.bareArgumentList
+        if (CrystalPsiCallArguments.argumentElements(holder).any {
+                it.node.findChildByType(CrystalTypes.AMPERSAND) != null
+            }) return methods
+        return methods.filterNot { method ->
+            method.parameterList?.parameterList.orEmpty().any { parameter ->
+                val type = parameter.typeReference?.text.orEmpty()
+                parameter.node.findChildByType(CrystalTypes.AMPERSAND) != null &&
+                    parameter.expression == null && type.contains("->") &&
+                    !type.trim().endsWith('?') && !Regex("\\bNil\\b").containsMatchIn(type)
+            }
+        }
     }
 
     fun resolveType(typeName: String, element: PsiElement): CrystalTypeIdentity? =
@@ -1159,6 +1190,14 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 CrystalVariableProvenance.ASSIGNMENT
             )
         }
+        val grouped = PsiTreeUtil.getParentOfType(position, CrystalGroupedExpression::class.java, false)
+        if (grouped != null && grouped.expressionList.firstOrNull()?.textRange?.contains(position.textRange) == true) {
+            flatAssignRhs(grouped, name)?.let { rhs ->
+                // Like ordinary assignment targets, grouped write targets show
+                // their assigned value before the enclosing truthiness test.
+                return VariableState.Bound(resolve(rhs), CrystalVariableProvenance.ASSIGNMENT)
+            }
+        }
         // Hovering (or otherwise resolving at) a destructuring target itself:
         // the boundary flow below only binds preceding statements, so the
         // target's own multi-assignment is resolved directly, mirroring the
@@ -1302,8 +1341,20 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val preceding = children.take(index)
         val lastAnd = preceding.indexOfLast { it.node.elementType == CrystalTypes.AND_AND }
         if (lastAnd < 0) return null
-        var state = incoming
         val segments = splitLogicalSegments(preceding.take(lastAnd), CrystalTypes.AND_AND)
+        val state = trueAndSegments(segments, container, name, incoming)
+        // Preserve effects in the current operand before the actual use site.
+        return flowExpressionSegment(preceding.drop(lastAnd + 1), name, state).state
+    }
+
+    /** A successful pure && condition proves each operand in evaluation order. */
+    private fun trueAndSegments(
+        segments: List<List<PsiElement>>,
+        context: PsiElement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState {
+        var state = incoming
         for (segment in segments) {
             val flow = flowExpressionSegment(segment, name, state)
             if (!flow.fallsThrough) return VariableState.Unknown
@@ -1312,12 +1363,11 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 narrowedBranchState(segment.single(), name, state, true) ?: state
             } else {
                 inlineIsAType(segment, name)?.let { type ->
-                    narrowIsAByName(type, container, state, true)
+                    narrowIsAByName(type, context, state, true)
                 } ?: state
             }
         }
-        // Preserve effects in the current operand before the actual use site.
-        return flowExpressionSegment(preceding.drop(lastAnd + 1), name, state).state
+        return state
     }
 
     private fun ifBranchIncoming(
@@ -1454,8 +1504,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * incorrect navigation or diagnostics. Supported: bare-variable
      * truthiness, conditional assignment, `.nil?`, `.is_a?(Type)`, and
      * `.responds_to?(:name)` member availability —
-     * everything else (binary conditions, negations, method calls, `== nil`)
-     * keeps the incoming state.
+     * A true pure && chain applies its operand facts in order; other binary
+     * conditions, negations, method calls, and `== nil` keep the incoming state.
      */
     private fun narrowedBranchState(
         condition: PsiElement,
@@ -1466,6 +1516,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         // Locals and parameters only: constants and ivars keep today's behavior.
         if (!isNarrowableName(name)) return null
         val target = unwrapGrouping(condition)
+        val children = significantChildren(target)
+        if (conditionHolds && children.any { it.node.elementType == CrystalTypes.AND_AND } &&
+            children.none { it.node.elementType == CrystalTypes.OR_OR }
+        ) {
+            return trueAndSegments(splitLogicalSegments(children, CrystalTypes.AND_AND), target, name, incoming)
+        }
         // Conditional assignment binds first, then the truthiness test applies.
         val assignment = listOfNotNull(
             target as? CrystalAssignment,
@@ -1596,6 +1652,12 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * multi-element shapes are not single assignable forms.
      */
     private fun flatAssignRhs(target: PsiElement, name: String): PsiElement? {
+        if (target is CrystalGroupedExpression && target.node.findChildByType(CrystalTypes.ASSIGN) != null) {
+            val expressions = target.expressionList
+            if (expressions.size == 2 && unwrapGrouping(expressions.first()).let {
+                    it is CrystalVariableReference && it.text == name
+                }) return expressions.last()
+        }
         val kids = target.node.getChildren(null).map { it.psi }.filterNot {
             it is PsiWhiteSpace || it.node.elementType == CrystalTypes.NEWLINE
         }
@@ -2175,8 +2237,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val postfix = multi.postfixModifier
         fun flowMultiBody(base: VariableState): VariableFlow {
             val binding = multiTargetBinding(multi, name)
-                ?: return VariableFlow.falling(VariableState.Unknown)
             val values = multi.expressionList
+            if (binding == null) return flowExpressionSegment(values, name, base)
             val valuesFlow = values.map { flowElement(it, name, base) }
             if (valuesFlow.any { !it.fallsThrough }) return VariableFlow.falling(VariableState.Unknown)
             val assigned = resolveMultiTargetType(multi, binding)
@@ -2833,9 +2895,19 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 name
             )
             if (!collection.complete) return CrystalTypeResolution.Unknown
-            val candidates = collection.methods
-            if (candidates.size > 1) return CrystalTypeResolution.Unknown
-            if (candidates.size == 1) return resolveMethodReturn(candidates.single())
+            val candidates = withoutRequiredBlockOverloads(collection.methods, call)
+            if (candidates.isNotEmpty()) {
+                // Multiple overloads may still agree on their return type: every
+                // String#gsub overload declares `: String`, so the chain's type is
+                // determinable even though the argument shapes differ. Diverging
+                // or missing annotations stay Unknown (honest).
+                if (candidates.size > 1 && candidates.any { it.typeReference == null }) {
+                    return CrystalTypeResolution.Unknown
+                }
+                val returns = candidates.map { resolveMethodReturn(it) }
+                if (returns.distinct().size != 1) return CrystalTypeResolution.Unknown
+                return returns.first()
+            }
         }
         val topLevel = methods(name).filter {
             (it.stub?.ownerQualifiedName ?: CrystalPsiUtils.methodOwnerQualifiedName(it)) == null &&

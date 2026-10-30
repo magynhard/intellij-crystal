@@ -121,8 +121,11 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             ) {
                 return resolved
             }
-            // If resolved element is a variable identifier, return it for type info
-            if (isVariableIdentifier(resolved)) return resolved
+            // Local-variable hovers need the read site's flow state, not the
+            // declaration's (e.g. a grouped assignment before an && guard).
+            if (isVariableIdentifier(resolved)) {
+                return unwrapped.takeIf(::isVariableIdentifier) ?: resolved
+            }
             // Otherwise, resolved to something like an assignment — continue to next steps
         }
 

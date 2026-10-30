@@ -209,7 +209,9 @@ class CrystalReference(
 
     private fun findLocalDeclaration(): PsiElement? {
         val containingFile = element.containingFile ?: return null
-        var scope: PsiElement? = element.parent
+        // Include siblings of the reference itself: flat logical expressions
+        // can place an earlier grouped assignment beside the current read.
+        var scope: PsiElement? = element
         // Walk up the PSI tree, but NEVER cross the file boundary — climbing into
         // PsiDirectory would traverse the whole project tree and lazily parse
         // every sibling file (including .sh build scripts), freezing the IDE for

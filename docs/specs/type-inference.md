@@ -105,8 +105,18 @@ Within a pure `&&` chain, a direct `is_a?` guard refines the tracked local in
 subsequent operands, including a chain used as a postfix `unless` condition.
 Grouped standalone guards also use the existing direct-guard rules. Operands
 are folded in order, so an intervening assignment replaces the refinement.
-These operand-local facts do not leak past the expression or refine an entire
-compound condition's branches. Mixed `&&`/`||` expressions remain conservative.
+Grouped local assignments (`(base_name = candidate)`) also act as truthiness
+guards: the later `&&` operand sees the assigned type without `Nil`. Ordinary
+flow after the expression retains its nullable state. Hover must keep the
+read-site PSI rather than jumping back to the grouped declaration and losing
+that refinement. Unrelated multi-assignments preserve incoming types while
+still evaluating their right-hand sides in source order.
+The positive branch of a pure `&&` condition inherits the same source-ordered
+facts because every operand must have succeeded. The false branch and mixed
+`&&`/`||` expressions remain conservative; no positive fact leaks into sibling
+branches or past a skipped assignment. Grouped write targets show the assigned
+right-hand-side type before truthiness refinement (`String | Nil` for
+`split(...).first?`), while later `&&` operands and the successful body see `String`.
 `CrystalGuardedAssignmentFlowTest` covers crystalline's AST-variable lookup
 patterns, actual missing members, exact navigation, and refinement lifetime.
 
@@ -339,8 +349,17 @@ mechanism.
 
 ## Conservative Limits
 
-- Completed-call overload selection is not argument-aware; multiple exact candidates are unknown.
-- Generic type parameters are not substituted through method signatures.
+- Completed-call overload selection is not argument-type-aware; multiple candidates
+  are known only when the retained signatures agree on their declared return type.
+- Instance-call return annotations substitute fixed owner type parameters through
+  exact written include and superclass edges. Every path to the method owner
+  must agree; conflicting instantiations, variadic/defaulted type parameters,
+  unsupported paths, and method-local `forall` instantiation stay unknown.
+  Parameter restrictions and method-body specialization are not substituted.
+- A definitely block-free DOT call excludes overloads with a definitely required,
+  non-nilable typed block parameter. Literal blocks, block passes, and optional
+  blocks retain the conservative return pool; this is not argument-aware overload
+  selection. All remaining overloads must have the same instantiated return type.
 - Guard narrowing covers only syntactically direct guards (bare-variable truthiness, `.nil?`,
   conditional assignment, `.is_a?(Type)`, type `case`, abrupt guards), plus preceding
   direct guards within pure `&&` chains. Loops, mixed `&&`/`||` expressions,

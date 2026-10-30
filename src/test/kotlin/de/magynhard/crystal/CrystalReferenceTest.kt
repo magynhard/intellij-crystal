@@ -62,6 +62,45 @@ class CrystalReferenceTest : BasePlatformTestCase() {
 
     // ==================== Reference Resolution ====================
 
+    fun testGroupedAssignmentResolvesInLaterLogicalOperands() {
+        for (operator in listOf("&&", "||")) {
+            myFixture.configureByText("query.cr", """
+                def methods_for(type_name, methods)
+                  if methods.empty? $operator (base_name = type_name.split('(').first?) $operator base_<caret>name != type_name
+                    puts base_name
+                  end
+                end
+            """.trimIndent())
+            val target = myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve()
+            assertNotNull("A preceding grouped assignment must bind in a later $operator operand", target)
+            assertEquals(myFixture.file.text.indexOf("base_name ="), target!!.textOffset)
+        }
+    }
+
+    fun testLaterGroupedAssignmentDoesNotBindAnEarlierOperand() {
+        myFixture.configureByText("query.cr", "def collect(value)\nif base_<caret>name && (base_name = value)\nend\nend")
+        assertNull(myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve())
+    }
+
+    fun testGroupedAssignmentDoesNotBindItsOwnRightHandSide() {
+        myFixture.configureByText("query.cr", "def collect(value)\nif value && (base_name = base_<caret>name)\nend\nend")
+        assertNull(myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve())
+    }
+
+    fun testGroupedConditionAssignmentDoesNotLeakIntoAnotherMethod() {
+        myFixture.configureByText("query.cr", """
+            def collect(value)
+              if value && (base_name = value)
+                puts base_name
+              end
+            end
+            def other
+              base_<caret>name
+            end
+        """.trimIndent())
+        assertNull(myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve())
+    }
+
     fun testConditionalAssignmentUseResolvesToConditionTarget() {
         myFixture.configureByText("test.cr", "def collect(channel)\nif ucid = channel.receive\nuci<caret>d\nend\nend")
         val target = myFixture.file.findReferenceAt(myFixture.caretOffset)!!.resolve()

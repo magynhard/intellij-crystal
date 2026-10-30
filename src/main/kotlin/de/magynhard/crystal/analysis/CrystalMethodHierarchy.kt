@@ -193,6 +193,73 @@ internal class CrystalMethodHierarchy(
         return emptyList()
     }
 
+    /** Instantiate a method owner's parameters through exact written hierarchy edges. */
+    fun ownerTypeBindings(
+        receiver: CrystalTypeIdentity,
+        arguments: List<String>,
+        owner: String,
+    ): Map<String, String>? {
+        val results = mutableListOf<Map<String, String>>()
+        val visited = mutableSetOf<Pair<CrystalTypeIdentity, List<String>>>()
+        var incomplete = false
+        fun visit(type: CrystalTypeIdentity, actual: List<String>, depth: Int) {
+            if (depth > 16) {
+                incomplete = true
+                return
+            }
+            if (!visited.add(type to actual)) return
+            val declarations = findExactTypeDeclarations(type)
+            val parameterSets = declarations.mapNotNull { declaration ->
+                PsiTreeUtil.getChildOfType(declaration, CrystalTypeParameters::class.java)?.let { parameters ->
+                    CrystalTypeText.splitTopLevelCommas(parameters.text.removeSurrounding("(", ")"))
+                }
+            }.distinct()
+            if (parameterSets.size > 1) {
+                incomplete = true
+                return
+            }
+            val parameters = parameterSets.singleOrNull().orEmpty()
+            if (parameters.size != actual.size || parameters.any { !it.matches(Regex("[A-Z][A-Za-z0-9_]*")) }) {
+                incomplete = true
+                return
+            }
+            val bindings = parameters.zip(actual).toMap()
+            if (type.qualifiedName == owner) {
+                results.add(bindings)
+                return
+            }
+            fun follow(reference: CrystalTypeReference?, edgeContext: PsiElement) {
+                if (reference == null) return
+                val edge = resolveEdge(reference, edgeContext) ?: run { incomplete = true; return }
+                val instantiated = CrystalTypeText.substituteParameters(reference.text, bindings)
+                val args = CrystalTypeText.genericBaseAndArguments(instantiated)?.second
+                    ?: run { incomplete = true; return }
+                visit(edge, args, depth + 1)
+            }
+            for (declaration in declarations) {
+                val body = when (declaration) {
+                    is CrystalClassDefinition -> declaration.classBody
+                    is CrystalStructDefinition -> declaration.classBody
+                    is CrystalModuleDefinition -> declaration.classBody
+                    else -> null
+                }
+                for (member in body?.children.orEmpty().flatMap(::semanticMembers)) {
+                    if (member is CrystalIncludeStatement) {
+                        follow(member.typeReference, member)
+                    }
+                }
+                val superclass = when (declaration) {
+                    is CrystalClassDefinition -> declaration.superclassClause?.typeReference
+                    is CrystalStructDefinition -> declaration.superclassClause?.typeReference
+                    else -> null
+                }
+                follow(superclass, declaration)
+            }
+        }
+        visit(receiver, arguments, 0)
+        return results.distinct().singleOrNull()?.takeUnless { incomplete }
+    }
+
     private fun collectHierarchy(
         root: CrystalTypeIdentity,
         mode: CrystalReceiverMode,

@@ -341,3 +341,45 @@ including ancestor shadowing and strict named-resolution checks; the temporary
 machine-specific reproduction was removed. The subsequent full suite passes
 **2,994 tests**, without failures or skips. This interactive completion check is
 separate from the 496-finding offline inspection result above.
+
+## Grouped local bindings and read-site types (2026-10-30)
+
+Compared commit `96337d33` with the grouped-binding/type-flow fixes against the
+same crystalline revision `a5f6f1bb9d55decf507138da7b2c47628ee15328` in a disposable
+checkout. Locked dependencies were copied from the installed checkout and
+verified with `shards check`. The two shard convenience links `lib/lsp/lib -> ..`
+and `lib/sentry/lib -> ..` were omitted from that copy because they form directory
+cycles; source files and the original checkout were not changed. Both audit runs
+confirm the same target fingerprint
+`3d1852b6314ac1858aa63995b6ec79be85ba5a9c5193346f8eb1b4612048b390`.
+
+The raw parse preflight retains **three errors in three of 151 files**. The
+offline result improves from **477 to 472** Crystal findings in `.cr` files,
+with two filtered non-Crystal findings in each run. Comparing inspection, file,
+line, and description as multisets yields **five removals and no additions**:
+`base_name` at `lightweight/query.cr:156` and `:498`, `existing` at
+`lightweight/completion.cr:243`, and `first_indent`/`ind` at
+`broken_source_fixer.cr:480`/`:597`. All are `CrystalUnresolvedName`.
+The offline parser inspection also includes injected test snippets; its count
+must not be equated with the raw source parse preflight.
+
+A separate fixture copy of the real `query.cr` and relevant real stdlib sources
+verifies **String** at both right-hand `base_name` reads, including the complete
+documentation-provider hover path. The portable regressions retain the
+`split(...).first?` chain, generic include/superclass substitution, grouped
+truthiness, read-site hover, unrelated destructuring, reassignment, block-call
+conservatism, and conflicting generic paths. The complete suite passes
+**3,016 tests**, without failures or skips. The temporary machine-specific test
+was removed. This is not a clean-project or clean-IDE-log claim.
+
+The follow-up covers the grouped assignment target itself and the successful
+`if` body, not only the next operand. Fixture copies of the same real sources
+verify all six hover positions: assignment targets at `query.cr:156` and `:498`
+show `String | Nil`; the right-hand operands at those lines and body reads at
+`:160` and `:502` show `String`. The positive branch of a pure `&&` condition
+inherits its source-ordered operand facts, while false/mixed branches and
+shadowing remain conservative. Seven additional portable regressions bring the
+complete suite to **3,023 passing tests**, with no failures or skips. Repeating
+the external audit with the same fingerprint retains **exactly the same 472
+findings** (multiset comparison: zero removals and zero additions), two filtered
+non-Crystal findings, and the same three-error raw parse baseline.

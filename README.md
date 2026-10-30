@@ -45,6 +45,8 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Ctrl+B / Ctrl+Click on type references inside those static macro bodies resolves their namespace- and require-visible definitions, including following definitions in the same file
 - Guarded `responds_to?` member calls can navigate to known require-visible compatible declarations; hover distinguishes these candidates from exact dispatch
 - Flow-aware member checks honor `case variable = expression` type branches and direct `is_a?` guards in later operands of pure `&&` chains
+- Local names assigned in earlier logical operands resolve and navigate to their grouped assignment; hover shows the refined read-site type
+- Instance-call return types retain fixed generic arguments through exact include and superclass edges, including `split(...).first?`
 - Statically named `record` declarations resolve across required files in type annotations and references, with lexical namespaces, qualified paths, and record-constructor navigation
 - Ctrl+B / Ctrl+Click navigation on individual FFI path segments in type annotations and expressions, such as `LibGMP::MPF` and `LibGMP::MpLimb.new!(num)`, with the standard target chooser for multiple matching declarations
 - Namespace- and require-aware annotation navigation and documentation, with missing-annotation diagnostics

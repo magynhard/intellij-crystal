@@ -254,6 +254,12 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Unqualified call overload returns** — unqualified (dot-free) calls to
+  same-name method overloads infer their type when every overload declares the
+  same return type, mirroring the established DOT-call rule. Visit tables such
+  as crystalline's `methods_for` now show `Array(MethodInfo)` on the assignment
+  target, later reassignments, and loop bodies instead of staying unknown;
+  diverging or missing return annotations remain unknown.
 - **Condition-assignment local references** — recognize locals introduced by
   conditions such as `if ucid = channel.receive` in the following body, including
   nested blocks. Missing-name diagnostics and Go to Declaration use the actual
@@ -348,6 +354,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   Single exact use-site types now take precedence;
   missing-member warnings, reassignment, block shadowing, and branch boundaries
   remain covered by regression tests.
+- **Grouped assignments in logical conditions** — local names assigned in an
+  earlier operand, such as `(base_name = value) && base_name != other`, now
+  resolve and navigate to that assignment. This removes false `Cannot find
+  'base_name'` warnings in crystalline's `lightweight/query.cr` while retaining
+  diagnostics for reads before the binding and unresolved assignment values.
+  Hover uses the refined read-site type: `split(...).first?` yields
+  `String | Nil` at the assignment target, narrowed to `String` in the next
+  `&&` operand and the successful `if` body. Instance-call
+  return annotations substitute fixed generic arguments through exact include
+  and superclass edges; block-free calls exclude definitely required-block
+  overloads. Unrelated destructuring no longer erases existing local types.
 - **Multiline `macro` argument labels** — record fields such as
   `macro : Bool = false` and named arguments such as `macro: false` no longer
   switch the lexer into a macro body when written at the beginning of a line.

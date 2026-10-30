@@ -11,6 +11,17 @@ class CrystalUnresolvedNameInspectionTest : BasePlatformTestCase() {
 
     // ==================== Bare identifiers ====================
 
+    fun testGroupedAssignmentInAndConditionBindsTargetAndLaterReads() {
+        myFixture.configureByText("query.cr", """
+            def methods_for(type_name, methods)
+              if methods.empty? && (base_name = type_name.split('(').first?) && base_name != type_name
+                puts base_name
+              end
+            end
+        """.trimIndent())
+        myFixture.checkHighlighting()
+    }
+
     fun testIfConditionAssignmentBindsInsideNestedBlock() {
         myFixture.configureByText("channels.cr", """
             def get_batch_channels(finished_channel, channels)

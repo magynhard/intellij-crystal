@@ -24,6 +24,12 @@ the constant rule per segment, with the root rule for qualified paths.
    bind its own right-hand side or leak across method boundaries. References
    navigate to the target in the condition even though the parser stores it in
    a `condition` node rather than an ordinary assignment node.
+   Local lookup includes preceding siblings of the reference itself, not only
+   its parent wrappers. This makes `(base_name = value) && base_name != other`
+   resolve in flat logical expressions, including `if` conditions; `||`
+   follows the same lexical binding rule without implying a truthy/non-nil type.
+   Reads before the assignment and on its own right-hand side gain no binding;
+   method boundaries still isolate locals.
    Explicit method type parameters declared by `forall T, U` bind throughout
    that method's parameter restrictions, return type, and body. They do not
    leak into sibling methods or nested declarations. DOT calls on such a type

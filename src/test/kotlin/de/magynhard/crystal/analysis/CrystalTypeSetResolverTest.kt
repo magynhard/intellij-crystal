@@ -810,6 +810,36 @@ class CrystalTypeSetResolverTest : BasePlatformTestCase() {
         )
     }
 
+    fun testUnqualifiedOverloadsAgreeingOnReturnTypeResolve() {
+        // crystallography-like pattern: two same-name methods (public and
+        // private) both declare the identical return type, so the bare call
+        // site's shared return keeps resolving despite the overload set.
+        assertTypes(
+            "class Query\n" +
+                "  def methods_for(name : String, *, visited : Set(String)) : Array(String)\n" +
+                "    [] of String\n  end\n" +
+                "  private def methods_for(name : String, *, class_method : Bool, include_macros : Bool, visited : Set(String)) : Array(String)\n" +
+                "    [] of String\n  end\n" +
+                "  def query(name : String)\n" +
+                "    methods = methods_for(name, class_method: false, include_macros: false, visited: Set(String).new)\n" +
+                "    <caret>methods\n  end\nend\n",
+            "Array(String)"
+        )
+    }
+
+    fun testUnqualifiedOverloadsDisagreeingOnReturnTypeStayUnknown() {
+        assertUnknown(
+            "class Query\n" +
+                "  def methods_for(name : String, *, visited : Set(String)) : Array(String)\n" +
+                "    [] of String\n  end\n" +
+                "  private def methods_for(name : String, *, class_method : Bool, include_macros : Bool, visited : Set(String)) : Array(Int32)\n" +
+                "    [] of Int32\n  end\n" +
+                "  def query(name : String)\n" +
+                "    methods = methods_for(name, class_method: false, include_macros: false, visited: Set(String).new)\n" +
+                "    <caret>methods\n  end\nend\n"
+        )
+    }
+
     fun testSingleExactMethodTargetIsKnown() {
         assertTypes(
             "class Service\n  def value(x : Int32) : String\n    \"text\"\n  end\nend\n" +
