@@ -223,7 +223,7 @@ class CrystalStdlibParseAuditTest : BasePlatformTestCase() {
         value.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ')
 
     private enum class AuditScope(val label: String, val expectedFileCount: Int) {
-        INDEXED("indexed", 650) {
+        INDEXED("indexed", 826) {
             override fun selectRoots(root: VirtualFile): List<VirtualFile> = CrystalStdlibRoots.enumerate(root)
         },
         DISTRIBUTION("distribution", 1625) {
