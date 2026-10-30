@@ -348,6 +348,17 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   Single exact use-site types now take precedence;
   missing-member warnings, reassignment, block shadowing, and branch boundaries
   remain covered by regression tests.
+- **Completion survives conflicting reopened methods** — a duplicated method
+  signature now removes only that ambiguous completion entry, retaining unrelated
+  methods and overloads. This restores `target.` suggestions such as `location`,
+  `clone`, and `at` for `Crystal::ASTNode` in crystalline, whose compiler extension
+  redefines `accept(visitor)`. Exact method resolution remains conservative.
+- **Guarded AST variable member checks** — `case target = expression` now
+  applies `when` type refinement to the assigned local, and direct `is_a?`
+  guards refine later operands of pure `&&` chains. This removes false
+  `Cannot find 'name'` warnings in crystalline's `lightweight/definitions.cr`
+  and equivalent AST visitors while retaining missing-member checks on exact
+  receivers and invalidating refinements after reassignment.
 - **Cross-file record type resolution** — statically named `record` declarations
   now participate in require-visible, namespace-exact type lookup through a dedicated
   stub index. This fixes false `Cannot find 'MethodInfo'` warnings in crystalline's

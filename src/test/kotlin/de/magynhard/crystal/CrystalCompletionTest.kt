@@ -61,6 +61,46 @@ class CrystalCompletionTest : BasePlatformTestCase() {
 
     // ==================== Free-text completion ====================
 
+    fun testAssignedReopenedAstNodeOffersUnambiguousBaseMembers() {
+        myFixture.addFileToProject("compiler_extension.cr", """
+            class Crystal::ASTNode
+              def accept(visitor)
+              end
+            end
+        """.trimIndent())
+        myFixture.configureByText("definitions.cr", """
+            require "./compiler_extension"
+            module Crystal
+              abstract class ASTNode
+                property location : Int32?
+                def accept(visitor)
+                end
+                def clone
+                  self
+                end
+              end
+              class Assign < ASTNode
+                getter target : ASTNode
+              end
+              class InstanceVar < ASTNode
+                getter name : String
+              end
+            end
+            def visit
+              expressions.each do |expression|
+                next unless expression.is_a?(Crystal::Assign)
+                target = expression.target
+                target.<caret>
+                next unless target.is_a?(Crystal::InstanceVar) && target.name == "@server"
+              end
+            end
+        """.trimIndent())
+        val names = myFixture.complete(CompletionType.BASIC).orEmpty().map { it.lookupString }
+        assertContainsElements(names, "location", "clone")
+        assertFalse(names.contains("name"))
+        assertFalse(names.contains("accept"))
+    }
+
     fun testFreeTextCompletionDoesNotConstructTypeResolutionSession() {
         CrystalTypeSetResolver.resetSessionConstructionCount()
         try {

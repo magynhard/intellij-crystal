@@ -4,6 +4,44 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class CrystalMethodHierarchyTest : BasePlatformTestCase() {
 
+    fun testDuplicateReopeningOnlyRemovesItsSignatureAndNeverRestoresAnAncestor() {
+        CrystalRequireGraphService.installForTests(project, CrystalRequirePathResolver(project) { null }, testRootDisposable)
+        myFixture.addFileToProject("extension.cr", "class Service\n  def accept(visitor)\n  end\nend")
+        val file = myFixture.configureByText("main.cr", """
+            require "./extension"
+            class Parent
+              def accept(visitor)
+              end
+              def inherited
+              end
+            end
+            class Service < Parent
+              def accept(visitor)
+              end
+              def accept(visitor, extra)
+              end
+              def direct
+              end
+              def self.accept(visitor)
+              end
+            end
+        """.trimIndent())
+        val session = CrystalTypeSetResolver.session(file)
+        val identity = CrystalTypeIdentity("Service", "Service")
+        val result = session.collectMethods(identity, CrystalReceiverMode.INSTANCE)
+        assertFalse(result.complete)
+        assertEquals(listOf("direct", "accept", "inherited"), result.methods.map { it.method.name })
+        val remaining = result.methods.single { it.method.name == "accept" }
+        assertEquals(2, remaining.method.parameterList!!.parameterList.size)
+        assertEquals(0, remaining.depth)
+        val exact = session.collectNamedMethods(identity, CrystalReceiverMode.INSTANCE, "accept")
+        assertFalse(exact.complete)
+        assertEmpty(exact.methods)
+        val static = session.collectNamedMethods(identity, CrystalReceiverMode.STATIC, "accept")
+        assertTrue(static.complete)
+        assertEquals(1, static.methods.size)
+    }
+
     fun testCollectsAllMethodsWithStableDepthSignatureAndPrecedence() {
         val file = myFixture.configureByText(
             "test.cr",

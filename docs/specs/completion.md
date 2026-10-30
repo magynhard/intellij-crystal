@@ -29,6 +29,16 @@ instance/class variables are collected from live PSI because no declaration inde
 exist for them. Local candidates share one deduplication set across all candidate sources. The split
 preserves the contributor's established dispatch order, ranking, deduplication, and results.
 
+For an otherwise complete hierarchy, DOT method collection is best-effort per
+signature. If a require-visible reopening duplicates one canonical method signature
+across files, omit that signature rather than the whole receiver's completion list.
+Other overloads and unrelated direct
+or inherited methods remain available. A conflicting direct signature blocks an
+ancestor with the same signature; completion must not pick a substitute target.
+Exact named resolution and argument checks retain their strict ambiguity rules.
+This covers assigning `expression.target` and completing `target.` when crystalline
+reopens the compiler's `Crystal::ASTNode#accept(visitor)`.
+
 Private file-level constants are file-local. Bare-name constant completion inside
 a type's namespace includes its private constants from require-visible reopenings,
 but excludes private constants from unrelated owners. Explicit `Owner::` completion

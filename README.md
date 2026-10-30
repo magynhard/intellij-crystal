@@ -35,6 +35,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 
 - Context-aware completion for local variables, parameters, methods, constants, types, namespaces, and `require` paths
 - Receiver-aware DOT completion for literals, variables, method results, collections, constructors, and supported unions
+- DOT completion retains unambiguous methods when a class reopening duplicates another method signature
 - Program-aware visibility based on one containing entry's transitive dependencies and the configured Crystal prelude; independent executables never share declarations merely because both load a helper
 - Private type constants resolve across require-visible reopenings of their owning namespace; private file-level constants remain file-local
 - Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View
@@ -42,6 +43,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Statically written classes in supported module `macro finished` hooks expose typed accessors for completion, hover, source navigation, and chained member lookup; dynamic macro bodies remain opaque
 - Ctrl+B / Ctrl+Click on type references inside those static macro bodies resolves their namespace- and require-visible definitions, including following definitions in the same file
 - Guarded `responds_to?` member calls can navigate to known require-visible compatible declarations; hover distinguishes these candidates from exact dispatch
+- Flow-aware member checks honor `case variable = expression` type branches and direct `is_a?` guards in later operands of pure `&&` chains
 - Statically named `record` declarations resolve across required files in type annotations and references, with lexical namespaces, qualified paths, and record-constructor navigation
 - Ctrl+B / Ctrl+Click navigation on individual FFI path segments in type annotations and expressions, such as `LibGMP::MPF` and `LibGMP::MpLimb.new!(num)`, with the standard target chooser for multiple matching declarations
 - Namespace- and require-aware annotation navigation and documentation, with missing-annotation diagnostics

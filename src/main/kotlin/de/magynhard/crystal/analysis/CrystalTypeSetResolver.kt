@@ -1280,8 +1280,44 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             is CrystalIfStatement -> ifBranchIncoming(conditional, next, name, incoming)
             is CrystalUnlessStatement -> unlessBranchIncoming(conditional, next, name, incoming)
             is CrystalCaseStatement -> caseBranchIncoming(conditional, next, name, incoming)
-            else -> null
+            else -> logicalOperandIncoming(container, next, name, incoming)
         }
+    }
+
+    /** A later && operand executes only after every preceding operand was true. */
+    private fun logicalOperandIncoming(
+        container: PsiElement,
+        next: PsiElement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState? {
+        if (container !is CrystalExpression && container !is CrystalCondition &&
+            container !is CrystalGroupedExpression
+        ) return null
+        val children = significantChildren(container)
+        // Mixed logical expressions retain the existing conservative flow.
+        if (children.any { it.node.elementType == CrystalTypes.OR_OR }) return null
+        val index = children.indexOf(next)
+        if (index < 0) return null
+        val preceding = children.take(index)
+        val lastAnd = preceding.indexOfLast { it.node.elementType == CrystalTypes.AND_AND }
+        if (lastAnd < 0) return null
+        var state = incoming
+        val segments = splitLogicalSegments(preceding.take(lastAnd), CrystalTypes.AND_AND)
+        for (segment in segments) {
+            val flow = flowExpressionSegment(segment, name, state)
+            if (!flow.fallsThrough) return VariableState.Unknown
+            state = flow.state
+            state = if (segment.size == 1) {
+                narrowedBranchState(segment.single(), name, state, true) ?: state
+            } else {
+                inlineIsAType(segment, name)?.let { type ->
+                    narrowIsAByName(type, container, state, true)
+                } ?: state
+            }
+        }
+        // Preserve effects in the current operand before the actual use site.
+        return flowExpressionSegment(preceding.drop(lastAnd + 1), name, state).state
     }
 
     private fun ifBranchIncoming(
@@ -1333,19 +1369,18 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         name: String,
         incoming: VariableState,
     ): VariableState? {
-        if (next is CrystalInClause) return null
+        if (next !is CrystalWhenClause && next !is CrystalElseClause) return null
+        val base = caseSubjectState(caseStatement, name, incoming)
         if (next is CrystalElseClause) {
-            return caseElseState(caseStatement, name, incoming)?.takeIfChanged(incoming)
+            return caseElseState(caseStatement, name, base).takeIfChanged(incoming)
         }
         if (next !is CrystalWhenClause) return null
-        // Assignment subjects bind through normal folding; only bare-variable
-        // subjects refine here.
-        if (!isBareVariableSubject(caseStatement, name)) return null
+        if (!isVariableCaseSubject(caseStatement, name)) return null
         val matched = matchWhenTypes(next) ?: return null
         return VariableState.Bound(
             CrystalTypeResolution.Known(matched.map { CrystalResolvedType(it, false) }),
-            incoming.provenance,
-            incoming.guaranteedMethods,
+            base.provenance,
+            base.guaranteedMethods,
         ).takeIfChanged(incoming)
     }
 
@@ -1367,10 +1402,22 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return remaining
     }
 
-    private fun isBareVariableSubject(caseStatement: CrystalCaseStatement, name: String): Boolean {
+    private fun isVariableCaseSubject(caseStatement: CrystalCaseStatement, name: String): Boolean {
         val subject = caseSubjectElement(caseStatement) ?: return false
         val unwrapped = unwrapGrouping(subject)
-        return unwrapped is CrystalVariableReference && unwrapped.text == name
+        return (unwrapped is CrystalVariableReference && unwrapped.text == name) ||
+            (unwrapped is CrystalAssignment && assignmentName(unwrapped) == name)
+    }
+
+    private fun caseSubjectState(
+        statement: CrystalCaseStatement,
+        name: String,
+        incoming: VariableState,
+    ): VariableState {
+        val subject = caseSubjectElement(statement)?.let(::unwrapGrouping) ?: return incoming
+        return if (subject is CrystalAssignment && assignmentName(subject) == name) {
+            flowElement(subject, name, incoming).state
+        } else incoming
     }
 
     /**
@@ -1384,7 +1431,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     ): VariableState {
         val incomingKnown = (incoming as? VariableState.Bound)?.value as? CrystalTypeResolution.Known
             ?: return incoming
-        if (!isBareVariableSubject(caseStatement, name)) return incoming
+        if (!isVariableCaseSubject(caseStatement, name)) return incoming
         val matchedAll = mutableListOf<String>()
         for (whenClause in caseStatement.whenClauseList) {
             matchedAll.addAll(matchWhenTypes(whenClause) ?: return incoming)
@@ -1567,7 +1614,10 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      */
     private fun inlineIsAType(target: PsiElement, name: String): String? {
         if (target is CrystalDotCallAccess) return null
-        val kids = significantChildren(target)
+        return inlineIsAType(significantChildren(target), name)
+    }
+
+    private fun inlineIsAType(kids: List<PsiElement>, name: String): String? {
         if (kids.size < 4) return null
         val receiver = unwrapGrouping(kids[0])
         if (receiver !is CrystalVariableReference || receiver.text != name) return null
@@ -1718,43 +1768,28 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         name: String,
         incoming: VariableState,
     ): VariableFlow {
-        val subject = caseSubjectElement(caseStatement)
-        val unwrapped = subject?.let(::unwrapGrouping)
-        val assigned = (unwrapped as? CrystalAssignment)?.takeIf { assignmentName(it) == name }
-            ?: (subject as? CrystalAssignment)?.takeIf { assignmentName(it) == name }
-        if (assigned != null) {
-            val rhs = assigned.assignment ?: assigned.expression
-            val bound = rhs?.let {
-                VariableState.Bound(resolve(it), CrystalVariableProvenance.ASSIGNMENT, guaranteesAfterWrite(incoming, assigned, name))
-            } ?: incoming
-            val flows = caseStatement.whenClauseList.map { flowStatementList(it.statementList, name, bound) } +
-                caseStatement.inClauseList.map { flowStatementList(it.statementList, name, bound) }
-            return mergeFlows(flows +
-                (caseStatement.elseClause?.statementList?.let { listOf(flowStatementList(it, name, bound)) }
-                    ?: listOf(VariableFlow.falling(bound))))
-        }
-        val variable = unwrapped as? CrystalVariableReference
-        if (variable == null || variable.text != name) {
+        if (!isVariableCaseSubject(caseStatement, name)) {
             return flowCaseBranchesUnrefined(caseStatement, name, incoming)
         }
+        val base = caseSubjectState(caseStatement, name, incoming)
         val flows = mutableListOf<VariableFlow>()
         for (whenClause in caseStatement.whenClauseList) {
             val matched = matchWhenTypes(whenClause)
             val armState = if (matched == null) {
-                incoming
+                base
             } else {
                 VariableState.Bound(
                     CrystalTypeResolution.Known(matched.map { CrystalResolvedType(it, false) }),
-                    incoming.provenance,
-                    incoming.guaranteedMethods,
+                    base.provenance,
+                    base.guaranteedMethods,
                 )
             }
             flows.add(flowStatementList(whenClause.statementList, name, armState))
         }
         for (inClause in caseStatement.inClauseList) {
-            flows.add(flowStatementList(inClause.statementList, name, incoming))
+            flows.add(flowStatementList(inClause.statementList, name, base))
         }
-        val elseState = caseElseState(caseStatement, name, incoming)
+        val elseState = caseElseState(caseStatement, name, base)
         if (caseStatement.elseClause?.statementList != null) {
             flows.add(flowStatementList(caseStatement.elseClause?.statementList, name, elseState))
         } else {

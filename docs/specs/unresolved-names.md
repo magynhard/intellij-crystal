@@ -91,6 +91,11 @@ the constant rule per segment, with the root rule for qualified paths.
    `property params`, also in nested blocks. Missing members on that exact
    subtype still warn; refinement does not leak into other branches or past
    reassignment and shadowing.
+   Assignment subjects (`case target = node.target`) receive the same `when`
+   refinement. A direct `target.is_a?(Type)` test in a pure `&&` chain also
+   refines later operands, preventing false `name` warnings on AST variables.
+   Multi-type arms remain authoritative unions rather than reverting to the
+   assigned base type; exact member consumers still require one exact receiver.
    Request classes generated inside `macro finished` may have no index entry.
    Eligible static hooks supply shared declaration views (see
    [Static Finished Declarations](static-finished-declarations.md)); their typed

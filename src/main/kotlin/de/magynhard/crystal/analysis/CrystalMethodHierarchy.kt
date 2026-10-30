@@ -67,19 +67,13 @@ internal class CrystalMethodHierarchy(
         val hierarchy = collectHierarchy(receiverType, mode, includeModuleEdges)
         val result = mutableListOf<CrystalCollectedMethod>()
         val seenSignatures = mutableSetOf<String>()
+        var complete = hierarchy.complete
         for (exposure in hierarchy.exposures) {
             val typeMetadata = metadata(exposure.type, exposure.declarationMode, includeModuleEdges)
             val exposedMethods = findExactMethods(exposure.type)
                 .filter { CrystalPsiUtils.isSelfMethod(it) == (exposure.declarationMode == CrystalReceiverMode.STATIC) }
                 .filter { it.macroInterpolation == null && it.name !in typeMetadata.uncertainMethodNames }
             val signatures = exposedMethods.groupBy(::canonicalSignature)
-            if (hierarchy.complete && signatures.values.any { group ->
-                    group.map { CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.path }.distinct().size > 1
-                }) {
-                // Strict mode (used by resolution-backed consumers): cross-file
-                // reopenings with identical signatures cannot be precedence-proven.
-                return@getOrPut CrystalAllMethodCollection(emptyList(), false)
-            }
             // Lenient mode (incomplete hierarchy — macro-generated members in
             // stdlib types like Number): offer every explicitly written method;
             // macro-generated names and edges beyond incomplete types are absent.
@@ -87,6 +81,15 @@ internal class CrystalMethodHierarchy(
             for (group in signatures.values) {
                 val method = group.first()
                 val signature = canonicalSignature(method)
+                if (hierarchy.complete && group.map {
+                        CrystalStaticDeclarations.sourceFile(it)?.virtualFile?.path
+                    }.distinct().size > 1) {
+                    // An ambiguous reopening must not discard unrelated completion
+                    // methods or restore a shadowed ancestor implementation.
+                    complete = false
+                    seenSignatures.add(signature)
+                    continue
+                }
                 if (seenSignatures.add(signature)) {
                     result.add(
                         CrystalCollectedMethod(
@@ -101,7 +104,7 @@ internal class CrystalMethodHierarchy(
                 }
             }
         }
-        CrystalAllMethodCollection(result, hierarchy.complete)
+        CrystalAllMethodCollection(result, complete)
     }
 
     fun collectNamedMethods(

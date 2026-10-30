@@ -84,7 +84,7 @@ subtracts it from a known union), `case x when T` replaces it per arm (the `else
 keeps the remainder), conditional assignment (`if x = expr`) binds first, and abrupt
 guards (`return "" if x.nil?`) narrow the fall-through. Type-set guards stay syntactically
 direct — bare variables, `.nil?`, and `.is_a?(Type)` only; binary conditions, negations,
-method calls, `== nil`, loops, `&&` right-hand sides, `in` patterns,
+method calls, `== nil`, loops, `in` patterns,
 and macros keep the incoming type set. Reassignment inside a branch overwrites the refined
 state like any other binding. Unrecognized or empty remainders keep the incoming state,
 never an empty union. Exact receiver resolution consumes a single known non-nil
@@ -95,6 +95,20 @@ inside a branch's block. Reassignment replaces that refinement, block parameters
 shadow it, and sibling branches and code after the guard retain their own flow
 states. This does not extend guard inference to other receiver shapes or permit
 name-only fallback for unknown or ambiguous types.
+
+`case target = expression` binds the subject before applying the same per-arm
+type refinement as `case target`. The assigned value supplies the `else` and
+unmatched state; an older binding cannot survive the subject assignment. Writes
+inside an arm replace its refinement, and non-type patterns do not narrow it.
+
+Within a pure `&&` chain, a direct `is_a?` guard refines the tracked local in
+subsequent operands, including a chain used as a postfix `unless` condition.
+Grouped standalone guards also use the existing direct-guard rules. Operands
+are folded in order, so an intervening assignment replaces the refinement.
+These operand-local facts do not leak past the expression or refine an entire
+compound condition's branches. Mixed `&&`/`||` expressions remain conservative.
+`CrystalGuardedAssignmentFlowTest` covers crystalline's AST-variable lookup
+patterns, actual missing members, exact navigation, and refinement lifetime.
 
 A constant-path `when` pattern retains its written type name when it has no
 indexed declaration, as with classes emitted by `macro finished`. This is guard
@@ -243,6 +257,12 @@ key.
 Named lookup filters the shared hierarchy while preserving name-specific completeness. The
 all-method API remains incomplete for ambiguous hierarchy edges and cross-file duplicate metadata,
 but not merely because an unrelated method name is macro-controlled.
+When a complete hierarchy contains the same canonical signature in multiple
+source files, all-method collection omits that signature and marks the result
+incomplete while retaining unrelated methods. The omitted signature still
+shadows ancestors, so completion cannot substitute an inherited implementation.
+Named lookup remains strict for the conflicting method. This allows
+`Crystal::ASTNode` completion even when a project reopens `accept(visitor)`.
 Implicit-self methods take precedence. One exact top-level method remains a fallback only when the
 implicit-self hierarchy has no candidate; ambiguous top-level overloads are unknown.
 
@@ -322,8 +342,9 @@ mechanism.
 - Completed-call overload selection is not argument-aware; multiple exact candidates are unknown.
 - Generic type parameters are not substituted through method signatures.
 - Guard narrowing covers only syntactically direct guards (bare-variable truthiness, `.nil?`,
-  conditional assignment, `.is_a?(Type)`, type `case`, abrupt guards); loops, `&&`/`||`
-  right-hand sides, `responds_to?`, `== nil`, complex booleans, `in` patterns, and macros
+  conditional assignment, `.is_a?(Type)`, type `case`, abrupt guards), plus preceding
+  direct guards within pure `&&` chains. Loops, mixed `&&`/`||` expressions,
+  `== nil`, other complex booleans, `in` patterns, and macros
   keep the incoming state.
 - Proc result inference is not modeled.
 - Cross-file reopening precedence remains strict and incomplete when multiple relevant declarations

@@ -303,3 +303,41 @@ in an isolated temporary development sandbox. The final IDE log has no stub/PSI
 mirror, record-index, or cached-value idempotence failure. The previously documented
 RegExp initialization/fallback-key and missing bundled inspection-description errors
 remain; this is not a clean-log claim.
+
+## Guarded assignment flow audit (2026-10-30)
+
+Re-audited the same crystalline revision and locked dependencies with target
+fingerprint `3d1852b6314ac1858aa63995b6ec79be85ba5a9c5193346f8eb1b4612048b390`.
+`shards check` confirms dependency availability. The external parse preflight
+retains the known six errors in six of 151 files; no parser sources changed.
+The disposable checkout remained unchanged.
+
+The offline audit reports **496** Crystal findings in `.cr` files and two
+filtered non-Crystal findings. Compared by inspection/file/line/description with
+the preceding 506-finding record-index audit, there are **ten removals, all
+`CrystalUnresolvedName`, and no additions**. All three reported false
+`Cannot find 'name'` warnings at `lightweight/definitions.cr:220`, `:230`, and
+`:237` are gone, together with seven analogous warnings in `lightweight/inference.cr`.
+
+Portable regression tests reproduce the three shapes with resolvable AST class
+hierarchies. They cover `is_a?` refinement in later `&&` operands, assigned
+`case` subjects, multiple type patterns, exact member navigation, genuinely
+missing members, non-type patterns, reassignment, and expression/branch lifetime.
+The complete suite passes **2,992 tests**, without failures, errors, or skips.
+
+The first offline attempt exceeded the terminal's two-minute timeout; a fresh
+run with a longer timeout completed successfully. The known bundled RegExp
+initialization/fallback-key errors remain in its log. Neither the remaining
+findings nor the parser baseline is a clean-project claim.
+
+The follow-up completion reproduction inserts a new `target.` line directly after
+`definitions.cr:219` in a fixture copy of the real project, with copies of the real
+compiler syntax sources. It confirms that a duplicate `ASTNode#accept(visitor)`
+between `ext/compiler.cr` and stdlib `syntax/visitor.cr` emptied the all-method
+collection even though the receiver type was known. After signature-local
+exclusion, actual IntelliJ completion offers `location`, `clone`, `at`, and
+`at_end` again. Portable completion and hierarchy regressions retain this case,
+including ancestor shadowing and strict named-resolution checks; the temporary
+machine-specific reproduction was removed. The subsequent full suite passes
+**2,994 tests**, without failures or skips. This interactive completion check is
+separate from the 496-finding offline inspection result above.
