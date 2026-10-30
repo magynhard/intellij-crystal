@@ -117,7 +117,7 @@ task :release => [:stdlib_parse_audit, :test, :bump_version] do |t|
 
   # Extract changelog from plugin.xml <changeNotes> if present
   plugin_xml = File.read("src/main/resources/META-INF/plugin.xml")
-  changelog_match = plugin_xml.match(/<changeNotes><!\[CDATA\[(.*?)\]\]><\/changeNotes>/m)
+  changelog_match = plugin_xml.match(/<change-?notes><!\[CDATA\[(.*?)\]\]><\/change-?notes>/m)
   changelog = changelog_match ? changelog_match[1].strip : nil
 
   # Find built plugin ZIP
