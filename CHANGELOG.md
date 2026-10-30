@@ -348,6 +348,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   Single exact use-site types now take precedence;
   missing-member warnings, reassignment, block shadowing, and branch boundaries
   remain covered by regression tests.
+- **Multiline `macro` argument labels** — record fields such as
+  `macro : Bool = false` and named arguments such as `macro: false` no longer
+  switch the lexer into a macro body when written at the beginning of a line.
+  This restores complete parsing of crystalline's `lightweight/index.cr`,
+  `prelude_index.cr`, and `query.cr`.
 - **Completion survives conflicting reopened methods** — a duplicated method
   signature now removes only that ambiguous completion entry, retaining unrelated
   methods and overloads. This restores `target.` suggestions such as `location`,

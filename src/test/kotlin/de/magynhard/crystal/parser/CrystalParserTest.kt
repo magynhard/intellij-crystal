@@ -39,6 +39,10 @@ class CrystalParserTest : ParsingTestCase("", "cr", CrystalParserDefinition()) {
         doTest(true)
     }
 
+    fun testLineLeadingMacroLabels() {
+        doTest(true)
+    }
+
     fun testOutArguments() {
         doTest(true)
     }

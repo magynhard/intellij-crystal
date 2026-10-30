@@ -95,6 +95,26 @@ expressions. Defaults accept nested assignments. Both forms pin after their
 distinct colon prefix; neither relies on fallthrough after a partially parsed
 value.
 
+### Line-leading `macro` labels
+
+Keyword labels remain keyword tokens and are accepted by the existing named/type
+argument rules. The lexer's macro-definition detection must exclude `macro`
+followed by a colon, with optional intervening spaces or tabs. Otherwise a
+multiline record field such as `macro : Bool = false` arms the macro-body state
+and the next field becomes opaque macro text. Compact named arguments
+(`macro: false`) require the same exclusion, including parenthesized calls.
+Real macro declarations, including visibility prefixes and multiline parameter
+lists, retain their macro-body behavior. The `LineLeadingMacroLabels` golden
+covers both record forms, compact call arguments, a real private macro, and a
+following class/method declaration; a lexer regression covers spaces and tabs.
+
+A read-only parse audit of crystalline revision
+`a5f6f1bb9d55decf507138da7b2c47628ee15328` (151 files, locked dependencies
+already installed) drops from six errors in six files to three in three files.
+`lightweight/index.cr`, `prelude_index.cr`, and `query.cr` now parse without
+`PsiErrorElement`; all three other baseline errors are unchanged. This is not
+a clean-project claim.
+
 ## Pointer-suffixed type arguments (`property stack_top : Void*`)
 
 The same half-match trap hid C pointer types in declaration-macro calls:

@@ -299,6 +299,12 @@ import com.intellij.psi.TokenType;
 
   /** A macro body starts only after a declaration at the beginning of a line. */
   private boolean isMacroDefinitionStart() {
+    // A line-leading label (e.g. a multiline record's `macro : Bool` field)
+    // is not a declaration and must not switch subsequent lines to macro text.
+    int after = zzMarkedPos;
+    while (after < zzEndRead && (zzBuffer.charAt(after) == ' ' || zzBuffer.charAt(after) == '\t')) after++;
+    if (after < zzEndRead && zzBuffer.charAt(after) == ':') return false;
+
     int pos = zzStartRead - 1;
     while (pos >= 0 && zzBuffer.charAt(pos) != '\n' && zzBuffer.charAt(pos) != '\r') pos--;
     pos++;

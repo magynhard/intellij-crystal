@@ -36,6 +36,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Context-aware completion for local variables, parameters, methods, constants, types, namespaces, and `require` paths
 - Receiver-aware DOT completion for literals, variables, method results, collections, constructors, and supported unions
 - DOT completion retains unambiguous methods when a class reopening duplicates another method signature
+- Multiline record fields and named arguments support keyword labels such as `macro : Bool` and `macro: false`
 - Program-aware visibility based on one containing entry's transitive dependencies and the configured Crystal prelude; independent executables never share declarations merely because both load a helper
 - Private type constants resolve across require-visible reopenings of their owning namespace; private file-level constants remain file-local
 - Go to Definition, Go to Class, Go to Symbol, Find Usages, and Structure View

@@ -87,6 +87,18 @@ class CrystalLexerTest {
     }
 
     @Test
+    fun testLineLeadingMacroLabelsDoNotEnterMacroBody() {
+        for (label in listOf("macro : Bool = false", "macro: false", "macro\t: Bool = false")) {
+            val tokens = nonWhitespaceTokens("record MethodInfo,\n  $label,\n  doc : String? = nil\n")
+            assertEquals("The label remains a keyword token in '$label'", CrystalTypes.MACRO,
+                tokens.first { it.second == "macro" }.first)
+            assertEquals("The next field must remain ordinary code in '$label'", CrystalTypes.IDENTIFIER,
+                tokens.firstOrNull { it.second == "doc" }?.first)
+            assertFalse("Labels must not start opaque macro bodies", tokens.any { it.first == CrystalTypes.MACRO_BODY_CONTENT })
+        }
+    }
+
+    @Test
     fun testMultilineMacroHeaderWaitsForClosingParenthesis() {
         val tokens = nonWhitespaceTokens("""
             private macro build(
