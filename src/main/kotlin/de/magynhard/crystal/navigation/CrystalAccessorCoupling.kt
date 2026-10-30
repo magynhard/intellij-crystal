@@ -60,6 +60,12 @@ object CrystalAccessorCoupling {
         if (arg == null) return null
         val direct = arg.node.findChildByType(CrystalTypes.IDENTIFIER)?.psi
         if (direct != null) return direct
+        // Typed macro declarations admit keyword names (`property? struct : Bool`).
+        // The parser preserves the keyword token instead of rewriting it to IDENTIFIER.
+        val keyword = arg.node.getChildren(null).firstOrNull {
+            CrystalTokenTypes.KEYWORDS.contains(it.elementType)
+        }?.psi
+        if (keyword != null) return keyword
         // Default-valued declarations (`getter? in_call_args = false`): the
         // name is the assignment LHS of the bare argument — the identifier
         // lives inside the nested assignment, neither as a direct child nor

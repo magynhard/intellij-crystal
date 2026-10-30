@@ -107,7 +107,8 @@ global lock.
 
 ## Typed Accessors and Consumer Parity
 
-Plain `getter`, `setter`, and `property` declarations, including their `class_`
+Plain `getter`, `setter`, and `property` declarations and typed `getter?` /
+`property?` query declarations, including their `class_`
 variants in bare-argument form (`property params : Params`), supply read-only
 method-signature views when their declared type is one
 constant path, optionally nilable. The same mechanism handles ordinary source
@@ -125,6 +126,10 @@ reader returning `FormattingParams` from `LSP` yields `LSP::FormattingParams` at
 call in another namespace. DOT reference resolution retains the existing
 `DotCallResolution.Accessor` variant and the accessor argument as its declaration.
 Documentation presents the typed reader signature instead of an `Any` variable.
+Query declarations expose `name?` with the declared type (including nilability),
+not a plain `name` reader. `property?` additionally exposes `name=`, while
+`getter?` does not. Keyword names such as `property? struct : Bool` follow the
+same pipeline: completion offers `struct?` and hover renders `struct? : Bool`.
 
 A zero-argument typed accessor can be an exact predecessor in a DOT chain. Union,
 nilable, unavailable, or ambiguous results, setter predecessors, and accessor calls

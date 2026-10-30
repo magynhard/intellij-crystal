@@ -15,6 +15,49 @@ import de.magynhard.crystal.psi.CrystalPsiUtils
 
 class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
 
+    fun testKeywordNamedPredicateAccessorResolvesOnExactReceiver() {
+        val file = myFixture.configureByText("semantic_tokens.cr", """
+            class Object
+            end
+            class Crystal::ASTNode
+            end
+            class Crystal::ClassDef < Crystal::ASTNode
+              property? struct : Bool
+            end
+            def visit(node : Crystal::ClassDef)
+              node.struct? ? "struct" : "class"
+              node.struct? ? "struct" : "class"
+            end
+        """.trimIndent())
+        assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
+        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java)
+        assertEquals(2, accesses.size)
+        for (access in accesses) {
+            val result = CrystalDotCallTargetResolver.resolve(access)
+            assertTrue("Expected accessor, got $result", result is DotCallResolution.Accessor)
+        }
+        myFixture.enableInspections(CrystalUnresolvedNameInspection::class.java)
+        assertFalse(myFixture.doHighlighting().any { it.description == "Cannot find 'struct?'" })
+    }
+
+    fun testKeywordNamedPredicateAccessorDoesNotResolveOnUnrelatedReceiver() {
+        val file = myFixture.configureByText("semantic_tokens.cr", """
+            class Object
+            end
+            class ClassDef
+            end
+            class Unrelated
+              property? struct : Bool
+            end
+            def visit(node : ClassDef)
+              node.struct?
+            end
+        """.trimIndent())
+        assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
+        val access = PsiTreeUtil.findChildOfType(file, CrystalDotCallAccess::class.java)!!
+        assertEquals(DotCallResolution.Unresolved, CrystalDotCallTargetResolver.resolve(access))
+    }
+
     override fun setUp() {
         super.setUp()
         CrystalRequireGraphService.installForTests(

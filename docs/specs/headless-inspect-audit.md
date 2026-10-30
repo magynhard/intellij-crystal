@@ -383,3 +383,23 @@ complete suite to **3,023 passing tests**, with no failures or skips. Repeating
 the external audit with the same fingerprint retains **exactly the same 472
 findings** (multiset comparison: zero removals and zero additions), two filtered
 non-Crystal findings, and the same three-error raw parse baseline.
+
+## Predicate accessor completion and hover (2026-10-30)
+
+Re-audited crystalline revision `a5f6f1bb9d55decf507138da7b2c47628ee15328`
+in a disposable checkout with its installed locked dependencies (`shards check`
+passes). This run includes the intervening equals-leading regex lexer fix and
+keyword-named predicate accessor resolution, plus typed `getter?` / `property?`
+signature views for completion and hover. It reports **452 Crystal findings**
+and two filtered non-Crystal findings, compared with the earlier 472 total;
+this is a combined-change result, not an isolated accessor-fix comparison.
+There are no reported findings in `lightweight/semantic_tokens.cr`.
+
+The raw parse preflight still fails on two existing dependency-source errors
+in `lib/lsp/src/base/completion_item.cr` and `lib/lsp/src/ext/enum.cr`
+(151 files parsed). The former third error in `semantic_tokens.cr` is gone
+after the regex fix. The project is therefore not parser-clean overall.
+Portable tests separately exercise actual IntelliJ completion immediately
+after a `node.struct?` condition, predicate hover with `Bool` and nilable
+`String?` return types, absence of plain readers, and instance/static mode.
+The complete suite passes **3,034 tests**, with no failures or skips.

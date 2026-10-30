@@ -254,6 +254,11 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
   against the SHA-256-verified official archive.
 
 ### Bug Fixes
+- **Keyword-named predicate accessors** — resolve declarations such as
+  `property? struct : Bool`, including `Crystal::ClassDef#struct?`, without
+  false missing-name diagnostics. Typed query accessors also supply completion,
+  return types, and hover signatures such as `struct? : Bool`, retaining query
+  names and instance/class mode. Lookup remains exact to the receiver type.
 - **Equals-leading regex literals** — recognize `/=$/` as a regex in expression
   position instead of division assignment. Nested calls retain their arguments,
   avoiding false missing-argument errors and incorrect highlighting of the

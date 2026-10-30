@@ -132,6 +132,9 @@ the constant rule per segment, with the root rule for qualified paths.
    readers resolve to the macro argument. Setter-only macros and `getter?`
    do not make a missing plain reader known. Local bindings retain precedence,
    and an unrelated type's property cannot heal an unknown name.
+   Typed accessor declarations retain keyword names as declarations too:
+   `property? struct : Bool` provides the exact receiver's `struct?` reader
+   even though the declaration's name token is `STRUCT`, not `IDENTIFIER`.
 9. A direct positive `responds_to?` guard with one plain literal method symbol
    proves that member available on the same local binding. For example,
    `if error.responds_to? :inner` makes `error.inner` known even when the

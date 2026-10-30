@@ -106,7 +106,7 @@ internal object CrystalStaticDeclarations {
         else -> listOf(element)
     }
 
-    /** Typed plain accessor signatures share the ordinary method pipeline. */
+    /** Typed plain and query accessor signatures share the ordinary method pipeline. */
     fun accessorMethods(declaration: CrystalNamedElement): List<CrystalMethodDefinition> =
         CachedValuesManager.getCachedValue(declaration) {
             val source = sourceFile(declaration) ?: declaration.containingFile
@@ -123,7 +123,7 @@ internal object CrystalStaticDeclarations {
         return CrystalAccessorCoupling.findAccessorCallsIn(declaration).flatMap { call ->
             val macro = CrystalAccessorCoupling.accessorMacroName(call) ?: return@flatMap emptyList()
             val plain = macro.removePrefix("class_")
-            if (plain !in setOf("getter", "property", "setter")) return@flatMap emptyList()
+            if (plain !in setOf("getter", "property", "setter", "getter?", "property?")) return@flatMap emptyList()
             if (CrystalPsiUtils.isInsideMacroControlRegion(call)) return@flatMap emptyList()
             val arguments = when (call) {
                 is CrystalMethodCallExpression -> call.bareArgumentList?.bareArgumentList.orEmpty()
@@ -139,9 +139,10 @@ internal object CrystalStaticDeclarations {
                 if (type.removePrefix("::").substringBefore("::").removeSuffix("?") in typeParameters &&
                     !type.startsWith("::")) return@flatMap emptyList()
                 val receiver = if (macro.startsWith("class_")) "self." else ""
+                val reader = if (plain.endsWith('?')) "$name?" else name
                 val signatures = buildList {
-                    if (plain != "setter") add("def $receiver$name : $type\nend")
-                    if (plain != "getter") add("def $receiver$name=(value : $type) : $type\nend")
+                    if (plain != "setter") add("def $receiver$reader : $type\nend")
+                    if (plain !in setOf("getter", "getter?")) add("def $receiver$name=(value : $type) : $type\nend")
                 }
                 val file = parse(declaration, "class $owner\n${signatures.joinToString("\n")}\nend")
                     ?: return@flatMap emptyList()
@@ -159,7 +160,9 @@ internal object CrystalStaticDeclarations {
     fun accessorReader(argument: PsiElement): CrystalMethodDefinition? {
         val type = CrystalPsiUtils.getEnclosingType(argument) as? CrystalNamedElement ?: return null
         val name = CrystalAccessorCoupling.accessorArgName(argument) ?: return null
-        return accessorMethods(type).firstOrNull { it.name == name && accessorOrigin(it) === argument }
+        return accessorMethods(type).firstOrNull {
+            it.name in setOf(name, "$name?") && accessorOrigin(it) === argument
+        }
     }
 
     fun sourceOffset(element: PsiElement): Int {

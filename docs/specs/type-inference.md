@@ -130,7 +130,7 @@ restore the original base-class parameter or an older constructor assignment.
 Value, range, regex, and other non-type-shaped patterns do not supply such evidence.
 
 Statically readable module `finished` hooks may supply actual declaration views
-through the same captured session. Typed plain accessors supply shared method
+through the same captured session. Typed plain and query accessors supply shared method
 signatures and lexically resolved result types, including across DOT chains.
 Eligibility, source mapping, cache invalidation, and conservative exclusions are
 specified in [Static Finished Declarations](static-finished-declarations.md).
