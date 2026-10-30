@@ -2,1838 +2,260 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
-## [0.3.2] — 2026-xx-xx
-
+## [0.3.2] — 2026-10-30
 ### Added
-- **Ameba linter integration** — live diagnostics stream from the auto-detected
-  `ameba` binary (manual path, project `bin/ameba` when `shard.yml` declares the
-  dev-dependency, or `PATH` fallback; disable under Settings | Languages &
-  Frameworks | Crystal | Ameba Linter) via JSON output over the current buffer, with
-  an explicit `ameba --fix` file action and Inspect-Code support through the paired
-  `Ameba` inspection. Requires Ameba 1.7.0+ (older binaries keep the integration
-  disabled with a warning, and the built-ins stay the fallback); a stale
-  `shard.yml` version pin and an outdated explicit path warn in the editor banner
-  and settings.   Overlapping built-ins (unused variables, colon spacing, single-quote
-  strings, empty collections) step
-  aside while Ameba is active and remain the offline fallback otherwise. A missing
-  project binary is offered for explicit opt-in `shards build ameba` via shard.yml
-  banner and project-open balloon — never built silently.
-  When linting is enabled but no Ameba resolves anywhere, a dismissible
-  project-open balloon and shard.yml banner offer one-click installation as
-  a dev-dependency (editable manifest additions, install, build).
-  `ameba --fix` success is judged by file change (corrected issues still
-  exit non-zero upstream); failure output is stripped of color escapes.
-  Syntax findings on single quotes additionally offer "Convert single quotes
-  to double quotes" (Ameba itself offers no correction there); empty `[]`
-  and `{}` findings offer "Add collection type annotation" with class-only
-  completion — selecting a class in a hash chain inserts ` => ` and reopens
-  completion for the value type.
-  ECR templates lint through the same pipeline (raw text in, template
-  coordinates out); `--fix` stays limited to plain Crystal files.
-  Optional fix-on-save runs `ameba --fix` after saving (opt-in checkbox,
-  default off; skips dirty buffers and ECR templates).
-- **Cannot-find warnings for unresolved names** — bare identifiers, call callees,
-  DOT method names with exact receivers, constants, and type paths that resolve to
-  nothing now report `Cannot find 'name'` (and show the same text on hover) instead of
-  silently falling back to `Any (Variable)`. Truly unknown names warn; names visible
-  only outside the current require closure warn weakly, matching dependency-aware
-  completion. Macro-uncertain types, incomplete hierarchies, and macro contexts stay
-  silent. Prelude types are always known, also as DOT receivers (`Bytes.new` with no
-  SDK), and type aliases are indexed declarations: a require-visible or same-file
-  alias is known as receiver/namespace/type-path root, and calls on an alias
-  receiver stay silent instead of flagging the method name. Covered by
-  `CrystalUnresolvedNameInspectionTest`; specified in
-  docs/specs/unresolved-names.md.
-- **Type-alias resolution and completion** — a name resolving only to a type alias
-  (`alias Obstpresse = Apfel`, `Bytes` as an alias for `Slice(UInt8)`) no longer ends
-  in an empty popup or unresolved hover: the shared type resolution session unwraps a
-  single visible alias to its target's identity, so dot completion on the alias root
-  offers the target's static methods plus `new`, chains after `Alias.new` and
-  alias-annotated parameters infer the target's instance methods, and type-annotation
-  completion offers aliases as candidates (typed "alias", require-gated like classes).
-  Alias-to-alias chains recurse with a depth guard; ambiguous or unresolvable targets
-  stay unresolved with no fallback. Covered by `CrystalCompletionTest`; specified in
-  docs/specs/type-inference.md.
-- **Control-flow narrowing for union and nilable receivers** — branch guards refine a
-  local or parameter to one exact type before resolving DOT-calls: `if x` drops `Nil`,
-  `unless x.nil?` and the `else` of `if x.nil?` drop it too, `if x.is_a?(T)` replaces
-  the state with `T` (the `else` keeps the remainder), `case x when T` narrows per arm,
-  conditional assignment binds first, and abrupt guards (`return "" if x.nil?`) narrow
-  the fall-through. Navigation, completion, and argument diagnostics work inside guards;
-  remaining unions, reassigned variables, and unrecognized guards stay silent. Covered by
-  `CrystalExactReceiverTypeResolverTest`, `CrystalTypeSetResolverTest`, and
-  `CrystalArgumentCountInspectionTest`; specified in docs/specs/type-inference.md.
-- **Bracket-call navigation and arity checks** — tight `[]` calls (`Foo[]`, `Foo[1]`,
-  `obj[0]`) form a dedicated composite with a reference resolving to the `def []`
-  targets, enabling Go to Definition, hover, and argument-count
-  diagnostics (`Foo[]` against `def self.[](x)` reports the missing argument).
-  `CrystalTypeCheckInspection` checks bracket arguments against the same targets
-  (`Foo["a"]` against `def self.[](x : Int)` reports the mismatch form).
-  Constant roots resolve in static mode, value receivers through type inference;
-  macro-backed (`Int64[]`), unknown, and ambiguous receivers stay
-  suppressed; spaced brackets and index reads keep their shapes and behavior.
-  Covered by `CrystalBracketCallReferenceTest` and argument-count/type-check regressions;
-  specified in docs/specs/indexed-navigation.md and docs/specs/call-argument-inspections.md.
-- **Slice and StaticArray bracket literals infer their types** — `Slice[1, 2]` infers
-  `Slice(Int32)`, mixed arguments form a sorted union (`Slice(Int32 | String)`), and
-  `StaticArray[1, 2]` includes the length (`StaticArray(Int32, 2)`), mirroring the
-  stdlib `[]` macros; the `read_only:` option contributes no element, and empty calls,
-  splats, and unknown arguments stay `Unknown`. Downstream index reads keep their
-  element types through the existing machinery. Covered by type-inference regressions;
-  specified in docs/specs/empty-collection-inspection.md.
-- **Cross-file constant resolution through require closures** — top-level constants
-  (`KODORRA = 123`), member constants (`class Foo; BAR = 1; end`), and lib constants
-  (`lib LibC; F_GETFD = 1`) now resolve across files via two new stub indexes
-  (`CrystalConstantIndex`, `CrystalConstantByOwnerIndex`), with Go to Definition
-  (including `Foo::BAR` paths), require-filtered completion, and Go to Symbol support.
-  `private`/`protected` constants stay file-scoped like the compiler, types keep
-  precedence over same-named constants, and statement-context assignments (method
-  bodies, blocks, control flow) never enter the index. Covered by
-  `CrystalIndexServiceTest`, `CrystalUnresolvedNameInspectionTest`,
-  `CrystalGotoDeclarationTest`, and `CrystalCompletionTest`; specified in
-  docs/specs/indexed-navigation.md.
-- **Hover documentation with type inference for constants** — hovering a constant
-  definition or read now shows an inferred-type popup (`Int32 (Constant)` plus
-  `KODORRA = 123` with the literal value, `Owner::BAR` qualified for members)
-  instead of the misleading `Unknown (Variable)` fallback or no popup at all.
-  Types come from the right-hand side expression (no flow analysis needed —
-  constants assign once), conditional branches union, `CONSTANT`-to-`CONSTANT`
-  chains recurse with a cycle guard, and doc comments above the declaration
-  render as Markdown like methods and types. Uninferable right-hand sides show
-  the honest gray `Unknown`. Covered by `CrystalDocumentationProviderTest`;
-  specified in docs/specs/hover-popovers.md.
-- **Shard-aware require-path completion** — shard directories whose bare name resolves now
-  complete without a trailing slash (selecting `kemal` yields `require "kemal"`), and entries
-  below a shard come from `lib/<shard>/src/<shard>/` plus flat `src/*.cr` files instead of the
-  raw `src/`/`spec/`/`samples/` layout, so every suggested sub-path is actually requireable.
-  Covered by `CrystalRequireCompletionTest`; specified in docs/specs/require.md.
-- **Shard dependency support** — the project-root `shard.yml` (plus `shard.lock`) is now
-  read into a dependency model with semver requirement evaluation (`~>`, `>=`, compound
-  ranges): missing or outdated dependencies surface through a project-open balloon, an
-  editor banner, and in-file error/warning markers, each offering one-click `shards install`
-  (background task with progress, output on failure, VFS refresh on success). Installed
-  shard sources under `lib/` stay indexed for completion and navigation while all
-  inspections stay silent there. Covered by manifest, semver, status, banner,
-  and inspection tests; specified in docs/specs/shard-support.md.
-- **Hover types on destructuring targets** — hovering a destructuring target itself
-  (`x` in `x, y = {1, "other"}`) now shows its inferred type instead of `Any`, mirroring
-  the existing fast path for plain assignments. Covered by `CrystalTypeInferenceTest`.
-- **Invalid `case ... in` pattern diagnostic** — a top-level bare identifier in an `in`
-  pattern is now an error (`in y`), matching the compiler, which only accepts constants,
-  generic types, bool/nil literals, and question methods there. Nested identifiers and
-  `when` clauses are unaffected. Covered by `CrystalInvalidInPatternInspectionTest`;
-  specified in docs/specs/conditions-and-postfix-modifiers.md.
-- **Correct `case ... in` pattern handling in unused-variable analysis** — a top-level bare
-  identifier in an `in` pattern is skipped entirely (the compiler rejects bare, tuple, pin,
-  and `_` patterns, so it binds nothing and must not read an unrelated outer local), while
-  all other pattern elements and `in` guard conditions flow as ordinary read positions.
-  Covered by `CrystalUnusedVariableInspectionTest`; specified in
-  docs/specs/value-assignment-never-used.md.
-- **Per-target types for destructuring assignments** — tuple destructuring now infers exact
-  types positionally (`x, y = {1, "other"}` gives `x: Int32`, `y: String`), array
-  destructuring carries the element type (`x, y = [1, "other"]` gives both
-  `Int32 | String`, matching the compiler's indexing semantics), and splat targets collect
-  the rest (`Array(...)` from arrays, order-preserving `Tuple(...)` from tuples and
-  multi-value right-hand sides). The whole multi-assignment expression resolves to its last
-  target's type. Count mismatches, too-small tuples, and non-indexable right-hand sides stay
-  untyped instead of guessing. Covered by `CrystalTypeSetResolverTest` and
-  `CrystalTypeInferenceTest`; specified in docs/specs/type-inference.md.
-- **Unused-variable analysis for destructuring targets** — each local target of a tuple
-  destructuring assignment (`x, y = [1, 2]`, including splats such as `a, *rest = …`)
-  is now tracked as its own binding: never-read targets are reported, reads resolve to
-  the destructured definition with the same offset shadowing as plain assignments, and
-  right-hand values evaluate before target writes. Indexed/member targets bind no locals,
-  and parenthesized, nested, or typed target shapes never become bindings (the compiler
-  rejects them). Covered by `CrystalUnusedVariableInspectionTest`; specified in
-  docs/specs/value-assignment-never-used.md.
-- **`# language=` injection for percent literals and symbol strings** — a `# language=<id>`
-  comment above `%q(…)`, `%Q(…)`, bare `%(…)`, or a `:"…"` symbol string now injects
-  the target language exactly like it does for double-quoted strings: interpolation
-  splits the content into places with language-specific placeholder prefixes, escapes
-  are decoded for the injected fragment, and single-place bodies write fragment edits
-  back (`%q` verbatim, `%Q`/symbols re-encoded) while interpolated bodies stay no-op.
-  `%r`/`%x` content, `%w`/`%W`/`%i`/`%I` arrays, and macro-generated `:{{…}}` symbols
-  are excluded by the host gate, and the platform "Inject language" intention applies
-  to the new hosts. Covered by `CrystalLanguageCommentInjectionTest`,
-  `CrystalInjectionHostTest`, and `CrystalLanguageCommentCompletionTest`; specified in
-  docs/specs/heredoc-calls.md.
-- **Parameter-order inspection** — a new `CrystalParameterOrder` inspection reports a required
-  positional parameter declared after an optional one (`def foo(a = 1, b)`) with
-  `Required parameter must have a default value`, matching the compiler. Named-only parameters
-  after a bare `*` or a splat stay valid, as do optional parameters before a block or double
-  splat. Covered by `CrystalParameterOrderInspectionTest`.
-- **`# language=` comment completion** — typing `# language=` (or a partial value
-  such as `# language=SQ`) now completes to installed language IDs and the
-  heredoc marker aliases (`JS`, `CR`, `BASH`, …), matching what
-  `resolveLanguage` accepts for injection. The dedicated provider declines once
-  the caret leaves the bare language value (e.g. inside `prefix=`/`suffix=`),
-  so attribute values are not polluted with language IDs. Covered by
-  `CrystalLanguageCommentCompletionTest`.
-- **String-literal external parameter names** — `def fetch("http-header" internal)`
-  now parses and binds `internal` locally while the decoded `http-header` is the
-  call-site label, matching the compiler. Empty and interpolated string names are
-  rejected as syntax errors, and argument-count/type-check/completion consumers see
-  the decoded label through `parameterNameInfo`. Covered by a parser golden,
-  parameter-name unit tests, and invalid-name regressions.
-- **`lib fun` resolution and call validation** — FFI calls (`LibC.exit(1)`) now
-  resolve to their `fun` declarations through a new stub index (`CrystalLibFunIndex`;
-  stub v21 carries the declaration name and qualified library owner), enabling Go to
-  Definition, hover, `Cannot find` healing, and the existing argument-count and
-  argument-type inspections. All `lib fun` parameters are required: named, unnamed
-  (`Int32`, `Char*`), and variadic (`...`) parameters count positionally, unknown
-  named keys report `Unknown named argument`, and parentheseless declarations
-  (`fun getch = GetChar`) stay unchecked while empty parentheses enforce zero arity.
-  Type checks add FFI-only conversions — `String` to a C-char pointer (pointee
-  `UInt8`, directly or through a lib-local or require-visible `alias Char = UInt8`)
-  and `nil` to any pointer — while `String` to any other pointer spelling is a
-  definite mismatch. Only exact qualified library identities inside the require
-  closure resolve; unknown and ambiguous targets stay suppressed. Covered by
-  argument-count/type-check/resolver/reference/unresolved/index regressions;
-  specified in docs/specs/call-argument-inspections.md and
-  docs/specs/indexed-navigation.md.
-- **Joint method+macro overload pool for argument counts** — a macro and a
-  same-named `def` are now evaluated together by applicability (verified:
-  `bar(1)` calls `def bar(a)` while `bar(1, 2)` calls `macro bar(a, b)`), so
-  macro-satisfied calls no longer report false excess against the `def`, and
-  macro-only calls report missing/excess/unknown-named against the macro
-  parameter lists. Only require-visible, call-site-reachable macros
-  participate (top-level macros anywhere once required, type-owned macros
-  from their owner or its nesters; unrequired macros stay silent), and
-  DOT calls only through receiver-owned macros. DOT calls inside `{{ … }}`
-  resolve to nothing instead of false runtime targets, and macro-only DOT
-  calls heal the `Cannot find` diagnostic. Macro argument types stay
-  unchecked (macro arguments are ASTs). Covered by argument-count,
-  resolver, and unresolved regressions; specified in
-  docs/specs/call-argument-inspections.md, docs/specs/unresolved-names.md,
-  and docs/specs/indexed-navigation.md.
-- **Chained-call receivers with exact typing** — a DOT call on a completed
-  preceding call (`env.status(:not_found).json(...)`) now resolves the inner
-  call through the shared exact resolver and checks the outer arguments
-  against the methods of its single annotated return type, enabling argument
-  count/type diagnostics, Go to Definition, and `Cannot find` healing for
-  the outer link. The inner call must be applicable (its arguments satisfy
-  an overload by arity) and unambiguous (every applicable overload carries
-  the same annotated return); unannotated, union/nilable, ambiguous,
-  constructor, accessor-macro, and lib-fun predecessors stay suppressed, as
-  do splat/double-splat predecessor arguments and nesting beyond four
-  preceding calls. The arity core (`evaluateOverload`) moved unchanged into
-  the shared `CrystalOverloadArity` helper. Covered by argument-count,
-  type-check, resolver, reference, and unresolved regressions; specified in
-  docs/specs/call-argument-inspections.md and docs/specs/indexed-navigation.md.
-- **Update-and-rebuild after failed Ameba builds** — a failed `shards build ameba`
-  now offers "Update Ameba and rebuild" in the error balloon whenever the manifest
-  declares an `ameba` dependency and `shards` is available: the locked revision may
-  predate an upstream fix, so `shards update ameba` (only that pin) runs and rebuilds
-  automatically once on success. A chained failure only re-offers the action, never
-  loops. The build ensures `bin/` exists first (neither `shards build` nor the
-  linker creates the output directory). Covered by build-offer regressions; specified in
-  docs/specs/ameba-integration.md.
-- **Honest stale-field note after successful installs** — when `shards install`
-  (or `shards update`) succeeds but a version mismatch persists with an unchanged
-  installed field, the lock-vs-field comparison cannot be at fault (shards
-  guarantees code==lock on success), so the field itself must be stale upstream.
-  Instead of looping the install suggestion, one informational balloon names the
-  affected dependencies ("installed at the locked revision, but its own shard.yml
-  still reports … — the version was never bumped upstream"). No markers, no
-  banners: there is nothing actionable left. Covered by status regressions;
-  specified in docs/specs/shard-support.md.
+
+- **[Ameba linter integration](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Cannot-find warnings for unresolved names](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Type-alias resolution and completion](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Control-flow narrowing for union and nilable receivers](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bracket-call navigation and arity checks](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Slice and StaticArray bracket literals infer their types](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Cross-file constant resolution through require closures](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Hover documentation with type inference for constants](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Shard-aware require-path completion](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Shard dependency support](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Hover types on destructuring targets](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Invalid `case ... in` pattern diagnostic](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Correct `case ... in` pattern handling in unused-variable analysis](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Per-target types for destructuring assignments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Unused-variable analysis for destructuring targets](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`# language=` injection for percent literals and symbol strings](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parameter-order inspection](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`# language=` comment completion](docs/changelog/2026-10-30_0.3.2.md)**
+- **[String-literal external parameter names](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`lib fun` resolution and call validation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Joint method+macro overload pool for argument counts](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Chained-call receivers with exact typing](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Update-and-rebuild after failed Ameba builds](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Honest stale-field note after successful installs](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Backtick commands inside interpolation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Regex literals inside interpolation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-spliced numeric literals](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Generic typed collection literals](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Leading-`::` bare arguments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Comma-separated macro-if branch content](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Raw `%q(…)` inside interpolation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Visibility-modified lib definitions](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Float literals in macro control tags](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Empty regex literals (`//`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Heredoc bodies under postfix modifiers](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Assignment arguments in parenthesized calls](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Lib external vars as `pointerof` targets](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Type declarations as array elements](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Keyword setter names in member assignments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parameterless proc literals with `do` bodies](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Class variable assignments and visibility-modified methods in enum bodies](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Float literals without underscore suffix](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Loose grouped postfix arguments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-generated proc parameters](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-conditional method headers](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bare macro-generated multi-assignment targets](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Tight bare splat arguments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Chained postfix modifiers](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`when` as an identifier in nested positions](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`out` as an ordinary local-variable name](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Semicolon groups in parenthesized expressions](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Assignments as tuple entries](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Mixed implicit and plain `when` entries](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bare `is_a?`/`responds_to?` callees on implicit self](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Embedded lexer-state literal and operator coverage](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Explicitly qualified method receivers (`def Time::Location.new`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-controlled hash and named-tuple entries](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-generated receiver ivar access (`other.@{{ivar.id}}`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Keyword setter method names (`def private=`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Multiline ternary expressions](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Double-splat parameter restrictions (`**options : **T`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Semicolon-terminated annotation definitions](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Block-only `super` and `previous_def` calls](docs/changelog/2026-10-30_0.3.2.md)**
+- **[C-FFI aggregate fields and keyword parameters](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Constant-assignment heredocs and spaced index ternaries](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Typed tuple collections and expression-position `with … yield`](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro body lexing no longer starts after arbitrary `macro` keywords](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Lone `uninitialized` as a bare call argument, with end-to-end rename for keyword variables](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Multiple `typeof` arguments (`typeof(t, u)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Keyword identifiers as parameter names (`def declare_class_var(node, var, uninitialized)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Keyword identifiers as local variables (`union = ...`, `if of = node.of`, `store @last, union`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-generated symbols (`:{{name.id}}`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`.!` pseudo-method suffix (`value.!`, `&.dst?.!`, `find(&.!)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Prefix `!` at unary precedence (`!!a != !!b`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Unary wrapping operators (`&-value`, `&+value`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Indexed and `self` targets in multi-assignments (`self[i], self[j] = ...`, `a.value, a[n] = ...`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro fresh variables (`%value{i}`, `%var{key.id}`, bare `%val`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Member targets in multi-assignments (`a.foo, a.bar = 1, 2`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Unnamed `lib fun` parameters (`fun strerror_r(Int, Char*, SizeT)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[External `lib fun` symbol aliases (`fun iconv = libiconv(...)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Uppercase `lib fun` names (`fun GetConsoleMode(...)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Keyword `fun` names (`fun select(...)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`$var = symbol` external vars (`$free = pcre_free : Void* ->`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Annotations on `lib` members (`@[Flags]`, `@[Packed]`, `@[ReturnsTwice]`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro forms as `lib`/`enum` members (`{% if %} ... {% end %}`, `{{ }}`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-spliced member names (`fun initialize_{{name}}_target`, `def {{x}}=`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro forms in expression positions (`x = {% if %} …`, `when {{ i }}`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Structured `{% if %} A {% else %} B {% end %}` envelopes](docs/changelog/2026-10-30_0.3.2.md)**
+- **[String keys for named arguments (`with_env("FOO": "bar")`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Nested `lib` definitions in type bodies (`class ELF; lib LibELF ...; end`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Receiver-qualified `pointerof` targets (`pointerof(fiber.@context)`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Proc pointers with variable receivers (`&->@stack_pool.collect_loop`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro control in `case` clause sequences (`case v; {% for ... %}; when {{...}}`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-generated splat parameters (`def initialize({{ ... end.splat }})`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Chained indexed assignments (`a[i] = b[j] = v`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Setter symbols (`:color=`) lex as one token](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Any keyword works as an external parameter name](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Raw `%q` literals no longer swallow their own closer](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bare `yield` keeps trailing `if`/`unless` on the outer statement](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Headless audit hardens its trust and credential boundaries](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Binary operators dispatch like method calls](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Headless audit reports parse errors and runs only Crystal inspections](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Lib-body constant assignments parse](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Pinned Crystal 1.21.0 parser compatibility audit](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Headless Inspect Code audit script](docs/changelog/2026-10-30_0.3.2.md)**
+- **[User-defined enums join the compiler-imposed base hierarchy](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bidirectional accessor rename (`getter`/`setter`/`property` family)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`hexfloat.cr` ternary disambiguation and macro percent literals](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`Number`-family bracket calls infer `Array(Type)`](docs/changelog/2026-10-30_0.3.2.md)**
 
 ### Changed
-- **Dependency-aware name completion** — free-text and type-annotation completion now
-  offer indexed types and top-level methods only when their defining file is visible
-  through the current file's require closure (prelude plus forward transitive requires),
-  matching the existing DOT and `::` behavior. Prelude types (`String`, `Int32`, `Array`,
-  …) stay always available; require-gated stdlib types (`JSON`, `Socket`, `Log`, …) appear
-  only once required. Unrequired shards no longer pollute the popup. Covered by
-  `CrystalCompletionTest`; specified in docs/specs/completion.md.
-- **Release gate** — `rake release` now runs the pinned Crystal 1.21.0 stdlib
-  parse audits (`indexed` + `distribution`) and the full test suite before it
-  bumps, tags, or pushes, so a parser regression can no longer be released;
-  `SKIP_STDLIB_AUDIT=1` bypasses the audit. A pull-request workflow
-  (`.github/workflows/ci.yml`) runs the full unit suite and the same audits
-  against the SHA-256-verified official archive.
+
+- **[Dependency-aware name completion](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Release gate](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Unlimited IDE compatibility](docs/changelog/2026-10-30_0.3.2.md)**
 
 ### Bug Fixes
-- **Incomplete member access while typing** — a trailing dot with no method name
-  yet (`token.` at end of line, before the next statement, or inside a `loop do`
-  body) no longer breaks the enclosing statement's parse, so the editor stops
-  marking the surrounding block as erroneous mid-typing and member completion
-  resumes. Same-line content such as `value.!(args)` keeps its parse error.
-- **Nilable receiver completion** — values typed `T?` offer the value type's
-  members again, including completed chain links (`token.delimiter_state.` before
-  the guard narrows the local to non-nil in crystalline's `collect_spans`). The
-  compiler-defined builtin `Nil` expanded from nilable sugar no longer erases the
-  resolvable union branches; indexed `Nil` declarations still contribute their
-  own methods, and every other unresolved branch keeps suppressing the whole
-  union.
-- **Enum predicate completion and hover** — expose compiler-generated queries
-  such as `DelimiterKind#heredoc?` from written enum members, including after
-  record-reader call chains. Queries return `Bool`, navigate to their enum
-  member, and follow Crystal's underscore naming. Inherited generated names
-  with a provably unrelated literal prefix no longer hide a proven nearer method.
-- **Record field readers across reopenings** — resolve generated readers such as
-  `Crystal::Token::DelimiterState#kind` through required record declarations and
-  struct reopenings. Readers participate in member completion, typed hover,
-  source navigation, and chained calls; untyped fields keep an unknown return
-  type, and unavailable or ambiguous records never supply unrelated members.
-- **Keyword-named predicate accessors** — resolve declarations such as
-  `property? struct : Bool`, including `Crystal::ClassDef#struct?`, without
-  false missing-name diagnostics. Typed query accessors also supply completion,
-  return types, and hover signatures such as `struct? : Bool`, retaining query
-  names and instance/class mode. Lookup remains exact to the receiver type.
-- **Equals-leading regex literals** — recognize `/=$/` as a regex in expression
-  position instead of division assignment. Nested calls retain their arguments,
-  avoiding false missing-argument errors and incorrect highlighting of the
-  remaining file; ordinary `/=` assignments remain operators.
-- **Unqualified call overload returns** — unqualified (dot-free) calls to
-  same-name method overloads infer their type when every overload declares the
-  same return type, mirroring the established DOT-call rule. Visit tables such
-  as crystalline's `methods_for` now show `Array(MethodInfo)` on the assignment
-  target, later reassignments, and loop bodies instead of staying unknown;
-  diverging or missing return annotations remain unknown.
-- **Condition-assignment local references** — recognize locals introduced by
-  conditions such as `if ucid = channel.receive` in the following body, including
-  nested blocks. Missing-name diagnostics and Go to Declaration use the actual
-  condition target without exposing it in its own right-hand side or another
-  method. Regression coverage also verifies that a database module loaded by a
-  containing entry is visible in included channel model files.
-- **Generated type names and method type parameters** — do not report the
-  static prefix of interpolated types such as `UInt{{n}}` as missing, including
-  their use as expression arguments. Explicit
-  `forall` type parameters are recognized throughout their method's signature
-  and body and navigate to their local declaration instead of an unrelated
-  same-named global type. Dependent paths such as `T::MAX` and `T::MIN` remain
-  unjudgeable before specialization; bindings do not leak into other methods
-  or heal absolute paths.
-- **FFI expression-path navigation** — Go to Declaration resolves both the
-  library and alias segments in expressions such as `LibGMP::MpLimb.new!(num)`,
-  not only in type annotations. Exact require-visible declarations remain
-  available through the standard target chooser, including conditional aliases
-  and library reopenings, without selecting an arbitrary declaration.
-- **FFI alias constructor diagnostics** — recognize require-visible library
-  aliases such as `LibGMP::MpLimb` in `.new!` receivers, including declarations
-  inside compile-time conditionals. Diagnostics share exact library-member
-  lookup with type-path navigation; unrelated or unrequired aliases do not
-  suppress missing-name warnings.
-- **Stable program-context test fixtures** — create both program entries from
-  the same immutable source instead of copying a transient empty PSI snapshot
-  into the second file. The fixture now verifies the stored file contents
-  before testing index membership and context switches; unnecessary explicit
-  reindex requests are removed without weakening highlighting assertions.
-- **FFI navigation with multiple declaration sources** — Go to Declaration
-  keeps all exact library and library-member targets available to JetBrains' chooser rather
-  than reporting no declaration when both a Crystal checkout and its installed
-  SDK contribute `LibGMP` and `LibGMP::MPF`. Single-target resolution remains unambiguous;
-  unrelated libraries and unavailable sources are still excluded.
-- **Go to Declaration for FFI type paths** — Ctrl+B / Ctrl+Click on each
-  segment of paths such as `LibGMP::MPF` navigates to the library or its
-  struct, union, enum, alias, or opaque-type declaration. Library and member
-  lookup respects exact namespaces and require/prelude visibility; missing or
-  ambiguous members never fall back to unrelated declarations. Library-owned
-  index identities are corrected, triggering an index rebuild.
-- **FFI library namespaces in type annotations** — recognize require-visible
-  `lib` declarations in paths such as `@mpf : LibGMP::MPF`, fixing the false
-  `Cannot find 'LibGMP'` warning in BigFloat. Lexical namespace lookup stays
-  exact; unrequired, unrelated, and missing library roots still warn, and
-  absolute paths never fall back to a lexical library.
-- **Index Crystal runtime support and preserve argument navigation** — the
-  `crystal/` stdlib directory is runtime code, not CLI tooling, and is no longer
-  excluded from synthetic or legacy library roots. Prelude constants such as
-  `Crystal::Hasher::HASH_MODULUS` can therefore be indexed. Go to Definition on
-  DOT-call arguments no longer incorrectly jumps to the enclosing method.
-- **Private constants in type reopenings** — bare references to private type
-  constants resolve across require-visible reopenings of the same qualified
-  owner, fixing false `Cannot find 'HASH_MODULUS'` warnings in BigDecimal's
-  `Crystal::Hasher` extension. Navigation, completion, and constant inference
-  share the visibility rule; private file-level constants remain file-local.
-- **Portable Windows test fixtures** — parser tests create a missing local
-  `playground.cr` without overwriting developer content; rename tests no longer
-  write a hardcoded `/tmp` dump. Stdlib fixtures use injected discovery and VFS
-  URLs instead of Unix executables and Java URI spellings. POSIX-only permission
-  and shell tests are explicitly skipped on Windows. Require resolution keeps
-  synthetic VFS paths out of native Windows canonical-path lookup. Program-context
-  fixtures explicitly schedule and await indexing before checking context switches.
-- **Bang-property readers resolve correctly** — `getter!` and `property!`
-  expose their actual plain and query readers (`name` and `name?`) to bare
-  and DOT references, missing-name checks, and coupled rename. Benchmark IPS
-  statistics such as `cycles`, `mean`, `variance`, `stddev`, and `slower`
-  no longer produce false `Cannot find` warnings merely because they are
-  declared with `property!`.
-- **Single-entry program visibility** — resolution, completion, and inspections
-  use the selected containing Crystal Run/Build/Spec file's require closure,
-  with a require-proven ancestor library entry as the standalone fallback.
-  `Benchmark.memory` is visible from `benchmark/ips.cr` immediately, without
-  merging independent programs through shared helpers or editor visitation order.
-- **Annotation-aware name resolution** — annotation names use their dedicated
-  index with lexical namespace and require visibility for navigation,
-  documentation, and missing-name diagnostics. Compiler annotations such as
-  `Deprecated` stay known without an SDK; annotation arguments are no longer
-  mistaken for ordinary unresolved names, while misspelled annotation names warn.
-- **Namespace-aware bare type references** — navigation and documentation resolve
-  types through the shared lexical namespace lookup instead of selecting an
-  unrelated same-named type. Nested constructor receivers such as `Entry.new`
-  inside `Benchmark::IPS::Job` no longer report `Cannot find 'Entry'` when
-  `Benchmark::IPS::Entry` is visible.
-- **Subtype guards expose members of narrowed receivers** — exact receiver
-  resolution preferred a parameter's declared base class or an earlier
-  constructor assignment over its flow-refined type. Calls such as
-  `message.params` in crystalline's controller therefore reported
-  `Cannot find 'params'` inside `case ... when LSP::DocumentFormattingRequest`,
-  including nested blocks. Request classes emitted inside `macro finished`
-  retain their guarded type name even without an indexed declaration; member
-  lookup then stays unjudgeable rather than falling back to the base class.
-  Single exact use-site types now take precedence;
-  missing-member warnings, reassignment, block shadowing, and branch boundaries
-  remain covered by regression tests.
-- **Grouped assignments in logical conditions** — local names assigned in an
-  earlier operand, such as `(base_name = value) && base_name != other`, now
-  resolve and navigate to that assignment. This removes false `Cannot find
-  'base_name'` warnings in crystalline's `lightweight/query.cr` while retaining
-  diagnostics for reads before the binding and unresolved assignment values.
-  Hover uses the refined read-site type: `split(...).first?` yields
-  `String | Nil` at the assignment target, narrowed to `String` in the next
-  `&&` operand and the successful `if` body. Instance-call
-  return annotations substitute fixed generic arguments through exact include
-  and superclass edges; block-free calls exclude definitely required-block
-  overloads. Unrelated destructuring no longer erases existing local types.
-- **Multiline `macro` argument labels** — record fields such as
-  `macro : Bool = false` and named arguments such as `macro: false` no longer
-  switch the lexer into a macro body when written at the beginning of a line.
-  This restores complete parsing of crystalline's `lightweight/index.cr`,
-  `prelude_index.cr`, and `query.cr`.
-- **Completion survives conflicting reopened methods** — a duplicated method
-  signature now removes only that ambiguous completion entry, retaining unrelated
-  methods and overloads. This restores `target.` suggestions such as `location`,
-  `clone`, and `at` for `Crystal::ASTNode` in crystalline, whose compiler extension
-  redefines `accept(visitor)`. Exact method resolution remains conservative.
-- **Guarded AST variable member checks** — `case target = expression` now
-  applies `when` type refinement to the assigned local, and direct `is_a?`
-  guards refine later operands of pure `&&` chains. This removes false
-  `Cannot find 'name'` warnings in crystalline's `lightweight/definitions.cr`
-  and equivalent AST visitors while retaining missing-member checks on exact
-  receivers and invalidating refinements after reassignment.
-- **Cross-file record type resolution** — statically named `record` declarations
-  now participate in require-visible, namespace-exact type lookup through a dedicated
-  stub index. This fixes false `Cannot find 'MethodInfo'` warnings in crystalline's
-  `lightweight/contracts.cr` and analogous annotations, references, and constructor
-  targets. Unrequired, unrelated, dynamic, and macro-controlled declarations do not
-  gain bindings. Recovered headers remain navigable without using incomplete field
-  lists as constructor signatures. Stub version 24 rebuilds persisted indexes;
-  completion source copies replace their indexed originals instead of becoming
-  duplicate record declarations.
-- **Responds-to guards establish member availability** — crystalline's
-  `diagnostics.cr` reported `Cannot find 'inner'` while unwrapping an exception
-  under `if error.responds_to? :inner`, because the declared `ErrorFormat`
-  module does not declare that member. Direct literal-symbol guards now carry
-  binding-scoped method guarantees through the shared variable flow. Writes
-  invalidate facts after RHS evaluation, shadowed bindings remain separate,
-  and branch joins retain only common guarantees. Presence alone never selects
-  a subclass, implementation, return type, or unrelated arity/type signature.
-- **Guarded members link to compatible declarations** — Go to Definition on
-  `error.inner` under a valid `responds_to?` guard can now reach the compiler's
-  `TypeException` property, or offer a chooser for several known compatible
-  declarations. A new declared-ancestor reverse index finds candidates; full
-  qualified hierarchy and require-scope checks reject unrelated, incomplete,
-  and unrequired types. Absolute ancestor paths also retain their global root.
-  Hover identifies a guarded member and lists possible declarations without
-  borrowing their signatures for type/arity checks or automatic rename/usage
-  binding. Stub version 23 rebuilds existing type-index caches.
-- **Static finished-hook classes expose typed members** — fixed class
-  declarations inside supported module `macro finished` hooks now participate
-  in the shared type and member model. Crystalline's `message.params` can
-  complete, show its declared parameter type, navigate into the original LSP
-  macro body, and supply the receiver for chained completion. Typed plain
-  accessor signatures also participate for ordinary source types. Candidates
-  stay require-scoped, cached views invalidate on edits, and dynamic or
-  conditional hooks remain opaque. Generated views are read-only and do not
-  change the physical PSI/stub tree or add standalone type-index entries.
-- **Static finished bodies use normal Crystal highlighting and syntax checks** —
-  the editor now maps the cached parser view back onto supported module
-  `macro finished` bodies instead of coloring the whole emitted declaration as
-  opaque text. Class keywords, types, fields, strings, and real comments keep
-  their normal colors; parser errors point into the original body and disappear
-  after correction. Malformed declarations stay out of resolution, and ordinary
-  macros or bodies with dynamic macro constructs retain their opaque treatment.
-- **References inside static finished bodies navigate to their definitions** —
-  Go to Declaration maps the clicked macro-text position onto the parsed
-  syntax view and uses the ordinary exact resolver with the original file's
-  require context. Property types such as crystalline's
-  `DocumentRangeFormattingParams` now reach their following same-file struct;
-  superclass names, generic arguments, and qualified path segments navigate
-  individually. Comments, strings, dynamic bodies, unrequired declarations,
-  and unrelated namespaces never fall back to same-name matches.
-- **Projects that lost the stdlib library at startup recover it** — the stdlib
-  synthetic library is attached by the platform's library-roots query while the
-  project model is still being built, and that same query is what publishes the
-  discovered stdlib path. A single empty result was cached for the whole session:
-  the project then had no stdlib library *and*, because the require path
-  resolver reads the published path, no stdlib in its require closure either.
-  Symptoms were stdlib completion and navigation silently missing plus false
-  argument-count diagnostics wherever a stdlib overload completes a call — e.g.
-  crystalline's `ext/compiler.cr` reporting "Unknown named argument 'location'"
-  against the compiler's `declare_meta_type_var`. The missing library also makes
-  the partial-pool gate blind, because the competing declaration it has to
-  observe is then not indexed at all, which is what made the false positive
-  deterministic in the IDE. Startup now re-resolves the stdlib and re-attaches
-  the library when its roots are missing from library scope; the recovery probes
-  library scope under its own blocking read action, because
-  `ProjectFileIndex.isInLibrary` asserts read access while the startup activity
-  runs on a background dispatcher without one, and any other failure is logged
-  instead of aborting the recovery. The provider no longer spawns a second
-  `crystal --version` subprocess inside that query and logs the stdlib path and
-  root count it published. Covered by new registration, provider and
-  require-chain regressions.
-- **No false "Unknown named argument" while the stdlib library is still being
-  attached** — the platform publishes the stdlib synthetic library while the
-  project model loads but commits it to library scope only once the real project
-  state is synced, seconds later. An editor that highlights in that window built
-  its overload pool from a stdlib-less index scope, so a shard forwarding to a
-  compiler overload was measured against its own local override alone and
-  reported the extra named argument as unknown — reproducible in the editor while
-  `Inspect Code...` on the same session stayed clean, because the model had
-  settled by then. Argument-count and type-check diagnostics now stay silent
-  while a published stdlib is outside library scope, because no index evidence
-  can then prove a same-type overload absent; acceptance verdicts are unaffected
-  and diagnostics resume once the library is attached. Covered by a
-  stdlib-invisible forwarding fixture and its attached-library control.
-- **Go to Definition on a bare call offers the whole overload pool** — Ctrl+B
-  on a receiver-less call resolved to a single deterministic target, so a shard
-  forwarding to a stdlib overload jumped only to the local override and never
-  offered the accepting stdlib definition (crystalline's `ext/compiler.cr`
-  forwarding to the compiler's `declare_meta_type_var`). The Goto handler now
-  returns the same overload pool the argument-count inspection measures the
-  call against, including same-owner overloads outside the effective sources;
-  several targets open the platform popup, one target keeps the direct jump,
-  and shadowing locals and parameters keep precedence. Covered by
-  complete-closure, isolated-file, and unrelated-owner regressions.
-- **Overload pools span the whole index scope, not just the project scope** —
-  argument-count and type-check inspections built their overload pools from the
-  project scope, which does not contain synthetic-library files. A shard
-  forwarding to a compiler overload was therefore measured against its own
-  local override alone even with the library attached and the require closure
-  grown: crystalline's `ext/compiler.cr` kept reporting "Unknown named
-  argument 'location'" while Go to Definition (whole-scope lookup) already
-  found the accepting stdlib overload. Pools are now built from the whole index
-  scope; the require closure stays the precision filter, so no unrelated
-  declaration can enter. Measured live in the IDE (`rawProjectScope=1` against
-  an indexed stdlib overload); light fixtures cannot reproduce the divergence
-  because their project scope spans everything.
-- **Broken version-manager shims no longer shadow the Crystal SDK** — auto-detection
-  accepted the first `PATH` hit without checking it runs, so a version-manager shim
-  without an installed version (asdf: "No version is set", exit 126) won over a working
-  installation behind it. Every later `crystal env` then failed silently, leaving no
-  stdlib root registered while most features degraded quietly (prelude baseline kept
-  names resolving). Candidates are now validated (`crystal --version` must succeed)
-  before acceptance, in PATH order then known locations. Covered by detector
-  regressions.
-- **Locked shard dependencies trust shards instead of the version field** —
-  a lock entry now means Ok without consulting the installed `version:` field:
-  a successful install guarantees the checked-out code matches the locked
-  revision, while the field is author-maintained and may be stale (sentry tags
-  v0.5.0 while its manifest still says 0.3.2 — previously a perpetual
-  "expected 0.5.0" with an install button that could never fix it). Without a
-  lock entry, the manifest-requirement comparison applies as before. Covered by
-  shard status regressions; specified in docs/specs/shard-support.md.
-- **Inspect Code no longer stalls on files with deep variable dependencies** —
-  mutually dependent locals could send variable-flow resolution (`mayRaise` ↔
-  `resolveVariableValue`) into unbounded recursion, stalling whole-project
-  inspection on a single file (observed as an hours-long hang in one file with
-  the process burning CPU but producing no output). Flow results are now
-  memoized per session and nested re-entries resolve as `Unknown`, matching the
-  existing Unknown-on-cycle verdicts. Qualified type names additionally prefer
-  the stub tree over file parsing under the global lock. Covered by index
-  regressions; specified in docs/specs/type-inference.md.
-- **Unqualified calls no longer report from partial same-type overload pools** —
-  forwarding to a wider overload of a reopened type (crystalline's
-  `declare_meta_type_var(…, location: info.location)` against the compiler's
-  overload) reported "Unknown named argument 'location'", because only the
-  same-file override was visible without its containing program entry.
-  When the enclosing type has indexed declarations
-  outside the effective sources and no visible overload accepts by arity, both
-  argument-count and type diagnostics stay silent instead of blaming the partial
-  pool; acceptance verdicts are unaffected and diagnostics resume once the pool
-  becomes complete through a containing program entry. An aborted pool scan
-  (dumb mode, corrupt index entry, concurrent
-  invalidation) also suppresses instead of reporting, since pool completeness
-  is then unprovable; cancellation still propagates. Covered by count and type
-  regressions; specified in
-  docs/specs/call-argument-inspections.md.
-- **Macro-hook-generated constructors no longer report false zero-arity errors** —
-  `Request.new(id: 0)` on a class including a module with `macro included` (stdlib
-  LSP `Initializer`, which defines `self.new(**args)` for every includer) reported
-  "Too many arguments: expected at most 0, got 1", because the implicit zero-argument
-  constructor applied despite having no proof that no constructor exists. A non-empty
-  `macro included` hook in an included module, or a non-empty `macro inherited` hook
-  in a superclass, now suppresses the implicit fallback instead; empty hooks and
-  constructor-less macros (`property`, `getter`) keep it. Covered by constructor
-  regressions; specified in docs/specs/call-argument-inspections.md.
-- **Compiler-bound macro `call` parameters no longer report false argument errors** —
-  every `spawn { … }` reported `Missing required argument(s): 'call'`, because the
-  macro's leading `call` slot — which the compiler fills with the macro's own call
-  node (stdlib `macro spawn(call, *, name = nil, same_thread = false, &block)`) or
-  with a written positional argument (`spawn 1`) — was measured as an ordinary
-  required parameter. That slot is now excluded from macro arity and positional
-  shape stays unchecked for such macros, while named arguments and the remaining
-  parameters are still verified. `def foo(call)` keeps its required parameter, and
-  macros without a leading `call` still report missing arguments as before.
-- **Branch-pinned shard dependencies no longer report phantom version mismatches** —  lock entries record the installed commit as SemVer build metadata
-  (`1.7.1-dev+git.commit.…`, e.g. kemal's `ameba: {branch: master}`) while the
-  installed manifest carries the base version (`1.7.1-dev`); since build metadata
-  never participates in precedence, lock and requirement comparisons now ignore it
-  instead of demanding `shards install` in a loop. Genuinely different base versions
-  still report. Covered by shard status and version-requirement regressions.
-- **Bare callees with whitespace-separated regex arguments parse like the compiler** —
-  `y = match /abc/`, `foo a /b/`, `take save? /re/`, and `match /a/, /b/` no longer
-  produce error markers: a slash after a lowercase-led (or single-underscore) callee word
-  starts a regex argument when a terminator is present, mirroring the compiler, which
-  commits to the regex reading and strands trailing operands (`a /b/ c` fails with
-  `unexpected token: "c"`). Digits keep division (`12 /2`), as do constants
-  (`Foo /bar/`), operator definitions (`def /(`), variable receivers (`@x / scalar`),
-  expression-ending keywords, magic constants, and unterminated regexes. Covered by
-  `BareCallRegexArgument` parser golden and lexer regressions.
-- **Positional arguments after named arguments are rejected** — `f(a: 1, 2)`,
-  `f(a: 1, *xs)`, `f(a: 1, out x)`, and heredoc markers after a named argument now report
-  `expected named argument, not ...` like the compiler, in both parenthesized and bare
-  calls. Block passes, `do` blocks, splats before named arguments, and spaced-colon type
-  shapes (`x : Type`) stay valid; macro-controlled tails stay silent. Covered by
-  `CrystalArgumentOrderInspectionTest`.
-- **Overload tie diagnostics are deterministic** — when equally close overloads omit different
-  required parameter names, the argument-count inspection now ranks them by the sorted
-  missing-name list instead of collection order, so the reported parameter is stable. Covered by
-  an argument-count regression.
-- **Operator overload return types resolve exactly** — `<=>`, `=~`, and `!~` now use the shared
-  exact overload resolver instead of returning `Unknown`, so an annotated `def <=>(other : T) :
-  Int32` types the expression as `Int32` and `String#=~`-style `Int32 | Nil` unions are honored.
-  Unannotated or ambiguous overloads still stay `Unknown` rather than guessing `Bool`. Covered by
-  type-inference regressions.
-- **Indexed postfix receivers continue DOT completion** — `Box.new.items[0].` now resolves the
-  element type from `Array(String)` (or a custom `def [](...)` overload) and offers the element's
-  members instead of returning `Unknown`. The completion receiver resolver reuses the shared
-  index-element mapping with generics preserved. Covered by completion-receiver regressions.
-- **`::` completion respects the require closure** — `Namespace::` no longer offers nested types or
-  class constants from files the context file does not require (directly or transitively).
-  `CrystalTypeCompletionProvider.getEnclosingTypeLookups` and
-  `CrystalSymbolCompletionProvider.addClassConstants` now filter candidates through the
-  effective-source snapshot. Covered by completion regressions.
-- **Named-only parameters reject positional arguments** — after a bare `*` or a `*splat`,
-  parameters can only be passed by name. `def configure(*, named : Int32)` now reports
-  `Missing required argument(s): 'named'` for `configure(1)` and accepts `configure(named: 1)`;
-  the same holds after `*rest`. Covered by argument-count regressions.
-- **Custom and non-table collection index reads resolve through the shared call resolver** —
-  `box[0]` on a user type with `def [](index : Int32) : String` now resolves to `String` from the
-  applicable overload's return annotation, and `Deque(T)`/`Indexable(T)` no longer stay at the
-  receiver type. The element mapping keeps its `Array`/`Hash`/`Tuple` table and defers unknown
-  bases to the shared exact call resolver instead of guessing by name. Covered by type-inference
-  regressions.
-- **Indexed receivers carry element types into dot-call chains** — `lines[0].strip` and
-  `by_name["a"].value` now resolve the element type from `Array(T)`/`Hash(K, V)` before walking
-  the dot access, instead of degrading to `Unknown`. The postfix resolver seeds its receiver from
-  the shared index-read element mapping, so bare `arr[i]` and `arr[i].method` cannot drift.
-  Covered by type-inference regressions.
-- **Instance/class-variable record fields are recognized** — `record Point, @x : Int32,
-  @@y : Int32` now binds `@x`/`@@y` as typed fields named `x`/`y`: `Point.new(1)` reports the
-  missing `y`, `Point.new(y: 2, x: 1)` is valid, and Parameter Info/`.new` completion render
-  the bare names. `CrystalPsiUtils.recordFieldInfo` accepts a sigil-stripped instance or class
-  variable before the colon, and `named_type_bare_argument` admits those name shapes (the
-  compact-colon form stays invalid, matching the compiler). Covered by a parser golden and
-  argument-count regressions.
-- **Keyword-named record fields are recognized** — `record Span, start : Int32, end : Int32`
-  (crystalline's `signature_help.cr`) no longer loses the `end` field: `Span.new(start, end)`
-  is valid, `Span.new(1)` reports the missing `end`, and the second positional argument is
-  type-checked against `end : Int32`. Record field names are now read by the shared
-  `CrystalPsiUtils.recordFieldInfo`, which accepts an `IDENTIFIER` or any `keyword_identifier`
-  token before the colon; argument-count, type-check, Parameter Info, and `.new` completion
-  all consume it. The misattributed "Too many arguments" on a trailing argument of
-  `Span.new(...)` disappears. Covered by a parser golden, argument-count, type-check, and
-  completion regressions.
-- **Nilable annotations resolve as unions (`T?` → `T | Nil`)** — a value from a
-  method returning `Array(String)?` (`parts = TypeUtils.generic_type_arguments(...)`
-  in crystalline's `lightweight/query.cr`) no longer reports `parts[0]`/`parts[1]`
-  as a type mismatch against a `String` parameter. The resolver now expands the
-  nilable shorthand while parsing annotations, parameters, and return types, so a
-  nilable generic decomposes for index element extraction (`Array(String)?[i]` is
-  `String`, `Hash(K, V)?[k]` is `V`) and for union compatibility instead of
-  staying an opaque `Array(String)?` pseudo-type. `arr[i]?` keeps `T | Nil`.
-  Covered by resolver regressions and a type-check inspection regression.
-- **Index reads resolve to the element type instead of the container** —
-  `line = lines[index]` (`lines : Array(String)`) is now `String`, not
-  `Array(String)`, so passing it to a `String` parameter no longer reports a
-  false "Type mismatch" (crystalline's `broken_source_fixer.cr`). The resolver
-  maps `Array(T)`, `Slice(T)`, and `StaticArray(T, N)` to `T`, `Hash(K, V)` to
-  `V`, `String` to `Char`, and `Tuple(...)` to the literal-indexed element (or
-  the union of all elements for a dynamic index); range/multi-argument indexing
-  keeps the container, and the nil-safe `[]?` adds `Nil`. Chained indexes
-  (`matrix[row][col]`) resolve step by step. Covered by resolver regressions and
-  a type-check inspection regression.
-- **False "Missing required argument(s)" from a tight binary operator in a call
-  argument** — reply's `move_abs_cursor(x: indent*2, y: @y + 1)`
-  (`expression_editor.cr`) no longer reports the present `y` as missing: the
-  bare-argument guard now mirrors Crystal's whitespace rule (bare arguments
-  require whitespace before the first token, and `*`/`**` require none after the
-  operator), so a tight operator after an operand (`indent*2`, `a-b`,
-  `base**exponent`) stays binary instead of binding `*2, y: …` as bare arguments
-  of `indent`. Spaced splats (`value *2`, `start_attribute *args`) and spaced
-  binary operators are unchanged. Covered by the TightBinaryOperators parser
-  golden and an argument-count inspection regression.
-- **False "Too many arguments" on macro-spliced operator arguments** —
-  `to_f32 {{ op.id }} other` (`crystal/compiler_rt.cr`) expands to
-  `to_f32 + other`, so the splice is not an argument of the zero-argument
-  `to_f32`. Calls whose argument list starts an argument with a `{{ … }}`
-  splice are now exempt from arity diagnostics (the target still resolves);
-  a splice nested deeper inside an argument stays checked. Covered by an
-  argument-count inspection regression.
-- **False "Missing required argument(s)" on macro-spliced dot-call names** —
-  calls like `bsearch_internal from, to.to_f{{ p }}, exclusive do … end`
-  (`range/bsearch.cr`) no longer lose arguments: a tight `{{ … }}` after a
-  dot-call method name is part of the generated name
-  (`dot_call_access` accepts tight macro fragments), so the enclosing call keeps
-  its remaining comma-separated arguments. `obj.method {{ x }}` (spaced) stays
-  an interpolation argument. Covered by the MacroSplicedMethodCalls golden and
-  an argument-count inspection regression.
 
-### Added
-- **Backtick commands inside interpolation** — `"FileCheck#{File.basename(
-  `#{__DIR__}/find-llvm-config.sh`).lchop("llvm-config")}"` now parses: the
-  `<INTERPOLATION>` state opens a backtick command, and the command's own
-  `#{}` nests back through the shared states (`debug/driver.cr`). Covered by
-  the BacktickInInterpolation golden and a lexer regression.
-- **Regex literals inside interpolation** — `"#{v.id.gsub(/_f32$/, "")}"` now
-  lexes the regex as one literal instead of `SLASH` + tokens (a `$` in the
-  pattern previously became `BAD_CHARACTER` and collapsed the enclosing
-  macro/heredoc): `/` uses the operator-position decision in `<INTERPOLATION>`
-  and `<MACRO_INTERPOLATION>` (`float_printer/shortest_spec.cr`,
-  `formatter_spec.cr`). Covered by the MacroInterpolationBareCall golden and a
-  lexer regression.
-- **Macro-spliced numeric literals** — `Slice.literal(1_{{ suffix.id }},
-  2_{{ suffix.id }})` now parses as a single literal instead of stranding the
-  interpolation (`primitives/slice_spec.cr`): `literal` gained a
-  `macro_spliced_literal` alternative ahead of the plain numeric literals.
-  Covered by the MacroSplicedLiterals golden.
-- **Generic typed collection literals** — `Set(String){"a", "b"}` and
-  `Deque(Int32){1, 2, 3}` now parse: `typed_collection_literal` accepts
-  `type_path [type_arguments]` before the brace (`json/serializable_spec.cr`),
-  while `spawn { }` stays a call with a block. Covered by the extended
-  TypedCollectionsAndWithYield golden.
-- **Leading-`::` bare arguments** — `expect_raises ::JSON::SerializableError,
-  error_message do ... end` no longer glues the callee into a namespace access
-  and strands the comma: a spaced `::` after an identifier callee is accepted
-  as a positional bare argument, while receiver-first paths (`Outer :: Service`,
-  `record Qualified::Entry, ...`) keep their variable + postfix shape. Covered
-  by the LeadingNamespaceBareArgument golden.
-- **Comma-separated macro-if branch content** — `expect_raises({% if
-  flag?(:win32) %} IO::Error, "The parameter is incorrect" {% else %}
-  File::NotFoundError{% end %})` no longer strands the else branch:
-  `macro_if_envelope` branches accept several comma-separated expressions
-  (`process_spec.cr`), while commas after `{% end %}` keep binding to the outer
-  argument list. Covered by the extended MacroIfEnvelope golden.
-- **Raw `%q(…)` inside interpolation** — `"#{%q(a\tb\nc).inspect}"` no longer
-  splits into `%` + `q(` and strands the interpolation: the raw percent-string
-  opener (no escapes, no interpolation) is mirrored from YYINITIAL into the
-  `<INTERPOLATION>` and `<MACRO_INTERPOLATION>` states
-  (`spec/expectations_spec.cr`). Covered by the
-  PercentLiteralInStringInterpolation/MacroBody goldens and a lexer regression.
-- **Visibility-modified lib definitions** — `private lib LibPointerSpec` (and
-  `protected lib`, also nested in type bodies) no longer breaks the parse at
-  the `lib` keyword: `visibility_modifier` now accepts `lib_definition`, so the
-  lib keeps its stub-bearing definition node inside the modifier, mirroring the
-  compiler's `VisibilityModifier` (`pointer_spec.cr`). Covered by the
-  PrivateLibDefinition golden.
-- **Float literals in macro control tags** — `{% for pair in [[Float32, 1.0_f32]] %}`
-  and `{% if threshold == 0.5 %}` no longer abort the macro-control token loop at
-  the first float: `macro_control_token` now accepts `FLOAT_LITERAL` alongside
-  `INTEGER_LITERAL`, so the loop body and later declarations keep parsing
-  (`json/pull_parser_spec.cr`). Covered by the MacroControlFloats golden.
-- **Empty regex literals (`//`)** — `"foo".index(//, 3)` or `x = //` no longer
-  devolves into integer division followed by a swallowed rest of file: the
-  lexer opens an empty regex wherever a single slash would be allowed and
-  keeps `a // b`, `a //b`, `7 // 2`, and chained division as `//` operators.
-  A colon-glued `://` stays an operator symbol via the label-colon logic.
-  Covered by the EmptyRegexLiteral golden and a dedicated lexer regression.
-- **Heredoc bodies under postfix modifiers** — `value = <<-TEXT rescue puts
-  fallback` and `VALUE = <<-TEXT if enabled` no longer strand the body content:
-  the plain method-call bare-argument alternative now refuses a queued body
-  opener, so it stays for the assignment's `[heredoc_bodies]` instead of
-  binding as an empty argument (e.g. of `enabled`). Header markers carry
-  delimiter text and keep binding as ordinary bare arguments. Covered by the
-  HeredocModifierBodies golden and body-owner regression tests. Both audits
-  stay at zero errors with zero newly failing files.
-- **Assignment arguments in parenthesized calls** — `compute(x = 5, y = 6)` now
-  parses via a dedicated `assignment_argument` rule aliased to the established
-  assignment PSI, so assigned locals resolve and rename like statement
-  assignments. Chained and op-assign right-hand sides work; the statement-only
-  postfix-modifier and heredoc tails are excluded exactly as the compiler
-  rejects them in call arguments. The previous single-assignment bare-grouped
-  shape now routes through call_args uniformly, with the rescue-state analyzer
-  covered by its dedicated tests. Covered by the AssignmentCallArguments
-  golden, isolation/boundary tests, and analyzer regression runs. Both audits
-  stay at zero errors with zero newly failing files.
-- **Lib external vars as `pointerof` targets** — `pointerof(LibFFI.ffi_type_void)`
-  in `compiler/crystal/ffi/type.cr` now parses: the compiler's `pointerof_var`
-  accepts zero-argument calls on lib types, which is syntactically a constant
-  receiver with a bare identifier. The narrow rule admits exactly that shape —
-  ordinary `foo.bar` calls and calls with arguments stay rejected — and both
-  aliases reuse the established variable-reference and dot-call PSI, mirroring
-  an ordinary `LibC.foo` call. Covered by the PointerofLibExternalVar golden,
-  target isolation/rejection tests, and a real-file canary. Both corpora reach
-  zero parse errors (650 indexed, 1,625 distribution files), with `ffi/type.cr`
-  fully repaired and zero newly failing files.
-- **Type declarations as array elements** — arrays now accept `value : Int64`
-  elements (`operands: [value : Int64]` in
-  `compiler/crystal/interpreter/instructions.cr`), matching the compiler, which
-  reads array elements with `parse_op_assign_no_control` and builds a type
-  declaration on a following colon. Only identifier/ivar/cvar targets qualify;
-  `self.x : T` stays invalid. The list keeps its shared expression-list shape
-  while the declaration reuses the established property-declaration PSI.
-  Macro-generated table shapes in the same file are covered too: macro-control
-  hash values, comma-less macro separators between entries, and spliced
-  `name{{n}}:` hash keys. Covered by the TypeDeclarationArrayElements golden,
-  focused declaration/hash-entry tests, and a real-file canary. Both corpora
-  drop to 2 errors in 1 file, with `instructions.cr` fully repaired and zero
-  newly failing files; only the deferred `ffi/type.cr` cluster remains.
-- **Keyword setter names in member assignments** — nested member assignments
-  now accept keyword method names (`@tail = tail.next = node` in
-  `crystal/system/thread_linked_list.cr`), matching ordinary dot calls. Only
-  word keywords join the member-assignment alternative; operators stay invalid
-  in this nested position. Covered by the KeywordMemberAssignment golden,
-  isolation and rejection tests, and a real-file canary. The distribution
-  corpus drops from 4 errors in 3 files to 3 in 2, with `thread_linked_list.cr`
-  fully repaired and zero newly failing files.
-- **Parameterless proc literals with `do` bodies** — `-> do ... end` without
-  parentheses now parses as a proc literal, as in `gc/boehm.cr`'s
-  `LibGC.set_start_callback -> do` callback. The body stays optional exactly
-  like the parenthesized `do` form and keeps the established `PROC_LITERAL`
-  PSI, so the `do` attaches to the proc argument instead of the outer call.
-  Covered by the ParameterlessDoProcLiteral golden, block-attachment and
-  rejection tests, and a real-file canary. The distribution corpus drops from
-  5 errors in 4 files to 4 in 3, with `boehm.cr` fully repaired and zero newly
-  failing files.
-- **Class variable assignments and visibility-modified methods in enum bodies** —
-  enum bodies now accept `@@kind_ids = ...` assignments (plain `=` only) and
-  `private`/`protected` method or macro definitions, as in `llvm/enums.cr`. Both
-  forms alias their established assignment and visibility-modifier PSI types, so
-  resolution, rename, and highlighting keep working; type declarations,
-  op-assignments, and other statements stay invalid at enum-body level. Covered
-  by the EnumClassVarAndVisibility golden, enum-body rejection tests, an
-  enum-ownership test, and a real-file canary. The distribution corpus drops
-  from 7 errors in 5 files to 5 in 4, with `enums.cr` fully repaired and zero
-  newly failing files.
-- **Float literals without underscore suffix** — integer-written floats such as
-  `1f32` and `1f64` in `crystal/compiler_rt/pow.cr` now lex as a single
-  `FLOAT_LITERAL`, matching the existing `1_f32` form. The underscore before the
-  `f32`/`f64` suffix is optional in plain code, string interpolation, macro
-  interpolation, and macro control; ordinary integers and space-separated
-  sequences (`1 f32`) are unchanged. Covered by lexer regression tests, the
-  FloatSuffixWithoutUnderscore golden, and a real-file canary. The distribution
-  corpus drops from 8 errors in 6 files to 7 in 5, with `pow.cr` fully repaired
-  and zero newly failing files.
-- **Loose grouped postfix arguments** — bare calls now parse a whitespace-separated
-  grouped first argument with a postfix chain before subsequent comma arguments,
-  such as `write_extra_newlines (a || b).end_location, b.location` in compiler
-  `syntax/to_s.cr`. PEG-first branches for ordinary, receiver, and nested bare
-  calls prevent `call_args` from committing the parenthesized prefix and
-  stranding the postfix/comma; tight `foo(...)` calls remain unchanged. Covered by the
-  LooseGroupedPostfixArguments golden and a real-file canary. The indexed corpus
-  drops from 4 errors in 3 files to 3 in 2, with `to_s.cr` fully repaired and
-  zero newly failing files.
-- **Macro-generated proc parameters** — parenthesized proc literals now accept
-  compile-time control tags around their parameter list and structured names
-  such as `arg{{i}} : {{T[i + U.size]}}`, matching `proc.cr`'s `partial`
-  implementation. The generated-name rule requires a literal identifier prefix,
-  so a bare `{{x}}` parameter remains invalid. Ordinary def, block, and proc
-  parameter behavior is unchanged. Covered by the MacroControlledProcParameters
-  golden, existing invalid-parameter tests, and a real-file canary. The indexed
-  corpus drops from 5 errors in 4 files to 4 in 3, with `proc.cr` fully repaired
-  and zero newly failing files.
-- **Macro-conditional method headers** — a compile-time conditional may select
-  between multiple `def` headers before one shared method body, as in
-  `indexable/mutable.cr`'s version-dependent `map!` block parameter restriction.
-  Alternative headers are isolated in their own PSI nodes while the first
-  header remains the owning `CrystalMethodDefinition`, preserving method naming,
-  parameter access, stubs, and normal-method error recovery. Covered by the
-  MacroConditionalMethodDefinition golden and a real-file canary. The indexed
-  corpus drops from 6 errors in 5 files to 5 in 4, with
-  `indexable/mutable.cr` fully repaired and zero newly failing files.
-- **Bare macro-generated multi-assignment targets** — `{{operand.var}}, ip = ...`
-  in `disassembler.cr` parses with the interpolation as a structured assignment
-  target (verified against the real compiler: `{{a}}, b = 1, 2` assigns the
-  generated variable). No stub or index change. Covered by the
-  MacroMultiAssignTarget golden and a real-file canary. The indexed corpus
-  drops from 8 errors in 7 files to 7 in 6, with `disassembler.cr` fully
-  repaired and zero newly failing files.
-- **Tight bare splat arguments** — `*`/`**` after a call name are splat
-  arguments unless followed by whitespace (`start_attribute *args, **nargs` in
-  `xml/builder.cr`), matching the compiler's `parse_call_args_space_consumed`;
-  spaced forms stay binary operators and tight `a*b` keeps binding through the
-  index-postfix tightness guard. No BNF, stub, or index change. Covered by the
-  BareSplatCallArguments golden and a real-file canary. The indexed corpus
-  drops from 9 errors in 8 files to 8 in 7, with `xml/builder.cr` fully
-  repaired and zero newly failing files.
-- **Chained postfix modifiers** — `if`/`unless`/`rescue` modifiers nest
-  right-recursively (`str_size += 1 if small_gap if e_index` in
-  `string/formatter.cr`), matching the compiler's expression-suffix loop; the
-  nested modifier is a child of the first, so all singular `postfixModifier`
-  accessors keep working and single-modifier trees stay byte-identical.
-  Trailing `while`/`until` stay rejected. Covered by the
-  ChainedPostfixModifiers golden, chained-modifier acceptance tests, and a
-  real-file canary. The indexed corpus drops from 10 errors in 9 files to 9 in
-  8, with `string/formatter.cr` fully repaired and zero newly failing files.
-- **`when` as an identifier in nested positions** — `when` joins the contextual
-  keywords for block parameters (`node.whens.each do |when|`) and reads
-  (`guess_type(when.body)`) in `type_guess_visitor.cr`, matching the compiler,
-  which lexes it as IDENT and rejects it only as a parameter name outside the
-  allowed list. Since a clause keyword must never start a statement (the greedy
-  statement list would swallow a following `when` clause), `statement` carries
-  a `!WHEN` guard — the `end_token?` analogue — while `when`/`in`/`else`
-  clauses keep matching structurally; `when` stays readable but not writable.
-  No stub or index change. Covered by the WhenIdentifier golden (including a
-  two-clause case pinning clause dispatch) and a real-file canary. The indexed
-  corpus drops from 11 errors in 10 files to 10 in 9, with
-  `type_guess_visitor.cr` fully repaired and zero newly failing files.
-- **`out` as an ordinary local-variable name** — `out` joins the contextual
-  keyword-variable family (`out = v.to_unsafe` in `slice/sort.cr`, plus reads,
-  dot chains, and compound assignment), matching the compiler, which lexes it
-  as IDENT and rejects it only as a *parameter* name
-  (`invalid_internal_name?`). The `foo(out x)` forwarding form keeps its own
-  argument rule, ordered ahead of the expression alternatives in both call
-  shapes so `receive out target` still binds the target. Bare
-  `consume out <target>` lines parse as juxtaposed statements under the
-  pre-existing statement-list leniency (same as any identifier-led line), while
-  parenthesized invalid targets still error. No stub or index change. Covered
-  by the OutVariable golden, out-parameter negative tests, and a real-file
-  canary. The indexed corpus drops from 12 errors in 11 files to 11 in 10, with
-  `slice/sort.cr` fully repaired and zero newly failing files.
-- **Semicolon groups in parenthesized expressions** — groups hold several
-  `;`-separated expressions with the last as the value
-  (`checked ? (sign_extend(7, node: node); i64_to_u8(node: node)) : nop` in
-  `primitives.cr`), matching the compiler's `parse_parenthesized_expression`;
-  each element keeps the assignment-capable shape. No stub or index change.
-  Covered by the GroupedSemicolonExpressions golden, a negative test, and a
-  real-file canary. The indexed corpus drops from 13 errors in 12 files to 12
-  in 11, with `primitives.cr` fully repaired and zero newly failing files.
-- **Assignments as tuple entries** — every tuple element parses at assignment
-  level via a dedicated `tuple_entry_list` reusing the shared `EXPRESSION_LIST`
-  PSI type (`case {real_inf_sign = @real.infinite?, ...}` in `complex.cr`,
-  `case {arg_type = arg.type, arg}` in `call_error.cr`), matching the
-  compiler's `parse_op_assign_no_control` per element. Single assignment only:
-  `{a, b = 1}` stays `Tuple[Var, Assign]`, never a multi-assign. Arrays, `in`
-  patterns, and typed collections keep the expression-only shape, and plain
-  tuples keep byte-identical trees. Tuple type inference and effect analysis
-  traverse entries in source order. No stub or index change. Covered by the
-  TupleAssignmentEntries golden, a negative test, and real-file canaries. The
-  indexed corpus drops from 15 errors in 14 files to 13 in 12, with both files
-  fully repaired and zero newly failing files.
-- **Mixed implicit and plain `when` entries** — each `when` entry independently
-  chooses between the implicit comparison and the plain form
-  (`when .<(0x20), 0x7f` in `json/builder.cr`), matching the compiler's
-  per-entry branch in `parse_when_expression`; the previous all-or-nothing
-  alternation stranded the tail once shapes mixed (PEG never retries the second
-  alternative). The implicit form takes call arguments first
-  (`Call(ImplicitObj, <, (0x20))`), falling back to the plain comparison
-  operand (`when .< 0` unchanged). No stub or index change. Covered by the
-  MixedWhenEntries golden and a real-file canary. The indexed corpus drops from
-  16 errors in 15 files to 15 in 14, with `json/builder.cr` fully repaired and
-  zero newly failing files. (`when _` rejection stays a known gap: lone `_`
-  lexes as `IDENTIFIER`, so distinguishing it needs lexer-level handling.)
-- **Bare `is_a?`/`responds_to?` callees on implicit self** — `is_a?(T)` and
-  `responds_to?(:sym)` without a receiver parse as ordinary calls via shared
-  `call_callee`/`bare_call_callee` groups, matching the compiler's
-  `parse_var_or_call` (`compiler/crystal/macros/methods.cr`,
-  `humanize.cr`). `AS`/`AS_QUESTION`/`NIL_QUESTION` stay excluded (no audit
-  evidence); downstream handling matches the long-supported DOT form, so no
-  mixin, stub, or index change. Covered by the BarePredicateCallees golden and
-  real-file canaries. The indexed corpus drops from 18 errors in 17 files to 16
-  in 15, with both files fully repaired and zero newly failing files.
-- **Embedded lexer-state literal and operator coverage** — the `MACRO_INTERPOLATION`
-  and `MACRO_CONTROL` states lex hex/octal/binary literals, integer suffixes, and
-  floats exactly like plain code (`{{ Limb == UInt64 ? 27_u32 : 13_u32 }}`,
-  `== {{ flag?(:bits64) ? 0x20b : 0x10b }}`); the `INTERPOLATION` state gains `//`
-  (`"#{number // 10_000}"`); `MACRO_BODY` end detection accepts a `.` follower so
-  chained calls on block values (`end.should(...)`) close their `do` block instead
-  of swallowing the macro's `END`. No BNF, stub, or index change. Covered by the
-  MacroInterpolationLiterals golden, negative interpolation tests, and real-file
-  canaries. The indexed corpus drops from 23 errors in 22 files to 18 in 17, with
-  `float/fast_float/bigint.cr`, `float/fast_float/float_common.cr`,
-  `exception/call_stack/libunwind.cr`, `xml.cr`, and `spec/helpers/string.cr` fully
-  repaired and zero newly failing files.
-- **Explicitly qualified method receivers (`def Time::Location.new`)** — `method_name`
-  now accepts a constant path receiver (`CONSTANT (:: CONSTANT)* DOT target`) with the
-  same identifier, setter, keyword, and operator targets as single-segment receivers,
-  matching the compiler's `parse_def_helper` (`json/from_json.cr`, `yaml/from_yaml.cr`).
-  Leading `::` and generic receivers stay parse errors. The method name is the target
-  after the receiver DOT (`Float64.new` is `new`, fixing the previous `Float64`
-  misnaming); constant receivers classify as static methods; the stub persists the
-  explicit receiver as the method owner (generalizing the record-only owner field,
-  same binary layout), so qualified definitions index under the receiver's simple
-  name and never leak into top-level lookup — also when nested in an unrelated type.
-  Unqualified call sites resolve against the same owner. The stub version is bumped
-  to 19. Covered by the QualifiedReceiverMethodDefinitions golden, negative receiver
-  tests, PSI naming/index/hierarchy regressions, and real-file canaries. The indexed
-  corpus drops from 25 errors in 24 files to 23 in 22, with `json/from_json.cr` and
-  `yaml/from_yaml.cr` fully repaired and zero newly failing files.
-- **Macro-controlled hash and named-tuple entries** — `hash_entry_list` now accepts
-  `{% ... %}` macro control tags before, between, and after entries, matching the
-  compiler's macro expansion for hash literals (`named_tuple.cr`'s `def self.new(**options : **T)`
-  with `{% for key in T %} {{ key.stringify }}: options[{{ key.symbolize }}], {% end %}`).
-  A `macro_only_hash_entry_list` alternative covers conditionally empty entry lists.
-  `getNamedLabel` returns null for macro-generated labels to prevent false-positive
-  argument-count and type-check warnings. Covered by the MacroControlledHashEntries
-  and MacroGeneratedBareLabel goldens plus negative hash-entry tests. The indexed
-  corpus drops from 26 errors in 25 files to 25 in 24, with `named_tuple.cr` fully
-  repaired.
-- **Macro-generated receiver ivar access (`other.@{{ivar.id}}`)** — DOT access now accepts
-  `AT macro_interpolation` as a generated instance-variable name, matching Crystal's struct
-  equality pattern (`struct.cr`). No stub or index change. Covered by the MacroGeneratedIvarAccess
-  golden plus the existing DotCallAccess regressions. The indexed corpus drops from 27 errors in
-  26 files to 26 in 25, with `struct.cr` fully repaired and zero newly failing files.
-- **Keyword setter method names (`def private=`)** — any word keyword plus `=` is now a valid setter
-  name, matching the compiler (`types.cr`); operators stay invalid. Method naming reports `private=`
-  via the existing header-token fallback. No stub or index change. Covered by the KeywordSetter
-  golden plus a method-name regression. The external Crystal 1.21.0 repository audit drops from 75
-  errors in 71 files to 74 in 70, while the pinned indexed corpus drops from 28 in 27 to 27 in 26;
-  both file-set comparisons show exactly one repaired file and zero new failures.
-- **Multiline ternary expressions** — `?` and `:` may be followed by newlines, matching the
-  compiler's `parse_question_colon` (`range/bsearch.cr`). The nil-safe `?` postfix stays separate
-  through its tightness guard. No PSI, stub, or index change. Covered by the MultilineTernary
-  golden; existing ternary and nil-safe-index goldens unchanged. The external Crystal 1.21.0
-  repository audit drops from 76 errors in 72 files to 75 in 71, while the pinned indexed corpus
-  drops from 29 in 28 to 28 in 27; both file-set comparisons show exactly one repaired file and
-  zero new failures. A trailing `value ?` at end of line keeps its lenient question-expression
-  shape instead of consuming the next line (ExpressionAndRangeReplay unchanged).
-- **Double-splat parameter restrictions (`**options : **T`)** — a `**` parameter may now carry a
-  `**` restriction, strictly paired as in the compiler (`def self.new(**options : **T)` in
-  `named_tuple.cr`); `x : **T`, `*x : **T`, and `&x : **T` stay parse errors. No PSI, stub, or index
-  change. Covered by the DoubleSplatRestriction golden plus negative tests. The `**T` site itself
-  is repaired (the file's first error moves from line 59 to an independent later site: macro-
-  generated hash keys at line 71, a separate cluster); totals stay 76 errors in 72 files externally
-  and 29 in 28 indexed, with zero new failures by file-set comparison.
-- **Semicolon-terminated annotation definitions** — `annotation Field; end` now parses, matching the
-  compiler's `StatementEnd` between the annotation name and `end` (`uri/params/serializable.cr`).
-  No stub or index change. Covered by the AnnotationSemicolon golden. The external Crystal 1.21.0
-  repository audit drops from 78 errors in 73 files to 76 in 72, while the pinned indexed corpus
-  drops from 31 in 29 to 29 in 28; both file-set comparisons show exactly one repaired file and
-  zero new failures.
-- **Block-only `super` and `previous_def` calls** — `super { |i| yield i }` and `super do … end`
-  without arguments now parse, matching the compiler's normal call path with a trailing block
-  (`range.cr`, `slice.cr`). No PSI, stub, or index change. Covered by the SuperBlock golden. The
-  external Crystal 1.21.0 repository audit drops from 80 errors in 75 files to 78 in 73, while the
-  pinned indexed corpus drops from 33 in 31 to 31 in 29; both file-set comparisons show exactly two
-  repaired files and zero new failures.
-- **C-FFI aggregate fields and keyword parameters** — `lib struct` and `lib union` now accept
-  compiler-valid keyword field names (`next`, `alias`, `union`) and grouped declarations such as
-  `r, g, b : UInt8`; structs retain include and macro forms, unions retain macro forms, and ordinary
-  outer `lib` bodies still reject fields. `lib fun` accepts every explicitly typed keyword parameter (`fun`, `out`,
-  `class`, `then`) as a normal parameter with name, documentation, rename, and type inspection
-  support. Struct/union PSI retains `getLibBody()` and `getLibFieldList()`. Covered by
-  LibAggregateFields and LibFunKeywordParameters goldens plus
-  parser, PSI-name, and inspection regressions. The external Crystal 1.21.0 repository audit drops
-  from 96 errors in 85 files to 80 in 75, while the pinned indexed corpus drops from 39 in 35 to 33
-  in 31; both file-set comparisons show ten repaired files and zero new failures.
-- **Constant-assignment heredocs and spaced index ternaries** — constant values now attach queued
-  heredoc bodies, so compiler constants such as `USAGE = <<-USAGE` and `SVG_DEFS = <<-SVG` preserve
-  their complete structured bodies and following declarations. Index suffixes accept `?` only when
-  tight (`values[i]?`), allowing the spaced `values[i] ? value : fallback` form to bind as a ternary
-  instead. `CrystalConstantAssignment` gains an additive nullable `getHeredocBodies()` accessor; no
-  stub or index change. Covered by ConstantHeredocAssignments and IndexedAccessTernary goldens. The
-  external Crystal 1.21.0 repository audit drops from 105 errors in 94 files to 96 in 85, while the
-  pinned indexed corpus drops from 48 in 44 to 39 in 35; both file-set comparisons show exactly nine
-  repaired files and zero new failures.
-- **Typed tuple collections and expression-position `with … yield`** — typed brace literals now
-  accept tuple entries as well as hash entries: `Deque{1, 2, 3}`, `Set{"a", "b"}`, multiline and
-  trailing-comma forms, while `HTTP::Headers{"Accept" => "text/plain"}` keeps its existing hash
-  shape. `with scope yield` is now valid wherever an expression is valid, including assignments,
-  multi-assignments, bare arguments, and parenthesized yield arguments. The existing
-  `CrystalWithYieldStatement` PSI element is reused, with additive argument-list accessors; no stub
-  or index change. Covered by the TypedCollectionsAndWithYield golden. The external 1.21.0
-  crystal-repository audit drops from 118 errors in 105 files to 105 in 94, with eleven files fully
-  clean and zero newly failing files by file-set comparison; the pinned indexed corpus remains 48 in
-  44.
-- **Macro body lexing no longer starts after arbitrary `macro` keywords** — `macroHeaderSeen` now
-  activates only for a `macro` declaration at the start of a line (optionally `private` or
-  `protected`) and waits for a multiline signature's closing parenthesis before entering
-  `MACRO_BODY`. Dotted macro-method calls (`filename.macro`), method names (`def macro`), and
-  field/parameter names (`macro : Macro`, `@macro`) no longer turn following source into macro body
-  content. Covered by lexer regressions for all four non-declaration forms and a multiline private
-  macro header. The external 1.21.0 crystal-repository audit drops from 127 errors in 114 files to
-  118 in 105; the pinned indexed corpus drops from 57 in 53 to 48 in 44, with exactly nine repaired
-  compiler files and zero newly failing files by file-set comparison.
-- **Lone `uninitialized` as a bare call argument, with end-to-end rename for keyword variables** —
-  `TypeDeclarationWithLocation.new(node, var, uninitialized, nil)` (compiler
-  `type_declaration_visitor.cr`) now parses: a private `uninitialized_variable_reference ::=
-  UNINITIALIZED !type_reference` joins `variable_reference`, so a lone `uninitialized` binds the
-  keyword-named local parameter/value while `uninitialized UInt32` keeps the existing
-  `uninitialized_expression` PSI (AsmAndUninitialized canary unchanged). Keyword variables also
-  resolve and rename end to end now that the PSI admits them: a shared `KEYWORD_VARIABLES` token
-  set drives reference creation, name identifiers, `setName`, parameter names, and the local usage
-  analyzer; the word scanner indexes the same leaves so `ReferencesSearch` finds usages, and
-  `handleElementRename` rewrites a renamed keyword leaf as `IDENTIFIER` (the new text no longer
-  lexes as the keyword). Covered by the UninitializedKeywordReference golden, keyword
-  parameter/assignment resolution tests, focused `ReferencesSearch` and `handleElementRename`
-  tests, and an end-to-end rename test. The external 1.21.0 crystal-repository audit drops from
-  128 errors in 115 files to 127 in 114 (`type_declaration_visitor.cr` fully clean); the pinned
-  indexed corpus drops from 58 in 54 to 57 in 53 — verified by before/after file-set comparison
-  with zero newly failing files.
-- **Multiple `typeof` arguments (`typeof(t, u)`)** — `typeof` now accepts one or more
-  comma-separated expressions, with newlines after the opener or comma and a trailing comma:
-  `typeof(first, second)`, `typeof(\n first,\n second,\n)`, nested calls/tuples, and type
-  contexts such as `Pointer(typeof(first, second))`. The private list is shared by type-context
-  `typeof` and expression `typeof`; empty, leading/double-comma, and newline-before-comma forms
-  remain parse errors as verified against Crystal. `CrystalTypeofExpression` regenerates from a
-  singular nullable expression accessor to `getExpressionList()`; no in-repository consumer used
-  the old accessor, and no stub or index changes. Covered by TypeofMultipleArguments golden and
-  four negative cases. The external 1.21.0 crystal-repository audit drops from 130 errors in 117
-  files to 128 in 115 (`src/class.cr` and `spec/std/class_spec.cr` fully clean); the pinned indexed
-  corpus drops from 59 in 55 to 58 in 54, with no indexed per-file regressions. Assignment-level
-  operands such as `typeof(value = 1, other = 2)` remain a separate `parse_op_assign`-parity
-  concern and are deliberately outside this small grammar-only fix.
-- **Keyword identifiers as parameter names (`def declare_class_var(node, var, uninitialized)`)** — the
-  compiler-verified keyword subset (`of`, `union`, `uninitialized`, `forall`, `previous_def`) now
-  stands alone as a def parameter name, with an optional type and default: `parameters of = nil,
-  &` (ast.cr), `def parse_c_struct_or_union(union : Bool)` (parser.cr), and `(*union)`/`(&of)`
-  splat/block forms. Every other keyword stays an external call-site label only (`end end_pos`,
-  `with entries`, negative-tested for `end`/`def`/`if`/`select`/`alias`), and the two-name label
-  form is unchanged. Covered by KeywordParameterNames golden plus the invalid-parameter tests; no
-  PSI shape change beyond admitted parameters, no stub or index change. The external 1.21.0
-  crystal-repository audit drops from 137 errors in 120 files to 130 in 117 — `type_intersect.cr`,
-  `syntax/ast.cr`, and `syntax/parser.cr` fully clean; the pinned indexed corpus drops from 66 in
-  58 to 59 in 55, matching the per-file count diff with zero regressions. Newly exposed cascade:
-  a lone `uninitialized` as a bare `.new` argument
-  (`TypeDeclarationWithLocation.new(var_type.virtual_type, node.location.not_nil!, uninitialized,
-  nil)`) wants the `uninitialized T` type alternative first — deferred to the bare-argument
-  cluster.
-- **Keyword identifiers as local variables (`union = ...`, `if of = node.of`, `store @last, union`)** —
-  word keywords now bind as variables in exactly the subset the compiler accepts as identifiers
-  (`of`, `union`, `uninitialized`, `forall`, `previous_def`), as assignment targets and rvalues:
-  `union = alloca llvm_type(type)` (compiler codegen call.cr), `if of = node.of` with `[of.key,
-  of.value]` (literal_expander.cr and its to_s/transformer/parser twins), `union patterns` (regex.cr).
-  `out` is excluded — a leading `out` is the argument-forwarding keyword (`out x`), `out = v` stays
-  invalid — and `uninitialized` is excluded from rvalue position: the `uninitialized T`
-  type-expression alternative owns the token (`t = uninitialized U`), so `uninitialized UInt32`
-  keeps its PSI. Statement-reserved keywords (`end`, `def`, `if`, ...) never rebind, so the
-  def-body terminator stays `end` (negative tests). Covered by the `KeywordAssignedKeywords` golden
-  (assignment, condition variable, call arguments, multi-assign targets) and four negative cases;
-  no new PSI element, no stub or index change. The external 1.21.0 crystal-repository audit drops
-  from 139 errors in 126 files to 137 in 120 — `codegen/call.cr`, semantic `ast.cr`,
-  `literal_expander.cr`, `syntax/transformer.cr`, `regex.cr`, and `spec/parser_spec.cr` fully clean;
-  the pinned indexed corpus drops from 67 in 63 to 66 in 58. Same-root-cause visibility inflation:
-  keyword-named parameters (`def parse_c_struct_or_union(union : Bool)`, `def self.map(values, of =
-  nil, &)`) now report two same-line errors instead of one until the keyword-parameter cluster
-  lands; `yaml/lib_yaml.cr` `alias : AliasEvent` is exposed by the moved error position.
-- **Macro-generated symbols (`:{{name.id}}`)** — a colon followed by a macro interpolation now
-  parses as a full symbol expression, reusing the `symbol_string_expression` PSI: `if color ==
-  :{{name.id}}` (colorize.cr `fore`/`back`), `getter :{{property.id}}` (macros.cr generated
-  getters), `attributes[:{{var.name.id}}]?` (compiler instance_var_spec), and receiver reads like
-  `:{{name.id}}.to_s`. A second alternative (`COLON` + tightness predicate + `macro_interpolation`)
-  keeps the existing element type, so inference returns `Symbol` and receiver trust is unchanged;
-  space before the interpolation stays a parse error and the lexer is untouched (operator symbols
-  like `:+` remain a separate pending cluster). Covered by the `MacroGeneratedSymbols` golden
-  (four real corpus shapes, no `PsiErrorElement`), a `Symbol` inference assertion, and a
-  spaced-colon negative test; no new element type, no stub or index change. The external
-  crystal-repository audit drops from 140 errors in 127 files to 139 in 126 (colorize.cr fully
-  clean, zero regressions by file-set and per-file count comparison); the pinned indexed corpus
-  drops from 68 in 64 to 67 in 63. Newly exposed cascades: macro-args in int_spec and
-  interpolated named-argument labels in json/yaml from_json/from_yaml.
-- **`.!` pseudo-method suffix (`value.!`, `&.dst?.!`, `find(&.!)`)** — the NOT pseudo-call was
-  unparsed: `location.zones.find(&.dst?.!)` (location_spec.cr),
-  `ENV["NO_COLOR"]?.try(&.empty?.!)` (colorize.cr), and
-  `self_new_methods.any?(&.has_any_args?.!)` (compiler semantic new.cr) failed at the `!`. A
-  private `bang_suffix` (`NLS DOT BANG`, plus immediately-empty `!()` and `!(\n)` via the strict
-  `LPAREN NLS RPAREN` alternative with a `!LPAREN` bare guard) joins both postfix rules and an
-  `implicit_object_call` shorthand branch (`find(&.!)` / `when .!()`), deliberately outside
-  `dot_call_access`/`keyword_as_method`: `.` `!` is not a definable method (`def !` stays
-  rejected by negative tests), so no CrystalDotCallAccess, no reference, echoing the compiler's
-  Not pseudo-call and its argument rejection (`value.!(args)` stays a parse error). Only
-  `CrystalParser.java` regenerates; token-level leaves, PSI/stubs untouched. BangSuffixChains
-  golden covers `value.!`, the double chain, `.!()`, the `&.` guard chains, and the multiline
-  `.!(
-)` form; `def self.!` remains a pre-existing acceptance gap tracked in TODO. The external audit
-  drops from 142 errors in 129 files to 140 in 127 (location_spec.cr and semantic new.cr fully
-  clean, zero newly failing files); indexed drops from 69 in 65 to 68 in 64. Newly stopped
-  cascade: `if color == :{{name.id}}` (colorize.cr:387) joins the pending operator-symbol family.
-- **Prefix `!` at unary precedence (`!!a != !!b`)** — the `not_expression` level sat above the
-  comparison row, so a leading `!`, triple `!!` chain, or `!=` RHS with `!!` could not start a
-  comparison operand: `if def_metadata.yields != !!signature.block` (method_lookup.cr),
-  `!!double_splat != !!other.double_splat` (restrictions.cr), and `yields == !!block`
-  (suggestions.cr) failed. `BANG` joins both private unary rules and the former
-  `not_expression`/`bare_not_expression` levels are removed — matching the compiler's
-  `parse_prefix` (`!` parses a prefix-chain operand, so `!a == b` rebinding as `(!a) == b` is
-  intentional and CC-verified). Only `CrystalParser.java` regenerates; the tree change is the
-  deliberate precedence repair. DoubleBangComparisons golden (double bangs on both comparison
-  sides, `&&` operand, rebinding `!a == b`) and negative tests guard the shape; the syntactic
-  `.!` suffix forms belong to a separate pseudo-method cluster. The external audit drops from
-  145 errors in 132 files to 142 in 129 (the three compiler semantic sources
-  `method_lookup.cr`, `restrictions.cr`, `suggestions.cr` fully clean, zero newly failing
-  files); indexed drops from 72 in 68 to 69 in 65.
-- **Unary wrapping operators (`&-value`, `&+value`)** — `WRAP_PLUS`/`WRAP_MINUS` existed only with
-  binary/compound precedence, so the prefix uses in `Pointer(T).new(self.address & (&-boundary))`
-  (pointer.cr), `value < 0 ? &-v : v` (big_int.cr), `x = &-0_u32` (uint_spec.cr), and the hasher
-  spec failed at the operator. The two private unary rules admit `WRAP_PLUS`/`WRAP_MINUS`
-  (compiler parse_prefix, parser_spec `&- 1` / `&+ 1`), mirroring the bare-expression parallel —
-  only `&+`/`&-` are prefix operators; `&*`/`&**` (and operand-less forms) stay rejected by new
-  negative tests, via the same `&->` proc-literal token split as before. The existing binary
-  precedence, lexer tokens, PSI, stubs, and indexes are untouched — only `CrystalParser.java`
-  regenerates. The WrappingOperators golden extends to prefix reads, spacing forms, the
-  ternary/comparison and argument contexts, and a binary-left-operand canary. The external audit
-  drops from 149 errors in 136 files to 145 in 132 (`pointer.cr`, `big/big_int.cr`, `uint_spec.cr`,
-  and `crystal/hasher_spec.cr` fully clean, zero newly failing files); indexed drops from 74 in 70
-  to 72 in 68. The `!!` precedence family (method_lookup/restrictions `!= !!x`) remains a separate
-  cluster, as does the `.!` pseudo-method suffix.
-- **Indexed and `self` targets in multi-assignments (`self[i], self[j] = ...`, `a.value, a[n] = ...`)** —
-  `multi_assign_target` had no bracket alternative, so the pointer-crystal swap (pointer.cr),
-  `slice/sort.cr` median loops, and the position restore in compiler `syntax/lexer.cr`
-  (`self.current_pos, @line_number, @column_number = ...`) failed at the comma. A private
-  `multi_assign_indexed_target` (reusing `indexed_assignment_target` + `indexed_assignment_index`,
-  now also admitting `self`/nested `self.foo` receivers through the same helper as ordinary
-  `self[i] = value` assignments) and a `SELF` member root for dot-member targets mount ahead of
-  the member and variable alternatives in both the plain and splat target groups; all shapes keep
-  the private inline helpers, so no new PSI element type and no runtime consumers change, and the
-  pin stays solely at the final `ASSIGN` so expression lists (`when a[i], a[j]`) keep falling back.
-  Calls with parentheses or blocks, parenthesized whole targets, typed index targets, and
-  malformed index contents stay rejected (new negative tests). MultiAssignMemberTargets golden
-  extends to the audit shapes, splats, multi-level indices, `Foo::Bar[i, j]`, index assignments,
-  and the expression-list fallback canary. The external audit drops from 152 errors in 139 files
-  to 149 in 136 (`pointer.cr:322` and `slice/sort.cr:28` repaired, compiler `syntax/lexer.cr:1988`,
-  `crypto/bcrypt.cr:140`/`:137` and `samples/sudoku.cr` recovered); indexed drops from 76 in 72 to
-  74 in 70. Newly stopped cascade lines: `Pointer(T).new(self.address & (&-boundary))` (unary
-  wrap-minus family) and `out = v.to_unsafe` in `slice/sort.cr:348` (`out` as a local name —
-  the keyword-identifier family).
-- **Macro fresh variables (`%value{i}`, `%var{key.id}`, bare `%val`)** — the `MACRO_FRESH_VAR`
-  token existed only inside macro bodies; between macro control tags (`{% begin %}`/`{% for %}`
-  bodies in iterator.cr, json/from_json.cr) and outside, `%` bound as the modulo operator and the
-  statement failed. The YYINITIAL lexer now admits `%ident` under an operand-position guard (word
-  and literal left operands keep the modulo reading `10 % val`; line starts, postfix-modifier
-  keywords, and argument positions take the fresh variable; longest-match keeps the percent
-  literals ahead). A `macro_fresh_variable` composite (MACRO_FRESH_VAR token plus optional
-  `LBRACE expression RBRACE` key, mirroring the compiler's `MacroVar`) joins `variable` (assignment
-  targets, condition assignments, multi-assign targets) and both primary-expression groups, and
-  enters the `{% %}` soup token set. The name is the fresh-var token; the brace key is expansion
-  data, so the unused-variable analysis skips these macro-internal bindings (Crystal emits no
-  runtime warning for them) and no PsiReference is installed. Only `CrystalLexer.java`,
-  `CrystalParser.java`, and additive accessors regenerate — no stub or index change. Covered by the
-  MacroFreshVariables golden (assignments, reads, `nilable?`-branch envelopes, modulo fallback) and
-  negative tests (numeric fresh var, unclosed braces, stray leading comma). The external audit
-  drops from 154 errors in 141 files to 152 in 139 (`iterator.cr` and `math_spec.cr` fully clean;
-  zero newly failing files); indexed drops from 77 in 73 to 76 in 72. Newly stopped cascade lines:
-  `NamedTuple.new(` interior macro-controlled named args (json/from_yaml.cr) and
-  `run_op_tests {{ int1 }}, {{ int2 }}, :+` (int_spec.cr).
-- **Member targets in multi-assignments (`a.foo, a.bar = 1, 2`)** — the target rule accepted
-  only plain variables, so `@editor.width, @editor.height = ...` (reply `reader.cr`) broke the
-  enclosing `loop do` block. A private member-target rule (variable/constant receiver plus
-  argument-free dot accesses, incl. splats) precedes the plain form; calls with arguments,
-  parentheses, or blocks stay rejected, matching the compiler. The rule pins at the `=` rather
-  than the target list, so `when`-lists and brace tuples without `=` (`Set{foo, bar}`) still fall
-  back to plain expressions — pinning earlier regressed `src/time/tz.cr`. Covered by the
-  MultiAssignMemberTargets golden and negative tests. The external audit drops from 1,015 errors
-  in 499 files to 1,005 in 494 (zero newly failing files); indexed drops from 168 in 123 to 163
-  in 120.
-- **Unnamed `lib fun` parameters (`fun strerror_r(Int, Char*, SizeT)`)** — only `fun_definition`
-  uses the new `lib_fun_parameter_list`, which reuses the `PARAMETER_LIST` element type so the
-  `CrystalParameter` PSI is unchanged; named items still bind through `parameter` (untyped names
-  stay inspection-flagged), while type-only items — pointers, mixed named/unnamed, parenthesized
-  proc types, varargs — parse per the compiler. Covered by the LibUntypedFunParameters golden,
-  negative tests, and inspection tests. The external audit drops from 1,005 errors in 494 files
-  to 900 in 397 (all 97 repaired files are the lib_c platform family, zero newly failing files);
-  indexed is unchanged at 163 in 120.
-- **External `lib fun` symbol aliases (`fun iconv = libiconv(...)`)** — an optional alias segment
-  scoped to `fun_definition` accepts identifiers, constants, and non-interpolated strings (reusing
-  `STRING_EXPRESSION` PSI; interpolated, numeric, symbol, and qualified targets stay invalid, as do
-  top-level aliases). Newlines bind only to a following `(`/`:`, and no general expression is
-  admitted, so `bar(Int32)` keeps binding as symbol plus parameter list. Covered by the
-  LibFunExternalAliases golden, negative tests, and an alias-parameter inspection test. The
-  external audit drops from 900 errors in 397 files to 881 in 358 (39 repaired files, zero newly
-  failing files); indexed drops from 163 in 120 to 163 in 119 (`regex/lib_pcre2.cr` clean).
-- **Uppercase `lib fun` names (`fun GetConsoleMode(...)`)** — only `fun_definition` accepts a
-  `CONSTANT` local name per the compiler's `IdentOrConst`; `top_level_fun`, `def`, and `macro` stay
-  identifier-only, with no lexer, PSI, or stub change. Reuses the unnamed-parameter and alias rules
-  (`fun BIO_new(BioMethod*)`, `fun RtlGenRandom = SystemFunction036(...)`). Covered by the
-  LibFunUppercaseNames golden, negative tests, and an inspection test. The external audit drops
-  from 881 errors in 358 files to 810 in 323 (35 repaired files, zero newly failing files);
-  indexed is unchanged at 163 in 119.
-- **Keyword `fun` names (`fun select(...)`)** — private `lib_fun_name`/`top_level_fun_name` rules admit
-  `keyword_identifier` per the compiler's IDENT-based name checks, covering lib names, alias targets,
-  and top-level `fun`; operators stay rejected and a bare `fun` cannot swallow the next line's `end`.
-  Covered by the FunKeywordNames golden, boundary tests, and an inspection test. The external audit
-  drops from 810 errors in 323 files to 778 in 307 (16 repaired platform files, zero newly failing
-  files); indexed is unchanged at 163 in 119.
-- **`$var = symbol` external vars (`$free = pcre_free : Void* ->`)** — private `lib_external_symbol`
-  rule admits `IDENTIFIER`, `CONSTANT`, and `keyword_identifier` per the compiler's `IdentOrConst`
-  check, next to the legacy string form and with no newline after `=`; the `Void* ->` type reuses
-  `type_reference`. No lexer, PSI, or stub change. Covered by the extended LibExternalVar golden and
-  negative tests. The external audit drops from 778 errors in 307 files to 776 in 306
-  (`src/regex/lib_pcre.cr` fully clean); indexed drops from 163 in 119 to 161 in 118
-  (`regex/lib_pcre.cr` fully clean), both with zero newly failing files.
-- **Annotations on `lib` members (`@[Flags]`, `@[Packed]`, `@[ReturnsTwice]`)** — the existing
-  `annotation_usage` rule joins `lib_member` per the compiler's `parse_annotation` branch, with no
-  new parser rule and no lexer change; generation only adds `getAnnotationUsageList()` to
-  `CrystalLibBody`, no stub change. Covered by the LibAnnotations golden and an inspection test
-  proving annotated lib fun parameters stay checked. The external audit drops from 776 errors in
-  306 files to 432 in 272 (34 repaired files fully clean, zero newly failing files; remaining
-  files advance to `{% %}`/`{{ }}` macro forms); indexed drops from 161 in 118 to 159 in 117
-  (`empty.cr` fully clean).
-- **Macro forms as `lib`/`enum` members (`{% if %} ... {% end %}`, `{{ }}`)** — all four macro rules
-  join `lib_member` and `enum_member` per the compiler's lib/enum body parsers, and
-  `macro_control_token` admits declaration keywords (`FUN`, `DEF`, `STRUCT`, …) since macro control
-  only consumes tokens without reconstructing PSI. Generation only adds macro-list accessors to
-  `CrystalLibBody`/`CrystalEnumBody`, no stub change. Covered by the LibMacroForms golden and
-  negative tests for unterminated `{%` and empty `{{}}`. The external audit drops from 432 errors
-  in 272 files to 292 in 236 (36 repaired files fully clean, zero newly failing files); indexed
-  drops from 159 in 117 to 136 in 109 (8 repaired files fully clean).
-- **Macro-spliced member names (`fun initialize_{{name}}_target`, `def {{x}}=`)** — one shared
-  private `macro_spliced_name` rule (both directions, at least one interpolation) admitted by
-  `lib_fun_name`, `lib_fun_external_symbol`, `top_level_fun_name`, and `method_name` (with setter
-  `=`); `enum_constant` takes a leading interpolation with a `!ASSIGN` PEG guard. The compiler
-  parses `{% for %}` bodies as opaque macro text, so these names are never validated pre-expansion;
-  stub fallbacks already report them verbatim. Generation only adds macro-interpolation accessors,
-  no stub change. Covered by the MacroSplicedNames golden, negative tests, and an inspection test.
-  The external audit drops from 292 errors in 236 files to 280 in 230 (6 repaired files fully
-  clean, zero newly failing files); indexed drops from 136 in 109 to 131 in 105 (4 repaired
-  files fully clean).
-- **Macro forms in expression positions (`x = {% if %} …`, `when {{ i }}`)** — private
-  `macro_content_expression` joins both primary rules after `macro_interpolation_call`, per the
-  compiler's atomic-expression handling; the `MACRO_INTERPOLATION`/`MACRO_CONTROL` lexer states
-  gain the missing operators (`//`, `=`, `<=`, `**`, `<<`, …) with matching `macro_control_token`
-  additions. Generation only adds macro-list accessors, no stub change. Covered by the
-  MacroExpressions golden and negative tests. The external audit drops from 280 errors in 230
-  files to 211 in 183 (47 repaired files fully clean, zero newly failing files); indexed drops
-  from 131 in 105 to 100 in 87 (18 repaired files fully clean).
-- **Structured `{% if %} A {% else %} B {% end %}` envelopes** — new `CrystalMacroIfEnvelope` PSI
-  node for envelopes with expression branches (call args, binary operands, named-arg values,
-  rescue types); open tag must start with `IF`/`UNLESS` and an `ELSE`/`ELSIF` branch is mandatory
-  so plain blocks, loops, and assignment branches stay flat. `call_argument` tries the envelope
-  with newlines-only trivia (IntelliJ PEG does not re-split eaten trivia), and expression tags
-  exclude stray closers so bare branches cannot swallow the middle tag as a call argument. No
-  stub change. Covered by the MacroIfEnvelope golden and negative tests. The external audit drops
-  from 211 errors in 183 files to 203 in 175 (8 repaired files fully clean, zero newly failing
-  files); indexed drops from 100 in 87 to 97 in 84 (3 repaired files fully clean).
-- **String keys for named arguments (`with_env("FOO": "bar")`)** — private `string_label`
-  (non-interpolated literals, mirroring the lib fun external symbol) joins `named_argument` and
-  `named_bare_argument`; labels stay plain leaves with no lexer, PSI, or stub change.
-  `getNamedLabel` unquotes string labels so they match parameters instead of flagging unknown
-  arguments. Covered by the StringNamedArguments golden, negative tests, and an inspection test.
-  The external audit drops from 203 errors in 175 files to 193 in 164 (11 repaired files fully
-  clean, zero newly failing files); indexed is unchanged at 97 in 84 (spec-only files).
-- **Nested `lib` definitions in type bodies (`class ELF; lib LibELF ...; end`)** — `class_body`
-  (shared by class/struct/module) gains the existing `lib_definition` alternative, matching the
-  compiler, which parses type bodies as full expressions and only forbids `lib` inside method
-  bodies. `LIB` starts no other class member, so the addition is PEG-safe; only
-  `CrystalParser.java` plus the generated `CrystalClassBody` lib accessor regenerate, with no
-  lexer, stub-format, or index-key change (no stub-version bump). Covered by the
-  NestedLibDefinition golden (lib member plus a following method proving `end` binding) and
-  negative tests for unterminated nested libs and `lib` inside methods. The external audit drops
-  from 193 errors in 164 files to 188 in 162 (`elf.cr`/`mach_o.cr` fully clean, `lib_ffi.cr`
-  2 → 1, zero newly failing files); indexed drops from 97 in 84 to 96 in 84 via the same
-  `lib_ffi.cr` advance.
-- **Receiver-qualified `pointerof` targets (`pointerof(fiber.@context)`)** — a private
-  `pointerof_target` rule admits exactly chains ending in `.@ivar` (single and multi-link
-  receivers like `buf.value.@privileges`), reusing the existing `dot_call_access` PSI; ordinary
-  calls, index access, literals, `self`, and mid-chain ivars (`foo.@bar.baz`) stay rejected,
-  matching the compiler's semantic target check. Only `CrystalParser.java` plus an additive
-  `CrystalDotCallAccess` list on `CrystalPointerofExpression` regenerate — no lexer, stub, or
-  index-key change (no stub-version bump). Covered by the PointerofQualifiedInstanceVar golden
-  and negative tests. The external audit drops from 188 errors in 162 files to 174 in 154
-  (8 repaired files fully clean, zero newly failing files; `scheduler.cr` advances 2 → 1 onto
-  the unrelated `&->@stack_pool.collect_loop` proc shape); indexed drops from 96 in 84 to 92
-  in 82 (`scheduler.cr`/`thread_pool.cr` clean). `pointerof(LibFFI.ffi_type_void)` stays failing
-  as a separate family: syntactically indistinguishable from ordinary calls, it needs a semantic
-  approach.
-- **Proc pointers with variable receivers (`&->@stack_pool.collect_loop`)** — `proc_literal`
-  gains a dedicated alternative for `ARROW (INSTANCE_VAR | CLASS_VAR) DOT name` with an
-  optional type list, matching the compiler, which requires the dot plus method name after
-  the variable. Raw leaves keep the existing token-based pointer shape: only
-  `CrystalParser.java` regenerates, with no lexer, PSI, stub, or index change. Covered by the
-  ProcPointerVariableReceivers golden (ivar, cvar, type list, real block-pass shape), negative
-  tests for bare/literal/numeric receivers, and a lexer test for the `& -> @x . name` token
-  sequence. The external audit drops from 174 errors in 154 files to 173 in 153
-  (`scheduler.cr` fully clean, zero newly failing files); indexed is unchanged at 92 in 82
-  (`crystal/` is outside the pinned index).
-- **Macro control in `case` clause sequences (`case v; {% for ... %}; when {{...}}`)** — a
-  private `case_clause_trivia` rule admits newlines, semicolons, and complete `{% ... %}`
-  tags before the first and between `when`/`in` clauses; at least one real clause stays
-  required and `{% end %}` can never stand in for the runtime `END`. Only `CrystalParser.java`
-  plus an additive `CrystalMacroControl` list on `CrystalCaseStatement` regenerate — no
-  lexer, stub, or index change. Covered by the MacroCaseClauses golden (generated `when`
-  and `in` clauses, macro-`if` between clauses, runtime `else`, semicolon form) and negative
-  tests. The external audit drops from 173 errors in 153 files to 163 in 149 (4 repaired
-  files fully clean, zero newly failing files; both interpreter sources advance 2 → 1 onto
-  unrelated macro-definition/assignment gaps); indexed drops from 92 in 82 to 84 in 79
-  (3 repaired files fully clean).
-- **Macro-generated splat parameters (`def initialize({{ ... end.splat }})`)** — the
-  `MACRO_INTERPOLATION` (and string `INTERPOLATION`) lexer states now emit `do`/`end`
-  keywords, so multi-line blocks inside interpolations lex with real structure; a new
-  `parameter` branch binds `macro_interpolation` as one `CrystalParameter` only when the
-  fragment ends in `.splat(...)` (new `isMacroSplatFragment` predicate), with an optional
-  tight `*` named-only marker. Bare `{{ x }}` stays a syntax error. The argument-count
-  inspection treats fragment parameters as unknown arity (splat-like). Covered by the
-  MacroSplatParameters golden (verbatim `record` body, `{% for %}`-generated def with
-  `{{...}}*, node`, one-liner), negative tests, and an inspection test. The external audit
-  drops from 163 errors in 149 files to 160 in 147 (`macros.cr`, `interpreter/compiler.cr`
-  fully clean, zero newly failing files); indexed drops from 84 in 79 to 81 in 77.
-- **Chained indexed assignments (`a[i] = b[j] = v`)** — the right-hand side of
-  `indexed_assignment` (and `nested_indexed_assignment`) now admits further indexed
-  assignments; receivers may be dot chains (`crystal.types[name] = ...`, reusing the
-  shared `dot_call_access` PSI) and indices may hold assignments (`str[i += 1] = ...`,
-  binding as a real `CrystalAssignment` node). All wrappers stay private and reads
-  without a trailing operator still fall through to plain expressions. Only
-  `CrystalParser.java` plus additive accessors regenerate — no lexer, stub, or index
-  change. Covered by the ChainedIndexedAssignments golden (chains, dotted receiver,
-  index assignment, `||=`, nested-in-plain-assign) and negative tests. The external
-  audit drops from 160 errors in 147 files to 154 in 141 (6 repaired files fully clean,
-  zero newly failing files); indexed drops from 81 in 77 to 77 in 73 (4 repaired files
-  fully clean).
-- **Setter symbols (`:color=`) lex as one token** — the lexer only allowed `?`/`!` suffixes, so
-  `:color=` split into `:color` + `=` and broke bare-argument lists (`delegate :color=, ...` in
-  reply `reader.cr`). The `SYMBOL` macro now takes an optional trailing `=` (matching the
-  compiler's `consume_symbol`), with a pushback when another `=` follows (`:foo==` stays symbol
-  + `==`). Operator symbols (`:+`, `:[]`) remain out of scope. Covered by lexer token tests and
-  the SetterSymbolArgument parser golden. The external crystal-repository audit drops from 1,019
-  errors in 502 files to 1,015 in 499 (zero newly failing files); the pinned indexed corpus drops
-  from 171 in 125 to 168 in 123.
-- **Any keyword works as an external parameter name** — the parameter rule accepted only
-  identifiers (plus a special-cased `end`), so `def self.history(with entries = ...)` (reply
-  `spec_helper.cr`) and `exec_stdio_to_fd(stdio, for dst_io : ...)` (`src/process.cr:362`) failed
-  to parse. The leading position now accepts `keyword_identifier`, matching the compiler (which
-  lexes keywords as identifier tokens and consumes the first as the call-site label); a lone
-  keyword is still rejected. `parameterNameInfo` recognizes the same leading keyword — including
-  `out` in `def foo(out x)` — while keywords in type position (`x : self`) never count. Covered
-  by the KeywordExternalParameter parser golden, parameter-name unit tests, and an inspection
-  test (`with:` accepted, `entries:` still flagged). The external crystal-repository audit drops
-  from 1,023 errors in 504 files to 1,019 in 502 (zero newly failing files); the pinned indexed
-  corpus drops from 173 in 126 to 171 in 125.
-- **Raw `%q` literals no longer swallow their own closer** — the lexer folded every backslash
-  pair into one escape token, so `%q(\)` consumed its `)` and the literal ran past the enclosing
-  block (reply `history_spec.cr`, reported at the block's `do`). The lexer now tracks
-  `percentAllowEscapes` per opener (compiler `allow_escapes` semantics): raw `%q` consumes only
-  the backslash and re-lexes the next char, while `%w`/`%i` keep the pair escape and
-  `%Q`/`%()`/`%r`/`%x` keep escape semantics. Covered by lexer token tests and the
-  PercentLiteralRawBackslash parser golden. The external crystal-repository audit drops from
-  1,028 errors in 509 files to 1,023 in 504 (five files parse cleanly); the pinned indexed
-  corpus is unchanged.
-- **Bare `yield` keeps trailing `if`/`unless` on the outer statement** — `return yield unless ready`
-  (markd `Utils.timer`) no longer swallows the enclosing method's `end` into yield's argument list:
-  the leading bare yield argument refuses `if`/`unless`-headed control-flow statements, so the
-  modifier binds outside (`If(Yield)`, matching the compiler's own parser spec) and every later
-  declaration stays structured. Parenthesized statement arguments (`yield(if ready then 1 end)`),
-  comma-separated tails, `break`/`next` abrupt values, and assignment right-hand sides
-  (`items = yield if flag`) are covered by the new YieldPostfixModifier parser golden. The external
-  crystal-repository audit drops from 1,029 errors in 510 files to 1,028 in 509
-  (`lib/markd/src/markd/utils.cr` parses cleanly); the pinned indexed corpus is unchanged.
-- **Headless audit hardens its trust and credential boundaries** — the external-project audit now
-  preflights its GNU tools, Gradle wrapper, RubyMine build, and non-symlinked license key before doing
-  expensive work; creates its audit root with private permissions and verifies existing-root ownership;
-  removes group/other access from retained logs and reports; copies `rubymine.key` with mode `0600` and
-  removes it on ordinary exit paths; requires a clean Git target (or explicit non-Git opt-in); records
-  target/plugin/IDE metadata plus a content hash; and refuses to publish results if the inspected
-  revision or any target file, including ignored dependencies, changes during the run. The Gradle 9.4.1
-  distribution is now SHA-256 pinned. Documentation distinguishes isolated IDE state from an OS
-  sandbox and requires trusted disposable targets because dependency installation can execute
-  third-party hooks.
-- **Binary operators dispatch like method calls** — `diff = Time.utc - date.to_utc`
-  now types as `Time::Span` (the compiler-annotated `Time#-(other : Time) :
-  Time::Span` return), not Unknown, and the right operand's postfix chain
-  binds to its own operand instead of being swallowed by the operator. The
-  resolver segments the flattened PSI expression into operands and operators
-  with a Pratt-style precedence reduction, so overloaded arithmetic and
-  bitwise operators (`a - b * c`, `x << y & z`) apply the annotated
-  overloads in compilation order: an overload is applicable when one of its
-  annotated parameter type sets intersects the right operand's type set and
-  the distinct merged return annotations decide the result. Receivers
-  without any applicable overload degrade to `Unknown` exactly like a crystal
-  compile error, while the compiler-imposed numeric primitive family keeps
-  the plain-merging semantics for same-typed operands without annotated
-  overloads. Hover, completion, and type-inspection consumers all benefit.
-  Covered by focused `CrystalTypeSetResolverTest` cases (argument-shaped
-  overload selection, right-operand postfix ownership, unknown operands,
-  precedence ordering) and a regression test pinning the spaced binary minus
-  after a zero-argument dot-call (`Time.utc - date.to_utc`) as not an
-  argument of the call.
-- **Headless audit reports parse errors and runs only Crystal inspections** — the offline
-  audit runs in two phases: a scratch-project run enumerates every tool the IDE knows, and
-  the generated `crystal-audit.xml` profile explicitly disables all ~670 non-Crystal tools
-  while enabling exactly the ten Crystal inspections. Previously the platform's
-  default-enabled tools (spell checker, RegExp host, database SQL, javadoc) executed their
-  own machinery, smearing unrelated findings across reports and crashing one run outright
-  (RegExp inspection on an external repo's bundled JavaScript). The new
-  `CrystalParseError` inspection (`enabledByDefault="false"`; the editor error highlighter
-  is unaffected) exports each `PsiErrorElement` as a discrete
-  "Crystal parse error: ..." problem, so offline XML reports finally carry raw parser
-  diagnostics directly. The summary counts findings inside non-`cr` files (injected
-  markdown fences etc.) separately as `NOISE` and keeps the total to real `.cr` files.
-  Verified end-to-end against a crash-shaped fixture (unbalanced parenthesis yields the
-  parse-error finding plus unused-variable warnings, nothing else) and the full suite
-  stays green.
-- **Lib-body constant assignments parse** — `lib LibC { F_GETFD = 1 }` style
-  constant declarations inside `lib` bodies are now structured PSI: the existing
-  tight `constant_assignment` rule joined the `lib_member` alternatives exactly
-  as the compiler's `parse_lib_body_exp_without_location` model assigns `CONST`
-  + `OP_EQ` as a plain `Assign`. This repairs the dominant external-audit gap in
-  the platform-matrix `src/lib_c/**` trees: the external crystal checkout drops
-  from 2,718 parse errors in 783 files to 1,029 errors in 510 files (zero
-  previously-clean files regressed, verified by a before/after file-set
-  comparison) and the pinned indexed corpus drops from 180 errors in 127 files
-  to 173 errors in 126 files. Covered by the LibConstants parser golden (no
-  `PsiErrorElement`, struct/fun members and the trailing top-level declaration
-  stay inside their bodies). Remaining lib-body families are tracked in
-  `TODO.md`: untyped `fun` parameters, `fun name = symbol` aliases, uppercase
-  Windows/LLVM function names, keyword-named `fun select`, and
-  annotations/macro-control inside `lib` bodies.
-- **Pinned Crystal 1.21.0 parser compatibility audit** — `stdlibParseAudit` now parses either the 461 production-indexed standard-library sources or all 1,625 distribution sources as real VFS/PSI files, validates the exact version and corpus size, and reports every raw `PsiErrorElement`, first-error tail size, and slow-file timing without an allowlist. The initial indexed baseline is tracked in `docs/specs/stdlib-parser-compatibility.md` while syntax families are reduced to the zero-error release gate. A third unpinned `crystalCorpus=external` mode audits arbitrary shard checkouts and external Crystal projects: it collects every `.cr` file below the given root without VERSION or file-count validation, so a project like kemal (including its installed shards under `lib/`) can be gated to zero parse errors with the same report format.
-- **Headless Inspect Code audit script** — `scripts/crystal-inspect-audit.sh <project>` builds the dev plugin, installs it into an isolated RubyMine 2026.2 instance, and reports Crystal inspection findings for an external project without opening the GUI. Ownership and containment checks plus locking protect the isolated home, every run uses fresh IDE indexes for deterministic results, and an atomic symlink swap publishes each successful XML report. Documented in `docs/specs/headless-inspect-audit.md`.
-- **User-defined enums join the compiler-imposed base hierarchy** — a user-defined `enum Status` is now chained to the compiler-imposed base (`Status → Enum → Value → Object`, verified against the compiler: `Status < Enum`, NOT `Struct`), completing the receiver families of the base hierarchy after classes and structs. Enum-typed parameters (`def render(s : Status)` → `s.to_json` after `require "json"`) no longer produce false argument diagnostics — `Object#to_json : String` (the zero-argument dispatch target in json/to_json.cr's reopened `class Object`) and `Enum#to_json(json : JSON::Builder)` are in the overload pool — and `Enum#to_s`, `Enum#hash`, `Enum#<=>` become reachable for completion and navigation on enum receivers. An enum's `: Type` suffix (`enum Color : UInt8`) is treated as the underlying storage type, never as a superclass; enum bodies contribute their own `def`/`def self` members; the edge degrades gracefully when `Enum`/`Value`/`Object` declarations are not in the caller's require closure. Covered by new `CrystalMethodHierarchyTest` enum cases (chain, body methods, suffix neutrality) and real-stdlib `CrystalStdlibObjectHierarchyTest` integration cases (Crystal-gated).
-
-- **Bidirectional accessor rename (`getter`/`setter`/`property` family)** — renaming `foo` of `property foo` now carries the whole implicit chain: the declaration argument is a real rename target (`PsiNameIdentifierOwner` via the accessor argument mixin; multi-declaration lists rename only the targeted argument), the coupled `@foo`/`@@foo` variable including the `initialize(@foo)` storage shortcut follows, reader dot-calls resolve through the new accessor binding on `CrystalDotCallTargetResolver` (unsolved receivers stay honest), setter member assignments (`obj.foo = v`, `obj.foo += v`) join via the shared exact type with their `=`/compound operator untouched, and the reverse direction (`@foo`-rename) pulls the accessor argument with the same bare name — deterministic, no prompt. Reader call sites keep their shape suffix (`obj.on?`), the whole `class_*` family couples the `@@` sigil, and unrelated same-name members of other types never follow. Inplace rename is disabled for the coupled family: the inplace renamer cannot learn additional renames and would leave the chain half-renamed. Spec: `docs/specs/accessor-rename.md`.
-- **`hexfloat.cr` ternary disambiguation and macro percent literals** — two grammar gaps
-  in `float/printer/hexfloat.cr` are closed: (1) `starred_type_expression` now requires
-  the `type_path` to be immediately tight (no whitespace) after the preceding token via
-  `&<<isTokenTightAfterPreviousToken>>`, preventing `F::MAX_EXP * 2` from being consumed
-  as a C-pointer type; (2) percent literals (`%( or )`) inside `{{ }}` macro interpolations
-  now work correctly: the `PERCENT_LITERAL` state uses `pushState`/`popState` instead of
-  hardcoded `YYINITIAL` return, so `%(` in `MACRO_INTERPOLATION` state returns to the
-  interpolation after the literal closes, and a dedicated `MACRO_INTERPOLATION` rule
-  recognizes `%` + opening delimiter as a percent literal begin. No stub or index change.
-  Covered by a real-file canary. The indexed corpus drops from 7 errors in 6 files to
-  6 in 5, with `hexfloat.cr` fully repaired.
-
-### Added
-- **`Number`-family bracket calls infer `Array(Type)`** — `ary = Int64[]` /
-  `ary = Int64[1, 2, 3]` now display `Array(Int64)` instead of `Unknown`:
-  the receiver in `X[...]` with a constant type root and an exact type
-  identity is checked against the compiler-imposed primitive chain
-  (`Int64 → Int → Number`, `Float64 → Float → Number` in
-  `CrystalMethodHierarchy`); members of that family type the call to
-  `Array(<receiver>)` because the Number `[]` class macro
-  (`macro [](*nums)` in number.cr) casts every element — also with zero
-  arguments (spec/std/number_spec.cr:398). Non-Number receivers
-  (`Env[]`, custom `def self.[]`) and variable receivers stay Unknown
-  (honest), covered by new `CrystalTypeInferenceTest` cases.
-
-### Bug Fixes
-- **`{{ }}` interpolates inside strings in macro code** — `assert_error <<-CRYSTAL,
-  "argument to ... {{ op == "sizeof" ? ... }} ..."` (macro_expander_spec, 3 errors)
-  failed because `{{` inside `"..."` always stayed literal text, so nested quotes
-  terminated the string early. The compiler interpolates `{{ }}` in strings inside
-  macro bodies (verified semantically: `{% for t in [7] %} puts "val {{ t }} end"`
-  prints the value, plain `"a {{ x }} b"` prints verbatim), so the lexer now tracks
-  `{% %}` block depth and pushes `MACRO_INTERPOLATION` on `{{` in `STRING` state only
-  past depth 0; `\{{` never reaches the rule (the escape consumes the brace first).
-  The parser accepts the interpolation inside `string_expression`, requiring a leading
-  literal so bare `{{method.id}} path` keeps resolving as a macro call. A companion
-  `macro_interpolation` alternative in `macro_control_token` covers `\{% raise "…{{x}}…"
-  %}` escaped tags. Covered by the MacroStringInterpolation golden, lexer regression
-  tests, and a real-file canary. External audit drops the 3 macro_expander rows;
-  both standard audits stay at zero errors with zero newly failing files.
-- **Operator symbols parse as symbols** — `run_op_tests {{ int1 }}, {{ int2 }}, :+`
-  (int_spec) failed with `MACRO_INTERPOLATION_BEGIN expected, got '+'` because the
-  lexer only knew `:name` symbols. The parser now composes `:` plus any operator
-  from the compiler's own `consume_symbol` inventory (`:+`, `:==`, `:[]?`, …) via a
-  dedicated `operator_symbol` rule in `literal` — deliberately parser-side, since
-  folding in the lexer would break tight named/hash colons like `f(x:+1)` (the
-  compiler only folds via its parser-driven `wants_symbol` flag). Two spacing gates
-  keep it honest: colon and operator must touch (`? x : -x` stays a ternary), and a
-  tightly glued `:/` reads as regex only after an identifier label (`{a:/re/}`,
-  `f(x:/re/)`), otherwise as the symbol. Operator symbols infer `Symbol`, highlight
-  as symbols, and count as non-raising literals. Covered by the OperatorSymbols golden,
-  lexer regression tests, and a type-inference case. External audit drops int_spec;
-  both standard audits stay at zero errors with zero newly failing files.
-- **Brace blocks bind to the nearest call in bare position** — `assert_prints JSON.build
-  { |json| with json yield json }, expected, file: file, line: line` (builder specs)
-  failed with `expected ... got ','` because a dot-call inside bare arguments could not
-  take a brace block: the block floated up to the outer call and stranded the trailing
-  arguments. `NLS dot_call_access` in `bare_postfix_op` now accepts an optional brace
-  block, mirroring the ordinary postfix alternative — matching Crystal's rule that `{}`
-  binds innermost while `do` binds outermost (a `brace_block` twin of the `block` rule
-  keeps `write_extra_newlines (a).b, c.d do ... end` attaching outside, verified by an
-  unchanged LooseGrouped golden). The same fix covers `yield *paths.map { |path| ... }`.
-  Covered by the BraceBlockBareArguments golden. External audit drops by 4 errors in
-  4 files (builders, file_utils); both standard audits stay at zero errors with zero
-  newly failing files.
-- **Compound assignment in conditions parses** — `while iter += 1` (and `until`/`if`/`elsif`
-  with any `assign_op`, including `||=` and wrapping `&+=`) failed because both condition
-  rules admitted only plain `=`. `condition_assignment` and `postfix_condition_assignment`
-  now use the shared `assign_op` set, mirroring statement assignments; plain conditions
-  are unaffected (the rule still fails fast without an operator). Covered by extended
-  ConditionAssignment goldens and compiler probes for every position. Both audits stay
-  at zero errors with zero newly failing files.
-- **Heredoc bodies interrupting argument lists parse** — `assert_error <<-CRYSTAL,`
-  with the body before the trailing argument (spec suite `assert_error`/`assert_warning`
-  shape, 11 external-audit errors) leaked the body as code: after a comma the parser
-  never looked past the body opener for the next argument. A guarded
-  `interleaved_heredoc_bodies` slot (one body-opener check per literal, aliased to the
-  established `HEREDOC_BODIES` composite) now tiles bodies mid-list in `bare_argument_list`,
-  invisible to argument consumers — header pairing and language injection keep working
-  unchanged. `multi_assignment` and `yield_statement` gained the `[heredoc_bodies]` tail
-  for bodies after the complete construct. A second comma after the body and parenthesized
-  mid-list bodies stay rejected exactly like the compiler ("unexpected token ','" /
-  "unterminated call", both probed). Covered by the HeredocInterleavedBodies golden,
-  arity silence and injection-pairing tests, plus a real-file canary. Both audits stay
-  at zero errors with zero newly failing files.
-- **`& (...)` after an operand reads as binary bitand** — `self.address & (&-boundary)`
-  (pointer.cr) parsed as a bare call with a block-pass argument instead of binary `&`
-  with a grouped right-hand side (same greediness family as the wrapping-operator fix:
-  the argument-level `AMPERSAND` alternative committed before the binary continuation).
-  A compiler-verified spacing matrix now governs the reading: block-pass needs whitespace
-  before `&` plus a tight operand (`foo &block`, `foo &(blk)`), every other arrangement
-  after an operand is binary (`x & (y | z)`, `size & (limit)`, all-tight `foo&bar`);
-  positions without a preceding operand keep the block reading. The new `isBlockPassAllowed`
-  predicate gates the `argument`, `bare_argument`, and both unary `AMPERSAND` alternatives,
-  so the shape can no longer sneak back through the unary backdoor. Bare `&+` alone stays
-  what it was (the compiler rejects `reduce(&+)`, and the plugin agrees — no block-pass
-  rule was ever missing). Covered by the AmpersandBlockPassBoundary golden (binary rows
-  plus block-pass controls) and the corrected `nested` tree in WrappingOperators. Both
-  audits stay at zero errors with zero newly failing files.
-- **Wrapping operators after an operand read as binary** — `size &+ s.size`
-  (`src/float/fast_float/bigint.cr:110`) was flagged with `Too many arguments:
-  expected at most 0, got 1` because the greedy bare-call alternative bound `&+ ...`
-  as a unary wrapping argument (`size(&+...)`) instead of a binary operator. The new
-  `isWrapUnaryAllowed` predicate gates both unary rules: after an operand on the same
-  line `&+`/`&-` are binary (spaced and tight, compiler-verified), while genuine prefix
-  positions keep the unary reading (`(&-boundary)` in pointer.cr). Bare `&+` alone is
-  not a block argument — the compiler rejects `reduce(&+)` and the plugin agrees, so
-  no block-pass rule was needed. Covered by the WrapOperatorBinaryBoundary golden
-  (plus corrected WrappingOperators trees, where `a &+ b &* c` and `a &- b` are binary
-  again), count silence/regression tests, and compiler probes for every position. Both
-  audits stay at zero errors with zero newly failing files.
-- **Receiver-less `new` checks against the constructor pool** — `new [name], global`
-  (`compiler/crystal/syntax/ast.cr:1918/1922`) was falsely flagged with `Type mismatch:
-  expected 'String', got 'Array(String)'` because the name index only sees the written
-  `def self.new` overloads. A receiver-less `new` in class context now resolves through
-  the shared exact constructor pool (explicit `self.new` plus implicit `initialize`
-  forwarders, like the DOT-call path and the argument-count inspection), so the array
-  argument matches `initialize(@names : Array, ...)`. Calls with an explicit receiver
-  (`X.new`) and instance-method bodies keep their established paths, and genuine
-  mismatches still report against the full pool. When the pool is not authoritative
-  (incomplete hierarchy, unresolvable superclass, abstract type), the inspection stays
-  silent instead of guessing from project-wide name matches. Covered by forwarding, mismatch, and
-  count regression tests plus a real-file canary over the `Path` region. Both audits
-  stay at zero errors with zero newly failing files.
-- **Endless ranges no longer swallow the next line** — `(indent + shift).clamp 0..`
-  (`lib/reply/src/reader.cr`) failed with `<statement> expected, got 'do'` because the
-  range rules accepted a newline before the right-hand side, consuming the following
-  statement as the range end and derailing the enclosing `do` block. `range_expression`
-  and `bare_range_expression` no longer allow `NLS` after `..`/`...`, matching the
-  compiler's `new_range`, which skips only spaces before building an endless range
-  (`x = 0..\n  10` is `Range(Int32, Nil)` plus a separate statement, verified by
-  `crystal run`). A backslash continuation still keeps one logical line (`1..\<newline>5`
-  stays a full range — the lexer emits it as whitespace, not `NEWLINE`). Covered by the
-  EndlessRangeNewlineBoundary golden, boundary isolation tests, and a real-file canary.
-  The LineContinuation and PatternMatching goldens now record the endless shapes
-  (`in 65..` keeps its body as the clause body). Both audits stay at zero errors with
-  zero newly failing files.
-- **Macro-generated operators and `%w()` iterables parse** — `samples/sdl/raytracer.cr`
-  failed at `{% for op in %w(+ - * /) %}` for two independent reasons, both repaired:
-  juxtaposed macro operators (`@x {{op.id}} other.x`, proven by evaluation to be one
-  binary expression) now bind as a postfix tail, so the receiver keeps its node while
-  existing call shapes (e.g. `foo {{x}} bar`) still match first; and `%w`/`%W`/`%i`/`%I`/
-  `%q`/`%Q`/`%r`/`%x`/bare-`%` openers now exist in the `MACRO_CONTROL` lexer state, so a
-  later `/` after an operator no longer lexes as regex-begin and derails the tag.
-  Covered by the MacroGeneratedOperators golden, lexer regression tests, call-shape
-  boundary tests, and a real-file canary. Two neighboring goldens regenerated for the
-  corrected `%w()` tag tokens only. Both audits stay at zero errors with zero newly failing files.
-- **Trailing bare arguments after parenthesized calls are counted** — `restrict (X), context`
-  (`restrictions.cr:989`) was falsely flagged with "Missing required argument(s): 'context'"
-  because the post-comma tail lives outside `call_args` and argument extraction stopped at
-  the closing paren. A `trailingBareArguments` counterpart to the established leading-array
-  handling now feeds the tail into argument-count and type checks (dot-call, method-call,
-  and bare-call paths); genuine under-arity still reports. Covered by count, boundary, and
-  tail type-check regression tests. Both audits stay at zero errors with zero newly failing files.
-- **Percent literals inside string interpolation parse** — `"#{ %(pending "GB9c" { ) if pending }"`
-  (`scripts/generate_grapheme_break_specs.cr:69`) failed with `<expression> expected, got '%'`
-  because the `INTERPOLATION` lexer state had no percent-literal opener (only `{{ }}` did since
-  the hexfloat fix). The bare-`%` opener is now mirrored there, so one rule covers `"..."`,
-  `/.../`, and `` `...` `` interpolations alike; spaced `%` stays modulo by longest match.
-  Covered by lexer regression tests, the PercentLiteralInStringInterpolation golden, and a
-  real-file canary. Both audits stay at zero errors with zero newly failing files.
-- **Inspect Code results no longer crash on selection** — clicking any Crystal
-  inspection result threw `PluginException: Inspection #X has no description`
-  because no inspection shipped a description. All ten inspections now provide
-  `inspectionDescriptions/<shortName>.html` resources wired through
-  `getDescriptionFileName()`, and a consistency test pins the full contract
-  (file present, short name matches the `plugin.xml` registration, loaded
-  description non-blank). The test also exposed that
-  `CrystalTypeCheckInspection` was effectively registered as `CrystalTypeCheck`
-  instead of `CrystalTypeMismatch`, silently detaching it from its audit
-  profile, settings, and suppressions — it now reports its registered short
-  name.
-- **Macro-generated type definitions and operator-headed compound methods parse** —
-  `struct {{num.id}}` in `{% for %}` bodies (primitives.cr:435/480/560,
-  compiler_rt.cr, log/format.cr, io/byte_format.cr, ast.cr, init.cr,
-  macros.cr) previously errored with "CONSTANT expected, got '{{'": the
-  type-name grammar of `class`/`struct`/`module`/`enum`/`alias`/
-  `annotation` accepted constants only. `type_name` now accepts a bare
-  macro interpolation, reporting the compound text verbatim (`{{num.id}}`)
-  like macro compound method names do. `def &{{op.id}}(other : {{int2.id}}) : self`
-  (bitwise operators in primitives.cr:508) parses through a new
-  operator-headed `method_name` composition that must precede the bare
-  operator alternative so PEG does not strand the interpolation. Indexed
-  audit: `src/primitives.cr` reaches zero errors, the corpus improves from
-  180 errors in 127 files to 175 in 126 files, and the external
-  crystal-repository audit 2,730 → 2,718 errors (787 → 783 files).
-- **Bare generic restrictions reach family parameters again** — a bare generic
-  side in a call (`Indexable.cartesian_product(arrays)` where
-  `def self.product(*arrays : Array)` restricts `arrays` to unbound `Array`)
-  was falsely reported as "Type mismatch: expected 'Indexable(Indexable)',
-  got 'Array'". Crystal models bare generic restrictions as instantiations
-  with unbound type arguments (`Array(_)`), and Array reaches Indexable
-  through its include chain (`struct Array(T) include Indexable::Mutable(T)
-  → Indexable(T)`). `CrystalGenericIncludeCompat` now derives the arity from
-  the base's type parameters and synthesizes wildcard (`_`) arguments for
-  bare sides on the argument AND the parameter side
-  (`def f(x : Indexable)` accepts `Array(Int32)`); wildcards accept anything
-  within the include-compat comparison only. Mismatches without a resolvable
-  generic arity (`String` → `Indexable(Indexable)`) stay reported.
-- **`initialize(@major : Int)` with a typed co-declaration is no longer reported** —
-  the `@x : Type` annotation on an initialize parameter is a parameter
-  restriction, not the ivar declaration; abstract type sets are legal
-  restriction positions and the stored ivar type comes from a typed
-  co-declaration in the same type body (`getter x : Int32`, `property x : T`,
-  `@x : T = …` — declaration order irrelevant; reference implementation:
-  `SemanticVersion` in semantic_version.cr:71 with `getter major : Int32`).
-  `CrystalInstanceVarTypeInspection` now rechecks forbidden base types on
-  initialize parameters only when no such co-declaration exists — untyped
-  `getter x` alone rescues nothing, exactly like the compiler. Direct ivar
-  / property annotations (`@x : Int = …`, `property x : Int`) stay flagged
-  unconditionally.
-- **`Int64[]` is no longer falsely highlighted as an empty array literal** —
-  empty tight brackets after an expression are a zero-arity `[]` call, not an empty
-  array literal: Crystal parses `Int64[]` as the Number `[]` class macro with zero
-  arguments (spec/std/number_spec.cr:398, `macro [](*nums)` in number.cr). The
-  index-postfix grammar rule required a non-empty argument list, so the brackets
-  fell into the empty `array_literal` path and triggered "Empty array literal
-  requires type". Both postfix grammar positions (`postfix_op` and
-  `bare_postfix_op`) now accept empty brackets with a tight-whitespace guard, so
-  spaced `Int64 []` keeps its existing array-argument binding. Persistent
-  indexes rebuild from the bumped stub version.
-- **The rename dialog label carries the method header, not the body** —
-  the dialog label text hydrates via
-  `DescriptiveNameUtil.getDescriptiveName`, which routes through THIS
-  plugin's `CrystalFindUsagesProvider.getDescriptiveName`; that provider
-  answered with the raw element text (whole method including the body).
-  Method definitions now report the header line and type definitions
-  their name.
-- **The rename dialog target display shows the method header only** —
-  renaming `private def in_call_args(value = true, &)` still rendered
-  the whole method (including the body) in the dialog: the target text
-  hydrates via `UsageViewNodeTextLocation`. The description provider
-  now reports the header line — everything up to the closing bracket of
-  the parameter list (`private def in_call_args(value = true, &)`) —
-  and keeps the bare name for the label route.
-- **The rename dialog item shows the method header name only** — for a
-  family member method the platform fallback hydrated the whole method
-  text (including the body) into the dialog label; the description
-  provider now reports `CrystalMethodDefinition` short names as the
-  bare name.
-- **Renaming the family member method starts the rename dialog
-  directly** — a `private def in_call_args` beside
-  `getter? in_call_args` opened an inplace templating first; the commit
-  then reset the edit and re-prompted with the found member list (the
-  inplace renamer cannot carry the accessor family). The rename
-  processor now accepts same-name family methods and the inplace gates
-  disable inplacing for them, so the dialog flow with the whole family
-  runs from the first keystroke; plain methods keep inplace.
-- **A bare implicit-self reader occurrence works as the rename trigger**
-  — placing the caret ON `… if in_call_args?` (ameba
-  assignment_in_call_argument.cr line 116) renamed only the local leaf
-  (dropping the `?` suffix) instead of the family: the occurrence had no
-  resolvable rename target because accessor macros declare no method
-  definition in the index. `CrystalReference.resolve()` now falls back
-  to the coupled accessor argument (as the last resolution step —
-  locals, macro context, indexed types and real methods keep
-  precedence), so the rename processor takes over and the whole family
-  follows from any member.
-- **The same-name method joins the accessor family** —
-  ameba's `assignment_in_call_argument.cr` declares BOTH
-  `getter? in_call_args` and a separate `private def in_call_args`
-  with bare calls `in_call_args(false)`. Renaming the variable or the
-  declaration left the method and its calls behind, and the highlight
-  coupling was one-sided (method click marked ivar+reader, the reverse
-  missed the method). Bare plain-name calls and the `def` declaration
-  leaf now bind as same-name family members (with the local-shadow and
-  identity gates kept), and a `CrystalMethodDefinition` search target
-  routes through the same-name accessor coupling — the whole family
-  renames and highlights in every direction while staying valid
-  Crystal.
-- **Renaming the ivar misses default-valued untyped accessor
-  declarations** — `getter? in_call_args = false` parsed its name as the
-  assignment LHS of the bare argument, and the coupling's name resolver
-  only knew direct identifiers and bare variable_reference wrappers:
-  the ivar-side rename left the declaration behind while the
-  declaration-side rename followed the ivars. The name resolver now
-  covers the assignment-LHS shape (direct child or nested inside the
-  bare argument), reversing the asymmetry in every rename plumbing
-  path.
-- **Bare implicit-self reader calls join the accessor rename** — renaming
-  a `getter? in_loop`/`getter in_loop` variable left the bare reader
-  calls (`flow_expression?(exp, in_loop?)` — no receiver, the lexer folds
-  the `?` suffix into the identifier token) untouched while declarations,
-  ivars and qualified readers followed. The accessor word-hit search
-  now binds implicit-self calls in the declaring type's body with the
-  exact reader name (only non-`!`, non-setter instance accessors; the
-  `?`-suffix rule follows the macro name) and skips occurrences that a
-  same-name local binding or parameter shadows — Crystal resolves bare
-  names to locals first, so shadowed reads keep their name.
-- **The narrowed declaration highlight range mis-scoped composite
-  offsets** — the previous range math passed the identifier length as the
-  end offset instead of `start + length`, producing invalid ranges for
-  shapes where the identifier is not at the composite start.
-- **Highlight usages stay symmetric with the accessor coupling after a
-  rename** — clicking a renamed instance variable no longer marked the
-  coupled accessor declaration (`getter? in_loop`): the click resolves to
-  the storage-shortcut `CrystalParameter` (the first offset occurrence is
-  promoted by `CrystalInstanceVarReference.resolve()`), and the rename
-  searchers had no parameter branch, silently dropping the whole highlight
-  chain while the declaration-to-variable direction kept working. Both
-  searchers now route parameter targets through the wrapped access
-  composite, so the declaration argument, the intra-class occurrences and
-  the word-level call sites all highlight from either side.
-- **Accessor declaration highlights marked the type annotation** — the
-  declaration rename reference declared the whole argument-composite range,
-  so for a typed `getter? in_loop : Bool` the highlight-usages pipeline
-  marked ` : Bool` together with the name (after a rename, in both click
-  directions). The reference range now covers only the accessor name: the
-  highlight matches the identifier leaf like standard declarations.
-- **The accessor declaration rename reference rewrote untyped arguments as
-  a no-op** — `handleElementRename` looked up the identifier directly on
-  the argument node, but for `getter? in_loop` (no type annotation) the
-  leaf lives inside the `variable_reference` wrapper. The leaf is now
-  resolved through `CrystalAccessorCoupling.accessorNameIdentifier`, which
-  handles both shapes.
-- **The rename dialog prefills the bare name for sigil-bearing variables** — renaming a class variable (`@@timeout = 60`, `def initialize(@@timeout)`) carried the `@@`-sigil INTO the dialog (the prefill comes from `UsageViewUtil.getShortName` → `ElementDescriptionUtil.getElementDescription(element, UsageViewShortNameLocation)`), and with the sigil in the field every edit re-grew a second `@@` because setName re-applies the sigil from the token type. The native `ElementDescriptionProvider` hook now hydrates the short name for `CrystalInstanceVarAccess`/`CrystalClassVarAccess`/storage-shortcut parameters with the bare form: the dialog shows `timeout`, the user types `expiration`, and the writes land as `@@expiration`/`@@timeout` everywhere — sigils preserved, dialog clean. getName() keeps the full sigiled token for the Find-Usages word channel.
-- **Inplace rename no longer drops the `@`/`@@` sigil on variable renames** — renaming `@in_loop` inside `def initialize(@node, @in_loop)` (ameba flow_expression.cr:35) ran through the inplace renamer, which applies only its own references and silently dropped the `@`-sigil — the user's typed sigil disappeared on Enter and a half-rename left the code invalid. Ivar renames join the accessor-coupling dialog flow (`isMemberInplaceRenameAvailable` returns false for `CrystalInstanceVarAccess`/`CrystalClassVarAccess`), where the sigil is re-applied from the parameter's original token type and the coupled accessor declaration plus call sites follow. The user-verified IDE round closed the remaining gate: renaming the storage shortcut `def initialize(@in_loop)` resolves the caret to the PARAMETER composite (not the instance-var access), and the inplace renamer writes `getName()` — the LOCAL name without the sigil — into the buffer the moment the template starts, so the trigger erased the sigil before any input. `isMemberInplaceRenameAvailable` now also returns false for storage-shortcut parameters; normal sigil-less parameters keep the inplace rename. The coupling round closed the last gap in the user-verified IDE flow: the caret on `initialize(@in_loop)` resolves to the PARAMETER composite, so the accessor coupling processor now accepts storage-shortcut parameters (`canProcessElement`) and runs its coupling on the parameter's wrapped access composite — without it the default processor handled the rename, sigil preserved, but the coupled `getter? in_loop` declaration stayed untouched. The IDE-true regression (`renameElementAtCaret`) verifies declaration + sigil + call-site in one rename.
-- **Escaped macro statements (`\{% stmt %}` / `\{{ expr }}`) parse** — primitives.cr:101/146 use the backslash-escaped macro-control form (Crystal treats the sequence as verbatim data — no expansion; see compiler/crystal/syntax/to_s.cr's escape note). The lexer had no rule for the backslash-led opening — the `\` fell through as a bare statement token and every escaped statement aborted the parse with "expected ... got '\'". The lexer now emits `MACRO_CONTROL_ESCAPED_BEGIN`/`MACRO_INTERPOLATION_ESCAPED_BEGIN` (pushing the ordinary inner states, mirrored in YYINITIAL and MACRO_BODY) and the grammar binds them at the same statement positions as `macro_control`. Covered by the EscapedMacroStatements parser golden (zero PsiErrorElement for both shapes); the two primitives.cr escape errors leave the indexed parse audit.
-- **Record declaration defaults are never reported as unused variables** — `record Result, sources = [] of Source, metadata = Metadata.new, summary = Summary.new ...` reported "Value assigned to 'sources' is never used" for every field with a default: the field arguments bind through the bare-argument assignment alternative and the unused-variable analysis treated them as dead local assignments. Every record field argument is a FIELD DECLARATION — consumed through the generated accessors/deserial or by other files — so the declaration-macro gate of the local usage analyzer now covers `record` first-argument calls (detection mirrors CrystalPsiUtils.recordDeclaredName) next to the accessor family. Related locals still report.
-- **Accessor declarations are never reported as unused variables** — `property autocorrect = false` binds its default through the bare-argument assignment alternative, so the unused-variable analysis treated every accessor declaration (the whole `getter`/`setter`/`property` family including `class_*` variants) as a plain local assignment whose reader/setter methods are never called as PSI and reported "Variable '…' is never used". The local usage analyzer now skips assignments whose call ancestor is an accessor macro: a declaration is API surface for OTHERS (instances, other files — Crystal never warns), and tracking that consumption would need full-program receiver analysis. Real locals in the same class keep ordinary diagnosis (19 ameba/kemal audit findings resolved — 363 -> 344 in the kemal inspection audit).
-- **Bare calls with parenthesis-free arguments count their argument list** — ameba's `scope = Scope.new as_node <<-CRYSTAL ...` (variable_spec.cr:102) reported "Missing required argument(s): 'source'": an audit-side PSI dump showed the heredoc-header marker correctly bound inside `as_node`'s bare argument list, but `extractArguments` only dispatched the paren (call_args) form of `CrystalBareMethodCallExpression` — the bare-argument-list form had no branch, so the call was checked with zero arguments. The dispatch now mirrors the method-call branch: bare lists are read through `CrystalPsiCallArguments.argumentElements`, which already treats heredoc headers as ordinary marker arguments (v12). The first heredoc-argument regression covers the exact nested spec-DSL shape.
-- **Block bodies of macro invocations are macro data, not runtime calls** — ameba's `properties do bin_path nil, as: String? end` reported "Unknown named argument 'as'": the `properties` macro (Config::RuleConfig) reads its block statements via `prop.named_args` and uses the documented named argument `as:` as the property type annotation, while typos.cr:80 defines a parameterless `def bin_path : String?` reader that the diagnostic matched against. `CrystalMacroContext.isInsideMacroCallBlock` now recognizes blocks whose owner resolves to a macro (checked against the whole index — stdlib macros sit outside the project scope); the argument-count and type-check inspections gate their ordinary diagnostics there, while blocks owned by real methods (`each do`, `describe`-style) keep them. Covers both ameba's `bin_path nil, as: String?` shape and the same DSL through kemal's `property?`-family.
-- **A tight bracket after a dot-call method name always binds as the index postfix** — `Kemal::Utils.etag_with_coding(identity.headers["Etag"], "gzip")` reported "Missing required argument(s): 'coding'": inside the parenthesized argument list, dot_call_access's array-literal-comma alternative bound `"Etag"], "gzip"` as the arguments of `.headers` itself, so the enclosing call kept only one argument. Crystal's whitespace rule separates the two forms: `obj.headers "tag"` with whitespace is a bare array argument (`obj.f [1], 2` keeps counting both), while a bracket directly after the method name is the receiver's index postfix and can never swallow the enclosing call's next argument. The array-literal-comma alternative now requires the bracket to be whitespace-separated in all four grammars (dot_call_access, method_call_expression, implicit_object_call, bare_method_call_expression). Kemal's own spec is finding-free; covered by the IndexedArgumentThenSecondArgument parser golden and an argument-count regression.
-- **Program closure: type resolution sees every file of the containing program** — Crystal gives all files of one compiled program a shared global namespace, but the require-graph visibility only walked each file's own forward requires, so `Reference.new(node, scope)` inside `Ameba::AST::Variable` resolved to the zero-argument stdlib `Reference` instead of the sibling `Ameba::AST::Reference` behind ameba's glob requires and reported "Too many arguments: expected at most 0, got 2". The effective source set is now the union of the file's forward closure and every already-known requirer's forward closure, with reverse edges feeding the walk. Bounded by construction: no project scan, requirers whose closure is already covered are skipped via the node's outgoing list (a 5 000-file require cycle stays linear), late requirers drop the affected snapshots, and the merged dependency-version map is the authoritative fast-path freshness test.
-- **Macro-call arguments are no longer measured as runtime calls** — once the program closure made kemal's top-level `def public_folder(path)`/`def logging(status)` visible from config.cr, the bare identifiers inside `property app_name, … logging …` were checked as argumentless calls and reported "Missing required argument". Arguments of a call whose name matches a macro (stdlib ones included — they live outside the project scope) are macro syntax and skipped.
-- **Proc-literal parameters resolve as local declarations** — the local-declaration walk stopped at the enclosing method boundary, so `error` inside `->(context, error) { handler.call(context, error) }` fell through to the now-visible top-level `def error(status_code, &block)` and reported "Missing required argument(s): 'status_code'". The walk now checks the proc literal's parameter list first.
-- **Loose array argument after a dot-call binds as a call argument, not an index** — `CLI.parse_args [
- ...
-]` (ameba cmd_spec.cr:238/252/264) reported "Missing required argument(s): 'args'": the dot-call bare-argument alternative blocked the bracket (to protect index postfixes) and the array-comma alternative required a comma, so the whole array literal bound as the index postfix on the parse_args result — zero arguments. The dot-call, method-call, and bare-method-call grammars gained a looseness-guarded bare-array alternative: a whitespace-separated `[` after the callee binds as an array argument, while a tight `[` (`config.foo["key"]`) still binds as the index postfix. Three ameba findings resolved; covered by the LooseArrayArguments parser golden, an argument-count regression (the qualified-call shape plus a tight-index control), and the CrystalParserTest suite.
-- **Array-comma bare calls keep their leading array argument** — `AnnotatedSource.new [] of String, [...]` (ameba annotated_source_spec.cr:146) reported "Missing required argument(s): 'issues'": the grammar's array-comma alternative (`array_literal COMMA bare_argument_list`) keeps the leading array outside the bare argument list (so bracket-without-comma still binds as an index postfix), and the argument extraction read only the list — one argument instead of two, leaving the two-overload constructor's `issues` parameter unsatisfied. The shared argument accessor (`CrystalPsiCallArguments.argumentElements`) now includes the leading array literal of the array-comma shape, and the argument-count and type-check extractions route through it; the parameter-info path keeps its existing shape. The annotated-source finding is gone (the kemal argument-count tail drops to 9). Covered by an argument-count regression on the two-overload constructor shape.
-- **Range operators never start bare arguments of dot-calls** — ameba's admonition.cr case ranges (`when 0.seconds..1.day then ...`) bound `..1.day` as a leading beginless-range bare argument of the `.seconds` dot-call, and the argument count reported "Too many arguments: expected at most 0, got 1" on the range's DOTDOT token. The dot-call bare-argument guard now blocks the binary range operators (`..`, `...`) exactly like the unqualified bare-call path already did through `nested_call_lookahead`: the range operators are binary-only in Crystal — they always bind to the left expression, and Crystal rejects a leading `..` in bare argument position ("wrong number of arguments", compiler-verified). The range-as-bare-argument form (`f 1..2`, the first token starts the argument) keeps parsing. Two ameba findings resolved; covered by the WhenRangeEntries parser golden (zero PsiErrorElement), an argument-count regression, and the boundary probes (compiler-verified).
-- **Variable hovers render the resolved type when overloads agree, and "Unknown" when they do not** — three linked changes around the `colorize_markdown` shape (ameba util.cr:30-34). The shared call resolution merged return types across overloads: `String#gsub` has seven overloads that all declare `: String`, so the chain `string.gsub(...).gsub(...)` now types as String and `colorize_code_fences` infers String — previously any multi-overload pool resolved to Unknown even when every overload agreed. Diverging or missing return annotations still resolve to Unknown honestly. The variable hover rendering now distinguishes bound-but-uninferable from unconstrained: a variable with assignment evidence whose value type is not inferable renders the gray "Unknown (Variable)" placeholder (distinct from "Any", which stays reserved for genuinely unconstrained duck-typed variables and must not be confused with Crystal's JSON::Any / YAML::Any), and the assignment left-hand side hovers as the variable itself — the enclosing-def veto in the identifier walk-up no longer reduces the hover to the raw name. In the colorize_markdown shape the two assignment left-hand sides render "String (Variable) string" (via the merge) and the final read renders "Unknown (Variable) string" (colorize_text_styles' body is macro-generated and its return is honestly not inferable); the headless kemal audit's last util.cr TypeMismatch finding is gone. Covered by CrystalHoverAssignmentLhsTest and CrystalTypeCompatibilityTest.
-- **Assignment left-hand side hover renders the variable, not a method signature** — hovering the write target of `string = colorize_text_styles(string)` (ameba util.cr:31-32) resolved through the require-graph name fallbacks (which reach unrelated `string`-named methods) and rendered a method definition instead of the variable's type. The documentation provider now treats an assignment left-hand side as a variable hover in both the custom-documentation and direct-rendering paths, before any name-based fallback. Covered by CrystalHoverAssignmentLhsTest.
-- **Macro-controlled method bodies no longer infer Nil returns** — ameba's `colorize_text_styles` body is entirely macro-generated (`{% begin %}` with `{% for %}` chains), and its parser-visible statements are macro-control statements; the last one fell through the statement resolver's empty-body `Nil` default, so the method's inferred return type was `Nil` and every reassignment through it poisoned the tracked variable type — `string = colorize_text_styles(string)` reported "expected 'String', got 'Nil'" on the argument (ameba util.cr:32). Macro-control statements now contribute no value (the previous statement's value stands), a body whose visible statements are entirely macro-generated infers Unknown instead of Nil, and genuinely empty bodies keep the Crystal-correct `nil`. Verified against the headless kemal audit (the util.cr finding is gone and `colorize_markdown`/`colorize_text_styles` infer Unknown).
-- **Index the compiler source tree and accept bare generics (the ameba-master findings collapse from 101 to 13)** — the kemal checkout's bundled ameba shard requires `compiler/crystal/syntax/*` and reopens `Crystal::Location`, whose primary definition — the three-parameter initialize — lives in the compiler tree that the stdlib roots deliberately excluded. With the reopening as the only indexed declaration, every `Crystal::Location.new(...)` call resolved to an empty constructor pool ("expected at most 0, got N" — 78 findings across ameba's specs and sources, plus the missing-argument tail). The compiler tree (~190 files) is now part of the indexed roots: shards legitimately require compiler internals, the historical EDT hang predates the current parser whose compiler tree is mostly clean, and the require-path resolver already resolved the wildcard requires — only the declarations were invisible. The ameba-master argument-count findings drop from 89 to 12 (the remainder are distinct small causes tracked in TODO.md). The type check also handles bare unparameterized generics now: a restriction like `paragraph : Array` is `Array(_)` in Crystal and accepts every instantiation of the same base — `output_paragraph(paragraph.lines)` with the `Array(String)` argument no longer reports "expected 'String' or 'Array', got 'Array(String)'" — while mismatched known bases (`Hash(String, Int32)` vs `Array`) and builtin-versus-generic pairs stay definite mismatches, and named-tuple comparisons keep their structural verdict. Covered by the bare-generic compatibility unit tests (compiler-verified), the roots/legacy/provider test updates, and the audit count 461 → 650 indexed files.
-- **Kemal audit reaches zero findings through generic include-edge instantiation** — the last of kemal's 24 Crystal findings resolved: `use "/multi", [TestHeaderHandler.new(...), ...]` against `use(path : String, handlers : Enumerable(HTTP::Handler))` reported "expected 'Int32' or 'HTTP::Handler' or 'Enumerable(HTTP::Handler)', got 'Array(TestHeaderHandler)'". Crystal accepts the call because `Array(T)` includes `Indexable::Mutable(T)` → `Indexable(T)` → `Enumerable(T)` transitively, with the include's type parameter substituted by the includer's own. A hierarchy-aware fallback in the type-check inspection walks the argument base's include statements through the require-graph lens, substitutes the includer's type parameters with the caller's actual type arguments positionally, and accepts when a reached include's base matches the parameter's generic base with compatible substituted arguments; union parameters are split and any member may accept. The traversal can only turn a definite mismatch into an acceptance — unresolvable chains keep the existing verdicts. The helper is exercised on both the expanded (splat) and direct argument-check paths. The headless kemal audit now reports zero Crystal findings for kemal's own sources (24 → 0 across the phase); the lib/ ameba-shard findings are ameba's own spec fixtures and tracked separately. Covered by CrystalGenericIncludeCompatTest.
-- **Reduce kemal inspection findings to one through a dot-call binary-operator fix** — the headless kemal audit's ten remaining findings resolved into two root causes. First, named-tuple keys are symbol-like: `{error: "Something went wrong"}` parses the entry key as an identifier expression, and the zero-argument direct-call check treated the key as a bare `error` call, meeting kemal's three `error(status_code : Int32, &block)`-shaped DSL overloads and reporting "Missing required argument(s): 'status_code'" on all eight chained `env.status(...).json({...})` lines; the direct-call check now skips references that live in the key position of a colon-keyed hash entry. Second, the dot-call grammar's bare-argument alternative lacked the binary-operator lookahead guard that `method_call_expression` carries, so `Time.monotonic - start` bound `- start` as a negated bare argument of the dot-call instead of the binary minus; the receiver of `(Time.monotonic - start).total_milliseconds` now types through the binary chain and the "Too many arguments: expected at most 0, got 1" finding on the minus token disappears. Two parser goldens (pattern matching, private module) regenerated for the corrected binary-plus chains with no `PsiErrorElement`. The one remaining kemal finding — `use "/multi", [TestHeaderHandler.new(...), ...]` against an `Enumerable(HTTP::Handler)` parameter — requires generic include-edge instantiation and is tracked in `TODO.md`.
-- **Honor Crystal's unary-minus whitespace rule in bare-call arguments** — the dot-call and statement-level bare-argument alternatives replaced the plain binary-operator lookahead with a whitespace-refined one: a spaced binary operator still blocks the bare alternatives (`Time.monotonic - start` stays the binary minus, fixing kemal's `(Time.monotonic - start).total_milliseconds` finding), while the tight minus stays the unary negation of the first bare argument (`file.seek -ZIP_TAIL_SIZE, IO::Seek::End` in time/location/loader.cr and `shift -span.to_i, -span.nanoseconds` in time.cr — the latter was a pre-existing indexed-corpus error). The indexed audit drops from 115 errors in 78 files to 114 errors in 77 files; the pattern-matching and pointer-type-argument goldens regenerated with no `PsiErrorElement`.
-- **Cut kemal inspection false positives from 24 to 10 through shared-resolution fixes** — three mechanisms landed against the headless kemal audit (run with the full shard set installed). A type is never its own superclass: `class ExceptionPage < ExceptionPage` inside `module Kemal` lexically matched `Kemal::ExceptionPage` first and turned the superclass edge into a self-loop, so the shard's ten-parameter initializer never entered the constructor pool; the edge resolution now skips the self-match exactly like the Crystal compiler, which resolves the pattern against the outer declaration. Unqualified `new` calls inside a type resolve through the shared exact constructor pool — explicit `def self.new` overloads plus implicit initializer forwarders including inherited ones — instead of the plain method index that only contains written `new` definitions, so kemal's ten-argument forwarding call inside `def self.new(context, exception)` validates against the real pool. Receiver-less name lookups apply a callable-scope filter (top-level methods plus the implicit-self scope of the enclosing type) on top of require-graph visibility, so foreign instance methods such as backtracer's `Frame#context(context_lines : Int32?)` no longer meet the spec DSL's top-level `context "..." do` and its `Int32?` expectation — twelve new `expected 'Int32?', got 'String'` type-mismatch findings and three missing-`value` findings disappeared with it. Generic owner arguments survive into constructor results: `node = Node(K, V).new(key, value)` now types `node` as the parameterized `Kemal::LRUCache::Node(K, V)`, and parameter compatibility compares simple base names, so kemal's `insert_front(node : Node(K, V))` no longer reports a mismatch. The full unit suite and both stdlib parse audits (115 errors in 78 indexed files, 2,583 errors in 665 distribution files) stay unchanged; ten kemal findings remain open in `TODO.md` (eight chained `env.status(...).json(...)` argument extractions, the `(Time.monotonic - start).total_milliseconds` receiver chain, and one union-typed handler comparison).
-- **Parse the complete kemal checkout and its shards without errors** — kemal's `src`, `spec`, `examples`, and the installed shard dependencies under `lib/` (radix, exception_page, backtracer, ameba — 457 `.cr` files) now parse with zero `PsiErrorElement`, gated by the new `stdlibParseAudit -PcrystalCorpus=external` mode. Twenty compiler-validated syntax families landed: comma-separated proc types (`alias WSHandler = HTTP::WebSocket, HTTP::Server::Context ->`, block parameters typed `T1, T2 ->`), typed collection literals (`HTTP::Headers{...}`), macro-interpolated type and namespace segments (`Crystal::{{ name }}`, `def to_i{{ n }} : Int{{ n }}`, `def {{ type.id }}_{{ method.id }}(path)`), `@{{ method.id }}` generated instance variables, backtick commands and regex literals (with `=~` and `...`/`..` range tokens) inside `{{ }}`/`{% %}` lexer states, proc literals with `do ... end` bodies (`->(context) do ... end`), bare calls with a leading array literal plus trailing arguments (`only ["/a"], "POST"`), nested indexed compound assignments (`calls = @queue[i] ||= [] of Call`) and constant indexed targets (`ENV["X"] = v`), the `end`-labeled positional parameter (`def pos(location, end end_pos = false)` called as `pos(loc, end: true)`), assignment-shaped bare arguments (`record Result, sources = [] of Source`), control-expression named-argument values (`super rule, source, skip: if ... end`), grouped expressions with postfix modifiers (`(ifs if ifs.size > 1)`), case when-entries that bind assignments (`when path = find_as_path(...)`), safe-navigation calls with bare arguments, operators, and macro-interpolated targets (`&.size 1`, `&.- 1`, `&.{{ method.id }}?(...)`), heredoc bodies binding to their owning construct for markers inside argument lists, dot-call argument lists, and tuple literals (`.should eq({<<-PRE.lines, <<-POST.lines ... })`), tight macro-fragment concatenation (`Crystal::{{ type.capitalize }}Def`) versus whitespace-separated call arguments, bare regex arguments after nested callees and keywords (`x.should match /^\d+/`, `when /^get_(\w+)$/`), whitespace-separated loose-paren calls with trailing arguments (`HANDLERS.insert (position || @handler_position), ch1`), `&->` block-pass proc pointers (the lexer no longer folds `&->` into the wrap minus), and dot-setter chains as nested assignment values (`x = node.exp.visibility = node.modifier`). The parser-golden suite, the full unit suite, the indexed audit (128 → 115 errors in 92 → 78 files), and the distribution audit (2,625 → 2,583 errors in 714 → 665 files) stay green with no regressing file; `y = match /abc/` — a bare callee followed by a whitespace-separated regex without a dotted receiver — remains a documented PEG limitation in `TODO.md`.
-- **Parse methods inside `record ... do ... end` declarations** — record bodies now use type-body grammar, preserving instance and `self` method PSI instead of failing at the first `def`. Bare, parenthesized, and qualified (`record Registry::Entry`) spellings share one argument accessor, so constructor signatures, Parameter Info, and argument diagnostics treat every form identically. Method stubs serialize the enclosing record's qualified name and prefer it over PSI ancestor walks, so members enter the class-method index without leaking into top-level lookup, survive index persistence, and a class nested inside a record body keeps its own ownership; record constructor completion keeps the correct exact identity. The stub version is bumped for the serialized owner field. The Crystal 1.21.0 indexed audit drops from 133 errors in 97 files to 128 errors in 92 files with no newly affected files; the external kemal audit remains at 18 known findings. Covered by the `RecordBlocks` parser golden, a block-boundary regression, index regressions (self methods, qualified records, nested types), and completion identity regressions.
-- **Match Crystal 1.21 abrupt-expression and loop syntax** — expression-position `return`, `break`, and `next` now terminate variable-flow paths after evaluating their ordered values, preserving logical precedence, nested argument evaluation, rescue states, loop exits, and ensure transformations without leaking exited assignments into later type inference. The parser rejects unsupported trailing `while` and `until` forms while preserving block loop expressions in assignments, grouping, and arguments. The Crystal 1.21 audits remain stable at 133 errors in 97 indexed files and 2,625 errors in 714 distribution files; the external kemal audit remains at 18 known findings. Covered by focused type-flow, parser-golden, and invalid-syntax regressions.
-- **Parse C pointer types in declaration-macro arguments (`property stack_top : Void*`)** — the expression branch parsed the `Void` prefix and left the `*` dangling, aborting the whole call and every later declaration in the file. A non-consuming parser predicate now preserves Crystal's whitespace-sensitive call syntax: `name : Type` selects a type-shaped declaration-macro argument, while `name: value` remains a named expression. Pointer depth, nilability, unions, nested defaults, literal or symbolic static-array sizes, metaclass suffixes, proc returns, multiline parenthesized forms, escaped newlines, and `do`-blocks attach correctly; newlines remain statement separators, constant-valued multiline multiplications retain their expression shape, and compact named values accept absolute namespaces with full expression precedence. The Crystal 1.21.0 audit drops from 145 errors in 104 indexed files to 133 errors in 97 files (`fiber/context.cr`, `float/fast_float/ascii_number.cr`, `regex/pcre2.cr`, and additional macro-metaclass signatures parse cleanly); the complete distribution reaches 2,625 errors in 714 files, down from 725 affected files. The raw count exposes later independent gaps in files that now parse further, with zero regressions by file-set comparison. The external kemal audit improves from 19 to 18 known findings. Covered by the `PointerTypeArguments` parser golden, a DOT-resolution regression proving members after the property stay indexed, and three real-stdlib canaries.
-- **Parse postfix modifiers on indexed assignments** — indexed writes such as `@bits[bit_index] &= mask unless condition` now retain `if`, `unless`, and `rescue` as part of the indexed-assignment PSI instead of terminating the statement at the assignment value. Nested assignment values remain ordered, `||=`/`&&=` preserve their skipped RHS path, and type/local-use flow distinguishes receiver/index evaluation, compound getter failure, RHS evaluation, setter failure, conditional skips, and rescue handlers. Simple indexed writes contribute their RHS to expression and method-return inference, with conditional skips adding `Nil` and rescue handlers adding their value. Assignment-valued guards now have dedicated PSI so their writes are visible in ordinary, indexed, and abrupt-statement flow; postfix rescue excludes the not-yet-completed outer assignment and ignores handlers proven unreachable for literal RHS values. The Crystal 1.21.0 audit drops from 156 errors in 109 indexed files to 145 errors in 104 files and from 2,637 errors in 732 distribution files to 2,623 errors in 725 files; the external kemal audit remains stable at 19 known findings. Covered by parser goldens, malformed-boundary tests, type-flow regressions, and unused-assignment regressions.
-- **Parse the `!~` operator and its method definition** — the lexer now emits Crystal's not-match operator as one token in regular, interpolated, and macro expressions; the parser accepts it with comparison precedence, as an operator method name, and in explicit DOT calls. Type inference remains conservative for `<=>` and both match operators because their standard forms are not universally boolean and Crystal permits arbitrary overload return types. This restores the remainder of `object.cr` to clean PSI and stub indexing. The Crystal 1.21.0 audit drops from 157 errors in 110 indexed files to 156 errors in 109 files and from 2,638 errors in 733 distribution files to 2,637 errors in 732 files. Covered by lexer-state, parser-golden, invalid-boundary, and type-inference regressions.
-- **Parse multi-value `return`, `break`, and `next` statements** — abrupt control flow now accepts ordered comma-separated values, assignments in any value position, newline continuations, postfix conditions, and attached heredoc bodies. Return type inference represents multiple values as `Tuple(...)`, and local-use analysis reads every value in evaluation order. The Crystal 1.21.0 audit drops from 163 errors in 118 indexed files to 157 errors in 110 files and from 2,649 errors in 746 distribution files to 2,638 errors in 733 files. Covered by a trailing-declaration parser golden plus type-inference, heredoc-injection, invalid-syntax, and unused-assignment regressions.
-- **Parse parameters bound to instance/class variables** — method parameters now accept Crystal's `public_name @storage` and `public_name @@storage` forms, including types, defaults, named-only positions, and direct or prefixed shorthand such as `@@storage`, `&@handler`, `*@values`, and `**@@options`. A shared parameter-name model separates the call-site label, synthesized local binding, and variable-assignment target, so named arguments match `public_name`, method bodies resolve and complete `storage`, local and storage usages share rename identity, instance/class-variable PSI remains navigable, parameter highlighting and type inference use the local binding, hover shows the full source name, annotated variadics retain their argument semantics, and hierarchy signatures preserve call-site labels while ignoring internal storage differences. The Crystal 1.21.0 audit drops from 175 errors in 123 indexed files to 163 errors in 118 files and from 2,666 errors in 753 distribution files to 2,649 errors in 746 files. Covered by a trailing-declaration parser golden and focused PSI, completion, resolution, rename, highlighting, hierarchy, documentation, argument-count, and type-check regressions.
-- **Parse Crystal out arguments with instance-variable targets** — calls now accept `out @value` and newline-separated out targets in parenthesized and bare forms, plus named out values such as `target: out @value`, while preserving `out: value` as an ordinary keyword-named argument and rejecting class variables, globals, constants, literals, and member accesses as targets. The Crystal 1.21.0 audit drops from 177 errors in 125 indexed files to 175 errors in 123 files and from 2,671 errors in 758 distribution files to 2,666 errors in 753 files; `big_float.cr` and `big_rational.cr` now parse cleanly, and `big_int.cr` advances to its next independent macro-signature gap. Covered by a trailing-declaration parser golden and invalid-target boundary tests across parenthesized, bare, and named calls.
-- **Parse word keywords as named argument labels** — parenthesized and bare calls now accept labels such as `for:`, and declaration macros accept names such as `property next : Fiber?`, while operator method names remain excluded. Argument-count and type-check analysis preserve those labels instead of treating them as positional values. This removes the relevant raw parser errors from Crystal 1.21.0's `concurrent.cr`, `fiber.cr`, and other property declarations; covered by a trailing-declaration parser golden plus inspection and type-resolution regressions.
-- **Eliminate false unused-variable warnings with binding-aware control flow** — `CrystalUnusedVariableInspection` now tracks concrete lexical bindings and reaching assignment definitions instead of comparing names and source offsets. Branch, ternary, and short-circuit merges; loop and callback fixed points; block, rescue, and type-body shadowing; compound and parenthesized writes; postfix and expression-position exits; rescue/else/ensure paths; DOT/index receivers; nil checks; and assignment-valued `return`/`break`/`next` forms preserve every value that can reach a read. Visible macros conservatively retain locals that generated code may consume, while IntelliJ-marked lenient injected fragments are skipped. The external kemal audit dropped from 58 unused-variable findings (17 Crystal false positives plus 41 Markdown-fence fragments) to zero. Covered by 62 focused inspection regressions and specified in `docs/specs/value-assignment-never-used.md`.
-- **Parse compound assignment on DOT receivers (`config.server ||= value`)** — DOT call parsing now gives member compound assignments precedence over the shorter access shape, preserving the receiver assignment as PSI and allowing local-use analysis to see the complete right-hand side. Covered by the `DotCompoundAssignment` parser golden and inspection regression.
-- **Parse bare regex arguments after DOT calls (`range.match /pattern/`)** — whitespace-separated regex literals after a DOT method name are no longer tokenized as division when a closing slash exists on the same line; slash expressions without a regex terminator remain division. This restores the complete `parse_ranges` block in kemal and is covered by lexer tests plus the `KemalRangeBlock` parser golden.
-- **Parse assignments as control-flow values** — `return value = expression`, `break value = expression`, and `next value = expression`, including postfix modifiers, now retain the assignment in PSI instead of dropping the value at `=`. Covered by the `ControlFlowAssignmentValues` parser golden and inspection regressions.
-- **Parse type-shaped macro arguments (`property upgrade_handler : (IO ->)?`)** — kemal's spec/event_stream_spec.cr flagged `HTTP::Server::Response.new(io)` with "Too many arguments: expected at most 0, got 1" (highlighted on `io`, lines 72 and 82) while `HTTP::Request.new` on the same page resolved fine. Root cause: `http/server/response.cr` is the only stdlib file with a parenthesized type in a property macro argument (`property upgrade_handler : (IO ->)?`, five lines above the constructor) — `bare_expression` has no proc-type rule, so the whole file failed to parse from that line on, `initialize(@io : IO, @version = "HTTP/1.1")` silently dropped from stub indexing, and the constructor resolution fell back to the implicit zero-argument constructor (kemal's reopen kept the type declarations alive, which is what made the pool empty-but-complete instead of suppressed). A dedicated `named_type_bare_argument` alternative (`IDENTIFIER COLON type_reference [ASSIGN expression]`) now sits in `bare_argument` after the expression alternative (PEG order), covering proc types, `(->) | Nil` unions (spec/example.cr), and nilable/generic types with defaults. Two GrammarKit traps are documented in the BNF: a second alternative on the private `named_bare_argument` rule is common-prefix-factored away and flips GrammarKit's global error pinning (breaking deque.cr/to_json.cr), and `pin=2` commits the rule after `IDENTIFIER COLON` so a failing tail could never fall through. Covered by the `NamedTypeBareArguments` parser golden, two kemal-shape inspection regressions (`testConstructorAfterTypeShapedMacroArgumentStillResolves`, `testConstructorWithReopenedClassAndMacroControlledNestedType`), and `http/server/response.cr`/`context.cr`/`request_processor.cr` joining the stdlib parse canary.
+- **[Incomplete member access while typing](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Nilable receiver completion](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Enum predicate completion and hover](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Record field readers across reopenings](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Keyword-named predicate accessors](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Equals-leading regex literals](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Unqualified call overload returns](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Condition-assignment local references](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Generated type names and method type parameters](docs/changelog/2026-10-30_0.3.2.md)**
+- **[FFI expression-path navigation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[FFI alias constructor diagnostics](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Stable program-context test fixtures](docs/changelog/2026-10-30_0.3.2.md)**
+- **[FFI navigation with multiple declaration sources](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Go to Declaration for FFI type paths](docs/changelog/2026-10-30_0.3.2.md)**
+- **[FFI library namespaces in type annotations](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Index Crystal runtime support and preserve argument navigation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Private constants in type reopenings](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Portable Windows test fixtures](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bang-property readers resolve correctly](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Single-entry program visibility](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Annotation-aware name resolution](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Namespace-aware bare type references](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Subtype guards expose members of narrowed receivers](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Grouped assignments in logical conditions](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Multiline `macro` argument labels](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Completion survives conflicting reopened methods](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Guarded AST variable member checks](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Cross-file record type resolution](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Responds-to guards establish member availability](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Guarded members link to compatible declarations](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Static finished-hook classes expose typed members](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Static finished bodies use normal Crystal highlighting and syntax checks](docs/changelog/2026-10-30_0.3.2.md)**
+- **[References inside static finished bodies navigate to their definitions](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Projects that lost the stdlib library at startup recover it](docs/changelog/2026-10-30_0.3.2.md)**
+- **[No false "Unknown named argument" while the stdlib library is still being
+  attached](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Go to Definition on a bare call offers the whole overload pool](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Overload pools span the whole index scope, not just the project scope](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Broken version-manager shims no longer shadow the Crystal SDK](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Locked shard dependencies trust shards instead of the version field](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Inspect Code no longer stalls on files with deep variable dependencies](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Unqualified calls no longer report from partial same-type overload pools](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-hook-generated constructors no longer report false zero-arity errors](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Compiler-bound macro `call` parameters no longer report false argument errors](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Branch-pinned shard dependencies no longer report phantom version mismatches](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bare callees with whitespace-separated regex arguments parse like the compiler](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Positional arguments after named arguments are rejected](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Overload tie diagnostics are deterministic](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Operator overload return types resolve exactly](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Indexed postfix receivers continue DOT completion](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`::` completion respects the require closure](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Named-only parameters reject positional arguments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Custom and non-table collection index reads resolve through the shared call resolver](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Indexed receivers carry element types into dot-call chains](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Instance/class-variable record fields are recognized](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Keyword-named record fields are recognized](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Nilable annotations resolve as unions (`T?` → `T | Nil`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Index reads resolve to the element type instead of the container](docs/changelog/2026-10-30_0.3.2.md)**
+- **[False "Missing required argument(s)" from a tight binary operator in a call
+  argument](docs/changelog/2026-10-30_0.3.2.md)**
+- **[False "Too many arguments" on macro-spliced operator arguments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[False "Missing required argument(s)" on macro-spliced dot-call names](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`{{ }}` interpolates inside strings in macro code](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Operator symbols parse as symbols](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Brace blocks bind to the nearest call in bare position](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Compound assignment in conditions parses](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Heredoc bodies interrupting argument lists parse](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`& (...)` after an operand reads as binary bitand](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Wrapping operators after an operand read as binary](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Receiver-less `new` checks against the constructor pool](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Endless ranges no longer swallow the next line](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-generated operators and `%w()` iterables parse](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Trailing bare arguments after parenthesized calls are counted](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Percent literals inside string interpolation parse](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Inspect Code results no longer crash on selection](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-generated type definitions and operator-headed compound methods parse](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bare generic restrictions reach family parameters again](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`initialize(@major : Int)` with a typed co-declaration is no longer reported](docs/changelog/2026-10-30_0.3.2.md)**
+- **[`Int64[]` is no longer falsely highlighted as an empty array literal](docs/changelog/2026-10-30_0.3.2.md)**
+- **[The rename dialog label carries the method header, not the body](docs/changelog/2026-10-30_0.3.2.md)**
+- **[The rename dialog target display shows the method header only](docs/changelog/2026-10-30_0.3.2.md)**
+- **[The rename dialog item shows the method header name only](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Renaming the family member method starts the rename dialog
+  directly](docs/changelog/2026-10-30_0.3.2.md)**
+- **[A bare implicit-self reader occurrence works as the rename trigger](docs/changelog/2026-10-30_0.3.2.md)**
+- **[The same-name method joins the accessor family](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Renaming the ivar misses default-valued untyped accessor
+  declarations](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bare implicit-self reader calls join the accessor rename](docs/changelog/2026-10-30_0.3.2.md)**
+- **[The narrowed declaration highlight range mis-scoped composite
+  offsets](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Highlight usages stay symmetric with the accessor coupling after a
+  rename](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Accessor declaration highlights marked the type annotation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[The accessor declaration rename reference rewrote untyped arguments as
+  a no-op](docs/changelog/2026-10-30_0.3.2.md)**
+- **[The rename dialog prefills the bare name for sigil-bearing variables](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Inplace rename no longer drops the `@`/`@@` sigil on variable renames](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Escaped macro statements (`\{% stmt %}` / `\{{ expr }}`) parse](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Record declaration defaults are never reported as unused variables](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Accessor declarations are never reported as unused variables](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Bare calls with parenthesis-free arguments count their argument list](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Block bodies of macro invocations are macro data, not runtime calls](docs/changelog/2026-10-30_0.3.2.md)**
+- **[A tight bracket after a dot-call method name always binds as the index postfix](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Program closure: type resolution sees every file of the containing program](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-call arguments are no longer measured as runtime calls](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Proc-literal parameters resolve as local declarations](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Loose array argument after a dot-call binds as a call argument, not an index](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Array-comma bare calls keep their leading array argument](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Range operators never start bare arguments of dot-calls](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Variable hovers render the resolved type when overloads agree, and "Unknown" when they do not](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Assignment left-hand side hover renders the variable, not a method signature](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Macro-controlled method bodies no longer infer Nil returns](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Index the compiler source tree and accept bare generics (the ameba-master findings collapse from 101 to 13)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Kemal audit reaches zero findings through generic include-edge instantiation](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Reduce kemal inspection findings to one through a dot-call binary-operator fix](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Honor Crystal's unary-minus whitespace rule in bare-call arguments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Cut kemal inspection false positives from 24 to 10 through shared-resolution fixes](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse the complete kemal checkout and its shards without errors](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse methods inside `record ... do ... end` declarations](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Match Crystal 1.21 abrupt-expression and loop syntax](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse C pointer types in declaration-macro arguments (`property stack_top : Void*`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse postfix modifiers on indexed assignments](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse the `!~` operator and its method definition](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse multi-value `return`, `break`, and `next` statements](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse parameters bound to instance/class variables](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse Crystal out arguments with instance-variable targets](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse word keywords as named argument labels](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Eliminate false unused-variable warnings with binding-aware control flow](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse compound assignment on DOT receivers (`config.server ||= value`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse bare regex arguments after DOT calls (`range.match /pattern/`)](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse assignments as control-flow values](docs/changelog/2026-10-30_0.3.2.md)**
+- **[Parse type-shaped macro arguments (`property upgrade_handler : (IO ->)?`)](docs/changelog/2026-10-30_0.3.2.md)**
 
 ## [0.2.8] — 2026-08-30
 ### Added
