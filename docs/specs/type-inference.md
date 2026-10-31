@@ -132,6 +132,10 @@ Value, range, regex, and other non-type-shaped patterns do not supply such evide
 Statically readable module `finished` hooks may supply actual declaration views
 through the same captured session. Typed plain and query accessors supply shared method
 signatures and lexically resolved result types, including across DOT chains.
+A parenthesized accessor with an initializer block (`getter(x) { … }`) infers
+the block's type only when the block is a single bounded-inferable statement
+(`{ {} of Key => Def }`); other blocks keep the name-only reader, so no partial
+evidence invents chains.
 Eligibility, source mapping, cache invalidation, and conservative exclusions are
 specified in [Static Finished Declarations](static-finished-declarations.md).
 

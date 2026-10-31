@@ -88,8 +88,9 @@ object CrystalAccessorCoupling {
      *
      * Positional bare arguments live in the bare-argument-list composite
      * (`property foo, bar` — the args are NOT direct children of the call),
-     * while parenthesized calls bind `CrystalArgument` composites at the
-     * top level.
+     * while parenthesized calls wrap their [CrystalArgument] composites in the
+     * [CrystalCallArgs] node (`getter(foo) { … }` — with a trailing block the
+     * arguments are no longer direct children of the call).
      */
     fun accessorArgsOfName(call: PsiElement, propertyName: String): List<PsiElement> {
         val positional = when (call) {
@@ -97,9 +98,15 @@ object CrystalAccessorCoupling {
             is CrystalBareMethodCallExpression -> call.bareArgumentList
             else -> null
         }?.bareArgumentList.orEmpty()
+        val packed = when (call) {
+            is CrystalMethodCallExpression -> call.callArgs
+            is CrystalBareMethodCallExpression -> call.callArgs
+            else -> null
+        }?.argumentList?.argumentList.orEmpty()
         return PsiTreeUtil.getChildrenOfTypeAsList(call, CrystalArgument::class.java)
             .filter { accessorArgName(it) == propertyName } +
-            positional.filter { accessorArgName(it) == propertyName }
+            positional.filter { accessorArgName(it) == propertyName } +
+            packed.filter { accessorArgName(it) == propertyName }
     }
 
     /**

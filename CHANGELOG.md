@@ -2,6 +2,15 @@
 
 All notable changes to the Crystal Language Plugin for JetBrains IDEs will be documented in this file.
 
+## [0.3.3]
+### Added
+
+### Bug Fixes
+
+- **Accessor-macro declarations in parenthesized calls** — the whole `getter(x) { … }` family with packed call arguments went unrecognized whenever the arguments were wrapped in a call-args node (trailing block, deep call shapes): guarded receivers (`if type.is_a?(Crystal::DefInstanceContainer)`) reported a false `Cannot find 'def_instances'`, and completion after `type.` withheld the reader (crystalline `summary.cr`). The accessor coupling now reads arguments from the packed call-args composite as well; when the initializer block is a single bounded-inferable value, its type annotates the generated reader (`type.def_instances.` offers `each_value` and friends), while non-inferable blocks keep name-only completion and silent inference.
+
+### Changed
+
 ## [0.3.2] — 2026-10-30
 ### Added
 

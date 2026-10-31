@@ -3150,7 +3150,20 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun resolveHash(hash: CrystalHashLiteral): CrystalTypeResolution {
         val entries = hash.hashEntryList?.hashEntryList.orEmpty()
-        if (entries.isEmpty()) return CrystalTypeResolution.Unknown
+
+        // `{} of Key => Value` declares the hash element types right at the
+        // empty literal; the written pair is exact, unlike entry inference.
+        if (entries.isEmpty()) {
+            val declaredTypes = hash.node.getChildren(null)
+                .filter { it.elementType == CrystalTypes.TYPE_REFERENCE }
+            if (hash.node.findChildByType(CrystalTypes.OF) != null && declaredTypes.size == 2) {
+                return knownType(
+                    "Hash(${declaredTypes[0].text.filterNot(Char::isWhitespace)}, " +
+                        "${declaredTypes[1].text.filterNot(Char::isWhitespace)})"
+                )
+            }
+            return CrystalTypeResolution.Unknown
+        }
 
         // `{a: 1, b: "x"}` (colon syntax, identifier keys) is a NAMED TUPLE literal;
         // only `=>` builds a Hash. Mixed forms are not valid crystal.

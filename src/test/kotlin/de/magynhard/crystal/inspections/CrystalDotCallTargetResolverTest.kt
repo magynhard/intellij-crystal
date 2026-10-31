@@ -2497,4 +2497,44 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         val descriptor: DotCallDescriptor,
         val resolution: DotCallResolution
     )
+
+    fun testModuleGuardNarrowsToDefInstanceContainerGetterWithInitBlock() {
+        val file = myFixture.configureByText("summary.cr", """
+            module Crystal
+              class Type
+              end
+              class Def
+              end
+              class DefInstanceKey
+              end
+              module DefInstanceContainer
+                getter(def_instances) { {} of DefInstanceKey => Def }
+              end
+            end
+            def process_type(type : Crystal::Type)
+              if type.is_a?(Crystal::DefInstanceContainer)
+                type.def_instances
+                type.def_instances.chain
+              end
+            end
+            class Hash(K, V)
+              def chain
+              end
+            end
+        """.trimIndent())
+        assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
+        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java)
+        val dotReads = accesses.map { it.text to CrystalDotCallTargetResolver.resolve(it) }
+        // The guarded receiver narrows to the module; the packed-args getter with
+        // its initializer block declares the reader whose return type the block
+        // infers (`Hash(Key, Def)`); the chained member resolves against that
+        // type — never an Unresolved report for either shape.
+        assertTrue("Accessor missing: $dotReads", dotReads.any { it.second is DotCallResolution.Accessor })
+        assertTrue("Chain must resolve against the inferred type, never Unresolved: $dotReads",
+            dotReads.none { it.second is DotCallResolution.Unresolved })
+        assertTrue("Chain should resolve as methods: $dotReads",
+            dotReads.any { it.second is DotCallResolution.Methods })
+        myFixture.enableInspections(CrystalUnresolvedNameInspection::class.java)
+        assertFalse(myFixture.doHighlighting().any { it.description == "Cannot find 'def_instances'" })
+    }
 }

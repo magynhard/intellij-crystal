@@ -3204,6 +3204,51 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         const val EXPRESSION_TYPES_REQUIRE = "require \"./stdlib/expression_types\""
     }
 
+    fun testGuardedModuleAccessorCompletionOffersPackedArgsGetter() {
+        val declarations = """
+            module Crystal
+              class Type
+              end
+              class Def
+              end
+              class DefInstanceKey
+              end
+              module DefInstanceContainer
+                getter(def_instances) { {} of DefInstanceKey => Def }
+              end
+            end
+        """.trimIndent()
+        val names = completionNames(
+            "$declarations\ndef process_type(type : Crystal::Type)\n  if type.is_a?(Crystal::DefInstanceContainer)\n    type.<caret>\n  end\nend\n"
+        )
+        assertTrue("Expected def_instances, got $names", names.contains("def_instances"))
+    }
+
+
+    fun testGuardedPackedGetterChainCompletionInfersHashOfTypes() {
+        val declarations = """
+            module Crystal
+              class Type
+              end
+              class Def
+              end
+              class DefInstanceKey
+              end
+              module DefInstanceContainer
+                getter(def_instances) { {} of DefInstanceKey => Def }
+              end
+            end
+            class Hash(K, V)
+              def each_value
+              end
+            end
+        """.trimIndent()
+        val names = completionNames(
+            "$declarations\ndef process_type(type : Crystal::Type)\n  if type.is_a?(Crystal::DefInstanceContainer)\n    type.def_instances.<caret>\n  end\nend\n"
+        )
+        assertTrue("Expected each_value, got $names", names.contains("each_value"))
+    }
+
     private fun completionNames(source: String): Set<String> = completionNameList(source).toSet()
 
     private fun completionNames(fileName: String, source: String): Set<String> {

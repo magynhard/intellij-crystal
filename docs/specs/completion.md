@@ -461,8 +461,15 @@ Eligible module `finished` hooks also contribute statically parsed declaration
 views, discovered through the macro index and filtered by that same snapshot.
 Typed plain and query (`getter?` / `property?`) accessor signatures participate in method completion and result
 inference, so `message.` offers `params` and `message.params.` can offer the
-parameter object's members. This is bounded source interpretation, not macro
-execution; see [Static Finished Declarations](static-finished-declarations.md).
+parameter object's members. Parenthesized declarations with an initializer
+block (`getter(x) { … }`) carry no written return type: when the block's single
+statement is a bounded-inferable value (`{ {} of Key => Def }`), its type
+annotates the reader so `x.def_instances.` offers the hash members; otherwise
+only the reader *name* enters method completion and chained receivers behind
+such accessors stay suppressed instead of inferring the block's value. Untyped
+bare accessors (`getter x` without either annotation or initializer block)
+stay out entirely. This is bounded source interpretation, not macro execution;
+see [Static Finished Declarations](static-finished-declarations.md).
 Written enum members also supply their generated instance predicates through
 this method model, so `token.delimiter_state.kind.` offers `heredoc?` and the
 other exact enum queries after a typed record reader.

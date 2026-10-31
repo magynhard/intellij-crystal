@@ -128,12 +128,47 @@ internal object CrystalStaticDeclarations {
             if (plain !in setOf("getter", "property", "setter", "getter?", "property?")) return@flatMap emptyList()
             if (CrystalPsiUtils.isInsideMacroControlRegion(call)) return@flatMap emptyList()
             val arguments = when (call) {
-                is CrystalMethodCallExpression -> call.bareArgumentList?.bareArgumentList.orEmpty()
-                is CrystalBareMethodCallExpression -> call.bareArgumentList?.bareArgumentList.orEmpty()
+                is CrystalMethodCallExpression -> call.bareArgumentList?.bareArgumentList.orEmpty() +
+                    call.callArgs?.argumentList?.argumentList.orEmpty()
+                is CrystalBareMethodCallExpression -> call.bareArgumentList?.bareArgumentList.orEmpty() +
+                    call.callArgs?.argumentList?.argumentList.orEmpty()
                 else -> emptyList()
             }
             arguments.flatMap { argument ->
-                if (argument.node.findChildByType(CrystalTypes.COLON) == null) return@flatMap emptyList()
+                val hasAnnotation = argument.node.findChildByType(CrystalTypes.COLON) != null
+                if (!hasAnnotation) {
+                    // `getter(x) { … }` declares a reader whose return type is the
+                    // initializer block's value. A block is only convertible when
+                    // its sole statement is a single bounded-inferable expression;
+                    // the resulting annotation is a plain type name (`Hash(K, V)`,
+                    // `Array(Int32)`). Anything else — multi-statement bodies,
+                    // unknown types — keeps the name-only reader, and bare untyped
+                    // accessors without a block stay out entirely.
+                    val callArgs = call as? CrystalMethodCallExpression ?: return@flatMap emptyList()
+                    val inferred = blockValueType(callArgs)
+                    val name = CrystalAccessorCoupling.accessorArgName(argument) ?: return@flatMap emptyList()
+                    if (plain == "setter") return@flatMap emptyList()
+                    val receiver = if (macro.startsWith("class_")) "self." else ""
+                    val reader = if (plain.endsWith('?')) "$name?" else name
+                    val signatures = buildList {
+                        if (inferred != null) add("def $receiver$reader : $inferred\nend")
+                        else {
+                            add("def $receiver$reader\nend")
+                            if (plain == "property") add("def $receiver$name=(value)\nend")
+                        }
+                    }
+                    val file = if (inferred != null) {
+                        parse(declaration, "class $owner\n${signatures.joinToString("\n")}\nend")
+                            // An inferred name the view cannot parse keeps the
+                            // reader unannotated instead of dropping the name.
+                            ?: parse(declaration, "class $owner\ndef $receiver$reader\nend")
+                    } else {
+                        parse(declaration, "class $owner\n${signatures.joinToString("\n")}\nend")
+                    } ?: return@flatMap emptyList()
+                    return@flatMap PsiTreeUtil.findChildrenOfType(file, CrystalMethodDefinition::class.java).onEach {
+                        it.putUserData(ACCESSOR, SmartPointerManager.createPointer(argument as PsiElement))
+                    }.toList()
+                }
                 val name = CrystalAccessorCoupling.accessorArgName(argument) ?: return@flatMap emptyList()
                 val type = PsiTreeUtil.getChildOfType(argument, CrystalTypeReference::class.java)?.text
                     ?.filterNot(Char::isWhitespace) ?: return@flatMap emptyList()
@@ -156,6 +191,21 @@ internal object CrystalStaticDeclarations {
     }
 
     fun accessorOrigin(method: CrystalMethodDefinition): PsiElement? = method.getUserData(ACCESSOR)?.element
+
+    /**
+     * The bounded type of a one-statement block initializer (`getter(x) { hash }`):
+     * null for anything but exactly one statement whose value resolves to exactly
+     * one known type. Multi-statement blocks and unknown values keep the reader
+     * unannotated, never infer partial evidence.
+     */
+    private fun blockValueType(call: CrystalMethodCallExpression): String? {
+        val statements = call.block?.statementList?.children.orEmpty()
+            .filterIsInstance<CrystalStatement>()
+        if (statements.size != 1) return null
+        val value = CrystalTypeSetResolver.resolve(statements.single()) as? CrystalTypeResolution.Known
+            ?: return null
+        return value.types.singleOrNull()?.name
+    }
 
     /** The compiler generates an instance query for every written enum member. */
     fun enumPredicates(declaration: CrystalEnumDefinition): List<CrystalMethodDefinition> =
