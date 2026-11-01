@@ -443,3 +443,27 @@ on the same target revision retains **exactly the same 450 findings** (multiset
 comparison: zero removals, zero additions) and two filtered non-Crystal findings.
 The two known raw dependency parse errors are unchanged. Interactive completion
 and hover are validated by the fixtures, not by offline inspection counts.
+
+## Inspection performance regression audit (2026-11-01)
+
+Investigated Inspect Code stalling at `crystalline.cr` on the same crystalline
+revision `a5f6f1bb9d55decf507138da7b2c47628ee15328`. Thread snapshots from the
+running development IDE showed inspection workers scanning the effective require
+closure in `forgedClassDeclarations`, with multiple workers waiting on a parser
+lock. Forge-index misses now remain misses; both positive and negative index
+results are cached within the resolution session. A regression unloads dependency
+ASTs after capturing the require closure and verifies that ordinary and missing
+type queries do not load those unrelated trees again.
+
+An intermediate audit also exposed a variable-flow `StackOverflowError` in
+`lightweight/resolver.cr`: `elsif` condition analysis assumed its own successful
+guard and re-entered flow resolution. Refinement now applies only on body entry
+or after a proven earlier `&&` operand. The reentrancy guard uses PSI-position
+identity and variable-name values rather than identity comparisons of fresh pairs.
+
+The final isolated RubyMine audit completed in 456 seconds including plugin build,
+scratch inspection enumeration, fresh indexing, and the entire project/spec sweep.
+It retained **432 Crystal findings** and two filtered non-Crystal findings, with no
+`StackOverflowError` in the IDE log. The raw parse preflight retains the two known
+LSP dependency errors (`completion_item.cr` and `ext/enum.cr`) across 151 files.
+This is a cold whole-project timing, not a measured interactive `src`-only timing.

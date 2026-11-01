@@ -11,6 +11,12 @@ Each session owns PSI memoization, method-return memoization and recursion guard
 method caches, and one cached `CrystalMethodHierarchy`. Runtime lookup uses `CrystalIndexService`
 and never scans project files.
 
+Forged-class lookup caches stub-index hits and misses per simple name within the
+session. A missing forge-index entry never triggers a PSI walk over the effective
+require closure: ordinary type queries must not parse unrelated dependency trees.
+Variable-flow reentrancy is tracked by PSI-position identity and variable-name
+value, so fresh lookup keys still detect an active lookup of the same binding.
+
 Each session also captures exactly one immutable effective-source snapshot from its PSI context.
 Neutral StubIndex candidate lists for types, named methods, and methods by enclosing type are
 filtered against that snapshot before exact identity, hierarchy metadata, ambiguity, duplicate
@@ -114,7 +120,10 @@ are folded in order, so an intervening assignment replaces the refinement.
 `x.is_a? T && y` parses the logical chain into the guard's own argument list,
 so the proven type cuts before the top-level logical operator and the parser
 shape never erases the refinement. An `elsif` branch refines its tracked
-local through the clause's own condition at true polarity; previous members
+local through the clause's own condition at true polarity only when entering
+the clause body, never while evaluating the condition itself. Later `&&` operands
+inside a bare `is_a?` argument use the proven leading type check; its receiver
+and type operand keep their incoming state. Previous members
 of the chain already applied as false while descending from the `if`. Nilable
 reader annotations (`T?`) keep the resolvable branches in inferred results
 even when `Nil` has no indexed declaration. A written `include M` inside a

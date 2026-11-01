@@ -1,8 +1,6 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiManager
-import de.magynhard.crystal.psi.CrystalClassDefinition
 import com.intellij.psi.PsiErrorElement
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiFile
@@ -51,8 +49,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     // mutually dependent reads would otherwise recurse without bound (no
     // other guard covers this path). A nested re-entry is genuinely
     // unknowable, exactly like the existing Unknown-on-cycle verdicts.
-    private val resolvingVariables =
-        java.util.Collections.newSetFromMap(IdentityHashMap<Pair<String, PsiElement>, Boolean>())
+    private val resolvingVariables = IdentityHashMap<PsiElement, MutableSet<String>>()
     private val typeCache = mutableMapOf<String, List<CrystalNamedElement>>()
     private val recordCache = mutableMapOf<String, List<CrystalPsiUtils.RecordDefinition>>()
     private val currentFileRecords by lazy {
@@ -1179,13 +1176,15 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
 
     private fun resolveVariableValue(name: String, position: PsiElement): VariableState {
         variableFlowMemo[position]?.get(name)?.let { return it }
-        if (!resolvingVariables.add(name to position)) return VariableState.Unknown
+        val activeNames = resolvingVariables.getOrPut(position) { mutableSetOf() }
+        if (!activeNames.add(name)) return VariableState.Unknown
         try {
             val result = resolveVariableValueUncached(name, position)
             variableFlowMemo.getOrPut(position) { mutableMapOf() }[name] = result
             return result
         } finally {
-            resolvingVariables.remove(name to position)
+            activeNames.remove(name)
+            if (activeNames.isEmpty()) resolvingVariables.remove(position)
         }
     }
 
@@ -1331,8 +1330,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         // An elsif clause body is a branch of the parent if chain: descending
         // through the clause applies its own condition at TRUE polarity (the
         // previous conditions already applied as FALSE on the clause step).
-        val elsifCondition = (container as? CrystalElsifClause)?.condition
-        if (elsifCondition != null) {
+        val elsifClause = container as? CrystalElsifClause
+        val elsifCondition = elsifClause?.condition
+        if (elsifCondition != null && next === elsifClause.statementList) {
             return narrowedBranchState(elsifCondition, name, incoming, true)
                 ?.takeIfChanged(incoming)
         }
@@ -1352,7 +1352,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         incoming: VariableState,
     ): VariableState? {
         if (container !is CrystalExpression && container !is CrystalCondition &&
-            container !is CrystalGroupedExpression
+            container !is CrystalGroupedExpression && container !is CrystalBareArgument
         ) return null
         val children = significantChildren(container)
         // Mixed logical expressions retain the existing conservative flow.
@@ -1363,7 +1363,16 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         val lastAnd = preceding.indexOfLast { it.node.elementType == CrystalTypes.AND_AND }
         if (lastAnd < 0) return null
         val segments = splitLogicalSegments(preceding.take(lastAnd), CrystalTypes.AND_AND)
-        val state = trueAndSegments(segments, container, name, incoming)
+        // Bare `x.is_a? T && ...` keeps the logical chain inside the guard's
+        // argument PSI. Only later operands may assume the leading type check;
+        // the guard receiver and the type operand still see the incoming state.
+        val access = PsiTreeUtil.getParentOfType(container, CrystalDotCallAccess::class.java)
+        val guard = access?.let { dotGuardCall(it, name) }
+        val base = if (guard?.methodName == "is_a?" && container.text.trim() == guard.firstArgumentText?.trim()) {
+            firstTypeOperand(guard.firstArgumentText)?.let { narrowIsAByName(it.trim(), container, incoming, true) }
+                ?: incoming
+        } else incoming
+        val state = trueAndSegments(segments, container, name, base)
         // Preserve effects in the current operand before the actual use site.
         return flowExpressionSegment(preceding.drop(lastAnd + 1), name, state).state
     }
@@ -3179,23 +3188,17 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             .distinct()
     }
 
-    /** Macro-forged class declarations for the %w name. */
-    private fun forgedClassDeclarations(simpleName: String): List<PsiElement> {
-        if (effectiveSources.files.isEmpty()) return emptyList()
-        val indexed = CrystalIndexService.findForgedClasses(
-            simpleName, context.project, GlobalSearchScope.allScope(context.project),
-        ).filter(effectiveSources::contains).toList()
-        if (indexed.isNotEmpty()) return indexed
-        // Stub index misses (fresh files, non-indexed fixtures): fall back to
-        // the PSI of the reachable sources, matching the dot-call resolver.
-        return forgedClassPsiCache.getOrPut(simpleName) {
-            effectiveSources.files.mapNotNull { PsiManager.getInstance(context.project).findFile(it) }
-                .flatMap { PsiTreeUtil.findChildrenOfType(it, CrystalClassDefinition::class.java) }
-                .filter { simpleName in CrystalPsiUtils.forgedClassIncludeNames(it) }
+    /** Index misses are authoritative; never scan the require closure for a name. */
+    private fun forgedClassDeclarations(simpleName: String): List<CrystalClassDefinition> =
+        forgedClassCache.getOrPut(simpleName) {
+            if (effectiveSources.files.isEmpty()) emptyList() else {
+                CrystalIndexService.findForgedClasses(
+                    simpleName, context.project, GlobalSearchScope.allScope(context.project),
+                ).filter(effectiveSources::contains).toList()
+            }
         }
-    }
 
-    private val forgedClassPsiCache = mutableMapOf<String, List<CrystalClassDefinition>>()
+    private val forgedClassCache = mutableMapOf<String, List<CrystalClassDefinition>>()
 
     private fun typeIdentityCandidates(
         normalized: String,
