@@ -467,3 +467,25 @@ It retained **432 Crystal findings** and two filtered non-Crystal findings, with
 `StackOverflowError` in the IDE log. The raw parse preflight retains the two known
 LSP dependency errors (`completion_item.cr` and `ext/enum.cr`) across 151 files.
 This is a cold whole-project timing, not a measured interactive `src`-only timing.
+
+## Bare predicate accessor reopening audit (2026-11-01)
+
+Re-audited crystalline revision `a5f6f1bb9d55decf507138da7b2c47628ee15328`
+in a new disposable copy with its locked dependencies installed. Bare accessor
+references now use the shared exact hierarchy across require-visible reopenings,
+and boolean defaults contribute `::Bool` reader views. Portable regressions cover
+navigation, the full hover-provider pipeline, result inference, inheritance,
+instance/static mode, unrelated namespaces, unrequired files, unknown initializers,
+and duplicate declarations. The complete test suite passes.
+
+The isolated audit reports **431 Crystal findings**, with two filtered non-Crystal
+findings. A multiset comparison by inspection, file, line, and description against
+the preceding 432-finding audit proves exactly one removal and no additions:
+`Cannot find 'no_cleanup?'` at `src/crystalline/ext/compiler.cr:94` is gone.
+Hover's `Bool` signature is verified by the portable fixture, not by audit counts.
+The raw parse preflight retains the same two known LSP dependency errors across
+151 files. The first inspection attempt reached the ten-minute tool timeout while
+the full test suite was running concurrently; a standalone rerun completed.
+The final log has no stack overflow or inspection execution exception; existing
+RegExp/highlighter startup diagnostics and missing bundled SQL tool descriptions
+remain platform noise.

@@ -112,8 +112,12 @@ Plain `getter`, `setter`, and `property` declarations and typed `getter?` /
 variants in bare-argument form (`property params : Params`), supply read-only
 method-signature views when their declared type is one
 constant path, optionally nilable. The same mechanism handles ordinary source
-accessors and accessors inside accepted `finished` classes. Complex or inferred
-property types do not receive synthesized signatures. Generic
+accessors and accessors inside accepted `finished` classes. A literal boolean
+default also supplies a global `::Bool` reader signature (`property? no_cleanup = false`),
+without resolving arbitrary initializer calls. The query suffix itself never
+implies `Bool`; other default values remain unannotated unless supported by the
+bounded block-initializer inference described in [Type Inference](type-inference.md).
+Complex property annotations do not receive synthesized signatures. Generic
 owners can expose signatures whose types are independent of their type parameters;
 dependent types such as `T` or `T::Member` never resolve through an unrelated global
 type with that name. Accessor bindings themselves follow the complete, exact
@@ -130,6 +134,13 @@ Query declarations expose `name?` with the declared type (including nilability),
 not a plain `name` reader. `property?` additionally exposes `name=`, while
 `getter?` does not. Keyword names such as `property? struct : Bool` follow the
 same pipeline: completion offers `struct?` and hover renders `struct? : Bool`.
+
+Bare implicit-self accessor references use the same complete, exact hierarchy
+and captured require visibility as DOT calls, including class reopenings and
+inherited readers. The enclosing method determines instance/static mode. A
+unique accessor argument remains the physical declaration/navigation target;
+hover converts it to the shared reader signature. Locals and written methods
+retain precedence, and ambiguous or incomplete lookup supplies no guessed target.
 
 A zero-argument typed accessor can be an exact predecessor in a DOT chain. Union,
 nilable, unavailable, or ambiguous results, setter predecessors, and accessor calls

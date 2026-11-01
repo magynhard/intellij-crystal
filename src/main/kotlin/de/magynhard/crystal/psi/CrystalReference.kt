@@ -8,8 +8,10 @@ import de.magynhard.crystal.analysis.CrystalRequireGraphService
 import de.magynhard.crystal.analysis.CrystalEffectiveSourceSet
 import de.magynhard.crystal.analysis.CrystalRequireVisibility
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
+import de.magynhard.crystal.analysis.CrystalTypeIdentity
+import de.magynhard.crystal.analysis.CrystalReceiverMode
 import de.magynhard.crystal.completion.CrystalCompletionHelper
-import de.magynhard.crystal.navigation.CrystalAccessorCoupling
 import de.magynhard.crystal.stubs.CrystalIndexService
 
 /**
@@ -113,28 +115,29 @@ class CrystalReference(
         // Resolve the occurrence to the coupled accessor argument so rename
         // and highlight treat the bare call as a family trigger; real
         // methods, locals and macro shapes keep their precedence above.
-        return resolveToAccessorArg()
+        return resolveToAccessorArg(session)
     }
 
     /**
      * Coupled accessor argument for a bare reader/same-name hit in the
-     * declaring type's own body, honoring the shared generated-reader mapping
+     * exact require-visible hierarchy, including reopenings, honoring the
+     * generated-reader mapping
      * (`getter!`/`property!` declare both `name` and `name?`, never `name!`).
-     * Class-variable macros stay outside this instance-reader path.
+     * Instance and class-variable macros follow the enclosing method's receiver mode.
      * Local shadowing is already handled by the local-first
      * resolution above.
      */
-    private fun resolveToAccessorArg(): PsiElement? {
-        val typeDef = PsiTreeUtil.getParentOfType(
-            element,
-            CrystalClassDefinition::class.java,
-            CrystalStructDefinition::class.java,
-            CrystalModuleDefinition::class.java,
-        ) ?: return null
-        val allowed = CrystalAccessorCoupling.allowedAccessorMacros(name) ?: return null
-        return CrystalAccessorCoupling.accessorArgsMatching(
-            typeDef, name.removeSuffix("?"), allowed, classMacrosOnly = false
-        ).firstOrNull()
+    private fun resolveToAccessorArg(session: CrystalTypeResolutionSession): PsiElement? {
+        val owner = CrystalPsiUtils.callSiteOwnerQualifiedName(element) ?: return null
+        val identity = CrystalTypeIdentity(owner.substringAfterLast("::"), owner)
+        val method = PsiTreeUtil.getParentOfType(element, CrystalMethodDefinition::class.java)
+        val mode = if (method?.let(CrystalPsiUtils::isSelfMethod) == true) {
+            CrystalReceiverMode.STATIC
+        } else {
+            CrystalReceiverMode.INSTANCE
+        }
+        if (!session.collectNamedMethods(identity, mode, name).complete) return null
+        return session.accessorArguments(identity, mode, name).singleOrNull()
     }
 
     /**

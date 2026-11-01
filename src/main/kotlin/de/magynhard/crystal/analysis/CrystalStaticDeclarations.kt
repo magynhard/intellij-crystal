@@ -137,15 +137,15 @@ internal object CrystalStaticDeclarations {
             arguments.flatMap { argument ->
                 val hasAnnotation = argument.node.findChildByType(CrystalTypes.COLON) != null
                 if (!hasAnnotation) {
-                    // `getter(x) { … }` declares a reader whose return type is the
-                    // initializer block's value. A block is only convertible when
+                    // Boolean defaults provide a built-in type without resolving
+                    // arbitrary initializer calls. `getter(x) { … }` uses the
+                    // initializer block's value, convertible only when
                     // its sole statement is a single bounded-inferable expression;
                     // the resulting annotation is a plain type name (`Hash(K, V)`,
                     // `Array(Int32)`). Anything else — multi-statement bodies,
-                    // unknown types — keeps the name-only reader, and bare untyped
-                    // accessors without a block stay out entirely.
+                    // unknown defaults or block values — keeps the name-only reader.
                     val callArgs = call as? CrystalMethodCallExpression ?: return@flatMap emptyList()
-                    val inferred = blockValueType(callArgs)
+                    val inferred = booleanDefaultType(argument) ?: blockValueType(callArgs)
                     val name = CrystalAccessorCoupling.accessorArgName(argument) ?: return@flatMap emptyList()
                     if (plain == "setter") return@flatMap emptyList()
                     val receiver = if (macro.startsWith("class_")) "self." else ""
@@ -191,6 +191,15 @@ internal object CrystalStaticDeclarations {
     }
 
     fun accessorOrigin(method: CrystalMethodDefinition): PsiElement? = method.getUserData(ACCESSOR)?.element
+
+    /** A query suffix alone does not imply Bool; only a written boolean default does. */
+    private fun booleanDefaultType(argument: PsiElement): String? {
+        val assignment = PsiTreeUtil.getChildOfType(argument, CrystalAssignment::class.java) ?: return null
+        return when (assignment.expression?.text?.trim()) {
+            "true", "false" -> "::Bool"
+            else -> null
+        }
+    }
 
     /**
      * The bounded type of a one-statement block initializer (`getter(x) { hash }`):
