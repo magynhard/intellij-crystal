@@ -2715,8 +2715,8 @@ public class CrystalParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* [else_clause] [ensure_clause] END
-  //         | LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
+  // DO [PIPE NLS parameter_list NLS PIPE] [block_statement_list] rescue_clause* [else_clause] [ensure_clause] END
+  //         | LBRACE [PIPE NLS parameter_list NLS PIPE] [block_statement_list] RBRACE
   public static boolean block(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "block")) return false;
     if (!nextTokenIs(builder_, "<block>", DO, LBRACE)) return false;
@@ -2728,7 +2728,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* [else_clause] [ensure_clause] END
+  // DO [PIPE NLS parameter_list NLS PIPE] [block_statement_list] rescue_clause* [else_clause] [ensure_clause] END
   private static boolean block_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "block_0")) return false;
     boolean result_;
@@ -2765,10 +2765,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [statement_list]
+  // [block_statement_list]
   private static boolean block_0_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "block_0_2")) return false;
-    statement_list(builder_, level_ + 1);
+    block_statement_list(builder_, level_ + 1);
     return true;
   }
 
@@ -2797,7 +2797,7 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return true;
   }
 
-  // LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
+  // LBRACE [PIPE NLS parameter_list NLS PIPE] [block_statement_list] RBRACE
   private static boolean block_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "block_1")) return false;
     boolean result_;
@@ -2831,15 +2831,38 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [statement_list]
+  // [block_statement_list]
   private static boolean block_1_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "block_1_2")) return false;
-    statement_list(builder_, level_ + 1);
+    block_statement_list(builder_, level_ + 1);
     return true;
   }
 
   /* ********************************************************** */
-  // LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
+  // (method_definition | statement_or_separator)*
+  public static boolean block_statement_list(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "block_statement_list")) return false;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, STATEMENT_LIST, "<block statement list>");
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!block_statement_list_0(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "block_statement_list", pos_)) break;
+    }
+    exit_section_(builder_, level_, marker_, true, false, null);
+    return true;
+  }
+
+  // method_definition | statement_or_separator
+  private static boolean block_statement_list_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "block_statement_list_0")) return false;
+    boolean result_;
+    result_ = method_definition(builder_, level_ + 1);
+    if (!result_) result_ = statement_or_separator(builder_, level_ + 1);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // LBRACE [PIPE NLS parameter_list NLS PIPE] [block_statement_list] RBRACE
   public static boolean brace_block(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "brace_block")) return false;
     if (!nextTokenIs(builder_, LBRACE)) return false;
@@ -2874,10 +2897,10 @@ public class CrystalParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // [statement_list]
+  // [block_statement_list]
   private static boolean brace_block_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "brace_block_2")) return false;
-    statement_list(builder_, level_ + 1);
+    block_statement_list(builder_, level_ + 1);
     return true;
   }
 

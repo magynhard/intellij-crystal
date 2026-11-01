@@ -15,6 +15,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.analysis.CrystalConstantTypeInference
+import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.analysis.CrystalStaticDeclarations
 import de.magynhard.crystal.analysis.render
@@ -44,6 +45,8 @@ import org.intellij.markdown.parser.MarkdownParser
 class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? {
+        val constructor = constructorCall(originalElement) ?: constructorCall(element)
+        if (constructor != null) return buildConstructorDocumentation(constructor)
         val guarded = guardedMemberCall(originalElement) ?: guardedMemberCall(element)
         if (guarded != null) return buildGuardedMemberDocumentation(guarded)
         if (element != null) {
@@ -115,6 +118,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
         // 1. Unwrap argument wrappers to find the actual expression inside
         val unwrapped = unwrapArgument(contextElement)
+        constructorCall(unwrapped)?.let { return it.reference?.resolve() ?: it }
         guardedMemberCall(unwrapped)?.let { return it }
 
         // 2. Try PsiReference on the context element (and its parent, for leaf tokens
@@ -229,6 +233,14 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         if (!link.startsWith("class:")) return null
         val className = link.removePrefix("class:")
         val project = originalElement?.project ?: return null
+        if (className.startsWith("::")) {
+            if (DumbService.isDumb(project)) return null
+            val session = CrystalTypeSetResolver.session(originalElement)
+            val identity = session.resolveType(className, originalElement) ?: return null
+            val records = session.findExactRecordDeclarations(identity)
+            if (records.isNotEmpty()) return records.singleOrNull()
+            return session.findExactTypeDeclarations(identity).firstOrNull()
+        }
         val elements = CrystalIndexService.findTypes(className, project, GlobalSearchScope.allScope(project))
         return elements.firstOrNull()
     }
@@ -296,6 +308,73 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         sb.append(escapeHtml(CrystalUnresolvedName.messageFor(name)))
         sb.append("</pre></div>")
         return sb.toString()
+    }
+
+    /** Constructor hovers belong to the actual new token, never its arguments. */
+    private fun constructorCall(element: PsiElement?): CrystalDotCallAccess? {
+        element ?: return null
+        val access = PsiTreeUtil.getParentOfType(element, CrystalDotCallAccess::class.java, false) ?: return null
+        if (DumbService.isDumb(access.project) || CrystalMacroContext.isInMacroContext(access)) return null
+        val call = CrystalCallExtractor.extractDotCall(access) ?: return null
+        if (call.methodName != "new" ||
+            (element !== access && !call.methodNameElement.textRange.contains(element.textRange))) return null
+        return access.takeIf { CrystalReceiverExpression.extractExactConstantTypeRoot(call.receiver) != null }
+    }
+
+    private fun buildConstructorDocumentation(access: CrystalDotCallAccess): String? {
+        val call = CrystalCallExtractor.extractDotCall(access) ?: return null
+        val root = CrystalReceiverExpression.extractExactConstantTypeRoot(call.receiver) ?: return null
+        val session = CrystalTypeSetResolver.session(access)
+        val identity = session.resolveType(root, access) ?: return null
+        val result = session.resolveConstructor(identity)
+        val suffix = root.indexOf('(').takeIf { it >= 0 }?.let { root.substring(it) }.orEmpty()
+        val owner = identity.qualifiedName + suffix
+        val signatures = when (result) {
+            is CrystalConstructorResolution.Implicit -> listOf("new() : $owner")
+            is CrystalConstructorResolution.Record -> {
+                val fields = CrystalPsiUtils.recordFieldArguments(result.recordDefinition).joinToString(", ") { it.text.trim() }
+                listOf("new($fields) : $owner")
+            }
+            is CrystalConstructorResolution.Methods -> result.methods.map { method ->
+                val parameters = method.parameterList?.parameterList.orEmpty().joinToString(", ") { it.text.trim() }
+                val returns = if (method.name == "initialize") owner else {
+                    method.typeReference?.text?.let { if (it == "self") owner else it }
+                        ?: session.resolveMethodReturn(method).render()
+                }
+                "new($parameters)" + returns?.let { " : $it" }.orEmpty()
+            }.distinct()
+            is CrystalConstructorResolution.Incomplete -> {
+                // A known nominal owner is still useful documentation, but it
+                // does not certify macro-generated parameters or a return type.
+                val declarations = session.findExactTypeDeclarations(identity)
+                if (declarations.isEmpty() || declarations.any {
+                        (it !is CrystalClassDefinition && it !is CrystalStructDefinition) ||
+                            CrystalPsiUtils.isInsideMacroControlRegion(it)
+                    }) return null
+                listOf("new(…)")
+            }
+            is CrystalConstructorResolution.Abstract, is CrystalConstructorResolution.Unavailable -> return null
+        }
+        return buildString {
+            append("<div class='definition'><pre><a href=\"psi_element://class:::")
+            append(escapeHtml(identity.qualifiedName))
+            append("\">")
+            append(escapeHtml(owner))
+            append("</a> <span style='color:gray'>(Constructor)</span>\n")
+            append(signatures.joinToString("\n") { highlightCrystalCode(it, access) ?: escapeHtml(it) })
+            append("</pre></div>")
+            if (result is CrystalConstructorResolution.Incomplete) {
+                append("<div class='content'>The constructor signature is not statically available; ")
+                append("it may be generated by a macro. The type above identifies the constructor's owner, ")
+                append("not a proven return type.</div>")
+            } else if (result is CrystalConstructorResolution.Methods) {
+                result.methods.mapNotNull(::collectDocComment).distinct().forEach {
+                    append("<div class='content'>")
+                    append(renderMarkdown(it, access))
+                    append("</div>")
+                }
+            }
+        }
     }
 
     private fun guardedMemberCall(element: PsiElement?): CrystalDotCallAccess? {

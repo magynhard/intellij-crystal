@@ -1817,14 +1817,18 @@ bare_method_call_expression ::= bare_call_callee !<<isTokenTightAfterPreviousTok
 }
 
 // Empty bodies are valid Crystal: `Thread.new { }`, `spawn { }`, `f do end`.
-// The statement_list is optional in both alternatives.
-block ::= DO [PIPE NLS parameter_list NLS PIPE] [statement_list] rescue_clause* [else_clause] [ensure_clause] END
-        | LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE
+// Macro-call blocks may contain method declarations (`Enum.number Format do
+// def to_json ... end; end`). The compiler parses block bodies with
+// parse_expressions (parser.cr:4617); retain the ordinary STATEMENT_LIST PSI.
+block ::= DO [PIPE NLS parameter_list NLS PIPE] [block_statement_list] rescue_clause* [else_clause] [ensure_clause] END
+        | LBRACE [PIPE NLS parameter_list NLS PIPE] [block_statement_list] RBRACE
+
+block_statement_list ::= (method_definition | statement_or_separator)* {elementType=statement_list}
 
 // Brace-only block for positions where `do ... end` binds outward (see the
 // bare dot-call alternative): identical shape to the LBRACE branch, aliased to
 // the established BLOCK composite.
-brace_block ::= LBRACE [PIPE NLS parameter_list NLS PIPE] [statement_list] RBRACE {elementType=block}
+brace_block ::= LBRACE [PIPE NLS parameter_list NLS PIPE] [block_statement_list] RBRACE {elementType=block}
 
 // Proc/Lambda literal: ->{ body }, ->(params) { body }, ->method_name(types)
 // Proc pointers also take instance/class-variable receivers (`->@worker.run`,

@@ -1610,6 +1610,23 @@ stub-bearing definition node inside the modifier. Covered by the
 PrivateLibDefinition parser golden (top-level `private`/`protected` lib,
 nested `private lib` in a class, plus the existing `private def` path).
 
+## Method Declarations in Call Blocks
+
+The compiler parses both `do ... end` and brace call-block bodies with
+`parse_expressions` (`syntax/parser.cr:4606-4620`). Declaration macros can receive
+method definitions as block input: the LSP dependency's
+`Enum.number InsertTextFormat do ... def to_json ... end ... end` is one example.
+The block-specific statement-list rule admits these definitions while retaining
+the existing `STATEMENT_LIST` PSI and leaving ordinary method bodies unchanged.
+No recovery or macro expansion is involved.
+
+Methods inside call-block input have no proven owner in the surrounding namespace
+and remain outside its stub indexes. Actual type/record bodies still own their
+methods. Stub version 26 invalidates persisted pre-fix results. The focused
+`MethodInCallBlock` golden contains both block delimiters and following type
+declarations without `PsiErrorElement`; resolution and full hover-provider
+regressions cover the following `LSP::CompletionItem` struct.
+
 ## Release Gates
 
 The indexed corpus reaches zero errors before work moves to the complete

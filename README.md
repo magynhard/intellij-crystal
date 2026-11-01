@@ -57,6 +57,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 - Parameter Info for parenthesized calls, bare calls, DOT calls, constructors, and overloads
 - Quick Documentation with rendered Crystal doc comments, Markdown, and navigable type links
 - Hover information for variables, parameters, definitions, and inferred method return types
+- Constructor hovers for structs, classes, and records show `new` signatures and result types; macro-uncertain constructors show their exact owner without guessing hidden signatures
 - Rename refactoring with compiler verification
 
 ### Inspections

@@ -93,6 +93,34 @@ in `: Foo` or `Foo.new`) also shows the class popup.
 **Hover targets:** Hovering over the method name at a call site (e.g. `butter` in
 `butter("karamel")`) or at the definition (`def butter`) shows the popup.
 
+### Constructors
+
+Hovering the `new` token on an exact type receiver has a dedicated constructor
+popup for structs, classes, and records. The popup shows the exact qualified owner
+with a muted `(Constructor)` label, followed by the shared constructor collection's
+`new(...)` signatures. Initializer-backed signatures use `initialize`'s parameters
+and the constructed owner as the result; implicit construction shows `new() : Type`.
+Explicit `self.new` factories retain their actual declared or inferred result,
+including factories returning another type. Every overload remains visible rather
+than arbitrarily selecting the first. Record fields supply their constructor
+parameters, and explicit generic owner arguments survive in the displayed result.
+Written constructor doc comments remain available.
+
+For an exact nominal owner whose constructor collection is incomplete, show the
+owner and `new(…)`, explaining that the signature is not statically available.
+This applies to `LSP::CompletionItem`'s macro-generated constructor: the owner is
+known, but this does not prove its parameters, selected overload, or return type.
+Do not invent zero-argument construction or an `Any (Variable)` popup. Unknown,
+unrequired, unavailable, abstract, and macro-controlled type receivers do not gain
+a guessed constructor. Hovering an argument still documents that argument, and
+an ordinary instance method named `new` retains normal method documentation.
+
+Constructor owner links use absolute `class:::Qualified::Type` destinations.
+These links resolve through the original context's exact, require-visible type
+session, including record declarations, rather than choosing a same-named type
+from an unrelated namespace or file. Existing non-absolute documentation links
+retain their established behavior.
+
 ### Parameters
 
 **Popup format (two-line layout):**

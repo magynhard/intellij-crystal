@@ -265,7 +265,21 @@ class CrystalMethodDefinitionElementType(debugName: String) :
         }
     }
 
-    override fun shouldCreateStub(node: ASTNode?): Boolean = true
+    override fun shouldCreateStub(node: ASTNode?): Boolean {
+        node ?: return false
+        // A call block may be macro input (`Enum.number ... do def to_json ...`).
+        // Its methods have no proven owner in the surrounding namespace. A real
+        // type/record body still owns its methods, even inside an outer block.
+        var parent = node.treeParent
+        while (parent != null) {
+            when (parent.elementType) {
+                CrystalTypes.BLOCK -> return false
+                CrystalTypes.CLASS_BODY, CrystalTypes.ENUM_BODY, CrystalTypes.LIB_BODY -> return true
+            }
+            parent = parent.treeParent
+        }
+        return true
+    }
 }
 
 class CrystalMacroDefinitionElementType(debugName: String) :

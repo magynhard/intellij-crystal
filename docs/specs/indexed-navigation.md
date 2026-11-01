@@ -28,6 +28,13 @@ The reverse index supports [Guarded Member Navigation](guarded-member-navigation
 possible definitions remain distinct from exact dispatch and never become an
 unrelated name-only fallback or an arity/type-check overload pool.
 
+Since stub version 26, method declarations inside ordinary call blocks remain PSI
+but do not publish method-index entries for the surrounding namespace: the block
+may be input to a declaration macro such as `Enum.number`, whose generated owner
+is not statically established. Methods inside an actual type or record body keep
+their existing indexing. Parsing the complete call block preserves subsequent
+written types, so `LSP::CompletionItem` retains its exact struct declaration.
+
 Constant declarations (`KODORRA = 123` at file top level, `BAR = 1` in type and lib bodies, `private`/`protected` visibility modifiers) carry stubs with the simple name, the qualified owner (null at top level), and a privacy flag. Statement-context assignments (method and macro bodies, blocks, control flow, case subjects, macro regions) never create stubs: the element type's `shouldCreateStub` only admits file, class-body, lib-body, and visibility-modifier parents past the transparent statement wrapper. The by-owner index is keyed by the full qualified owner (`Foo`, `Foo::Bar`, `LibC`) so reopenings merge and nested owners never collide. Private file-level constants remain file-local; private type constants resolve and complete by bare name inside their owning namespace, including nested namespaces, cross-file reopenings, and exact superclass/include ancestry, only when the declaration belongs to the effective source set. Unrelated owners and explicit qualified accesses cannot expose private type constants. Qualified public `Foo::BAR` paths resolve through the owner index with the member-name filter; enum members stay out of scope (no member index for them).
 
 Methods declared in a `record Name, ... do ... end` body carry the enclosing record's qualified name in their method stub. They are emitted to `CrystalMethodByClassIndex` under the record's simple name and are excluded from `CrystalTopLevelMethodIndex`. The record remains a macro-call PSI element, with its own selective stub since version 24. Exact-identity filtering prefers the serialized qualified owner over PSI ancestor walks, so record-body methods survive index persistence; qualified identities (`record Registry::Entry`) and records nested in classes or modules keep their full identity, while a class nested inside a record body owns its methods itself.

@@ -4,6 +4,8 @@ import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.magynhard.crystal.psi.CrystalClassBody
+import de.magynhard.crystal.psi.CrystalBlock
+import de.magynhard.crystal.psi.CrystalMethodDefinition
 
 class CrystalRecordBlockBoundaryTest : BasePlatformTestCase() {
 
@@ -13,10 +15,13 @@ class CrystalRecordBlockBoundaryTest : BasePlatformTestCase() {
             "wrapper do\n  def inner\n  end\nend\n\nvalue = 1\n"
         )
 
-        // The block alternative stays a runtime block: no type body may appear,
-        // and the invalid `def` inside the block remains a parse error.
+        // Calls may be declaration macros receiving a def as block input.
+        // Preserve the call block rather than reclassifying it as a type body.
         assertNull(PsiTreeUtil.findChildOfType(file, CrystalClassBody::class.java))
-        assertTrue(PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java).isNotEmpty())
+        assertEmpty(PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java))
+        val block = PsiTreeUtil.findChildOfType(file, CrystalBlock::class.java)
+        assertNotNull(block)
+        assertNotNull(PsiTreeUtil.findChildOfType(block, CrystalMethodDefinition::class.java))
     }
 
     fun testRecordCalleeWithoutBlockParsesAsOrdinaryCall() {

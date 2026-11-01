@@ -489,3 +489,42 @@ the full test suite was running concurrently; a standalone rerun completed.
 The final log has no stack overflow or inspection execution exception; existing
 RegExp/highlighter startup diagnostics and missing bundled SQL tool descriptions
 remain platform noise.
+
+## CompletionItem declaration preservation audit (2026-11-01)
+
+Re-audited crystalline revision `a5f6f1bb9d55decf507138da7b2c47628ee15328`
+and its locked dependencies in a disposable copy. The LSP source declares
+`CompletionItem` after an `Enum.number` call block containing `def to_json`.
+Supporting method declarations in call-block statement lists preserves the
+following struct instead of losing it to the parser's error tail. These block
+methods remain PSI input rather than indexed methods of the surrounding module;
+stub version 26 rebuilds the affected indexes.
+
+The pure parse preflight improves from two errors to **one error across 151 files**:
+`lib/lsp/src/base/completion_item.cr` is clean, while the existing error at the
+end of `lib/lsp/src/ext/enum.cr` remains. The isolated inspection audit improves
+from **431 to 422 Crystal findings**, with two filtered non-Crystal findings.
+A non-parser finding multiset comparison proves exactly nine removals and no
+additions: all five `Cannot find 'CompletionItem'` warnings in
+`lightweight/completion.cr` and all four in `workspace.cr` are gone. Parser-finding
+locations are unchanged; some expected-token messages now also list method
+declarations because the grammar accepts them in blocks. The final IDE log has
+no stack overflow or inspection execution exception; the existing platform
+RegExp startup and bundled SQL description diagnostics remain.
+
+The parser golden has no `PsiErrorElement`, and portable tests verify indexing
+of the following struct, exact navigation, the full struct-hover pipeline, and
+absence of leaked block-method index entries. The first complete test run exposed
+an old record-boundary test that incorrectly required every `def` in an ordinary
+call block to be a parser error. A declaration-macro reproduction compiles with
+Crystal 1.21.1; the corrected test instead verifies that the construct remains a
+call block rather than a class body. The focused rerun and final **3,097-test**
+suite pass.
+
+The constructor-hover follow-up adds twelve full-provider regressions, including
+`LSP::CompletionItem.new` with an `Initializer` hook. It presents the exact
+constructor owner rather than `Any (Variable)`; macro-hidden parameters and return
+types remain explicitly unproven. Ordinary struct/class/record constructors show
+their known signatures and results. The full suite and plugin build pass. This
+presentation-only follow-up does not alter constructor classification or inspection
+execution, so the 422-finding audit above was not repeated and is not a hover test.
