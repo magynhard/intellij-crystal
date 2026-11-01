@@ -17,6 +17,7 @@ import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.analysis.CrystalConstantTypeInference
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
 import de.magynhard.crystal.analysis.CrystalStaticDeclarations
+import de.magynhard.crystal.analysis.render
 import de.magynhard.crystal.completion.CrystalTypeInference
 import de.magynhard.crystal.inspections.CrystalUnresolvedName
 import de.magynhard.crystal.inspections.CrystalCallExtractor
@@ -72,7 +73,17 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             return buildVariableDocumentation(target)
         }
 
-        return buildDocumentation(target)
+        // Parameter references navigate to their declaration, but the displayed
+        // type belongs to the read site (guards and assignments may refine it).
+        val parameterRead = originalElement?.takeIf {
+            target is CrystalParameter && isVariableIdentifier(it) &&
+                (it.reference ?: it.parent?.reference)?.resolve() == target
+        }
+        val parameterType = parameterRead?.let {
+            CrystalTypeSetResolver.session(it).resolveVariable(it.text, it).render()
+                ?: CrystalTypeInference.inferType(it.text, it, it.project)
+        }
+        return buildDocumentation(target, parameterType)
     }
 
     override fun getCustomDocumentationElement(
@@ -426,14 +437,14 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     // ==================== Documentation Building ====================
 
-    private fun buildDocumentation(target: PsiElement): String {
+    private fun buildDocumentation(target: PsiElement, parameterType: String? = null): String {
         val sb = StringBuilder()
         sb.append("<div class='definition'><pre>")
-        sb.append(renderSignature(target))
+        sb.append(renderSignature(target, parameterType))
         sb.append("</pre></div>")
 
         // Auto-generated doc for untyped parameters
-        if (target is CrystalParameter && target.typeReference == null) {
+        if (target is CrystalParameter && target.typeReference == null && parameterType == null) {
             sb.append("<div class='content'>")
             sb.append("<p>The type of this parameter is not specified and will be determined at runtime.</p>")
             sb.append("</div>")
@@ -451,7 +462,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
 
     // ==================== Signature Rendering ====================
 
-    private fun renderSignature(target: PsiElement): String {
+    private fun renderSignature(target: PsiElement, parameterType: String? = null): String {
         val project = target.project
         return when (target) {
             is CrystalMethodDefinition -> buildMethodSignatureHtml(target, project)
@@ -459,7 +470,7 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
             is CrystalModuleDefinition -> buildModuleSignatureHtml(target, project)
             is CrystalStructDefinition -> buildStructSignatureHtml(target, project)
             is CrystalEnumDefinition -> buildEnumSignatureHtml(target, project)
-            is CrystalParameter -> buildParameterSignatureHtml(target, project)
+            is CrystalParameter -> buildParameterSignatureHtml(target, project, parameterType)
             else -> highlightCrystalCode(target.text.lines().first(), target)
                 ?: escapeHtml(target.text.lines().first())
         }
@@ -546,14 +557,15 @@ class CrystalDocumentationProvider : AbstractDocumentationProvider() {
         return sb.toString()
     }
 
-    private fun buildParameterSignatureHtml(param: CrystalParameter, project: Project): String {
+    private fun buildParameterSignatureHtml(param: CrystalParameter, project: Project, inferredType: String? = null): String {
         val sb = StringBuilder()
 
         // Line 1: type name (linked if resolvable, "Any" if untyped) + muted "(Parameter)"
-        val typeRef = param.typeReference
-        if (typeRef != null) {
+        val typeText = inferredType ?: param.typeReference?.text?.trim()
+        if (typeText == CrystalTypeInference.UNKNOWN_TYPE) {
+            sb.append("<span style='color:gray'>Unknown</span>")
+        } else if (typeText != null) {
             // Use wrapTypeLinks to handle union types like "String | Int32"
-            val typeText = typeRef.text.trim()
             val highlighted = highlightCrystalCode(typeText, param) ?: escapeHtml(typeText)
             sb.append(wrapTypeLinks(highlighted, project))
         } else {

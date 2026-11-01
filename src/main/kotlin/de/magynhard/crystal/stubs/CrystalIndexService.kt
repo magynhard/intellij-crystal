@@ -9,6 +9,7 @@ import com.intellij.util.indexing.IdFilter
 import de.magynhard.crystal.psi.CrystalAliasDefinition
 import de.magynhard.crystal.psi.CrystalAnnotationDefinition
 import de.magynhard.crystal.psi.CrystalConstantAssignment
+import de.magynhard.crystal.psi.CrystalClassDefinition
 import de.magynhard.crystal.psi.CrystalFunDefinition
 import de.magynhard.crystal.psi.CrystalLibDefinition
 import de.magynhard.crystal.psi.CrystalMacroDefinition
@@ -108,6 +109,18 @@ object CrystalIndexService {
         scope: GlobalSearchScope
     ): Collection<CrystalMacroDefinition> =
         StubIndex.getElements(CrystalMacroIndex.KEY, name, project, scope, CrystalMacroDefinition::class.java)
+
+    /**
+     * Macro-forged classes whose `%w(...)` forge names [name] (`{% for %} class
+     * {{name.id}}; include M; end {% end %}`); one written include applies to
+     * every expanded class, and the class stub carries its module targets.
+     */
+    fun findForgedClasses(
+        name: String,
+        project: Project,
+        scope: GlobalSearchScope
+    ): Collection<CrystalClassDefinition> =
+        StubIndex.getElements(CrystalForgedClassIndex.KEY, name, project, scope, CrystalClassDefinition::class.java)
 
     fun findAliases(
         name: String,

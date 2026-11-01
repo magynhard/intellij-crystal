@@ -5,6 +5,45 @@ import de.magynhard.crystal.completion.CrystalTypeInference
 
 class CrystalTypeInferenceTest : BasePlatformTestCase() {
 
+    /**
+     * The cursor_visitor.cr shape: `def visit(node)` is untyped, so the base
+     * projection is unknown ("Any"); inside a type-guarded branch the hover
+     * must document the guarded class itself, not "Any".
+     */
+    fun testHoverNarrowsTypeInsideTypeGuardedCondition() {
+        myFixture.addFileToProject("decls.cr", """
+            module Crystal
+              class ASTNode < Object
+              end
+              module ExpandableNode
+                property expanded : Crystal::ASTNode?
+              end
+              {% for name in %w(Union Require Call) %}
+                class {{ name.id }} include ExpandableNode end
+              {% end %}
+            end
+        """.trimIndent())
+        myFixture.configureByText("cursor.cr", """
+            require "./decls"
+            def visit(node)
+              if node.is_a? Crystal::Require
+                node.expanded.try &.accept(self)
+              elsif node.is_a? Crystal::Call && node.expanded && node.expanded_macro
+                node.block.try &.accept(self)
+              end
+            end
+        """.trimIndent())
+        val text = myFixture.file.text
+        assertEquals("Crystal::Require", hoverType("node.expanded.try", text))
+        assertEquals("Crystal::Call", hoverType("node.block.try", text))
+    }
+
+    private fun hoverType(marker: String, text: String): String? {
+        val at = text.indexOf(marker)
+        val leaf = myFixture.file.findElementAt(at)!!
+        return CrystalTypeInference.inferType("node", leaf, project)
+    }
+
     fun testInferIntegerLiteral() {
         myFixture.configureByText("test.cr", "x = 1")
         val type = CrystalTypeInference.inferType("x", myFixture.file, project)

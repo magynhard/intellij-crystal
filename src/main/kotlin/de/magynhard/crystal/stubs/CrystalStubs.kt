@@ -33,6 +33,13 @@ class CrystalClassDefinitionStub(
     /** For qualified names like `class Foo::Bar`, stores the namespace prefix ("Foo"). */
     val enclosingNamespace: String? = null,
     override val ancestorNames: List<String> = emptyList(),
+    /**
+     * Include/extend module targets written inside a deterministic macro class forge
+     * (`{% for name in %w(...) %} class {{name.id}} ... include M ... {% end %}`):
+     * one written statement applies to every expanded class, so the stub records
+     * which modules this class includes without expanding any macro.
+     */
+    val forgedIncludes: List<String> = emptyList(),
 ) : StubBase<CrystalClassDefinition>(parent, elementType), CrystalTypeStub
 
 // ==================== Module Stub ====================

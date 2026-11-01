@@ -3,8 +3,10 @@ package de.magynhard.crystal.analysis
 import com.intellij.psi.PsiElement
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.search.GlobalSearchScope
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.navigation.CrystalAccessorCoupling
+import de.magynhard.crystal.stubs.CrystalIndexService
 
 internal data class CrystalTypeIdentity(val simpleName: String, val qualifiedName: String)
 
@@ -177,8 +179,38 @@ internal class CrystalMethodHierarchy(
 
     fun findExactTypeDeclarations(type: CrystalTypeIdentity): List<CrystalNamedElement> =
         declarations.getOrPut(type) {
-            findTypesByName(type.simpleName).filter { CrystalPsiUtils.buildQualifiedName(it) == type.qualifiedName }
+            val written = findTypesByName(type.simpleName).filter { CrystalPsiUtils.buildQualifiedName(it) == type.qualifiedName }
+            if (written.isNotEmpty()) return@getOrPut written
+            // Macro-forged classes ({% for %} class {{name.id}} include M end {% end %}):
+            // no written declaration exists; the %w stub names the expansion, so
+            // the forged declaration resolves through the forge index.
+            val sources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
+            if (sources.files.isEmpty()) return@getOrPut emptyList()
+            CrystalIndexService.findForgedClasses(
+                type.simpleName, context.project, GlobalSearchScope.allScope(context.project),
+            )
+                .filter(sources::contains)
+                .filter { cls ->
+                    CrystalPsiUtils.forgedClassQualifiedName(cls, type.simpleName) == type.qualifiedName &&
+                        CrystalPsiUtils.forgedClassIncludeNames(cls).isNotEmpty()
+                }
         }
+
+    /** [resolveEdge] without a written type reference: the edge text lives on the forged class stub. */
+    private fun resolveForgedEdge(moduleName: String, edgeContext: PsiElement): CrystalTypeIdentity? {
+        val candidates = if (moduleName.contains("::")) {
+            listOf(moduleName)
+        } else {
+            lexicalTypeCandidates(moduleName, edgeContext)
+        }
+        for (candidate in candidates) {
+            val identities = findTypesByName(moduleName).mapNotNull(CrystalPsiUtils::buildQualifiedName)
+                .filter { it == candidate }.distinct()
+            if (identities.size > 1) return null
+            identities.singleOrNull()?.let { return CrystalTypeIdentity(moduleName, it) }
+        }
+        return null
+    }
 
     fun collectAccessorArguments(type: CrystalTypeIdentity, mode: CrystalReceiverMode, methodName: String): List<PsiElement> {
         val allowed = CrystalAccessorCoupling.allowedAccessorMacros(methodName) ?: return emptyList()
@@ -327,7 +359,16 @@ internal class CrystalMethodHierarchy(
             records.size <= 1 && records.all(CrystalStaticDeclarations::recordIsComplete)
 
         for (declaration in exactDeclarations + records) {
-            if (CrystalPsiUtils.isInsideMacroControlRegion(declaration)) { complete = false }
+            // Macro-forged class declarations (the {% for %} body) carry an
+            // indexed %w include stub: their edges are written code the
+            // compiler expands deterministically, so only other
+            // macro-controlled declarations stay incomplete.
+            val forgedDeclaration = when (declaration) {
+                is CrystalClassDefinition -> declaration.classBody?.children.orEmpty()
+                    .any { child -> child is CrystalIncludeStatement && CrystalPsiUtils.isDeterministicForgedInclude(child) }
+                else -> false
+            }
+            if (!forgedDeclaration && CrystalPsiUtils.isInsideMacroControlRegion(declaration)) { complete = false }
             val body = when (declaration) {
                 is CrystalClassDefinition -> declaration.classBody
                 is CrystalModuleDefinition -> declaration.classBody
@@ -356,7 +397,10 @@ internal class CrystalMethodHierarchy(
                                 member.name?.let(uncertainMethodNames::add) ?: macroMethodPrefixes.add("")
                             }
                         }
-                        if (macroDepth > 0 && isRelevantMacroControlledEdge(member, mode, includeModuleEdges)) {
+                        if (macroDepth > 0 &&
+                            !forgedDeclaration &&
+                            isRelevantMacroControlledEdge(member, mode, includeModuleEdges)
+                        ) {
                             complete = false
                             return@forEach
                         }
@@ -400,6 +444,31 @@ internal class CrystalMethodHierarchy(
         if (superclasses.isEmpty()) {
             implicitPrimitiveSuperclass(type)?.let(superclasses::add)
                 ?: implicitDeclaredKindSuperclass(type, exactDeclarations, records.isNotEmpty())?.let(superclasses::add)
+        }
+
+        // Deterministic macro class forges ({% for name in %w(...) %} forging
+        // `class {{name.id}}; include M; end`) write the include once and the
+        // compiler expands it for every listed class; treat that edge as a
+        // written include of the receiver type. The edge completes the
+        // hierarchy: conditional macro branches never reach the index
+        // (see the forged include element type).
+        if (includeModuleEdges && mode == CrystalReceiverMode.INSTANCE) {
+            val sources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
+            if (sources.files.isNotEmpty()) {
+                CrystalIndexService.findForgedClasses(
+                    type.simpleName, context.project, GlobalSearchScope.allScope(context.project),
+                ).filter(sources::contains)
+                    .forEach { cls ->
+                        // The forge names every expanded class; the class body's
+                        // written `include M` statements supply the module edges.
+                        for (moduleName in cls.classBody?.children.orEmpty()
+                            .filterIsInstance<CrystalIncludeStatement>()
+                            .mapNotNull { it.typeReference?.text }) {
+                            resolveForgedEdge(moduleName, cls)?.let(includes::add) ?: run { complete = false }
+                        }
+                        edgeFiles.add(CrystalStaticDeclarations.sourceFile(cls)?.virtualFile?.path.orEmpty())
+                    }
+            }
         }
 
         val distinctSuperclasses = superclasses.distinct()

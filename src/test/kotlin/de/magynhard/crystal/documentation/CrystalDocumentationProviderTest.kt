@@ -445,6 +445,50 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
 
     // ==================== Parameter Popup Tests ====================
 
+    fun testParameterReadHoverUsesRequireGuardInsideNestedElsifBody() {
+        assertGuardedNodeHover("no<caret>de.expanded", "node.block", "Require")
+    }
+
+    fun testParameterReadHoverUsesCallGuardInsideCompoundElsifBody() {
+        assertGuardedNodeHover("node.expanded", "no<caret>de.block", "Call")
+    }
+
+    private fun assertGuardedNodeHover(requireRead: String, callRead: String, expectedType: String) {
+        val doc = hoverDoc("""
+            module Crystal
+              class ASTNode
+              end
+              module ExpandableNode
+                property expanded : ASTNode?
+              end
+              {% for name in %w(Require Select) %}
+                class {{name.id}}
+                  include ExpandableNode
+                end
+              {% end %}
+              class Call < ASTNode
+                property expanded : ASTNode?
+                property expanded_macro : ASTNode?
+              end
+            end
+            def visit(node)
+              if contains_node
+                false
+              elsif top_level && nodes.empty?
+                if node.is_a? Crystal::Require
+                  $requireRead
+                end
+              elsif node.is_a? Crystal::Call && node.expanded && node.expanded_macro
+                $callRead
+              end
+            end
+        """.trimIndent()).orEmpty()
+        assertTrue(doc, doc.contains(expectedType))
+        assertFalse(doc, doc.contains("Any"))
+        assertFalse(doc, doc.contains("determined at runtime"))
+        assertTrue(doc, doc.contains("(Parameter)"))
+    }
+
     fun testParameterHoverInDefinitionShowsParameterPopup() {
         val doc = hoverDoc("""
             def butter(bon<caret>bon : String)
@@ -454,6 +498,32 @@ class CrystalDocumentationProviderTest : BasePlatformTestCase() {
         assertNotNull("Hover on parameter in definition should return doc", doc)
         assertTrue("Should contain '(Parameter)' label", doc!!.contains("(Parameter)"))
         assertTrue("Should contain parameter name 'bonbon'", doc.contains("bonbon"))
+    }
+
+    fun testParameterReadHoverPreservesGenericUnionType() {
+        val doc = hoverDoc("""
+            def visit(node : Array(String) | Nil)
+              no<caret>de
+            end
+        """.trimIndent()).orEmpty()
+        assertTrue(doc, doc.contains("Array"))
+        assertTrue(doc, doc.contains("String"))
+        assertTrue(doc, doc.contains("Nil"))
+    }
+
+    fun testParameterReadHoverUsesReassignedTypeInsteadOfGuardType() {
+        val doc = hoverDoc("""
+            class Node
+            end
+            def visit(node)
+              if node.is_a? Node
+                node = 1
+                no<caret>de
+              end
+            end
+        """.trimIndent()).orEmpty()
+        assertTrue(doc, doc.contains("Int32"))
+        assertFalse(doc, doc.contains("Any"))
     }
 
     fun testParameterHoverInBodyShowsParameterPopup() {

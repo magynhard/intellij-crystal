@@ -188,6 +188,60 @@ object CrystalPsiUtils {
 
     fun isInsideMacroControlRegion(element: PsiElement): Boolean = isInsideMacroControlRegion(element.node)
 
+    /**
+     * Module names the `%w(...)` forge references for a class that sits inside
+     * a deterministic `{% for name in %w(...) %} class {{name.id}} ... {% end %}`
+     * macro loop; empty when the declaration is not part of such a forge.
+     */
+    fun forgedClassIncludeNames(cls: CrystalClassDefinition): List<String> {
+        if (!isInsideMacroControlRegion(cls)) return emptyList()
+        var current: com.intellij.lang.ASTNode? = cls.node
+        while (current != null) {
+            val parent: com.intellij.lang.ASTNode = current.treeParent ?: return emptyList()
+            var lastControl: com.intellij.lang.ASTNode? = null
+            for (sibling in parent.getChildren(null)) {
+                if (sibling === current) break
+                if (sibling.elementType == CrystalTypes.MACRO_CONTROL) lastControl = sibling
+            }
+            lastControl?.let { control ->
+                if (control.text.startsWith("{% for")) {
+                    val start = control.text.indexOf("%w(")
+                    if (start >= 0) {
+                        val end = control.text.indexOf(')', start)
+                        if (end > start) {
+                            return control.text.substring(start + 3, end).trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+                        }
+                    }
+                }
+                return emptyList()
+            }
+            current = parent
+        }
+        return emptyList()
+    }
+
+    /**
+     * True for an `include`/`extend` statement written inside a deterministic
+     * class forge (`{% for name in %w(...) %} class {{name.id}} ... {% end %}`):
+     * the statement's region is a for-loop, so the compiler applies it to
+     * every listed expansion without executing anything dynamic.
+     */
+    fun isDeterministicForgedInclude(statement: PsiElement): Boolean {
+        if (!isInsideMacroControlRegion(statement)) return false
+        var current = statement.node
+        while (current != null) {
+            val parent = current.treeParent ?: return false
+            var lastControl: com.intellij.lang.ASTNode? = null
+            for (sibling in parent.getChildren(null)) {
+                if (sibling === current) break
+                if (sibling.elementType == CrystalTypes.MACRO_CONTROL) lastControl = sibling
+            }
+            lastControl?.let { return it.text.startsWith("{% for") }
+            current = parent
+        }
+        return false
+    }
+
     internal fun isInsideMacroControlRegion(node: com.intellij.lang.ASTNode): Boolean {
         var current = node
         while (true) {
@@ -560,6 +614,58 @@ object CrystalPsiUtils {
         }
         // If there are multiple CONSTANTS (e.g. Foo::Bar), return the full qualified name
         return if (constants.size >= 2) constants.joinToString("::") else null
+    }
+
+    /**
+     * The qualified name a macro-forged class declaration expands to for the
+     * given %w name: enclosing namespaces from the stub tree, skipping the
+     * `{{name.id}}` placeholder, joined to the expansion name.
+     */
+    fun forgedClassQualifiedName(cls: PsiElement, expandedName: String): String? {
+        // Stub-backed PSI carries the trustworthy namespace chain; the class
+        // name itself is the `{{ name.id }}` placeholder and gets replaced by
+        // the expansion name.
+        val stub = (cls as? StubBasedPsiElement<*>)?.stub
+        if (stub != null) {
+            buildQualifiedNameFromStub(stub)?.let { written ->
+                val namespace = written.split("::").filterNot { it.startsWith("{{") }
+                return if (namespace.isEmpty()) expandedName else (namespace + expandedName).joinToString("::")
+            }
+        }
+        val parts = mutableListOf<String>()
+        // Stub-inflated PSI can detach the declaration from its namespace
+        // chain (parent = file). Re-locate the same declaration in the file's
+        // live PSI tree and walk its parents instead.
+        var current: PsiElement? = cls
+        if (cls.parent is PsiFile || cls.parent.parent is PsiFile) {
+            findLiveDeclaration(cls)?.let { current = it }
+        }
+        while (current != null) {
+            val name: String? = when (current) {
+                is CrystalModuleDefinition -> current.name
+                is CrystalClassDefinition -> current.name
+                is CrystalStructDefinition -> current.name
+                is CrystalEnumDefinition -> current.name
+                else -> null
+            }
+            if (name != null && !name.startsWith("{{")) parts.add(0, name)
+            current = current.parent
+        }
+        val namespace = parts.joinToString("::")
+        return if (namespace.isEmpty()) expandedName else "$namespace::$expandedName"
+    }
+
+    /**
+     * The same class declaration within [cls]'s containing file's live PSI tree,
+     * or null when the file-level placeholder chain is the only view.
+     */
+    private fun findLiveDeclaration(cls: PsiElement): PsiElement? {
+        val file = cls.containingFile ?: return null
+        val range = cls.textRange
+        // Lift the leaf at the declaration start to the matching class node.
+        val leafStart = file.findElementAt(range.startOffset) ?: return null
+        return PsiTreeUtil.getParentOfType(leafStart, CrystalClassDefinition::class.java, false)
+            ?.takeIf { it.textRange == range }
     }
 
     /**

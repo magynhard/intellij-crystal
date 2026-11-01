@@ -1,6 +1,8 @@
 package de.magynhard.crystal.analysis
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiManager
+import de.magynhard.crystal.psi.CrystalClassDefinition
 import com.intellij.psi.PsiErrorElement
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiFile
@@ -1326,6 +1328,14 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 it is CrystalIfStatement || it is CrystalUnlessStatement || it is CrystalCaseStatement
             }
         } ?: container
+        // An elsif clause body is a branch of the parent if chain: descending
+        // through the clause applies its own condition at TRUE polarity (the
+        // previous conditions already applied as FALSE on the clause step).
+        val elsifCondition = (container as? CrystalElsifClause)?.condition
+        if (elsifCondition != null) {
+            return narrowedBranchState(elsifCondition, name, incoming, true)
+                ?.takeIfChanged(incoming)
+        }
         return when (conditional) {
             is CrystalIfStatement -> ifBranchIncoming(conditional, next, name, incoming)
             is CrystalUnlessStatement -> unlessBranchIncoming(conditional, next, name, incoming)
@@ -1368,7 +1378,9 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         var state = incoming
         for (segment in segments) {
             val flow = flowExpressionSegment(segment, name, state)
-            if (!flow.fallsThrough) return VariableState.Unknown
+            if (!flow.fallsThrough) {
+                return VariableState.Unknown
+            }
             state = flow.state
             state = if (segment.size == 1) {
                 narrowedBranchState(segment.single(), name, state, true) ?: state
@@ -1572,7 +1584,10 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             return narrowNilCheck(incoming, conditionHolds)
         }
         if (guard.methodName == "is_a?") {
-            val typeText = guard.firstArgumentText?.trim().orEmpty()
+            // `x.is_a? T && y` parses the logical chain into the guard's own
+            // argument list, so the proven type lives before the top-level
+            // logical operator (`x.is_a?(T) && y` per the compiler).
+            val typeText = firstTypeOperand(guard.firstArgumentText).orEmpty().trim()
             return narrowIsAByName(typeText, target, incoming, conditionHolds)
         }
         if (guard.methodName == "responds_to?" && guard.argumentCount == 1 && conditionHolds && incoming is VariableState.Bound) {
@@ -1592,6 +1607,31 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     private fun isNarrowableName(name: String): Boolean {
         val first = name.firstOrNull() ?: return false
         return first.isLowerCase() || first == '_'
+    }
+
+    /**
+     * The operator-free leading operand of a text parsed into one guard
+     * argument: `T && y` and `T || y` cut before the top-level logical
+     * operator, while parenthesized or bracketed shapes keep their own text.
+     */
+    private fun firstTypeOperand(text: String?): String? {
+        if (text == null) return null
+        var depth = 0
+        text.forEachIndexed { index, char ->
+            when (char) {
+                '(', '[', '{' -> depth++
+                ')', ']', '}' -> if (depth > 0) depth--
+            }
+            if (depth == 0 &&
+                index + 2 < text.length &&
+                char in listOf('&', '|') &&
+                text[index] == text[index + 1] &&
+                index > 0
+            ) {
+                return text.take(index)
+            }
+        }
+        return text
     }
 
     /**
@@ -2931,11 +2971,13 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         CrystalStaticDeclarations.accessorOrigin(method)?.let { origin ->
             val declared = method.typeReference?.text?.let(::parseTypeSet) as? CrystalTypeResolution.Known
                 ?: return CrystalTypeResolution.Unknown
-            val qualified = declared.types.map { type ->
-                if (type.name == "Nil") type else {
-                    val identity = resolveType(type.name, origin) ?: return CrystalTypeResolution.Unknown
-                    type.copy(name = identity.qualifiedName)
-                }
+            val qualified = declared.types.mapNotNull { type ->
+                // The compiler defines Nil without any Crystal source, so an
+                // unindexed Nil branch must not erase the resolvable branches'
+                // shared result (`matches the nilable-local lookup rule`).
+                if (type.name == "Nil") return@mapNotNull type
+                val identity = resolveType(type.name, origin) ?: return CrystalTypeResolution.Unknown
+                type.copy(name = identity.qualifiedName)
             }
             return CrystalTypeResolution.Known(qualified)
         }
@@ -3124,11 +3166,36 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         return resolveTypeIdentity(target, element) ?: resolveAliasType(target, element, depth + 1)
     }
 
-    private fun exactTypeIdentities(simpleName: String, qualifiedName: String): List<CrystalTypeIdentity> =
-        (types(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName) + records(simpleName).map { it.qualifiedName })
-            .filter { it == qualifiedName }
-            .map { CrystalTypeIdentity(simpleName, it) }
+    private fun exactTypeIdentities(simpleName: String, qualifiedName: String): List<CrystalTypeIdentity> {
+        val written = types(simpleName).mapNotNull(CrystalPsiUtils::buildQualifiedName).filter { it == qualifiedName }
+        // Macro-forged classes:
+        val forgedMatched = forgedClassDeclarations(simpleName).any {
+            CrystalPsiUtils.forgedClassQualifiedName(it, simpleName) == qualifiedName
+        }
+        return (written.map { CrystalTypeIdentity(simpleName, it) } + records(simpleName)
+            .filter { it.qualifiedName == qualifiedName }
+            .map { CrystalTypeIdentity(simpleName, it.qualifiedName) } +
+            listOfNotNull(CrystalTypeIdentity(simpleName, qualifiedName).takeIf { forgedMatched }))
             .distinct()
+    }
+
+    /** Macro-forged class declarations for the %w name. */
+    private fun forgedClassDeclarations(simpleName: String): List<PsiElement> {
+        if (effectiveSources.files.isEmpty()) return emptyList()
+        val indexed = CrystalIndexService.findForgedClasses(
+            simpleName, context.project, GlobalSearchScope.allScope(context.project),
+        ).filter(effectiveSources::contains).toList()
+        if (indexed.isNotEmpty()) return indexed
+        // Stub index misses (fresh files, non-indexed fixtures): fall back to
+        // the PSI of the reachable sources, matching the dot-call resolver.
+        return forgedClassPsiCache.getOrPut(simpleName) {
+            effectiveSources.files.mapNotNull { PsiManager.getInstance(context.project).findFile(it) }
+                .flatMap { PsiTreeUtil.findChildrenOfType(it, CrystalClassDefinition::class.java) }
+                .filter { simpleName in CrystalPsiUtils.forgedClassIncludeNames(it) }
+        }
+    }
+
+    private val forgedClassPsiCache = mutableMapOf<String, List<CrystalClassDefinition>>()
 
     private fun typeIdentityCandidates(
         normalized: String,

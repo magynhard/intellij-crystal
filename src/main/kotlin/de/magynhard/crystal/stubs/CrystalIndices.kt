@@ -175,3 +175,12 @@ class CrystalConstantByOwnerIndex : StringStubIndexExtension<CrystalConstantAssi
             StubIndexKey.createIndexKey("crystal.constant.by.owner.index")
     }
 }
+
+class CrystalForgedClassIndex : StringStubIndexExtension<CrystalClassDefinition>() {
+    override fun getKey(): StubIndexKey<String, CrystalClassDefinition> = KEY
+
+    companion object {
+        val KEY: StubIndexKey<String, CrystalClassDefinition> =
+            StubIndexKey.createIndexKey("crystal.forged.class.index")
+    }
+}

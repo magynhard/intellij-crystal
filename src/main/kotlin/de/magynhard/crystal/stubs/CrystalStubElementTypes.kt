@@ -59,16 +59,29 @@ class CrystalClassDefinitionElementType(debugName: String) :
         dataStream.writeName(stub.name)
         dataStream.writeName(stub.enclosingNamespace)
         writeAncestors(stub, dataStream)
+        dataStream.writeInt(stub.forgedIncludes.size)
+        stub.forgedIncludes.forEach(dataStream::writeName)
     }
 
     override fun deserialize(dataStream: StubInputStream, parentStub: StubElement<*>?): CrystalClassDefinitionStub {
         val name = dataStream.readNameString()
         val enclosingNamespace = if (dataStream.available() > 0) dataStream.readNameString() else null
-        return CrystalClassDefinitionStub(parentStub, this, name, enclosingNamespace, readAncestors(dataStream))
+        val ancestors = readAncestors(dataStream)
+        val forgedIncludes = if (dataStream.available() > 0) {
+            List(dataStream.readInt()) { dataStream.readNameString().orEmpty() }
+        } else emptyList()
+        return CrystalClassDefinitionStub(parentStub, this, name, enclosingNamespace, ancestors, forgedIncludes)
     }
 
     override fun createStub(psi: CrystalClassDefinition, parentStub: StubElement<out PsiElement>?): CrystalClassDefinitionStub {
-        return CrystalClassDefinitionStub(parentStub, this, psi.name, extractEnclosingNamespace(psi), CrystalDeclaredAncestors.names(psi))
+        return CrystalClassDefinitionStub(
+            parentStub,
+            this,
+            psi.name,
+            extractEnclosingNamespace(psi),
+            CrystalDeclaredAncestors.names(psi),
+            CrystalPsiUtils.forgedClassIncludeNames(psi),
+        )
     }
 
     override fun createPsi(stub: CrystalClassDefinitionStub): CrystalClassDefinition {
@@ -78,6 +91,7 @@ class CrystalClassDefinitionElementType(debugName: String) :
     override fun indexStub(stub: CrystalClassDefinitionStub, sink: IndexSink) {
         stub.name?.let { sink.occurrence(CrystalClassIndex.KEY, it) }
         indexAncestors(stub, sink)
+        stub.forgedIncludes.forEach { sink.occurrence(CrystalForgedClassIndex.KEY, it) }
 
         // Index by enclosing type/library name for hierarchical completion.
         // Two sources: (1) parent stub tree (nested classes), (2) qualified type_name prefix (Foo::Bar).

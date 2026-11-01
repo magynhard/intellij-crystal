@@ -3249,6 +3249,31 @@ class CrystalCompletionTest : BasePlatformTestCase() {
         assertTrue("Expected each_value, got $names", names.contains("each_value"))
     }
 
+    fun testConditionGuardedPackedCallAccessorCompletionOffersMembers() {
+        val declarations = """
+            module Crystal
+              class ASTNode
+                def try
+                end
+              end
+              class Call < ASTNode
+                property expanded : ASTNode?
+                property expanded_macro : Macro?
+              end
+              class Macro
+              end
+            end
+        """.trimIndent()
+        val fromGuard = completionNames(
+            "$declarations\ndef visit(node : Crystal::ASTNode)\n  if node.is_a? Crystal::Call && node.expanded && node.expanded_macro\n    node.<caret>\n  end\nend\n"
+        )
+        assertTrue("Expected expanded, got $fromGuard", fromGuard.contains("expanded"))
+        val afterRead = completionNames(
+            "$declarations\ndef visit(node : Crystal::ASTNode)\n  if node.is_a? Crystal::Call\n    node.expanded.<caret>\n  end\nend\n"
+        )
+        assertTrue("Expected try after nilable reader, got $afterRead", afterRead.contains("try"))
+    }
+
     private fun completionNames(source: String): Set<String> = completionNameList(source).toSet()
 
     private fun completionNames(fileName: String, source: String): Set<String> {

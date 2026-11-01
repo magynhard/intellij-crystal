@@ -77,6 +77,12 @@ result `Unknown`; the resolver never picks the first reverse descendant assignme
 
 ## Guard Narrowing
 
+Parameter hover documentation uses the original read site's flow state even when
+navigation resolves that reference to its parameter declaration. Guarded reads
+display the narrowed type (including full generic and union types); reassignments
+replace that type normally. Hovering the parameter declaration itself continues
+to show its declared signature.
+
 Branch conditions refine a local's or parameter's union for the branches they prove:
 `if x` drops `Nil` (the `else` keeps only falsy members), `unless x.nil?` and the `else`
 of `if x.nil?` drop `Nil`, `if x.is_a?(T)` replaces the state with `T` (the `else`
@@ -105,7 +111,18 @@ Within a pure `&&` chain, a direct `is_a?` guard refines the tracked local in
 subsequent operands, including a chain used as a postfix `unless` condition.
 Grouped standalone guards also use the existing direct-guard rules. Operands
 are folded in order, so an intervening assignment replaces the refinement.
-Grouped local assignments (`(base_name = candidate)`) also act as truthiness
+`x.is_a? T && y` parses the logical chain into the guard's own argument list,
+so the proven type cuts before the top-level logical operator and the parser
+shape never erases the refinement. An `elsif` branch refines its tracked
+local through the clause's own condition at true polarity; previous members
+of the chain already applied as false while descending from the `if`. Nilable
+reader annotations (`T?`) keep the resolvable branches in inferred results
+even when `Nil` has no indexed declaration. A written `include M` inside a
+deterministic `%w` class forge ({% for %} class {{name.id}} … {% end %})
+supplies the module edge for every expansion: the class stub stores the forge
+`%w` names under a dedicated stub index, and the hierarchy treats that edge
+as complete without executing any macro. Grouped local assignments
+(`(base_name = candidate)`) also act as truthiness
 guards: the later `&&` operand sees the assigned type without `Nil`. Ordinary
 flow after the expression retains its nullable state. Hover must keep the
 read-site PSI rather than jumping back to the grouped declaration and losing

@@ -2537,4 +2537,50 @@ class CrystalDotCallTargetResolverTest : BasePlatformTestCase() {
         myFixture.enableInspections(CrystalUnresolvedNameInspection::class.java)
         assertFalse(myFixture.doHighlighting().any { it.description == "Cannot find 'def_instances'" })
     }
+
+    fun testNestedIfInsideElsifBodyRefinesNodePerBranch() {
+        val file = myFixture.configureByText("cursor_visitor.cr", """
+            module Crystal
+              class ASTNode
+                def accept(v)
+                end
+              end
+              module ExpandableNode
+                property expanded : ASTNode?
+              end
+              class Macro
+              end
+              class Call < ASTNode
+                property expanded : ASTNode?
+                property expanded_macro : Macro?
+              end
+              {% for name in %w(Union Require Select) %}
+              class {{name.id}}
+                include ExpandableNode
+              end
+              {% end %}
+            end
+            def visit(node : Crystal::ASTNode)
+              if contains_node
+                false
+              elsif top_level && nodes.empty?
+                if node.is_a? Crystal::Require
+                  node.expanded
+                else
+                  true
+                end
+              elsif node.is_a? Crystal::Call && node.expanded && node.expanded_macro
+                node
+              end
+            end
+        """.trimIndent())
+        assertNull(PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java))
+        val accesses = PsiTreeUtil.findChildrenOfType(file, CrystalDotCallAccess::class.java)
+            .map { it.text to CrystalDotCallTargetResolver.resolve(it) }
+        val expandedReads = accesses.filter { (text, _) -> text == ".expanded" }
+        assertTrue("Both expanded reads must be accessors: $accesses",
+            expandedReads.isNotEmpty() && expandedReads.all { it.second is DotCallResolution.Accessor })
+        myFixture.enableInspections(CrystalUnresolvedNameInspection::class.java)
+        assertFalse(myFixture.doHighlighting().any { it.description?.contains("Cannot find 'expanded") == true })
+    }
 }
