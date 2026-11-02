@@ -34,6 +34,7 @@ Crystal language support for IntelliJ IDEA, RubyMine, WebStorm, and other compat
 ### Code Intelligence
 
 - Context-aware completion for local variables, parameters, methods, constants, types, namespaces, and `require` paths
+- Named-argument completion for methods, constructors, and records inserts `label: `, shows declared types, hides supplied arguments, and ranks required parameters first; the supported LSP `Initializer` pattern also exposes source-written field keys
 - Receiver-aware DOT completion for literals, variables, method results, collections, constructors, and supported unions
 - DOT completion retains unambiguous methods when a class reopening duplicates another method signature
 - Multiline record fields and named arguments support keyword labels such as `macro : Bool` and `macro: false`

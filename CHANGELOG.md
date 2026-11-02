@@ -5,6 +5,8 @@ All notable changes to the Crystal Language Plugin for JetBrains IDEs will be do
 ## [0.3.3]
 ### Added
 
+- **Named-argument completion** — method, constructor, and record calls suggest external parameter labels with their declared types, omit already supplied named and positional arguments, and prioritize required parameters. Accepting a suggestion inserts `label: ` and positions the caret for its value. The statically verified LSP `Initializer` pattern additionally suggests source-written instance-field keys such as `CompletionItem.new(label:, kind:, detail:)`, without treating ordinary struct properties as constructor parameters or enabling macro-generated argument diagnostics.
+
 ### Bug Fixes
 
 - **Macro-generated allocation constructors retain their full result type** — fixed `self.new` declarations in require-visible `included` and `inherited` hooks now supply return evidence through the shared type-resolution session. This covers crystalline's `LSP::Initializer` together with `JSON::Serializable`, including a private allocation helper, so `CompletionItem.new` shows `LSP::CompletionItem` in constructor and variable hovers and supports member completion and call chains. Conditional/dynamic hooks, ambiguous declarations, overwritten allocation bindings, and allocator/helper overrides remain unknown; generated field validation remains separate from result inference.

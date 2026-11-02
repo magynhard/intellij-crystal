@@ -34,7 +34,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         CONSTRUCTION_COUNT.incrementAndGet()
     }
 
-    private val effectiveSources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
+    val effectiveSources = CrystalRequireGraphService.getInstance(context.project).effectiveSources(context)
     private val finishedTypes by lazy { CrystalStaticDeclarations.finishedTypes(context, effectiveSources) }
     private val memo = IdentityHashMap<PsiElement, CrystalTypeResolution>()
     private val activeHeredocBodies = IdentityHashMap<PsiElement, CrystalHeredocLiteral>()
@@ -418,6 +418,25 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
         // initializer fields or certify the complete argument-checking pool.
         return if (hooks.isNotEmpty()) CrystalConstructorResolution.Incomplete(identity, methods)
             else CrystalConstructorResolution.Methods(identity, methods)
+    }
+
+    /** Proven field-key suggestions do not certify a complete macro-generated signature. */
+    fun constructorFieldKeys(identity: CrystalTypeIdentity): List<CrystalInitializerKey> {
+        val constructor = resolveConstructor(identity) as? CrystalConstructorResolution.Incomplete ?: return emptyList()
+        val hooks = constructorHooks(identity) ?: return emptyList()
+        val hook = hooks.singleOrNull(CrystalInitializerKeys::recognizes) ?: return emptyList()
+        if (hooks.any { it != hook && CrystalInitializerKeys.mayReplacePositionalInitializer(it) }) return emptyList()
+        val generated = CrystalStaticDeclarations.constructorHookMethods(hook).orEmpty()
+            .singleOrNull { it.name == "new" } ?: return emptyList()
+        if (generated !in constructor.knownMethods || generated !in constructorSelfResults[identity].orEmpty()) return emptyList()
+        val initializers = hierarchy.collectNamedMethods(identity, CrystalReceiverMode.INSTANCE, "initialize")
+        if (!initializers.complete || initializers.methods.isNotEmpty()) return emptyList()
+        // Do not claim the forwarding contract when a written factory replaces it.
+        if (constructor.knownMethods.any { !CrystalStaticDeclarations.isConstructorHookMethod(it) && it.name == "new" }) {
+            return emptyList()
+        }
+        return hierarchy.findExactTypeDeclarations(identity).flatMap(CrystalInitializerKeys::fields)
+            .groupBy { it.name }.mapNotNull { (_, fields) -> fields.distinct().singleOrNull() }
     }
 
     /** Constructor results are shared by hover, assignments, and completed-call chains. */

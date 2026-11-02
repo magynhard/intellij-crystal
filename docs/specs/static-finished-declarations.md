@@ -123,6 +123,14 @@ constructor remains incomplete for generated field/argument validation. Relative
 return annotations are resolved at the expanded owner, not the template wrapper.
 See [Type Inference](type-inference.md#constructors) for the evidence boundary.
 
+Named-argument completion has a separate advisory field-key model for the complete, fixed
+LSP `Initializer` template: allocation, `initialize(args)` forwarding, and the exact
+`@type.instance_vars` default/nilability branches must match the source pattern. It reads only
+source-written fields of the exact owner/reopenings, and a competing positional initializer
+invalidates that model. The JSON::Serializable named-only initializer remains compatible.
+These keys never promote `Incomplete` constructor metadata into an argument-checking pool.
+See [Named Arguments](completion.md#named-arguments) for insertion, ranking, and limitations.
+
 ## Typed Accessors and Consumer Parity
 
 Plain `getter`, `setter`, and `property` declarations and typed `getter?` /

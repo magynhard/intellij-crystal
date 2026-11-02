@@ -9,14 +9,15 @@ require, suppression, override, type, class-body, annotation, DOT, namespace, an
 branches remain in that contributor because their order and early returns are behaviorally
 significant.
 
-A single `CrystalTypeResolutionSession` is built only for an actual DOT completion and threaded
+A single `CrystalTypeResolutionSession` is built for an actual DOT completion and threaded
 through receiver resolution (`CrystalCompletionReceiverResolver.resolve`), method lookup
 (`CrystalCompletionHelper.getMethodsAsLookups` / `getStaticMethodsAsLookups`), and synthetic-`new`
 classification (`CrystalTypeObjectCompletionProvider`). Sharing the session ensures all three
 paths observe the same effective-source snapshot, so a VFS event arriving between them cannot
-mix stale and fresh type visibility. Require-string, free-text, annotation, class-body, type, and
-namespace completion do not construct a type-resolution session; free-text, type, and top-level
-method candidates are filtered through one `effectiveSources` snapshot per completion instead
+mix stale and fresh type visibility. Named-argument label completion also builds one session,
+sharing its captured source snapshot with callable and field-key lookup. Ordinary require-string,
+free-text, annotation, class-body, type, and namespace completion do not construct a type-resolution
+session; free-text, type, and top-level method candidates are filtered through one `effectiveSources` snapshot per completion instead
 (see Dependency-Aware Name Completion below). The
 no-session public overloads remain for callers that construct their own session.
 
@@ -102,6 +103,62 @@ No completion is offered in these contexts:
 ### Free-Text Completion
 
 Free-text completion offers scope-aware suggestions based on the current cursor position.
+
+#### Named Arguments
+
+At the beginning of a parenthesized or bare call argument, completion also offers named labels:
+
+```crystal
+struct Person
+  property name : String
+  property active : Bool = true
+  def initialize(display_name @name : String, *, detail : String? = nil)
+  end
+end
+
+Person.new(<caret>)       # display_name: String, detail: String?
+Person.new(dis<caret>)    # display_name:
+```
+
+- Written method and constructor parameters contribute their **external** call-site names, not
+  local bindings or storage names. Record headers contribute their generated initializer fields.
+  An ordinary struct's properties do not create constructor parameters.
+- Labels show written type restrictions, including generic/union annotations. Parameters without
+  defaults rank above optional parameters and ordinary expression candidates. A nilable written
+  method parameter is still required unless it has a default.
+- Accepting an entry inserts `label: ` and leaves the caret after the space. An existing colon and
+  horizontal spacing are reused; accepting with `:` does not insert a second colon. String-literal
+  external names are quoted and escaped on insertion.
+- Already supplied named arguments, including arguments after the caret, are omitted. Known
+  positional arguments consume ordinary parameters but not named-only parameters. Overloads
+  incompatible with supplied labels/positional counts contribute nothing; compatible overloads
+  merge labels and retain their type alternatives. This is shape filtering, not type-based overload
+  selection for an unfinished call.
+- Splat/block formal names and `_` external labels are not candidates. An unresolved call-site
+  splat suppresses label suggestions because its supplied keys/positions are unknown.
+- Completion inside an argument value, collection, expression, or macro context does not borrow
+  labels from the outer call. A nested runtime call may offer its own labels. Existing expression
+  completion remains available alongside labels at an argument's initial identifier.
+- DOT calls use exact shared receiver/constructor resolution. Bare calls use the exact implicit-self
+  hierarchy or require-visible top-level methods, with local shadowing and conservative suppression
+  for macro/method pools. Unknown, ambiguous, unrequired, and incomplete receivers never borrow
+  unrelated same-name signatures.
+
+For the supported `LSP::Initializer` source pattern, `CompletionItem.new(<caret>)` additionally offers
+source-written instance-field keys such as `label:`, `kind:`, and `detail:`. The matcher verifies the
+complete fixed `self.new(**args)` allocation/forwarding body and the full `@type.instance_vars`
+initializer template, ignoring layout/comments while preserving string contents. A module name,
+`**args`, or an arbitrary field loop alone is insufficient. The shared allocation proof must hold,
+and written/replacement positional initializers suppress this field-key model. The named-only
+JSON::Serializable initializer can coexist with it.
+
+This advisory model reads ordinary/query accessors and type-body instance-variable declarations
+from the exact require-visible owner and its reopenings; class variables, nested types, conditional
+fields, bang-accessor expansion, inherited/module-generated fields, and arbitrary macro-generated
+fields are not inferred. Written nilable fields and fields with defaults rank as optional. Generic
+field restrictions retain their source spelling (for example `T`). These suggestions are neither a
+closed key set nor a complete signature: the constructor remains `Incomplete` for generated
+field/argument validation, so completion does not add argument-count/type warnings.
 
 #### Dependency-Aware Name Completion
 
@@ -756,6 +813,8 @@ end
 
 | Item | Priority | Icon | Bold |
 |------|----------|------|------|
+| Required named argument labels | 150 | Parameter | ✗ |
+| Optional named argument labels | 140 | Parameter | ✗ |
 | Block parameters | 120 | Parameter | ✓ |
 | Method parameters | 100 | Parameter | ✓ |
 | For-loop variables | 90 | Variable | ✓ |

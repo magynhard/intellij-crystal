@@ -3,15 +3,21 @@ package de.magynhard.crystal.completion
 import com.intellij.codeInsight.AutoPopupController
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.codeInsight.completion.CompletionContributor
+import com.intellij.codeInsight.completion.CompletionInitializationContext
+import com.intellij.codeInsight.completion.CompletionUtilCore
 import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionProvider
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.patterns.PlatformPatterns
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import de.magynhard.crystal.CrystalLanguage
 import de.magynhard.crystal.psi.CrystalTypes
+import de.magynhard.crystal.psi.CrystalArgument
+import de.magynhard.crystal.psi.CrystalBareArgument
+import de.magynhard.crystal.psi.CrystalPsiCallArguments
 import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeIdentity
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
@@ -34,6 +40,17 @@ class CrystalCompletionContributor : CompletionContributor() {
             .withLanguage(CrystalLanguage)
 
         extend(CompletionType.BASIC, crystalPattern, CrystalCompletionProvider())
+    }
+
+    override fun beforeCompletion(context: CompletionInitializationContext) {
+        val leaf = context.file.findElementAt(context.startOffset) ?: return
+        val argument = PsiTreeUtil.getParentOfType(leaf, CrystalArgument::class.java, CrystalBareArgument::class.java) ?: return
+        if (CrystalPsiCallArguments.getNamedLabel(argument) != null &&
+            argument.node.findChildByType(CrystalTypes.COLON)?.startOffset?.let { context.startOffset <= it } == true) {
+            // A named label's colon must be tight. The default dummy's trailing
+            // space otherwise breaks its argument PSI before providers can run.
+            context.dummyIdentifier = CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED
+        }
     }
 
     private class CrystalCompletionProvider : CompletionProvider<CompletionParameters>() {
@@ -120,6 +137,8 @@ class CrystalCompletionContributor : CompletionContributor() {
                     result.addElement(lookup)
                 }
             }
+
+            CrystalNamedArgumentCompletionProvider.addCompletions(parameters, result)
 
             if (isInTypeAnnotationContext(position)) {
                 for (lookup in CrystalTypeCompletionProvider.getTypeLookups(position, project, result.prefixMatcher)) {
