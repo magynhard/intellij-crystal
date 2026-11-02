@@ -340,9 +340,35 @@ Multiple constructor methods remain a multi-target result. `CrystalDotCallRefere
 returns every exact overload for IntelliJ's navigation chooser, while `resolve()` returns a target
 only when exactly one remains. The same polyvariant rule applies to regular static and instance
 methods.
-Constructor expressions preserve the exact qualified receiver identity as their instance result.
+Implicit, record, and initializer-backed constructor expressions preserve the exact qualified
+receiver identity as their instance result, including written generic arguments. Explicit
+`self.new` factories use their actual declared or inferable return type instead of assuming
+that every factory returns its owner. Multiple retained constructors must agree on that result;
+unknown or differing results stay `Unknown`.
 Record macro fallback remains a separate declaration path before normal type construction where
 the call consumer supports records.
+
+Fixed method headers in require-visible `included` and `inherited` hooks can contribute
+constructor return evidence without executing macros. The entire hook projection must parse cleanly;
+unconditional methods and an optional outer `verbatim do` envelope are supported. Dynamic
+headers, conditional outer controls, generic hook owners, and unmodeled outer calls remain
+opaque. Source-backed views are cached on the physical hook file, never stubbed or indexed.
+Private/protected initializer bodies remain opaque: lexer-identified initializer headers are
+projected to macro bodies without changing text length or source offsets. This handles LSP's
+inline conditional default-value operators without expanding or recovering their generated code.
+
+A constructor returning an allocated local (`instance = self.allocate`, initialization calls,
+then `instance`) proves the concrete receiver type when no other writes, abrupt exits, blocks,
+or overriding allocators intervene. A single fixed helper can carry the same proof; helper
+cycles, multiple helper candidates, and written overrides invalidate it. This covers both
+LSP's keyword constructor and JSON::Serializable's delegated constructor. Hooks that install
+additional inherited hooks are not replayed as their original included hook on subclasses.
+
+Constructor signature completeness and result evidence remain separate: macro constructors
+retain `Incomplete` classification with known fixed headers, so their generated ivar/field
+requirements do not produce guessed argument diagnostics. Their proven result is nevertheless
+shared by constructor/variable hovers, assignment flow, completed-call completion, and exact
+member chains. Missing or unprovable results never fall back to the constructor owner's members.
 
 Record field readers participate in the shared exact method hierarchy, including
 records with separate struct reopenings. A reader's simple declared type is

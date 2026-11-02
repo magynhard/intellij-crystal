@@ -105,6 +105,24 @@ revision rather than by the identities of freshly parsed PSI objects. This keeps
 the platform cached-value idempotence contract without serializing reads behind a
 global lock.
 
+## Constructor Hook Return Evidence
+
+Fixed constructors in supported `included`/`inherited` bodies use separate cached,
+source-mapped syntax views. Parsing accepts fixed method declarations, visibility
+modifiers, and an optional outer verbatim envelope; controls/interpolations within
+private/protected initializer bodies remain opaque through a lexer-guided, length-preserving
+projection. Constructor/helper code and all later source offsets remain intact; the
+whole projected body must parse cleanly. Dynamic headers and outer conditional generation
+cannot contribute a partial constructor pool. Templates are not inserted into the
+method hierarchy or indexes and do not change serialized stubs.
+
+The session proves the result of allocation-return bodies and fixed helper
+delegation in the exact receiver context, with allocator/override and binding-write
+guards. Known headers can feed constructor hover and completion even while the
+constructor remains incomplete for generated field/argument validation. Relative
+return annotations are resolved at the expanded owner, not the template wrapper.
+See [Type Inference](type-inference.md#constructors) for the evidence boundary.
+
 ## Typed Accessors and Consumer Parity
 
 Plain `getter`, `setter`, and `property` declarations and typed `getter?` /

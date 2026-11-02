@@ -146,6 +146,12 @@ its own reference and never navigates to the enclosing call's method.
 
 An existing polyvariant DOT reference is authoritative even when exact resolution returns no targets. The Goto handler returns that empty result without attempting constructor or simple-name fallback, so incomplete, suppressed, unavailable, or ambiguous receivers cannot navigate to an unrelated same-simple-name type. Constructor fallback is limited to PSI shapes without an exact DOT reference and passes a proven complete receiver identity to the shared exact constructor resolver. Simple names retain lexical lookup, while qualified `A::Service` and absolute `::A::Service` paths retain their explicit identity; truncated or otherwise unprovable recovery PSI produces no target. The fallback also returns no target when separate files declare the same exact type identity and duplicate constructor signature, because exact hierarchy collection is incomplete rather than selecting one declaration arbitrarily. Same-simple-name declarations under different namespaces do not constitute this ambiguity; an unavailable top-level identity remains a separate no-target case. Class and struct navigation returns the combined explicit `self.new` and initializer-backed overload pool; records retain their exact-identity fallback and implicit construction applies only when that pool is empty. DOT calls inside `{{ … }}` or macro bodies resolve to nothing: their receivers are macro-runtime objects dispatching to the `Crystal::Macros` compiler API, and resolving them against runtime `def`s would navigate to false targets. Chained calls (`env.status(:not_found).json(...)`) navigate through the preceding call's single annotated return type when the inner call is applicable and unambiguous; anything else resolves to nothing.
 
+Completed constructor predecessors can supply the shared proven allocation result
+to exact member navigation, including `CompletionItem.new(...).label`. The written
+call shape must be supported, and an unknown constructor result never falls back
+to its owner's members. Known results from fixed hook constructors do not promote
+their incomplete generated-field metadata into a dispatch or argument-checking pool.
+
 ## Bracket-Call Navigation
 
 `CrystalBracketCallReference` resolves tight `[]` calls (`Foo[]`, `Foo[1]`, `obj[0]`)

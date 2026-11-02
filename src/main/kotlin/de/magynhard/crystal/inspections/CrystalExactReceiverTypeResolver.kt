@@ -387,7 +387,8 @@ internal object CrystalExactReceiverTypeResolver {
         if (CrystalCallExtractor.extractMethodName(constructor) != "new") return null
         val typeName = CrystalReceiverExpression.extractExactConstantTypeRoot(significantChildren.dropLast(1))
             ?: return null
-        return resolveTypeIdentity(typeName, call, session)
+        val result = session.resolveConstructorCall(typeName, constructor) as? CrystalTypeResolution.Known ?: return null
+        return narrowedReceiverType(result, call, session)
     }
 
     private fun resolveExactTypeReference(

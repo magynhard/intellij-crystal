@@ -123,7 +123,7 @@ class CrystalConstructorDocumentationTest : BasePlatformTestCase() {
         assertFalse(doc, doc.contains("Constructor"))
     }
 
-    fun testMacroGeneratedStructConstructorShowsOwnerWithoutGuessingSignature() {
+    fun testMacroGeneratedStructConstructorShowsProvenReturnType() {
         myFixture.addFileToProject("types.cr", """
             module LSP
               module Initializer
@@ -147,8 +147,8 @@ class CrystalConstructorDocumentationTest : BasePlatformTestCase() {
             require "./types"
             LSP::CompletionItem.ne<caret>w(label: "item")
         """)
-        assertConstructor(doc, "LSP::CompletionItem", "new(…)")
-        assertTrue(doc, doc.contains("not statically available"))
+        assertConstructor(doc, "LSP::CompletionItem", "new(**args) : LSP::CompletionItem")
+        assertFalse(doc, doc.contains("not statically available"))
         assertFalse(doc, plainText(doc).contains("new()"))
         val provider = CrystalDocumentationProvider()
         val target = provider.getDocumentationElementForLink(

@@ -106,10 +106,13 @@ than arbitrarily selecting the first. Record fields supply their constructor
 parameters, and explicit generic owner arguments survive in the displayed result.
 Written constructor doc comments remain available.
 
-For an exact nominal owner whose constructor collection is incomplete, show the
-owner and `new(…)`, explaining that the signature is not statically available.
-This applies to `LSP::CompletionItem`'s macro-generated constructor: the owner is
-known, but this does not prove its parameters, selected overload, or return type.
+For an exact nominal owner whose constructor collection is incomplete but retains
+fixed hook-method headers, show those headers and any return type proven by the
+shared session. `LSP::CompletionItem.new(**args)` therefore shows
+`LSP::CompletionItem` as its result, including when JSON::Serializable contributes
+another allocating constructor. This does not certify macro-expanded field checks.
+Otherwise show the owner and `new(…)`, explaining that the signature is not
+statically available; the owner alone is not return-type evidence.
 Do not invent zero-argument construction or an `Any (Variable)` popup. Unknown,
 unrequired, unavailable, abstract, and macro-controlled type receivers do not gain
 a guessed constructor. Hovering an argument still documents that argument, and

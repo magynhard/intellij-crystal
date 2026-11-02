@@ -528,3 +528,31 @@ types remain explicitly unproven. Ordinary struct/class/record constructors show
 their known signatures and results. The full suite and plugin build pass. This
 presentation-only follow-up does not alter constructor classification or inspection
 execution, so the 422-finding audit above was not repeated and is not a hover test.
+
+## Macro constructor result inference audit (2026-11-02)
+
+Re-audited crystalline revision `a5f6f1bb9d55decf507138da7b2c47628ee15328`
+with its locked dependencies in a disposable copy after adding constructor result
+evidence from fixed hook headers. The complete LSP Initializer fixture retains
+its inline conditional defaults and is tested together with the installed, real
+JSON::Serializable source and core type declarations. Its `self.new(**args)` and
+JSON's delegated allocation constructor both yield the exact constructed type.
+
+An earlier simplified initializer fixture missed the need to keep the generated
+private initializer body opaque. The complete fixture exposed that gap; the
+lexer-guided projection now preserves source offsets and avoids evaluating the
+field-generation controls. Positive and negative tests cover constructor and
+variable hovers, member completion, direct chains, namespace binding, explicit
+factory results, allocation/helper overrides, additional writes, opaque controls,
+unrequired declarations, inherited-hook boundaries, source mapping, and edits.
+The final suite passes **3,132 tests**, with no failures or skips.
+
+The final isolated report (`20261102T062142Z-1578543`) retains **422 Crystal
+findings** and two filtered non-Crystal findings. A full multiset comparison of
+inspection, file, line, and description against the parser-fix baseline finds
+zero removals and zero additions. The final log has no stack overflow or Crystal
+inspection execution exception; existing RegExp startup and missing bundled SQL
+description diagnostics remain platform noise. The pure parse preflight still
+reports exactly the known `lib/lsp/src/ext/enum.cr:88` error across 151 files.
+Argument/field checking for generated initializers remains deliberately incomplete;
+the proven result type is shared without promoting that incomplete signature pool.

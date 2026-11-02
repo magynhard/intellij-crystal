@@ -16,6 +16,8 @@ import de.magynhard.crystal.analysis.CrystalConstructorResolution
 import de.magynhard.crystal.analysis.CrystalTypeIdentity
 import de.magynhard.crystal.analysis.CrystalTypeResolutionSession
 import de.magynhard.crystal.analysis.CrystalTypeSetResolver
+import de.magynhard.crystal.analysis.CrystalStaticDeclarations
+import de.magynhard.crystal.analysis.render
 
 /**
  * Code completion contributor for Crystal.
@@ -199,7 +201,15 @@ internal object CrystalTypeObjectCompletionProvider {
         )
         staticLookups.forEach(result::addElement)
 
-        if (staticLookups.any { it.lookupString == "new" }) return
+        val identity = CrystalTypeIdentity(receiver.simpleName, receiver.qualifiedName)
+        val generated = (session.resolveConstructor(identity) as? CrystalConstructorResolution.Incomplete)
+            ?.knownMethods.orEmpty().filter { it.name == "new" && CrystalStaticDeclarations.isConstructorHookMethod(it) }
+        generated.forEach { method ->
+            val returns = session.resolveConstructorMethodReturn(method, identity, receiver.qualifiedName).render()
+            result.addElement(CrystalCompletionHelper.buildResolvedNewLookup(method, receiver.simpleName)
+                .withTypeText(returns ?: "Unknown"))
+        }
+        if (staticLookups.any { it.lookupString == "new" } || generated.isNotEmpty()) return
         val record = receiver.recordDefinition
         if (record != null) {
             result.addElement(CrystalCompletionHelper.buildRecordNewLookup(record, receiver.qualifiedName))

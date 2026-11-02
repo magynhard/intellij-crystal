@@ -62,6 +62,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
     private val methodCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
     private val methodsByTypeCache = mutableMapOf<String, List<CrystalMethodDefinition>>()
+    private val constructorCache = mutableMapOf<CrystalTypeIdentity, CrystalConstructorResolution>()
+    private val constructorSelfResults = mutableMapOf<CrystalTypeIdentity, Set<CrystalMethodDefinition>>()
     private val hierarchy = CrystalMethodHierarchy(context, ::types, ::classMethods, ::findExactRecordDeclarations)
 
     companion object {
@@ -281,12 +283,6 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     fun reachesConstantOwner(identity: CrystalTypeIdentity, owner: String): Boolean =
         hierarchy.reachesConstantOwner(identity, owner)
 
-    fun isConstructible(typeName: String, element: PsiElement): Boolean =
-        resolveConstructor(typeName, element).let {
-            it is CrystalConstructorResolution.Methods || it is CrystalConstructorResolution.Implicit ||
-                it is CrystalConstructorResolution.Record
-        }
-
     fun collectMethods(
         receiverType: CrystalTypeIdentity,
         mode: CrystalReceiverMode
@@ -337,10 +333,14 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             if (identities.size > 1) return CrystalConstructorResolution.Incomplete(fallbackIdentity)
             identities.singleOrNull()?.let { return resolveConstructor(it) }
         }
+        resolveAliasType(typeName, element)?.let { return resolveConstructor(it.toShared()) }
         return CrystalConstructorResolution.Unavailable(fallbackIdentity)
     }
 
-    fun resolveConstructor(identity: CrystalTypeIdentity): CrystalConstructorResolution {
+    fun resolveConstructor(identity: CrystalTypeIdentity): CrystalConstructorResolution =
+        constructorCache.getOrPut(identity) { resolveConstructorUncached(identity) }
+
+    private fun resolveConstructorUncached(identity: CrystalTypeIdentity): CrystalConstructorResolution {
         val records = findExactRecordDeclarations(identity)
         if (records.isNotEmpty()) {
             return records.singleOrNull()?.let { recordConstructor(identity, it) }
@@ -371,25 +371,146 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
             actualSelf = false
         )
         if (!initializers.complete) return CrystalConstructorResolution.Incomplete(identity)
-        val explicitSignatures = selfNew.methods
+        val hooks = constructorHooks(identity) ?: return CrystalConstructorResolution.Incomplete(identity)
+        if (hooks.isNotEmpty() && declarations.any { hasUnmodeledConstructorInput(it) }) {
+            return CrystalConstructorResolution.Incomplete(identity)
+        }
+        val templates = hooks.flatMap { hook ->
+            CrystalStaticDeclarations.constructorHookMethods(hook)
+                ?: return CrystalConstructorResolution.Incomplete(identity)
+        }
+        val newMethods = selfNew.methods + templates.filter { it.name == "new" && CrystalPsiUtils.isSelfMethod(it) }
+        val initializerMethods = initializers.methods + templates.filter {
+            it.name == "initialize" && !CrystalPsiUtils.isSelfMethod(it)
+        }
+        if (newMethods.groupBy(hierarchy::canonicalSignature).values.any { it.size > 1 } ||
+            initializerMethods.groupBy(hierarchy::canonicalSignature).values.any { it.size > 1 }) {
+            return CrystalConstructorResolution.Incomplete(identity)
+        }
+        constructorSelfResults[identity] = newMethods.filter { method ->
+            CrystalConstructorAllocation.dependencies(method, templates)?.all { name ->
+                val written = hierarchy.collectNamedMethods(
+                    identity, CrystalReceiverMode.STATIC, name, actualSelf = true, includeModuleEdges = false,
+                )
+                written.complete && written.methods.isEmpty() &&
+                    (name != "allocate" || templates.none { it.name == name && CrystalPsiUtils.isSelfMethod(it) })
+            } == true
+        }.toSet()
+        val explicitSignatures = newMethods
             .flatMapTo(linkedSetOf(), hierarchy::constructorDispatchSignatures)
-        val forwardedInitializers = initializers.methods.filter { initializer ->
+        val forwardedInitializers = initializerMethods.filter { initializer ->
             hierarchy.constructorDispatchSignatures(initializer).none(explicitSignatures::contains)
         }
-        val methods = selfNew.methods + forwardedInitializers
+        val methods = newMethods + forwardedInitializers
         if (methods.isEmpty()) {
             // A macro hook in the ancestry can generate `initialize` /
             // `self.new` invisibly (stdlib LSP `Initializer` defines
             // `self.new(**args)` for every includer through `macro included`):
             // the zero-argument fallback would be a false verdict there, so
             // the call stays suppressed instead.
-            return if (hasConstructorGeneratingMacroHook(identity)) {
+            return if (hooks.isNotEmpty()) {
                 CrystalConstructorResolution.Incomplete(identity)
             } else {
                 CrystalConstructorResolution.Implicit(identity)
             }
         }
-        return CrystalConstructorResolution.Methods(identity, methods)
+        // Fixed hook headers and allocation results do not expand generated
+        // initializer fields or certify the complete argument-checking pool.
+        return if (hooks.isNotEmpty()) CrystalConstructorResolution.Incomplete(identity, methods)
+            else CrystalConstructorResolution.Methods(identity, methods)
+    }
+
+    /** Constructor results are shared by hover, assignments, and completed-call chains. */
+    fun resolveConstructorCall(typeName: String, call: PsiElement): CrystalTypeResolution {
+        val identity = resolveType(typeName, call) ?: return CrystalTypeResolution.Unknown
+        val result = resolveConstructor(identity)
+        return when (result) {
+            is CrystalConstructorResolution.Implicit, is CrystalConstructorResolution.Record ->
+                knownType(constructedTypeName(identity, typeName))
+            is CrystalConstructorResolution.Methods, is CrystalConstructorResolution.Incomplete -> {
+                val methods = when (result) {
+                    is CrystalConstructorResolution.Methods -> result.methods
+                    is CrystalConstructorResolution.Incomplete -> result.knownMethods
+                }
+                if (methods.isEmpty()) return CrystalTypeResolution.Unknown
+                val returns = methods.map { resolveConstructorMethodReturn(it, identity, typeName) }
+                if (returns.distinct().size == 1) returns.first() else CrystalTypeResolution.Unknown
+            }
+            else -> CrystalTypeResolution.Unknown
+        }
+    }
+
+    fun resolveConstructorMethodReturn(
+        method: CrystalMethodDefinition,
+        identity: CrystalTypeIdentity,
+        typeName: String,
+    ): CrystalTypeResolution = if (method.name == "initialize" || method.typeReference?.text == "self" ||
+        method in constructorSelfResults[identity].orEmpty()) {
+        knownType(constructedTypeName(identity, typeName))
+    } else if (CrystalStaticDeclarations.isConstructorHookMethod(method)) {
+        resolveHookConstructorReturn(method, identity)
+    } else resolveMethodReturn(method)
+
+    private fun resolveHookConstructorReturn(
+        method: CrystalMethodDefinition,
+        identity: CrystalTypeIdentity,
+    ): CrystalTypeResolution {
+        // A hook expands in the receiver's lexical context. Do not infer
+        // arbitrary calls or relative type names from its unbound template.
+        val declared = method.typeReference?.text
+        return if (declared != null) {
+            val receiver = hierarchy.findExactTypeDeclarations(identity).firstOrNull()
+                ?: return CrystalTypeResolution.Unknown
+            val parameters = receiver.node.findChildByType(CrystalTypes.TYPE_PARAMETERS)?.getChildren(null)
+                .orEmpty().filter { it.elementType == CrystalTypes.CONSTANT }.map { it.text }
+            if (parameters.any { Regex("\\b${Regex.escape(it)}\\b").containsMatchIn(declared) }) {
+                return CrystalTypeResolution.Unknown
+            }
+            val parsed = parseTypeSet(declared) as? CrystalTypeResolution.Known ?: return CrystalTypeResolution.Unknown
+            val qualified = parsed.types.map { type ->
+                val resolved = resolveType(type.name, receiver)
+                if (resolved == null && type.name !in setOf("Nil", "String", "Bool", "Char", "Symbol",
+                        "Int8", "Int16", "Int32", "Int64", "Int128", "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
+                        "Float32", "Float64")) return CrystalTypeResolution.Unknown
+                type.copy(name = resolved?.let { constructedTypeName(it, type.name) } ?: type.name)
+            }
+            CrystalTypeResolution.Known(qualified)
+        } else {
+            val body = method.methodBody ?: return CrystalTypeResolution.Unknown
+            if (PsiTreeUtil.findChildOfAnyType(body, CrystalReturnStatement::class.java, CrystalBreakStatement::class.java,
+                    CrystalNextStatement::class.java, CrystalYieldStatement::class.java, CrystalMacroControl::class.java,
+                    CrystalMacroInterpolation::class.java, CrystalBlock::class.java, CrystalProcLiteral::class.java) != null) {
+                return CrystalTypeResolution.Unknown
+            }
+            val expression = body.statementList.children.filterIsInstance<CrystalStatement>()
+                .singleOrNull()?.expressionStatement?.expressionList?.singleOrNull()
+            val value = expression?.children?.singleOrNull() ?: return CrystalTypeResolution.Unknown
+            if (value is CrystalStringExpression || value.node.elementType in setOf(
+                    CrystalTypes.TRUE, CrystalTypes.FALSE, CrystalTypes.NIL, CrystalTypes.INTEGER_LITERAL,
+                    CrystalTypes.FLOAT_LITERAL, CrystalTypes.CHAR_LITERAL, CrystalTypes.SYMBOL_LITERAL,
+                )) resolve(value) else CrystalTypeResolution.Unknown
+        }
+    }
+
+    private fun constructedTypeName(identity: CrystalTypeIdentity, typeName: String): String =
+        identity.qualifiedName + typeName.indexOf('(').takeIf { it >= 0 }?.let { typeName.substring(it) }.orEmpty()
+
+    private fun hasUnmodeledConstructorInput(declaration: CrystalNamedElement): Boolean {
+        val body = when (declaration) {
+            is CrystalClassDefinition -> declaration.classBody
+            is CrystalStructDefinition -> declaration.classBody
+            else -> return true
+        } ?: return false
+        fun unsupported(element: PsiElement): Boolean = when (element) {
+            is CrystalMethodDefinition, is CrystalMacroDefinition -> false
+            is CrystalClassDefinition, is CrystalStructDefinition, is CrystalModuleDefinition, is CrystalEnumDefinition -> false
+            is CrystalMethodCallExpression, is CrystalBareMethodCallExpression ->
+                !de.magynhard.crystal.navigation.CrystalAccessorCoupling.isAccessorMacroCall(element)
+            is CrystalVariableReference -> element.node.findChildByType(CrystalTypes.IDENTIFIER) != null
+            is CrystalMacroControl, is CrystalMacroInterpolation -> true
+            else -> element.children.any(::unsupported)
+        }
+        return body.children.any(::unsupported)
     }
 
     private fun recordConstructor(
@@ -407,8 +528,8 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
     }
 
     /**
-     * True when a non-empty `macro included` / `macro inherited` hook exists
-     * anywhere it fires for [identity]: `macro included` in a directly or
+     * Collects non-empty `macro included` / `macro inherited` hooks
+     * wherever they fire for [identity]: `macro included` in a directly or
      * transitively included module, or `macro inherited` in a superclass.
      * Such hooks run at type-definition time and can generate constructors
      * that stub indexing never sees, so the implicit zero-argument
@@ -416,13 +537,15 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
      * fire for itself and don't count; `property` and other
      * constructor-less macros never trigger this either.
      */
-    private fun hasConstructorGeneratingMacroHook(identity: CrystalTypeIdentity): Boolean {
-        val visited = mutableSetOf<CrystalTypeIdentity>()
-        val queue = ArrayDeque<Pair<CrystalTypeIdentity, Boolean>>()
-        queue.add(identity to false)
+    private fun constructorHooks(identity: CrystalTypeIdentity): List<CrystalMacroDefinition>? {
+        val hooks = mutableListOf<CrystalMacroDefinition>()
+        val visited = mutableSetOf<Triple<CrystalTypeIdentity, Boolean, Boolean>>()
+        val queue = ArrayDeque<Triple<CrystalTypeIdentity, Boolean, Boolean>>()
+        queue.add(Triple(identity, false, false))
         while (queue.isNotEmpty()) {
-            val (current, viaInclude) = queue.removeFirst()
-            if (!visited.add(current)) continue
+            val exposure = queue.removeFirst()
+            val (current, viaInclude, inheritedExposure) = exposure
+            if (!visited.add(exposure)) continue
             for (declaration in hierarchy.findExactTypeDeclarations(current)) {
                 val body = when (declaration) {
                     is CrystalClassDefinition -> declaration.classBody
@@ -439,29 +562,32 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 } else {
                     emptySet()
                 }
-                if (relevantHookNames.isNotEmpty() && body.macroDefinitionList.any { macro ->
-                        macro.name in relevantHookNames && !macro.macroBody?.text.isNullOrBlank()
-                    }
-                ) {
-                    return true
+                val relevantHooks = body.macroDefinitionList.filter { macro ->
+                    macro.name in relevantHookNames && !macro.macroBody?.text.isNullOrBlank()
                 }
+                // An included hook can itself install a later inherited hook.
+                // Do not replay its original constructors for that subclass.
+                if (inheritedExposure && relevantHooks.any {
+                        Regex("\\bmacro\\s+inherited\\b").containsMatchIn(it.macroBody?.text.orEmpty())
+                    }) return null
+                hooks.addAll(relevantHooks)
                 if (!viaInclude) {
                     val superclass = when (declaration) {
                         is CrystalClassDefinition -> declaration.superclassClause?.typeReference
                         is CrystalStructDefinition -> declaration.superclassClause?.typeReference
                         else -> null
                     }?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { resolveType(it, declaration) }
-                    if (superclass != null) queue.add(superclass to false)
+                    if (superclass != null) queue.add(Triple(superclass, false, true))
                 }
                 for (include in body.includeStatementList) {
                     val target = include.typeReference?.text?.trim()?.takeIf { it.isNotEmpty() }?.let {
                         resolveType(it, include)
                     } ?: continue
-                    queue.add(target to true)
+                    queue.add(Triple(target, true, inheritedExposure))
                 }
             }
         }
-        return false
+        return hooks.distinct()
     }
 
     private fun resolveUncached(element: PsiElement): CrystalTypeResolution {
@@ -1108,13 +1234,7 @@ internal class CrystalTypeResolutionSession(private val context: PsiElement) {
                 receiver = when (receiver) {
                     is ReceiverState.TypeObject -> {
                         if (name == "new") {
-                            when (resolveConstructor(receiver.identity.toShared())) {
-                                is CrystalConstructorResolution.Methods,
-                                is CrystalConstructorResolution.Implicit,
-                                is CrystalConstructorResolution.Record -> Unit
-                                else -> return CrystalTypeResolution.Unknown
-                            }
-                            ReceiverState.Values(knownType(receiver.identity.qualifiedName + genericSuffix))
+                            ReceiverState.Values(resolveConstructorCall(receiver.identity.qualifiedName + genericSuffix, dotAccess))
                         } else {
                             ReceiverState.Values(
                                 resolveCall(listOf(receiver.identity.qualifiedName), name, true, dotAccess)

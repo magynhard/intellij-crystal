@@ -47,7 +47,10 @@ internal sealed interface CrystalConstructorResolution {
     data class Implicit(override val identity: CrystalTypeIdentity) : CrystalConstructorResolution
     data class Unavailable(override val identity: CrystalTypeIdentity) : CrystalConstructorResolution
     data class Abstract(override val identity: CrystalTypeIdentity) : CrystalConstructorResolution
-    data class Incomplete(override val identity: CrystalTypeIdentity) : CrystalConstructorResolution
+    data class Incomplete(
+        override val identity: CrystalTypeIdentity,
+        val knownMethods: List<CrystalMethodDefinition> = emptyList(),
+    ) : CrystalConstructorResolution
 }
 
 internal class CrystalMethodHierarchy(

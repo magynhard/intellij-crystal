@@ -10,8 +10,11 @@ import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.IncorrectOperationException
+import com.intellij.psi.tree.IElementType
 import de.magynhard.crystal.CrystalFileType
 import de.magynhard.crystal.CrystalLanguage
+import de.magynhard.crystal.lexer.CrystalLexerAdapter
+import de.magynhard.crystal.lexer.CrystalTokenTypes
 import de.magynhard.crystal.navigation.CrystalAccessorCoupling
 import de.magynhard.crystal.psi.*
 import de.magynhard.crystal.stubs.CrystalIndexService
@@ -29,9 +32,11 @@ internal object CrystalStaticDeclarations {
     }
     private data class FinishedBody(val file: PsiFile, val declarations: List<CrystalNamedElement>)
     private data class Origin(val body: SmartPsiElementPointer<CrystalMacroBody>, val prefixLength: Int)
+    private data class ConstructorHookText(val text: String, val hiddenInitializers: Set<Int>)
     private val ORIGIN = Key.create<Origin>("crystal.static.finished.origin")
     private val ACCESSOR = Key.create<SmartPsiElementPointer<PsiElement>>("crystal.static.accessor.origin")
     private val VIEW = Key.create<Boolean>("crystal.static.declaration.view")
+    private val CONSTRUCTOR_HOOK = Key.create<Boolean>("crystal.static.constructor.hook")
     private val TYPE_PATH = Regex("(?:::)?[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*\\??")
     private val ENUM_ACRONYM_BOUNDARY = Regex("([\\p{Lu}\\p{N}]+)([\\p{Lu}][\\p{Ll}])")
     private val ENUM_WORD_BOUNDARY = Regex("([\\p{Ll}\\p{N}])([\\p{Lu}])")
@@ -57,6 +62,85 @@ internal object CrystalStaticDeclarations {
         CachedValuesManager.getCachedValue(macro) {
             CachedValueProvider.Result.create(View(listOfNotNull(parseFinished(macro)), macro.containingFile), macro.containingFile)
         }.elements.singleOrNull()
+
+    /** Fixed method headers from an included/inherited hook, without expanding its bodies. */
+    fun constructorHookMethods(macro: CrystalMacroDefinition): List<CrystalMethodDefinition>? =
+        CachedValuesManager.getCachedValue(macro) {
+            CachedValueProvider.Result.create(
+                View(listOfNotNull(parseConstructorHook(macro)), macro.containingFile), macro.containingFile,
+            )
+        }.elements.singleOrNull()
+
+    private fun parseConstructorHook(macro: CrystalMacroDefinition): List<CrystalMethodDefinition>? {
+        if (macro.name !in setOf("included", "inherited") || macro.parameterList != null ||
+            macro.node.findChildByType(CrystalTypes.DOT) != null ||
+            CrystalPsiUtils.isInsideMacroControlRegion(macro)) return null
+        if (generateSequence(CrystalPsiUtils.getEnclosingType(macro)) { CrystalPsiUtils.getEnclosingType(it) }
+                .any { it.node.findChildByType(CrystalTypes.TYPE_PARAMETERS) != null }) return null
+        val body = macro.macroBody ?: return null
+        val prefix = "class CrystalConstructorHookView\n"
+        val projected = opaqueConstructorInitializers(body.text)
+        val file = createFile(macro, prefix + projected.text + "\nend")
+        file.putUserData(CONSTRUCTOR_HOOK, true)
+        file.putUserData(ORIGIN, Origin(SmartPointerManager.createPointer(body), prefix.length))
+        if (PsiTreeUtil.findChildOfType(file, PsiErrorElement::class.java) != null) return null
+        val wrapper = PsiTreeUtil.findChildOfType(file, CrystalClassDefinition::class.java) ?: return null
+        val declarations = wrapper.classBody?.children.orEmpty().flatMap(::members).flatMap { member ->
+            if (member is CrystalVisibilityModifier) member.children.filter {
+                it.node.elementType != CrystalTypes.PRIVATE && it.node.elementType != CrystalTypes.PROTECTED
+            }.flatMap(::members) else listOf(member)
+        }
+        val controls = declarations.filterIsInstance<CrystalMacroControl>()
+        if (controls.isNotEmpty() && (controls.size != 2 ||
+                declarations.first() !== controls.first() || declarations.last() !== controls.last() ||
+                controls.first().text.filterNot(Char::isWhitespace) != "{%verbatimdo%}" ||
+                controls.last().text.filterNot(Char::isWhitespace) != "{%end%}")) return null
+        if (declarations.any { member ->
+                when (member) {
+                    is CrystalMethodDefinition -> member.macroInterpolation != null ||
+                        (CrystalPsiUtils.isSelfMethod(member) && member.node.findChildByType(CrystalTypes.SELF) == null) ||
+                        member.node.findChildByType(CrystalTypes.MACRO_BRANCH_METHOD_HEADER) != null ||
+                        member.node.findChildByType(CrystalTypes.FORALL) != null ||
+                        listOfNotNull(member.parameterList, member.typeReference).any {
+                            PsiTreeUtil.findChildOfAnyType(it, CrystalMacroControl::class.java, CrystalMacroInterpolation::class.java) != null
+                        }
+                    is CrystalMacroControl -> false
+                    is CrystalMacroDefinition -> member.name != "inherited" &&
+                        !(member.name == "initialize" && member.node.findChildByType(CrystalTypes.IDENTIFIER)?.startOffset
+                            ?.let { it - prefix.length in projected.hiddenInitializers } == true)
+                    else -> true
+                }
+            }) return null
+        return declarations.filterIsInstance<CrystalMethodDefinition>()
+    }
+
+    /** Hide generated private initializer bodies without shifting any source offsets. */
+    private fun opaqueConstructorInitializers(text: String): ConstructorHookText {
+        val lexer = CrystalLexerAdapter()
+        lexer.start(text)
+        val tokens = mutableListOf<Triple<IElementType, Int, Int>>()
+        while (lexer.tokenType != null) {
+            val type = lexer.tokenType!!
+            if (type != CrystalTokenTypes.WHITE_SPACE) tokens.add(Triple(type, lexer.tokenStart, lexer.tokenEnd))
+            lexer.advance()
+        }
+        val projected = StringBuilder(text)
+        val hidden = mutableSetOf<Int>()
+        for ((modifier, definition, name) in tokens.windowed(3)) {
+            if (modifier.first !in setOf(CrystalTypes.PRIVATE, CrystalTypes.PROTECTED) ||
+                definition.first != CrystalTypes.DEF || name.first != CrystalTypes.IDENTIFIER ||
+                text.substring(name.second, name.third) != "initialize") continue
+            // `private def` is wider than `macro`: the normal lexer can then
+            // keep its initializer body opaque, with all later offsets intact.
+            val width = definition.third - modifier.second
+            projected.replace(modifier.second, definition.third, "macro" + " ".repeat(width - 5))
+            hidden.add(name.second)
+        }
+        return ConstructorHookText(projected.toString(), hidden)
+    }
+
+    fun isConstructorHookMethod(method: CrystalMethodDefinition): Boolean =
+        method.containingFile?.getUserData(CONSTRUCTOR_HOOK) == true
 
     private fun parseFinished(macro: CrystalMacroDefinition): FinishedBody? {
         if (macro.name != "finished" || macro.parameterList != null ||

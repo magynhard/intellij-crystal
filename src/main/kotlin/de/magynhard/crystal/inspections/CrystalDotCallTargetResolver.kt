@@ -172,8 +172,9 @@ object CrystalDotCallTargetResolver {
      * least one overload by arity, every applicable overload must carry the
      * same annotated return type (absent annotations are never inferred, and
      * union or nilable returns stay suppressed like other union receivers),
-     * and the return must resolve to one exact type identity. Constructor,
-     * accessor, lib-fun, and macro-spliced predecessors stay suppressed.
+     * and the return must resolve to one exact type identity. Supported constructors
+     * and zero-argument accessors use shared result evidence; lib-fun and
+     * macro-spliced predecessors stay suppressed.
      */
     private fun resolveChainReceiver(
         innerAccess: CrystalDotCallAccess,
@@ -182,6 +183,30 @@ object CrystalDotCallTargetResolver {
         depth: Int
     ): ExactReceiverType? {
         val inner = resolve(innerAccess, session, depth + 1)
+        val constructorCall = CrystalCallExtractor.extractDotCall(innerAccess)
+        val constructorRoot = constructorCall?.takeIf { it.methodName == "new" }
+            ?.let { CrystalReceiverExpression.extractExactConstantTypeRoot(it.receiver) }
+        val constructorMethods = when (inner) {
+            is DotCallResolution.Methods -> inner.methods
+            else -> constructorRoot?.let {
+                (session.resolveConstructor(it, innerAccess) as? CrystalConstructorResolution.Incomplete)?.knownMethods
+            }.orEmpty()
+        }
+        if (constructorRoot != null &&
+            (constructorMethods.isNotEmpty() || inner is DotCallResolution.ImplicitConstructor)) {
+            val counts = countCallArguments(constructorCall.argumentHolder) ?: return null
+            val applicable = if (constructorMethods.isNotEmpty()) {
+                constructorMethods.any {
+                    evaluateOverload(methodAritySignature(it.parameterList), counts.total, counts.positional, counts.named).isValid
+                }
+            } else counts.total == 0
+            if (!applicable) return null
+            val result = session.resolveConstructorCall(constructorRoot, innerAccess)
+                as? de.magynhard.crystal.analysis.CrystalTypeResolution.Known ?: return null
+            val type = result.types.singleOrNull()?.name?.takeUnless { it == "Nil" } ?: return null
+            val identity = session.resolveType(type, context) ?: return null
+            return ExactReceiverType(identity.simpleName, identity.qualifiedName)
+        }
         if (inner is DotCallResolution.Accessor) {
             val counts = countCallArguments(inner.call.argumentHolder) ?: return null
             if (counts.total != 0 || inner.call.methodName.endsWith("=")) return null

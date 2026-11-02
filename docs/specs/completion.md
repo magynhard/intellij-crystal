@@ -389,9 +389,10 @@ The nearest exact lexically visible indexed declaration produces
 a type object with its simple and qualified identity; qualified and absolute paths are marked as
 explicit identities, including qualified generic roots such as `Outer::Box(Int32)`. The completion
 receiver resolver delegates every other receiver directly to the same neutral session and adapts
-its ordered type set without a completion-owned inference path. Completed constructors produce
-their exact receiver type only for complete concrete class and struct declarations; abstract
-classes, modules, and enums remain `Unknown`. Completed methods require an exact indexed receiver identity and target
+its ordered type set without a completion-owned inference path. Completed constructors consume
+the shared constructor result, including fixed macro-hook allocation proofs and explicit
+factories returning another type. Abstract classes, modules, enums, and unprovable results
+remain `Unknown`. Completed methods require an exact indexed receiver identity and target
 method; explicit return annotations are preserved, while unannotated returns use existing body
 inference. Exactly one method candidate must remain for each exact receiver identity after
 receiver, static/instance mode, and name filtering. Multiple overloads remain `Unknown` until
@@ -509,6 +510,10 @@ selected identity (`CrystalConstructorResolution.Methods`/`Implicit`); abstract,
 incomplete constructor metadata suppresses the synthetic entry, an explicit `def self.new` still
 suppresses it via the static candidate set, and qualified/absolute receivers keep their established
 no-synthetic-`new` behavior.
+Fixed `self.new` headers from supported macro hooks are real declaration candidates rather
+than implicit constructor synthesis. They can be offered on qualified/absolute receivers too,
+with the shared proven return type; opaque hooks do not gain such an entry. Their incomplete
+field-validation metadata is not promoted into an argument-checking overload pool.
 `ValueTypes` receivers are passed as one ordered set to the multi-type helper, so every union branch
 contributes methods, identical canonical signatures appear once, and distinct overloads remain
 separate. The contributor no longer classifies receivers from the token immediately before the DOT.
@@ -540,8 +545,8 @@ argumentless, parenthesized, grouped, and mixed postfix chains are processed in 
 unsupported index/tail components make the whole receiver `Unknown` and suppress fallback.
 Inclusive and exclusive range expressions, including grouped and parseable beginless forms, resolve
 to the indexed `Range` base for completion. Their endpoint types do not leak methods into the popup.
-After `.new`, completed chains always carry the constructor's resolved qualified identity, including
-lexically selected same-simple-name nested types.
+After `.new`, completed chains carry the shared proven result, including the concrete qualified
+identity for allocating constructors and lexically selected same-simple-name nested types.
 
 DOT-call method names expose a polyvariant PSI reference. Navigation returns every exact overload
 for IntelliJ's chooser for both static and instance methods, including explicit constructor

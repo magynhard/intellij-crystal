@@ -181,8 +181,7 @@ internal object CrystalCompletionReceiverResolver {
     ): CompletionReceiver {
         methodName ?: return CompletionReceiver.Unknown
         if (receiver is CompletionReceiver.TypeObject && methodName == "new") {
-            if (!session.isConstructible(receiver.qualifiedName, context)) return CompletionReceiver.Unknown
-            return CompletionReceiver.ValueTypes(listOf(receiver.qualifiedName))
+            return session.resolveConstructorCall(receiver.qualifiedName, context).toCompletionReceiver()
         }
 
         if (receiver is CompletionReceiver.ValueTypes) {
